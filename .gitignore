@@ -1,0 +1,207 @@
+# Visual Studio / Rider / IDE
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.userprefs
+*.DotSettings.user
+
+# Build output
+bin/
+obj/
+out/
+artifacts/
+
+# The documentation site as docs-site/build.sh assembles it; the workflow builds it here too.
+/site/
+[Bb]in/
+[Oo]bj/
+
+# Configuration-specific output
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+[Ww][Ii][Nn]32/
+
+# Logs
+*.log
+[Ll]og/
+[Ll]ogs/
+
+# Test results
+[Tt]est[Rr]esult*/
+TestResults/
+TestResult.xml
+nunit-*.xml
+*.trx
+
+# Coverage
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+.coverage/
+CoverletOutput/
+OpenCover/
+
+# Benchmarks
+BenchmarkDotNet.Artifacts/
+
+# NuGet packages / restore artifacts
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+project.fragment.lock.json
+*.nuget.props
+*.nuget.targets
+
+# Legacy root-level NuGet packages folder only.
+# Anchored with a leading slash: an unanchored `Packages/` matches at any depth and so silently
+# swallowed every new file under `src/Packages/`, which is exactly what this comment says it must not do.
+/packages/
+/Packages/
+
+# MSBuild / binary logs
+*.binlog
+*.rsp
+
+# Generated Visual Studio files
+Generated\ Files/
+Generated_Code/
+*.cache
+!?*.[Cc]ache/
+
+# Temporary files
+*.tmp
+*.tmp_proj
+*.pidb
+*.svclog
+*.scc
+*~
+~$*
+
+# C# / compiler output
+*.pdb
+*.ipdb
+*.ilk
+*.obj
+*.iobj
+*.pch
+*.pgc
+*.pgd
+*.sbr
+*_wpftmp.csproj
+
+# Visual C++ / native tooling
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+ipch/
+*_i.c
+*_p.c
+*_h.h
+*.tlb
+*.tli
+*.tlh
+
+# Profiling
+*.psess
+*.vsp
+*.vspx
+*.sap
+*.e2e
+
+# ReSharper / JetBrains
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# NCrunch
+_NCrunch_*
+.*crunch*.local.xml
+nCrunchTemp_*
+
+# DotCover / AxoCover
+*.dotCover
+.axoCover/*
+!.axoCover/settings.json
+
+# Node / frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+
+# Publish output
+publish/
+[Pp]ublish/
+*.[Pp]ublish.xml
+*.pubxml
+*.azurePubxml
+*.publishproj
+PublishScripts/
+
+# Secrets / local certificates
+*.pfx
+*.publishsettings
+
+# Strong-name keys
+# Uncomment if you do not want to commit signing keys.
+# *.snk
+
+# SQL Server local database files
+*.mdf
+*.ldf
+*.ndf
+
+# Upgrade / migration backups
+_UpgradeReport_Files/
+Backup*/
+UpgradeLog*.XML
+UpgradeLog*.htm
+MigrationBackup/
+
+# Local history / editor backups
+.localhistory/
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Tool-specific
+.paket/paket.exe
+paket-files/
+.fake/
+.ionide/
+.mfractor/
+FodyWeavers.xsd
+orleans.codegen.cs
+
+# Default logs folder
+logs/
+
+# Old docs
+_attic/
+
+# The mini application's own database, created at its first start.
+examples/TeamRoom.Web/data/

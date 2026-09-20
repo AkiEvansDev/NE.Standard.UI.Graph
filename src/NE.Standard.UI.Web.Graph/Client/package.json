@@ -1,0 +1,16 @@
+{
+  "name": "@ne-standard/ui-web-graph",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.ts",
+    "build": "npm run typecheck && vite build --clearScreen false --logLevel error"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.1",
+    "less": "4.9.0",
+    "typescript": "7.0.2",
+    "vite": "8.2.2"
+  }
+}

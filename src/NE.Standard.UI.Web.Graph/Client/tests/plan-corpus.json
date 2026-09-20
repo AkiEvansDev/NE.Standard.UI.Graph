@@ -1,0 +1,246 @@
+{
+  "cases": [
+    {
+      "case": "a chain is a linear system",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "time": 2, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]},
+        {"kind": "Craft", "id": "press", "time": 3, "ingredients": [{"resource": "ingot", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 5}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"smelt": 10, "press": 5}, "surplus": {}, "time": 35, "raw": 10, "cost": 10}
+    },
+    {
+      "case": "a rate asks how many keep up",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "time": 2, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]},
+        {"kind": "Craft", "id": "press", "time": 3, "ingredients": [{"resource": "ingot", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 3600}], "period": "Hour", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"smelt": 7200, "press": 3600}, "workers": {"smelt": 4, "press": 3}, "surplus": {}, "time": 25200, "raw": 7200, "cost": 7200}
+    },
+    {
+      "case": "the Buck Capsule chain, its two seed cycles run no further than they must",
+      "entries": [
+        {"kind": "Resource", "id": "ferrium-ore", "cost": 1},
+        {"kind": "Resource", "id": "ferrium"},
+        {"kind": "Resource", "id": "ferrium-powder"},
+        {"kind": "Resource", "id": "dense-ferrium-powder"},
+        {"kind": "Resource", "id": "steel"},
+        {"kind": "Resource", "id": "steel-bottle"},
+        {"kind": "Resource", "id": "sandleaf-seed"},
+        {"kind": "Resource", "id": "sandleaf"},
+        {"kind": "Resource", "id": "sandleaf-powder"},
+        {"kind": "Resource", "id": "buckflower-seed"},
+        {"kind": "Resource", "id": "buckflower"},
+        {"kind": "Resource", "id": "buckflower-powder"},
+        {"kind": "Resource", "id": "ground-buckflower-powder"},
+        {"kind": "Resource", "id": "buck-capsule-a"},
+        {"kind": "Craft", "id": "make-ferrium", "time": 2, "ingredients": [{"resource": "ferrium-ore", "amount": 1}], "products": [{"resource": "ferrium", "amount": 1}]},
+        {"kind": "Craft", "id": "make-ferrium-powder", "time": 2, "ingredients": [{"resource": "ferrium", "amount": 1}], "products": [{"resource": "ferrium-powder", "amount": 1}]},
+        {"kind": "Craft", "id": "make-dense-ferrium-powder", "time": 2, "ingredients": [{"resource": "ferrium-powder", "amount": 2}, {"resource": "sandleaf-powder", "amount": 1}], "products": [{"resource": "dense-ferrium-powder", "amount": 1}]},
+        {"kind": "Craft", "id": "make-steel", "time": 2, "ingredients": [{"resource": "dense-ferrium-powder", "amount": 1}], "products": [{"resource": "steel", "amount": 1}]},
+        {"kind": "Craft", "id": "make-steel-bottle", "time": 2, "ingredients": [{"resource": "steel", "amount": 2}], "products": [{"resource": "steel-bottle", "amount": 1}]},
+        {"kind": "Craft", "id": "make-sandleaf", "time": 2, "ingredients": [{"resource": "sandleaf-seed", "amount": 1}], "products": [{"resource": "sandleaf", "amount": 1}]},
+        {"kind": "Craft", "id": "make-sandleaf-seed", "time": 2, "ingredients": [{"resource": "sandleaf", "amount": 1}], "products": [{"resource": "sandleaf-seed", "amount": 2}]},
+        {"kind": "Craft", "id": "make-sandleaf-powder", "time": 2, "ingredients": [{"resource": "sandleaf", "amount": 1}], "products": [{"resource": "sandleaf-powder", "amount": 3}]},
+        {"kind": "Craft", "id": "make-buckflower", "time": 2, "ingredients": [{"resource": "buckflower-seed", "amount": 1}], "products": [{"resource": "buckflower", "amount": 1}]},
+        {"kind": "Craft", "id": "make-buckflower-seed", "time": 2, "ingredients": [{"resource": "buckflower", "amount": 1}], "products": [{"resource": "buckflower-seed", "amount": 2}]},
+        {"kind": "Craft", "id": "make-buckflower-powder", "time": 2, "ingredients": [{"resource": "buckflower", "amount": 1}], "products": [{"resource": "buckflower-powder", "amount": 2}]},
+        {"kind": "Craft", "id": "make-ground-buckflower-powder", "time": 2, "ingredients": [{"resource": "buckflower-powder", "amount": 2}, {"resource": "sandleaf-powder", "amount": 1}], "products": [{"resource": "ground-buckflower-powder", "amount": 1}]},
+        {"kind": "Craft", "id": "make-buck-capsule-a", "time": 10, "ingredients": [{"resource": "steel-bottle", "amount": 10}, {"resource": "ground-buckflower-powder", "amount": 10}], "products": [{"resource": "buck-capsule-a", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "buck-capsule-a", "amount": 1}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"make-ferrium": 40, "make-ferrium-powder": 40, "make-dense-ferrium-powder": 20, "make-steel": 20, "make-steel-bottle": 10, "make-sandleaf": 20, "make-sandleaf-seed": 10, "make-sandleaf-powder": 10, "make-buckflower": 20, "make-buckflower-seed": 10, "make-buckflower-powder": 10, "make-ground-buckflower-powder": 10, "make-buck-capsule-a": 1}, "surplus": {}, "time": 450, "raw": 40, "cost": 40}
+    },
+    {
+      "case": "a by-product covers part of a demand, and the rest comes the cheaper way",
+      "entries": [
+        {"kind": "Resource", "id": "oil"},
+        {"kind": "Resource", "id": "field"},
+        {"kind": "Resource", "id": "petrol"},
+        {"kind": "Resource", "id": "gas"},
+        {"kind": "Craft", "id": "refine", "time": 5, "ingredients": [{"resource": "oil", "amount": 10}], "products": [{"resource": "petrol", "amount": 4}, {"resource": "gas", "amount": 2}]},
+        {"kind": "Craft", "id": "pump", "time": 1, "ingredients": [{"resource": "field", "amount": 1}], "products": [{"resource": "gas", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "petrol", "amount": 8}, {"resource": "gas", "amount": 10}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"refine": 2, "pump": 6}, "surplus": {}, "time": 16, "raw": 26, "cost": 26}
+    },
+    {
+      "case": "a by-product nobody takes is left over",
+      "entries": [
+        {"kind": "Resource", "id": "oil"},
+        {"kind": "Resource", "id": "petrol"},
+        {"kind": "Resource", "id": "gas"},
+        {"kind": "Craft", "id": "refine", "time": 5, "ingredients": [{"resource": "oil", "amount": 10}], "products": [{"resource": "petrol", "amount": 4}, {"resource": "gas", "amount": 2}]}
+      ],
+      "request": {"targets": [{"resource": "petrol", "amount": 8}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"refine": 2}, "surplus": {"gas": 4}, "time": 10, "raw": 20, "cost": 20}
+    },
+    {
+      "case": "two recipes, the one that takes less",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "slow", "time": 10, "ingredients": [{"resource": "ore", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]},
+        {"kind": "Craft", "id": "fast", "time": 1, "ingredients": [{"resource": "ore", "amount": 3}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 6}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"slow": 6}, "surplus": {}, "time": 60, "raw": 12, "cost": 12}
+    },
+    {
+      "case": "two recipes, the one that is sooner",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "slow", "time": 10, "ingredients": [{"resource": "ore", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]},
+        {"kind": "Craft", "id": "fast", "time": 1, "ingredients": [{"resource": "ore", "amount": 3}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 6}], "period": "Once", "objective": "LeastTime"},
+      "expected": {"status": "Solved", "runs": {"fast": 6}, "surplus": {}, "time": 6, "raw": 18, "cost": 18}
+    },
+    {
+      "case": "two recipes that take the same, the sooner of them",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "slow", "time": 10, "ingredients": [{"resource": "ore", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]},
+        {"kind": "Craft", "id": "fast", "time": 1, "ingredients": [{"resource": "ore", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 6}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"fast": 6}, "surplus": {}, "time": 6, "raw": 12, "cost": 12}
+    },
+    {
+      "case": "a source's cost, where the count of it says otherwise",
+      "entries": [
+        {"kind": "Resource", "id": "copper", "cost": 5},
+        {"kind": "Resource", "id": "tin", "cost": 1},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "of-copper", "time": 1, "ingredients": [{"resource": "copper", "amount": 1}], "products": [{"resource": "plate", "amount": 1}]},
+        {"kind": "Craft", "id": "of-tin", "time": 1, "ingredients": [{"resource": "tin", "amount": 3}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 6}], "period": "Once", "objective": "LeastCost"},
+      "expected": {"status": "Solved", "runs": {"of-tin": 6}, "surplus": {}, "time": 6, "raw": 18, "cost": 18}
+    },
+    {
+      "case": "the same two by the count alone",
+      "entries": [
+        {"kind": "Resource", "id": "copper", "cost": 5},
+        {"kind": "Resource", "id": "tin", "cost": 1},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "of-copper", "time": 1, "ingredients": [{"resource": "copper", "amount": 1}], "products": [{"resource": "plate", "amount": 1}]},
+        {"kind": "Craft", "id": "of-tin", "time": 1, "ingredients": [{"resource": "tin", "amount": 3}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 6}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"of-copper": 6}, "surplus": {}, "time": 6, "raw": 6, "cost": 30}
+    },
+    {
+      "case": "a cycle that takes more than it gives has no plan",
+      "entries": [
+        {"kind": "Resource", "id": "x"},
+        {"kind": "Resource", "id": "y"},
+        {"kind": "Resource", "id": "z"},
+        {"kind": "Resource", "id": "g"},
+        {"kind": "Craft", "id": "make-x", "time": 1, "ingredients": [{"resource": "y", "amount": 10}, {"resource": "z", "amount": 5}], "products": [{"resource": "x", "amount": 10}]},
+        {"kind": "Craft", "id": "make-y", "time": 1, "ingredients": [{"resource": "x", "amount": 5}, {"resource": "g", "amount": 1}], "products": [{"resource": "y", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "x", "amount": 10}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Infeasible", "runs": {}, "surplus": {}, "time": 0, "raw": 0, "cost": 0}
+    },
+    {
+      "case": "a cycle that feeds part of itself back",
+      "entries": [
+        {"kind": "Resource", "id": "x"},
+        {"kind": "Resource", "id": "y"},
+        {"kind": "Resource", "id": "z"},
+        {"kind": "Resource", "id": "g"},
+        {"kind": "Craft", "id": "make-x", "time": 1, "ingredients": [{"resource": "y", "amount": 10}, {"resource": "z", "amount": 5}], "products": [{"resource": "x", "amount": 10}]},
+        {"kind": "Craft", "id": "make-y", "time": 1, "ingredients": [{"resource": "x", "amount": 0.5}, {"resource": "g", "amount": 1}], "products": [{"resource": "y", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "x", "amount": 10}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"make-x": 2, "make-y": 20}, "surplus": {}, "time": 22, "raw": 30, "cost": 30}
+    },
+    {
+      "case": "what comes back out of a run is not taken",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "mould"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "cast", "time": 4, "ingredients": [{"resource": "ore", "amount": 1}, {"resource": "mould", "amount": 1}], "products": [{"resource": "plate", "amount": 1}, {"resource": "mould", "amount": 1}]},
+        {"kind": "Craft", "id": "make-mould", "time": 30, "ingredients": [{"resource": "ore", "amount": 5}], "products": [{"resource": "mould", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 3}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"cast": 3}, "surplus": {}, "time": 12, "raw": 3, "cost": 3}
+    },
+    {
+      "case": "a target nothing makes is brought in",
+      "entries": [
+        {"kind": "Resource", "id": "ore", "cost": 2}
+      ],
+      "request": {"targets": [{"resource": "ore", "amount": 5}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {}, "surplus": {}, "time": 0, "raw": 5, "cost": 10}
+    },
+    {
+      "case": "no target the catalogue knows",
+      "entries": [
+        {"kind": "Resource", "id": "ore"}
+      ],
+      "request": {"targets": [{"resource": "nothing", "amount": 5}, {"resource": "ore", "amount": 0}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Empty", "runs": {}, "surplus": {}, "time": 0, "raw": 0, "cost": 0}
+    },
+    {
+      "case": "made once, a craft runs a whole number of times, and what that leaves over is said",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "time": 2, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]},
+        {"kind": "Craft", "id": "press", "time": 3, "ingredients": [{"resource": "ingot", "amount": 3}], "products": [{"resource": "plate", "amount": 2}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 5}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"smelt": 9, "press": 3}, "surplus": {"plate": 1}, "time": 27, "raw": 9, "cost": 9}
+    },
+    {
+      "case": "counted over a period, the same runs are a rate, and a rate is not rounded",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "time": 2, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]},
+        {"kind": "Craft", "id": "press", "time": 3, "ingredients": [{"resource": "ingot", "amount": 3}], "products": [{"resource": "plate", "amount": 2}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 5}], "period": "Minute", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"smelt": 7.5, "press": 2.5}, "workers": {"smelt": 1, "press": 1}, "surplus": {}, "time": 22.5, "raw": 7.5, "cost": 7.5}
+    },
+    {
+      "case": "whole runs of a plant grown from its own seed: the rounding is made up round the cycle",
+      "entries": [
+        {"kind": "Resource", "id": "seed"},
+        {"kind": "Resource", "id": "leaf"},
+        {"kind": "Resource", "id": "powder"},
+        {"kind": "Craft", "id": "grow", "time": 2, "ingredients": [{"resource": "seed", "amount": 1}], "products": [{"resource": "leaf", "amount": 1}]},
+        {"kind": "Craft", "id": "reseed", "time": 2, "ingredients": [{"resource": "leaf", "amount": 1}], "products": [{"resource": "seed", "amount": 2}]},
+        {"kind": "Craft", "id": "grind", "time": 2, "ingredients": [{"resource": "leaf", "amount": 1}], "products": [{"resource": "powder", "amount": 3}]}
+      ],
+      "request": {"targets": [{"resource": "powder", "amount": 4}], "period": "Once", "objective": "LeastRaw"},
+      "expected": {"status": "Solved", "runs": {"grow": 4, "reseed": 2, "grind": 2}, "surplus": {"powder": 2}, "time": 16, "raw": 0, "cost": 0}
+    },
+    {
+      "case": "a made resource the plan brings in: what makes it is left out, and it is counted with the sources",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "time": 2, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]},
+        {"kind": "Craft", "id": "press", "time": 3, "ingredients": [{"resource": "ingot", "amount": 3}], "products": [{"resource": "plate", "amount": 2}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 4}], "period": "Once", "objective": "LeastRaw", "bought": ["ingot"]},
+      "expected": {"status": "Solved", "runs": {"press": 2}, "surplus": {}, "time": 6, "raw": 6, "cost": 6}
+    }
+  ]
+}

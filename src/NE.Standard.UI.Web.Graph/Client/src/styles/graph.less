@@ -1,0 +1,293 @@
+// The graph over the canvas's own parts: a node is a card (icon, title, subtitle, badge) edged in its colour, sized by its
+// content rather than dragged.
+
+@import (reference) "../../plugin/ne-standard-ui.less";
+
+.ui-graph__card {
+    flex-direction: row;
+    align-items: center;
+    gap: @ui-space-2;
+    min-width: 9rem;
+    max-width: 18rem;
+    padding: @ui-space-2 @ui-space-3 @ui-space-2 calc(@ui-space-3 + 3px);
+    cursor: move;
+    user-select: none;
+}
+
+    // The node's colour as a strip down the leading edge, inside the frame, so a chosen card's primary frame still reads.
+    .ui-graph__card::before {
+        content: "";
+        position: absolute;
+        top: @ui-space-1;
+        bottom: @ui-space-1;
+        left: @ui-space-1;
+        width: 3px;
+        border-radius: 2px;
+        background: var(--ui-graph-node-color);
+    }
+
+    .ui-graph[data-ui-graph-read-only] .ui-graph__card {
+        cursor: pointer;
+    }
+
+.ui-graph__card-icon {
+    display: flex;
+    flex: 0 0 auto;
+    font-size: @ui-glyph-md;
+    color: var(--ui-graph-node-color);
+}
+
+    // A picture on a card is a small round one where the icon would stand.
+    .ui-graph__card-icon[data-ui-graph-picture] {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+.ui-graph__card-icon > img,
+.ui-graph__bubble-face > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+// --- a node drawn as a circle ----------------------------------------------------------------------------------------------------
+
+// The picture or icon alone, ringed in the node's colour; the node's own selection/state ring reuses the same frame, so it follows the circle.
+.ui-graph__bubble {
+    --ui-graph-bubble-size: 3.5rem;
+
+    align-items: center;
+    justify-content: center;
+    width: var(--ui-graph-bubble-size);
+    height: var(--ui-graph-bubble-size);
+    min-height: 0;
+    padding: 0;
+    border: 2px solid var(--ui-graph-node-color);
+    border-radius: 50%;
+    cursor: move;
+    user-select: none;
+}
+
+    .ui-graph[data-ui-graph-read-only] .ui-graph__bubble {
+        cursor: pointer;
+    }
+
+.ui-graph__bubble-face {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--ui-graph-node-color) 18%, var(--ui-color-surface));
+    color: var(--ui-graph-node-color);
+    font-size: 1.5rem;
+}
+
+// The name under the circle, clamped to two lines and non-interactive (pointer events belong to the circle); a nameless circle reads as a puzzle.
+.ui-graph__bubble-title {
+    position: absolute;
+    top: calc(100% + @ui-space-1);
+    left: 50%;
+    width: var(--ui-graph-bubble-caption, 6rem);
+    transform: translateX(-50%);
+    color: var(--ui-color-on-surface);
+    font-size: var(--ui-text-caption-font-size);
+    line-height: 1.05rem;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+    pointer-events: none;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+// The badge sits on the circle's rim, where a count sits on an avatar.
+.ui-graph__bubble-badge {
+    position: absolute;
+    max-width: none;
+    top: -0.25rem;
+    right: -0.375rem;
+}
+
+.ui-graph__card-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+}
+
+    .ui-graph__card-text > .ui-graph__node-title {
+        font-weight: var(--ui-text-title-font-weight);
+    }
+
+.ui-graph__card-subtitle {
+    color: var(--ui-text-muted);
+    .ui-text-nowrap();
+}
+
+.ui-graph__card-badge {
+    flex: 0 0 auto;
+}
+
+// --- editing ----------------------------------------------------------------------------------------------------------------------
+
+// The handle a link is pulled out of: a dot on the side facing the next layer, shown on hover or while pulling — a
+// node-canvas pin is always shown.
+.ui-graph__handle {
+    position: absolute;
+    top: 50%;
+    right: -0.4375rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-top: -0.375rem;
+    border: 2px solid var(--ui-color-surface);
+    border-radius: 50%;
+    background: var(--ui-color-primary);
+    cursor: crosshair;
+    opacity: 0;
+    transition: opacity @ui-motion-fast @ui-motion-ease, transform @ui-motion-fast @ui-motion-ease;
+}
+
+    // Its reach is three times the dot, as a pin's is.
+    .ui-graph__handle::after {
+        content: "";
+        position: absolute;
+        inset: -@ui-space-2;
+        border-radius: 50%;
+    }
+
+    .ui-graph[data-ui-graph-direction="down"] .ui-graph__handle,
+    .ui-graph[data-ui-graph-direction="up"] .ui-graph__handle {
+        top: auto;
+        right: auto;
+        bottom: -0.4375rem;
+        left: 50%;
+        margin-top: 0;
+        margin-left: -0.375rem;
+    }
+
+    // Read the other way round: the handle stands on the side the layers run towards, and the entry on the one they come from.
+    .ui-graph[data-ui-graph-direction="up"] .ui-graph__handle {
+        top: -0.4375rem;
+        bottom: auto;
+    }
+
+    .ui-graph[data-ui-graph-direction="left"] .ui-graph__handle {
+        right: auto;
+        left: -0.4375rem;
+    }
+
+    // While a link is pulled, only the node it leaves keeps its handle: every other node shows where the link would enter it.
+    .ui-graph:not(.ui-graph--connecting) .ui-graph__node:hover > .ui-graph__handle,
+    .ui-graph--connecting .ui-graph__node[data-ui-graph-link-source] > .ui-graph__handle {
+        opacity: 1;
+    }
+
+// The entry point: the same dot facing the layer before — a ring while a link is pulled, filled on the node it would land on.
+.ui-graph__entry {
+    position: absolute;
+    top: 50%;
+    left: -0.4375rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-top: -0.375rem;
+    border: 2px solid var(--ui-color-primary);
+    border-radius: 50%;
+    background: var(--ui-color-surface);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity @ui-motion-fast @ui-motion-ease, transform @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;
+}
+
+    .ui-graph[data-ui-graph-direction="down"] .ui-graph__entry,
+    .ui-graph[data-ui-graph-direction="up"] .ui-graph__entry {
+        top: -0.4375rem;
+        left: 50%;
+        margin-top: 0;
+        margin-left: -0.375rem;
+    }
+
+    .ui-graph[data-ui-graph-direction="up"] .ui-graph__entry {
+        top: auto;
+        bottom: -0.4375rem;
+    }
+
+    .ui-graph[data-ui-graph-direction="left"] .ui-graph__entry {
+        right: -0.4375rem;
+        left: auto;
+    }
+
+    .ui-graph--connecting .ui-graph__node:not([data-ui-graph-link-source]) > .ui-graph__entry {
+        opacity: 0.7;
+    }
+
+    .ui-graph--connecting .ui-graph__node[data-ui-graph-drop="yes"] > .ui-graph__entry {
+        opacity: 1;
+        background: var(--ui-color-primary);
+        transform: scale(1.3);
+    }
+
+    .ui-graph__handle:hover {
+        transform: scale(1.3);
+    }
+
+// The node a pulled link would land on stands forward in the brand colour.
+.ui-graph--connecting .ui-graph__node[data-ui-graph-drop="yes"] {
+    border-color: var(--ui-color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
+}
+
+// A node a pulled link could not land on — a link it already has, or a pairing the kind refuses — steps back while the link is pulled.
+.ui-graph--connecting .ui-graph__node[data-ui-graph-drop="no"] {
+    opacity: 0.45;
+}
+
+// A node in conflict (server changed/dropped it, pending save): warning colour, dashed to read as a question rather than a
+// failure. Solid on a round node — a dashed circle staircases, which `mixins/arc.less` exists to avoid.
+.ui-graph__node[data-ui-graph-conflict] {
+    outline: 2px dashed var(--ui-color-warning);
+    outline-offset: 3px;
+}
+
+.ui-graph__bubble[data-ui-graph-conflict],
+.ui-graph__craft[data-ui-graph-conflict] {
+    outline-style: solid;
+}
+
+// A caption being edited: a chip centred on the edge's midpoint, in scene units, over the caption it replaces; the field lays
+// over the chip's text and takes the whole chip.
+.ui-graph__caption-edit {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    width: 10rem;
+    height: 1.625rem;
+    padding: 0 @ui-space-2;
+    border: var(--ui-border-width) solid var(--ui-color-primary);
+    border-radius: var(--ui-radius-button);
+    background: var(--ui-color-surface);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 30%, transparent);
+    transform: translate(-50%, -50%);
+}
+
+.ui-graph__caption-edit-text {
+    display: block;
+    flex: 1 1 auto;
+    color: var(--ui-color-on-surface);
+    font-size: var(--ui-text-caption-font-size);
+    line-height: 1.5rem;
+    text-align: center;
+    .ui-text-nowrap();
+}
+
+.ui-graph__caption-field {
+    .ui-inline-rename-field();
+    text-align: center;
+}

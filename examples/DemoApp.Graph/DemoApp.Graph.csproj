@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- The component is this slice's own, so it is a project here and in the mirror alike. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NE.Standard.UI.Graph\NE.Standard.UI.Graph.csproj" />
+  </ItemGroup>
+
+  <!-- The framework is a sibling in the monorepo and a package in the mirror, where this demo is the whole
+       point: it shows that the published component works against the published framework. The generator is
+       what turns the controller's members into notifying, path-resolvable ones; the Material names dress the
+       theme switcher. Nothing here knows the
+       platform: the host is DemoApp.Graph.Web. -->
+  <ItemGroup Condition="'$(InMonorepo)' == 'true'">
+    <ProjectReference Include="..\..\..\..\src\Generators\NE.Standard.UI.Generators\NE.Standard.UI.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\..\..\src\Core\NE.Standard.UI\NE.Standard.UI.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Core\NE.Standard.UI.Components\NE.Standard.UI.Components.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Packages\NE.Standard.UI.Extensions\NE.Standard.UI.Extensions.csproj" />
+    <ProjectReference Include="..\..\..\Icons\src\NE.Standard.UI.Icons.Material\NE.Standard.UI.Icons.Material.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(InMonorepo)' != 'true'">
+    <PackageReference Include="NE.Standard.UI.Generators" Version="$(CoreVersion)" />
+    <PackageReference Include="NE.Standard.UI" Version="$(CoreVersion)" />
+    <PackageReference Include="NE.Standard.UI.Components" Version="$(CoreVersion)" />
+    <PackageReference Include="NE.Standard.UI.Extensions" Version="$(CoreVersion)" />
+    <PackageReference Include="NE.Standard.UI.Icons.Material" Version="$(IconsVersion)" />
+  </ItemGroup>
+
+</Project>

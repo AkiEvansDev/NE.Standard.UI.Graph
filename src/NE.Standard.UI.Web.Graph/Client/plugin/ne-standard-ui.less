@@ -1,0 +1,637 @@
+// The Less half of the plugin contract: the framework's tokens and the mixins a package's stylesheet may reach for, cut out of
+// the core's own files by `scripts/build-plugin-less.mjs` at every build of the framework's client. Generated — edit the core's
+// files, then copy this one over the package's copy; `PluginApiSyncTests` refuses a copy that differs. A package imports it by
+// reference (`@import (reference) "../../plugin/ne-standard-ui.less";`) and writes `.ui-responsive-property(...)`,
+// `.ui-focus-ring()`, `@ui-motion-fast` as the core does.
+
+// --- core/tokens.less ---
+
+@ui-breakpoint-sm: 640px;
+@ui-breakpoint-md: 768px;
+@ui-breakpoint-xl: 1280px;
+@ui-breakpoint-xxl: 1536px;
+
+@ui-focus-ring-offset: 2px;
+
+@ui-space-1: 0.25rem;  
+@ui-space-2: 0.5rem;   
+@ui-space-3: 0.75rem;  
+@ui-space-4: 1rem;     
+@ui-space-5: 1.5rem;   
+
+@ui-control-height: 2.5rem;
+// A button says its own size — see UIButtonSize. @ui-control-height stays the medium one so other controls reading it are unaffected.
+@ui-button-height-sm: 1.75rem;
+@ui-button-height-lg: 3rem;  
+// A field says its own size too — see UIInputSize. A small one is a line of caption text with room for a glyph, for a dense surface.
+@ui-control-height-sm: 1.5rem;
+@ui-control-height-lg: 3rem;
+
+// A line in a list that is scanned, not pressed - a menu entry, a breadcrumb step, a calendar cell: read-down height, not press-target.
+@ui-list-row-height: 1.75rem;
+
+// How close to the viewport's edge a popup may sit; must match anchored-popup.ts's own margin.
+@ui-popup-viewport-margin: 4px;
+
+// A row is taller than a button because it holds two lines rather than a word; it steps with the same Size property.
+@ui-row-height: 3.25rem;
+@ui-row-height-sm: 2.5rem;
+@ui-row-height-lg: 4rem;
+
+// One shared step off a row's own ground, used by a table's header, stripe and footer alike, so the three never drift apart
+// as separate literals would.
+@ui-table-tint: 6%;
+
+@ui-motion-fast: 120ms;
+@ui-motion-normal: 200ms;
+@ui-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+// The standard enter/exit pair. Use @ui-motion-ease where two boxes move against each other and their heights have to cancel.
+@ui-motion-enter: cubic-bezier(0, 0, 0.2, 1);
+@ui-motion-exit: cubic-bezier(0.4, 0, 1, 1);
+
+// --- mixins/glyphs.less ---
+
+// The core's own glyph set (Client/fonts/NEGlyphs.woff2, from Client/glyphs/build.mjs): a font, not masks, so a host needs no
+// icon pack. Sizes below are rem, not em of the surrounding text — a mark on a fractional pixel rasterises differently from its twin.
+@ui-glyph-font: "NE Glyphs";
+@ui-glyph-xs: 0.75rem; // 12px — a mark inside a field's own row: a stepper, a separator between crumbs
+@ui-glyph-sm: 0.875rem; // 14px — a field's trailing control: a select's chevron, a clear cross, a picker's toggle
+@ui-glyph-md: 1rem; // 16px — a mark beside a line of text: a menu entry, an expander, a tree node
+@ui-glyph-lg: 1.25rem; // 20px — a mark standing on its own, over a picture or in a corner
+
+// Addressed by codepoint, never by ligature name: the face carries no letters. The table is Google's own
+// (google/material-design-icons, variablefont/MaterialSymbolsRounded[...].codepoints); build.mjs holds the same set.
+@ui-glyph-chevron: "\e5cf"; // expand_more, drawn pointing down; the others turn it
+@ui-glyph-close: "\e5cd";
+@ui-glyph-more-horizontal: "\e5d3";
+@ui-glyph-more-vertical: "\e5d4";
+@ui-glyph-edit: "\f097";
+@ui-glyph-person: "\f0d3";
+@ui-glyph-image: "\e3f4";
+@ui-glyph-pin: "\f027"; // keep
+@ui-glyph-check: "\e668";
+@ui-glyph-calendar: "\e935"; // calendar_today
+@ui-glyph-pin-off: "\e6f9"; // keep_off
+@ui-glyph-burger: "\e5d2"; // menu
+@ui-glyph-light: "\e518"; // light_mode
+@ui-glyph-dark: "\e51c"; // dark_mode
+@ui-glyph-pipette: "\e3b8"; // colorize
+// The standard marks a package's chrome asks for; the core draws none of them itself.
+@ui-glyph-arrow-up: "\e5d8"; // arrow_upward
+@ui-glyph-arrow-down: "\e5db"; // arrow_downward
+@ui-glyph-sort: "\e8d5"; // swap_vert — the two ways a column may go, for one that is sorted neither way
+@ui-glyph-first-page: "\e5dc";
+@ui-glyph-last-page: "\e5dd";
+@ui-glyph-filter: "\e152"; // filter_list
+@ui-glyph-columns: "\e8ec"; // view_column
+@ui-glyph-add: "\e145";
+@ui-glyph-search: "\ef7a";
+@ui-glyph-delete: "\e92e";
+@ui-glyph-remove: "\e15b"; // a minus, the pair of add
+@ui-glyph-fit: "\ea10"; // fit_screen
+@ui-glyph-replace: "\e881"; // find_replace
+@ui-glyph-replace-all: "\e877"; // done_all — the doubled mark of a thing done to every one of them
+
+// The mark itself, on a pseudo-element: the glyph face's character, an em square, said to a screen reader as nothing (the
+// slash form of `content`), with none of the host's own text settings.
+.ui-glyph(@code; @size; @fill: 0) {
+    content: ~'"@{code}" / ""';
+    display: block;
+    flex: 0 0 auto;
+    width: 1em;
+    height: 1em;
+    font-family: @ui-glyph-font;
+    font-size: @size;
+    font-weight: normal;
+    font-style: normal;
+    font-variation-settings: "FILL" @fill;
+    font-feature-settings: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    text-decoration: none;
+    white-space: nowrap;
+    user-select: none;
+}
+
+// An element whose whole content is a glyph on its `::before`: a centring box, so the mark sits in the middle of whatever
+// size the element was given.
+.ui-glyph-host() {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+}
+
+.ui-chevron(@size: @ui-glyph-md) {
+    .ui-glyph(@ui-glyph-chevron; @size);
+    transition: transform @ui-motion-fast @ui-motion-ease;
+}
+
+// Drawn pointing down; the others turn it.
+.ui-chevron-down() {
+    transform: none;
+}
+
+.ui-chevron-right() {
+    transform: rotate(-90deg);
+}
+
+.ui-chevron-up() {
+    transform: rotate(180deg);
+}
+
+// On the control itself: the cross is its `::before`, and the control centres it — every clear and close control is the same
+// cross at the same weight.
+.ui-cross-glyph(@size: @ui-glyph-sm) {
+    &::before {
+        .ui-glyph(@ui-glyph-close; @size);
+    }
+}
+
+// Three dots on the control itself, for one that stands for "more"; `vertical` stands them up for a row's own menu control.
+.ui-ellipsis-glyph(@direction: horizontal; @size: @ui-glyph-md) {
+    & when (@direction = horizontal) {
+        &::before {
+            .ui-glyph(@ui-glyph-more-horizontal; @size);
+        }
+    }
+
+    & when (@direction = vertical) {
+        &::before {
+            .ui-glyph(@ui-glyph-more-vertical; @size);
+        }
+    }
+}
+
+// The pictorial marks, on a pseudo-element, filled where the drawn ones were filled shapes. The pencil takes `@fill: 0` for
+// its outline, since a filled one over a picture reads as a blot rather than a mark.
+.ui-pencil-glyph(@size: @ui-glyph-sm; @fill: 1) {
+    .ui-glyph(@ui-glyph-edit; @size; @fill);
+}
+
+.ui-person-glyph(@size: @ui-glyph-lg) {
+    .ui-glyph(@ui-glyph-person; @size; 1);
+}
+
+// Outlined, not filled: a filled frame reads as a grey square standing on the surface rather than as a glyph.
+.ui-picture-glyph(@size: @ui-glyph-lg) {
+    .ui-glyph(@ui-glyph-image; @size; 0);
+}
+
+// The pin filled is a pinned thing; outlined (`@fill: 0`) it is the offer to pin, and the crossed one the offer to unpin.
+.ui-pin-glyph(@size: @ui-glyph-sm; @fill: 1) {
+    .ui-glyph(@ui-glyph-pin; @size; @fill);
+}
+
+.ui-check-glyph(@size: @ui-glyph-md) {
+    .ui-glyph(@ui-glyph-check; @size);
+}
+
+.ui-calendar-glyph(@size: @ui-glyph-sm) {
+    .ui-glyph(@ui-glyph-calendar; @size);
+}
+
+// The fold switch of a collapsible: three bars, the same in both states.
+.ui-burger-glyph(@size: @ui-glyph-md) {
+    .ui-glyph(@ui-glyph-burger; @size);
+}
+
+// The two faces of the theme switcher when the application names no icon of its own.
+.ui-light-glyph(@size: @ui-glyph-md) {
+    .ui-glyph(@ui-glyph-light; @size);
+}
+
+.ui-dark-glyph(@size: @ui-glyph-md) {
+    .ui-glyph(@ui-glyph-dark; @size);
+}
+
+// An eyedropper, for a colour picker that samples the screen.
+.ui-pipette-glyph(@size: @ui-glyph-sm) {
+    .ui-glyph(@ui-glyph-pipette; @size);
+}
+
+// --- mixins/interactive.less ---
+
+.ui-interactive-base() {
+    user-select: none;
+    touch-action: manipulation;
+}
+
+// Hides the native control visually while keeping it in the tab order and accessibility tree, which display: none would not.
+.ui-visually-hidden() {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.ui-disabled-state() {
+    opacity: var(--ui-disabled-opacity);
+    cursor: default;
+    pointer-events: none;
+}
+
+// Mixed from the theme's contrast colour, not currentColor, so the wash is the surface reacting rather than the label's colour.
+.ui-reveal-hover() {
+    transition: background-color @ui-motion-fast @ui-motion-ease;
+
+    &:hover {
+        background-color: var(--ui-wash-hover);
+    }
+
+    &:active {
+        background-color: var(--ui-wash-active);
+    }
+}
+
+// A button that answers the pointer: neither disabled, loading, nor natively disabled. Every state rule, and every rule taking
+// one back, spells the guard through this, so the two tie at one specificity.
+@ui-button-live: ~":not(.ui-disabled):not(.ui-loading):not(:disabled)";
+
+// Takes .ui-reveal-hover() off an element reacting another way; the selector chain must match the ghost button's for equal specificity.
+.ui-reveal-hover-off(@rules: {}) {
+    &@{ui-button-live}:is(:hover, :active) {
+        background: none;
+        @rules();
+    }
+}
+
+// --- mixins/elevation.less ---
+
+// One shadow scale for the whole library; surfaces pick a level rather than inventing a box-shadow.
+.ui-elevation-1() {
+    box-shadow: 0 1px 2px var(--ui-color-shadow);
+}
+
+.ui-elevation-2() {
+    box-shadow: 0 2px 6px var(--ui-color-shadow), 0 1px 2px var(--ui-color-shadow);
+}
+
+.ui-elevation-3() {
+    box-shadow: 0 8px 24px var(--ui-color-shadow), 0 2px 6px var(--ui-color-shadow);
+}
+
+.ui-elevation-4() {
+    box-shadow: 0 16px 48px var(--ui-color-shadow), 0 4px 12px var(--ui-color-shadow);
+}
+
+// --- mixins/color.less ---
+
+// Hover brightens via a filter, not a mix: currentColor in a color declaration reads the inherited value, so color-mix produced grey.
+.ui-brighten-hover() {
+    filter: brightness(1.25);
+}
+
+// --- mixins/responsive.less ---
+
+// Resolves one authoring property through a five-tier var() chain, widest first; a flat literal on the same element would win the cascade.
+.ui-responsive-property(@property, @variable, @default) {
+    @{property}: var(~"@{variable}-xxl", var(~"@{variable}-xl", var(~"@{variable}-md", var(~"@{variable}-sm", var(~"@{variable}", @default)))));
+}
+
+// Resets a property's five tiers where a component root re-declares them, and fences each tier into its band there — once
+// per variable per root, exactly where the fence belongs.
+.ui-responsive-reset(@variable) {
+    @{variable}: initial;
+    @{variable}-sm: initial;
+    @{variable}-md: initial;
+    @{variable}-xl: initial;
+    @{variable}-xxl: initial;
+    .ui-responsive-fence(@variable);
+}
+
+// Fences a tier's inline value into its own width band: below its breakpoint the variable is taken back with `!important`,
+// the only thing that outranks an inline custom property — without it, the widest tier written would win at every width.
+.ui-responsive-fence(@variable) {
+    @media (max-width: (@ui-breakpoint-sm - 0.02px)) {
+        @{variable}-sm: initial !important;
+    }
+
+    @media (max-width: (@ui-breakpoint-md - 0.02px)) {
+        @{variable}-md: initial !important;
+    }
+
+    @media (max-width: (@ui-breakpoint-xl - 0.02px)) {
+        @{variable}-xl: initial !important;
+    }
+
+    @media (max-width: (@ui-breakpoint-xxl - 0.02px)) {
+        @{variable}-xxl: initial !important;
+    }
+}
+
+.ui-responsive-reset-infix(@prefix, @suffix) {
+    @{prefix}-@{suffix}: initial;
+    @{prefix}-sm-@{suffix}: initial;
+    @{prefix}-md-@{suffix}: initial;
+    @{prefix}-xl-@{suffix}: initial;
+    @{prefix}-xxl-@{suffix}: initial;
+}
+
+// --- mixins/focus.less ---
+
+// Ring width is a runtime variable defaulting to 0, so a theme flag enables it everywhere without a second selector.
+.ui-focus-ring() {
+    outline: var(--ui-focus-ring-width, 0) solid var(--ui-color-focus-ring);
+    outline-offset: @ui-focus-ring-offset;
+}
+
+// --- mixins/popup.less ---
+
+// Shared look for every floating panel; fixed, because layout panels are overflow: hidden and would clip anything inside them.
+.ui-popup-surface(@z-index: 30) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: @z-index;
+    border: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-input);
+    background: var(--ui-color-surface);
+    // A popup is a surface, and what stands on it steps off that; without this a field inside would mix its fill into the
+    // page's colour instead of the popup's.
+    --ui-surface-fill: var(--ui-color-surface);
+    .ui-elevation-2();
+}
+
+// Caps a list-shaped popup to the viewport height; skip it where a tail is drawn outside the box, since overflow would clip it.
+.ui-popup-scroll() {
+    max-height: calc(100vh - 2 * @ui-popup-viewport-margin);
+    overflow: auto;
+}
+
+// --- mixins/placement.less ---
+
+// The two grids a region is laid out with; see @ui-placement-hosts in ui-container.less for what goes inside them.
+
+// Twenty-four columns, the same grid a page uses, with no gap since the columns themselves are the spacing.
+.ui-placement-host() {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+}
+
+// Two columns (star, auto) for a band with a control of its own; the star half is itself a placement host.
+.ui-control-band() {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+// --- mixins/field.less ---
+
+// Mixins rather than rules on ui-input.less's shared list, which imports after each field's own file and would override its differences.
+
+// Split out from .ui-input-field() so <textarea>, which can't take the flex row, can still share the field's fill, border and colours.
+.ui-field-ground() {
+    // One step off whatever it stands on, falling back to the page background; mixed from on-surface, so it steps up dark and down light.
+    --ui-field-ground: var(--ui-surface-fill, var(--ui-color-background));
+    --ui-field-rest: color-mix(in srgb, var(--ui-color-on-surface) 10%, var(--ui-field-ground));
+    // Six points past resting, not the washes' ten: hover is a level of its own, not a full step change.
+    --ui-field-hover: color-mix(in srgb, var(--ui-color-on-surface) 16%, var(--ui-field-ground));
+    // What Outline and Underline lift their border to on hover. A control that doesn't lift (a code field, not a list row) sets
+    // this to its rest, so the hover rule still runs but has no visible effect.
+    --ui-field-hover-accent: color-mix(in srgb, var(--ui-color-primary) 60%, transparent);
+    border: var(--ui-border-width, 1px) solid var(--ui-field-rest);
+    border-radius: var(--ui-radius-input);
+    background: var(--ui-field-rest);
+    transition: border-color @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;
+}
+
+.ui-input-field() {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+    min-height: @ui-control-height;
+    padding: 0 @ui-space-3;
+    gap: 0.4em;
+    .ui-field-ground();
+}
+
+// A glyph button inside a field (text input's clear, temporal input's picker toggle): round, borderless, muted. It answers
+// hover with its ink alone, since the field's row is the surface that lifts — a wash on the glyph too would read as a button on a button.
+.ui-field-adornment() {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+    .ui-interactive-base();
+    transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
+
+    &:hover {
+        color: var(--ui-color-on-surface);
+    }
+}
+
+// The veil over a picture a viewer may replace (the picture field, a package's picture surface): a pencil on dark glass,
+// shown under the pointer or keyboard, never over an empty surface. When it shows is the caller's rule.
+.ui-picture-veil(@glyph: 1.5rem) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, black 45%, transparent);
+    color: white;
+    opacity: 0;
+    transition: opacity @ui-motion-fast @ui-motion-ease;
+    pointer-events: none;
+
+    &::before {
+        .ui-pencil-glyph(@glyph; 0);
+    }
+}
+
+// The up/down pair at a field's end (number input, time input): one column behind a rule, two chevrons from the shared glyph.
+.ui-field-stepper() {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-self: stretch;
+    // Gives back most of the field's right padding: the stepper's ruled edge doesn't need the breathing room text does.
+    margin: @ui-space-1 -0.5em @ui-space-1 0;
+    border-left: 1px solid var(--ui-color-border);
+    padding-left: 0.4em;
+}
+
+.ui-field-step() {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+    .ui-interactive-base();
+    transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
+
+    &:hover {
+        color: var(--ui-color-on-surface);
+    }
+
+    &::before {
+        .ui-chevron(@ui-glyph-xs);
+    }
+}
+
+// The pick control at a file field's end (a file input's, an inline image input's): the drawn ellipsis behind the same divider a
+// stepper draws, answering the pointer with its ink alone.
+.ui-field-pick() {
+    .ui-ellipsis-glyph();
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-self: stretch;
+    align-items: center;
+    justify-content: center;
+    min-width: @ui-control-height;
+    padding: 0 @ui-space-3;
+    border-left: 1px solid var(--ui-color-border);
+    color: var(--ui-text-muted);
+}
+
+// The `*` beside a required field's caption; checkbox and switch place their caption beside the box instead and don't use this.
+.ui-required-marker() {
+    flex: 0 0 auto;
+    color: var(--ui-color-danger-ink);
+    line-height: 1;
+}
+
+// A shared variable, not repeated per file, since a row missing from one silently half-applies. `@ui-input-field-state` adds
+// `.ui-field-box` (box-shaped fields) and the image input's surface, which want the invalid/focus border but not this sizing, which would distort their shape.
+@ui-input-field: ~".ui-text-input__row, .ui-number-input__row, .ui-temporal-input__row, .ui-file-input__row, .ui-color-input__row, .ui-select__trigger";
+@ui-input-field-state: ~"@{ui-input-field}, .ui-field-box, .ui-image-input__surface";
+
+// --- mixins/selected.less ---
+
+// Reads the --ui-selected-* properties on a control's root; they inherit, so each control fences its own with .ui-selected-scope().
+
+.ui-selected-scope() {
+    --ui-selected-background: initial;
+    --ui-selected-foreground: initial;
+    --ui-selected-mark-color: initial;
+    --ui-selected-mark: initial;
+    --ui-selected-font-weight: initial;
+}
+
+// The wash is named too (--ui-row-wash): a cell that paints its own ground over the row's — a table's pinned column — paints the same wash.
+.ui-selected-ground(@default: var(--ui-wash-selected)) {
+    background: var(--ui-selected-background, @default);
+    --ui-row-wash: var(--ui-selected-background, @default);
+}
+
+// The ink and its weight together: a control that emphasises its chosen entry passes its own weight as the fallback.
+.ui-selected-ink(@default: var(--ui-color-primary-ink); @weight: inherit) {
+    color: var(--ui-selected-foreground, @default);
+    font-weight: var(--ui-selected-font-weight, @weight);
+}
+
+// The mark's colour alone, for a control that draws the mark its own way (a tab's line) rather than via box-shadow.
+@ui-selected-mark-color: ~"var(--ui-selected-mark-color, var(--ui-color-primary))";
+
+// The mark itself is a box-shadow so it takes no room and lies over the ground; these are the four edges WebCssValues.SelectionMark writes.
+@ui-selected-mark-left: ~"inset 2px 0 0 0 @{ui-selected-mark-color}";
+@ui-selected-mark-right: ~"inset -2px 0 0 0 @{ui-selected-mark-color}";
+@ui-selected-mark-top: ~"inset 0 2px 0 0 @{ui-selected-mark-color}";
+@ui-selected-mark-bottom: ~"inset 0 -2px 0 0 @{ui-selected-mark-color}";
+
+.ui-selected-mark(@default: none) {
+    box-shadow: var(--ui-selected-mark, @default);
+}
+
+// A chosen row of a host with rows — an items view's, a table's, a tree's: the three pieces together, the ink inherited.
+.ui-selected-row() {
+    .ui-selected-ground();
+    .ui-selected-ink(inherit);
+    .ui-selected-mark();
+}
+
+// A row under the pointer: --ui-wash-hover mixes into whatever is behind it, since the host may have no surface of its own.
+// One wash: a ghost button in the row answers with its ink, not a second wash over the row's.
+.ui-row-hover() {
+    background-color: var(--ui-wash-hover);
+    --ui-row-wash: var(--ui-wash-hover);
+
+    .ui-button--ghost {
+        .ui-reveal-hover-off({ color: var(--ui-color-on-surface); });
+    }
+}
+
+// The keyboard's row washes like the pointer's while the host holds focus, except with a single choice, whose chosen row
+// already is the keyboard's. `:focus`, not `:focus-within`, since a click in another row must not light a stale one.
+.ui-row-cursor(@host; @row) {
+    @{host}:focus:not([data-ui-selection="one"]) > [data-ui-items-host] > @{row}[data-ui-row-focus] {
+        .ui-row-hover();
+    }
+}
+
+// --- mixins/text.less ---
+
+// One mixin, not three lines repeated: overflow: hidden, text-overflow: ellipsis and white-space: nowrap only work together.
+.ui-text-nowrap() {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+// The field a rename is typed into, laid over a title in the title's own type (a tab's caption, a tree node's title). No
+// ring, since a ring would be a box around the title, which this field exists not to be.
+.ui-inline-rename-field() {
+    position: absolute;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    padding: 0;
+    color: var(--ui-color-on-surface);
+    font: inherit;
+    letter-spacing: inherit;
+
+    &,
+    &:focus-visible {
+        outline: none;
+    }
+}
+
+// --- mixins/arc.less ---
+
+// A circle's turn stretch, drawn as the whole circle cut down rather than a stroked arc, since Chrome antialiases a stroked
+// (or dashed) arc path at four samples a pixel, staircasing its edge where a circle's own edge is smooth.
+
+// A wedge from the circle's centre, its far side stepped out to twice the circle's box, so no chord ever nears the circle
+// even for a full turn; only the wedge's two short radial edges are left to the coarse samples.
+.ui-arc-cut() {
+    --ui-arc-cut-start: calc(var(--ui-arc-start) + var(--ui-arc-from, 0) * var(--ui-arc-sweep));
+    --ui-arc-cut-step: calc((var(--ui-arc-to, 1) - var(--ui-arc-from, 0)) * var(--ui-arc-sweep) / 4);
+    clip-path: ~"polygon(50% 50%, calc(50% + cos(var(--ui-arc-cut-start)) * 200%) calc(50% + sin(var(--ui-arc-cut-start)) * 200%), calc(50% + cos(calc(var(--ui-arc-cut-start) + var(--ui-arc-cut-step))) * 200%) calc(50% + sin(calc(var(--ui-arc-cut-start) + var(--ui-arc-cut-step))) * 200%), calc(50% + cos(calc(var(--ui-arc-cut-start) + 2 * var(--ui-arc-cut-step))) * 200%) calc(50% + sin(calc(var(--ui-arc-cut-start) + 2 * var(--ui-arc-cut-step))) * 200%), calc(50% + cos(calc(var(--ui-arc-cut-start) + 3 * var(--ui-arc-cut-step))) * 200%) calc(50% + sin(calc(var(--ui-arc-cut-start) + 3 * var(--ui-arc-cut-step))) * 200%), calc(50% + cos(calc(var(--ui-arc-cut-start) + 4 * var(--ui-arc-cut-step))) * 200%) calc(50% + sin(calc(var(--ui-arc-cut-start) + 4 * var(--ui-arc-cut-step))) * 200%))";
+}
+
+// A round end of a cut ring: a dot the ring's width (--ui-arc-width), placed at the ring's radius and rotated about the
+// centre (--ui-arc-origin) to --ui-arc-at. A dot, not a round linecap, since a cut circle's ends are square.
+.ui-arc-cap() {
+    r: calc(var(--ui-arc-width) / 2);
+    fill: currentColor;
+    stroke: none;
+    transform-box: view-box;
+    transform-origin: var(--ui-arc-origin);
+    transform: rotate(calc(var(--ui-arc-start) + var(--ui-arc-at, 0) * var(--ui-arc-sweep)));
+}

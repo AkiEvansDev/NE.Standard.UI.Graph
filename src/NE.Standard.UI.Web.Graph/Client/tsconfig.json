@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "lib": [ "ES2022", "DOM", "DOM.Iterable" ],
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": [ "node" ]
+  },
+  "include": [
+    "vite.config.ts",
+    "plugin/*.d.ts",
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ]
+}

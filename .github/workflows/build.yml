@@ -1,0 +1,56 @@
+# Runs in the public mirror of the data grid. The framework arrives as a package here, so this also proves
+# that the version the component is built against is really on the feed.
+name: Build
+
+on:
+  # Branches only: a sync pushes the tag too, and an unfiltered push would build the same commit twice.
+  push:
+    branches:
+      - '**'
+  pull_request:
+  # How this runs after a release: the `builds` job of Release starts it once nuget.org carries everything
+  # the tree pins, and it is where the owner starts a run by hand.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Several slices released together each start this once, and only the newest run is worth having: the older
+# ones step aside rather than the three of them building the same commit in turn.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Not on a sync commit. What this tree pins reaches the feed minutes after the sync lands, and a version
+    # a neighbouring slice publishes may not be out at all yet - so Release starts the run instead, once
+    # nuget.org carries all of it. An ordinary push, were one ever made by hand, still builds.
+    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Sync ') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      # The grid engines and the stylesheet build from the TypeScript client as part of `dotnet build`.
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      # `EnforceCodeStyleInBuild` and `TreatWarningsAsErrors` are set for every project in the repository's
+      # Directory.Build.props, so IDE0055 - formatting, down to trailing whitespace and the final newline -
+      # fails this step. A separate `dotnet format --verify-no-changes` reloads the whole solution through
+      # Roslyn and re-analyses it from scratch: about three times the cost of the build, to find the same
+      # things a second time.
+      - name: Build
+        run: dotnet build --no-restore --configuration Release

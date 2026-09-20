@@ -1,0 +1,26 @@
+###############################################################################
+# Set default behavior to automatically normalize line endings.
+###############################################################################
+* text=auto
+
+# The mirror script is run by bash on a Linux runner; CRLF would break its shebang.
+*.sh text eol=lf
+
+# The checked-in client bundles are written by vite with LF. Under `text=auto` they are checked out with
+# CRLF on Windows, so every rebuild rewrites them and shows them as modified with not one byte of content
+# changed. Pinning the checkout ending keeps a rebuild a no-op; they stay text, so they still diff.
+**/Client/dist/*.js text eol=lf
+**/Client/dist/*.css text eol=lf
+
+# The plugin contract — the framework's own `.d.ts` and the Less half `build-plugin-less.mjs` writes with LF at every build — is
+# held byte for byte across a package's copy on a Linux runner; the same pin keeps a rebuild a no-op here and the copies equal there.
+**/Client/plugin/ne-standard-ui.d.ts text eol=lf
+**/Client/plugin/ne-standard-ui.less text eol=lf
+
+# The icon packs ship their glyph tables as deflate streams. Content detection already treats them as
+# binary; saying so outright means it can never guess wrong on one.
+**/Client/dist/*.deflate binary
+
+# The demo's photographs. Content detection already treats them as binary; saying so outright means it can
+# never guess wrong on one.
+*.jpg binary

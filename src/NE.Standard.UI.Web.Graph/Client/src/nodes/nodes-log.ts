@@ -1,0 +1,337 @@
+// What the server's effects paint but the document never carries: node state/progress, a display pin's value, the log, and the
+// run line. One channel, since the run line reads both the log's failures and the running node.
+
+import type { PluginEngineContext } from "ne-standard-ui";
+import type { CanvasServices } from "../canvas/canvas-kind.ts";
+import { renderDisplayValue } from "./display.ts";
+import { findPin } from "./model.ts";
+import type { GraphDocument, NodeType, Pin } from "./model.ts";
+import { DisplayAttribute, NodeStateAttribute, ValueAttribute } from "./node-view.ts";
+
+/** On a log line's node name: the node the line came from, which a press takes the view to. */
+export const LogNodeAttribute = "data-ui-graph-log-node";
+const LogOpenAttribute = "data-ui-graph-log-open";
+const RunStateAttribute = "data-ui-graph-run-state";
+// Enough to read back through a long run, few enough that a node writing in a loop cannot swell the page.
+const LogLimit = 500;
+
+type NodeStatus = { readonly state: string; readonly progress: number | null; readonly message: string | null };
+
+type LogEntry = { readonly nodeId: string; readonly level: string; readonly message: string; readonly at: Date };
+
+export class NodesLog {
+    private readonly root: HTMLElement;
+    private readonly context: PluginEngineContext;
+    private readonly services: CanvasServices<GraphDocument>;
+    private readonly types: ReadonlyMap<string, NodeType>;
+
+    private readonly runLine: HTMLElement | null;
+    private readonly runLabel: HTMLElement | null;
+    private readonly runShare: HTMLElement | null;
+    private readonly logPanel: HTMLElement | null;
+    private readonly logEntries: HTMLElement | null;
+    private readonly logToggle: HTMLElement | null;
+    private readonly logCount: HTMLElement | null;
+
+    // The log is the canvas's own and nothing of it is saved: it lives as long as the page, and a run that begins clears it.
+    private readonly log: LogEntry[] = [];
+    // The run as reported: progress, whether any node failed, and the one node running now (its own steps draw the line's lower
+    // half); runs are sequential, and the line keeps the last run's end until the next begins.
+    private runStarted = false;
+    private runCompleted = 0;
+    private runTotal = 0;
+    private runFailed = false;
+    private runningNode: string | null = null;
+
+    private readonly statuses = new Map<string, NodeStatus>();
+    private readonly displays = new Map<string, Map<string, unknown>>();
+
+    public constructor(services: CanvasServices<GraphDocument>, types: ReadonlyMap<string, NodeType>) {
+        const root = services.root;
+
+        this.root = root;
+        this.context = services.context;
+        this.services = services;
+        this.types = types;
+        this.runLine = root.querySelector<HTMLElement>("[data-ui-graph-run]");
+        this.runLabel = root.querySelector<HTMLElement>("[data-ui-graph-run-label]");
+        this.runShare = root.querySelector<HTMLElement>("[data-ui-graph-run-share]");
+        this.logPanel = root.querySelector<HTMLElement>("[data-ui-graph-log]");
+        this.logEntries = root.querySelector<HTMLElement>("[data-ui-graph-log-entries]");
+        this.logToggle = root.querySelector<HTMLElement>("[data-ui-graph-log-toggle]");
+        this.logCount = root.querySelector<HTMLElement>("[data-ui-graph-log-count]");
+    }
+
+    // --- statuses and node redraws ------------------------------------------------------------------------------------------
+
+    /** Every status and display the nodes on the sheet still carry, applied once they are redrawn afresh; a gone node loses its. */
+    public reapplyToRedrawnNodes(drawn: ReadonlySet<string>): void {
+        for (const [id, status] of this.statuses) {
+            if (drawn.has(id))
+                this.applyStatus(id, status);
+            else
+                this.statuses.delete(id);
+        }
+
+        for (const [id, pins] of this.displays) {
+            if (!drawn.has(id)) {
+                this.displays.delete(id);
+                continue;
+            }
+
+            for (const [pinName, value] of pins)
+                this.applyDisplay(id, pinName, value);
+        }
+    }
+
+    /** A node's state, progress and message; idle with nothing to say clears the line, and a redraw writes it again. */
+    public setStatus(nodeId: string, state: string, progress: number | null, message: string | null): void {
+        const status: NodeStatus = { state: state.toLowerCase(), progress, message };
+
+        if (status.state === "idle" && progress === null && message === null)
+            this.statuses.delete(nodeId);
+        else
+            this.statuses.set(nodeId, status);
+
+        if (status.state === "running")
+            this.runningNode = nodeId;
+        else if (this.runningNode === nodeId)
+            this.runningNode = null;
+
+        if (status.state === "failed")
+            this.runFailed = true;
+
+        this.applyStatus(nodeId, status);
+        this.drawRun();
+    }
+
+    private applyStatus(nodeId: string, status: NodeStatus): void {
+        const node = this.services.nodeElements.get(nodeId);
+
+        if (node === undefined)
+            return;
+
+        // Only a kind that asked for one carries it, so there is often none at all.
+        const bar = node.querySelector<HTMLElement>(".ui-graph__node-progress");
+
+        // The node's frame alone says its state; any message goes to the run line or the log, since a line inside the node would shove its pins around.
+        node.setAttribute(NodeStateAttribute, status.state);
+
+        if (bar === null)
+            return;
+
+        // The line belongs to the running: when the node is done, failed or skipped it goes, rather than standing full.
+        bar.hidden = status.state !== "running" || status.progress === null;
+
+        if (status.progress !== null)
+            bar.style.setProperty("--ui-graph-progress", String(Math.min(1, Math.max(0, status.progress))));
+    }
+
+    /** What one display pin shows; nothing of it is saved, so the document is not touched, and a redraw shows it again. */
+    public setDisplay(nodeId: string, pinName: string, value: unknown): void {
+        let pins = this.displays.get(nodeId);
+
+        if (pins === undefined) {
+            pins = new Map<string, unknown>();
+            this.displays.set(nodeId, pins);
+        }
+
+        pins.set(pinName, value);
+        this.applyDisplay(nodeId, pinName, value);
+    }
+
+    private applyDisplay(nodeId: string, pinName: string, value: unknown): void {
+        const box = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${DisplayAttribute}][${ValueAttribute}="${CSS.escape(pinName)}"]`);
+        const format = this.inputPin(nodeId, pinName)?.format;
+
+        box?.replaceChildren(renderDisplayValue(value, {
+            empty: this.context.strings.text("ui.graph.no-value"),
+            number: number => this.formatNumber(number, format)
+        }));
+    }
+
+    private inputPin(nodeId: string, pinName: string): Pin | undefined {
+        const node = this.services.documentState.document.nodes.find(candidate => candidate.id === nodeId);
+
+        return findPin(node === undefined ? undefined : this.types.get(node.type), pinName, false);
+    }
+
+    /** A number as the page writes one: the pin's own format against the culture the page carries. */
+    public formatNumber(value: number, format: string | null | undefined): string {
+        return this.context.numbers.format(value, format ?? null, this.context.numbers.readCulture(this.root));
+    }
+
+    // --- the log -------------------------------------------------------------------------------------------------------------
+
+    /** One line from one node, at the log's foot; the oldest goes once there are more than the log keeps. */
+    public addLog(nodeId: string, level: string, message: string): void {
+        const entry: LogEntry = { nodeId, level: level.toLowerCase(), message, at: new Date() };
+
+        this.log.push(entry);
+
+        if (this.log.length > LogLimit) {
+            this.log.shift();
+            this.logEntries?.firstElementChild?.remove();
+        }
+
+        if (this.logEntries !== null) {
+            // Kept at the foot only when the reader was already there: someone scrolled up to read an earlier line keeps their place.
+            const atFoot = this.logEntries.scrollHeight - this.logEntries.scrollTop - this.logEntries.clientHeight < 8;
+
+            this.logEntries.append(this.renderLogEntry(entry));
+
+            if (atFoot)
+                this.logEntries.scrollTop = this.logEntries.scrollHeight;
+        }
+
+        this.drawLogCount();
+
+        // A failure the line has not heard of as a node's state still turns it: the log's own error is the run's.
+        if (entry.level === "error") {
+            this.runFailed = true;
+            this.drawRun();
+        }
+    }
+
+    /** A line: when, which node — a button that takes the view there — and what it says, coloured by how much it matters. */
+    private renderLogEntry(entry: LogEntry): HTMLElement {
+        const line = document.createElement("li");
+        const time = document.createElement("time");
+        const node = document.createElement("button");
+        const message = document.createElement("span");
+
+        line.className = "ui-graph__log-entry";
+        line.setAttribute("data-ui-graph-log-level", entry.level);
+
+        time.className = "ui-graph__log-time";
+        time.dateTime = entry.at.toISOString();
+        time.textContent = this.context.temporal.format(entry.at, "HH:mm:ss", this.context.temporal.readCulture(this.root));
+
+        node.type = "button";
+        node.className = "ui-graph__log-node";
+        node.setAttribute(LogNodeAttribute, entry.nodeId);
+        node.textContent = this.nodeName(entry.nodeId);
+
+        message.className = "ui-graph__log-message";
+        message.textContent = entry.message;
+
+        line.append(time, node, message);
+
+        return line;
+    }
+
+    /** What the viewer calls a node: its own title, else its kind's, else — for a node since deleted — its id. */
+    private nodeName(nodeId: string): string {
+        const node = this.services.documentState.document.nodes.find(candidate => candidate.id === nodeId);
+
+        return node?.title ?? (node === undefined ? undefined : this.types.get(node.type)?.title) ?? nodeId;
+    }
+
+    /** The count on the log's head, in the colour of the worst line under it, so a failure reads even with the log folded. */
+    private drawLogCount(): void {
+        if (this.logCount === null)
+            return;
+
+        const errors = this.log.filter(entry => entry.level === "error").length;
+        const warnings = this.log.filter(entry => entry.level === "warning").length;
+
+        this.logCount.hidden = this.log.length === 0;
+        this.context.badges.writeCount(this.logCount, this.log.length);
+        this.logCount.classList.toggle("ui-badge-style--danger", errors > 0);
+        this.logCount.classList.toggle("ui-badge-style--warning", errors === 0 && warnings > 0);
+        this.logCount.classList.toggle("ui-badge-style--surface", errors === 0 && warnings === 0);
+    }
+
+    public clearLog(): void {
+        this.log.length = 0;
+        this.logEntries?.replaceChildren();
+        this.drawLogCount();
+    }
+
+    /** Opens or folds the log; a viewer's own choice is kept in the browser beside the view, so the log opens as they left it. */
+    public setLogOpen(open: boolean, remember = false): void {
+        this.root.toggleAttribute(LogOpenAttribute, open);
+        this.logToggle?.setAttribute("aria-expanded", String(open));
+
+        if (remember)
+            this.context.store.write(this.root, "log", open ? "open" : null);
+    }
+
+    public isLogOpen(): boolean {
+        return this.root.hasAttribute(LogOpenAttribute);
+    }
+
+    /** A line's node, chosen and brought to the middle of the view at the zoom the viewer already has. */
+    public goToNode(nodeId: string): void {
+        const rect = this.services.nodeRect(nodeId);
+
+        if (rect === null)
+            return;
+
+        this.services.selection.chooseForMenu(nodeId);
+        this.services.drawEdges();
+
+        // Centers within the visible area only: the log covers the foot and the run line the top, so centering on the whole box
+        // would land the node half under the log it was chosen from.
+        const top = this.runLine?.offsetHeight ?? 0;
+        const bottom = this.logPanel?.offsetHeight ?? 0;
+
+        this.services.view.centerOnRect(rect, top, bottom);
+    }
+
+    // --- the run line ----------------------------------------------------------------------------------------------------------
+
+    /** How far the run has come. None through begins a run — and clears the log and the failure the last one left. */
+    public setRunProgress(completed: number, total: number): void {
+        if (completed <= 0) {
+            this.clearLog();
+            this.runStarted = true;
+            this.runFailed = false;
+            this.runningNode = null;
+        }
+
+        this.runCompleted = Math.max(0, completed);
+        this.runTotal = Math.max(0, total);
+
+        if (this.runCompleted >= this.runTotal)
+            this.runningNode = null;
+
+        this.drawRun();
+    }
+
+    /** Draws the run line: upper half the whole run's progress, lower half the running node's own steps, its name and last message at the start, the share at the end; a failure shows in its colour. */
+    public drawRun(): void {
+        if (this.runLine === null)
+            return;
+
+        const status = this.runningNode === null ? undefined : this.statuses.get(this.runningNode);
+        const step = status?.state === "running" ? Math.min(1, Math.max(0, status.progress ?? 0)) : 0;
+        const whole = this.runTotal === 0 ? (this.runStarted ? 1 : 0) : Math.min(1, (this.runCompleted + step) / this.runTotal);
+        const share = Math.round(whole * 100);
+        const done = this.runStarted && this.runCompleted >= this.runTotal;
+
+        this.runLine.style.setProperty("--ui-graph-run", String(whole));
+        this.runLine.style.setProperty("--ui-graph-run-step", String(step));
+        this.runLine.setAttribute("aria-valuenow", String(share));
+        this.runLine.setAttribute(RunStateAttribute, !this.runStarted ? "idle" : this.runFailed ? "failed" : done ? "done" : "running");
+
+        if (this.runLabel !== null)
+            this.runLabel.textContent = this.runLabelText(status);
+
+        if (this.runShare !== null)
+            this.runShare.textContent = this.runStarted ? `${share}%` : "";
+    }
+
+    /** The running node and what it last said; between nodes and after the run, the first failure, since that is what stopped it. */
+    private runLabelText(status: NodeStatus | undefined): string {
+        if (this.runningNode !== null) {
+            const said = status?.message ?? "";
+
+            return said.length > 0 ? `${this.nodeName(this.runningNode)} · ${said}` : this.nodeName(this.runningNode);
+        }
+
+        const failure = this.log.find(entry => entry.level === "error");
+
+        return failure === undefined ? "" : `${this.nodeName(failure.nodeId)} · ${failure.message}`;
+    }
+}

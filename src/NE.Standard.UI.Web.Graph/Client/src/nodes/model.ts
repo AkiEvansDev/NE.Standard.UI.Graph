@@ -1,0 +1,266 @@
+// The node canvas's document and catalogue off the wire, plus small answers the engine and tests need: which pins may join,
+// what a new node starts with, and how a copy is renamed.
+
+import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
+import { newId, readGroup, readPoints, readSize } from "../canvas/canvas-model.ts";
+
+export type PinEditor = "None" | "Text" | "Number" | "Boolean" | "Image" | "Date" | "Time" | "DateTime" | "Choice" | "List" | "Display";
+
+export type Pin = {
+    readonly name: string;
+    readonly title: string;
+    readonly type: string;
+    readonly editor: PinEditor;
+    readonly defaultValue?: unknown;
+    readonly min?: number | null;
+    readonly max?: number | null;
+    readonly step?: number | null;
+    readonly maxLines?: number | null;
+    readonly maxLength?: number | null;
+    readonly typeOf?: string | null;
+    /** False for a value that can only be filled in on the node: no pin is drawn and no edge may reach it. */
+    readonly hasPin?: boolean;
+    /** How tall the editor stands, in rem. */
+    readonly height?: number | null;
+    /** A picture editor drawn as one large surface the viewer presses, rather than a thumbnail with its address beside it. */
+    readonly large?: boolean;
+    /** The node cannot run without it: a run stops on the node rather than handing it nothing. */
+    readonly required?: boolean;
+    /** The pin takes several connections at once; its `type` is the element's, since one edge carries one element. */
+    readonly multiple?: boolean;
+    /** The line the pin says about itself when the pointer rests on it. */
+    readonly description?: string | null;
+    /** The input pin this one is shown beside; unset, the pin is always drawn. */
+    readonly visibleWhen?: string | null;
+    /** The values of `visibleWhen`'s pin that show this one; empty, any value but an empty one. */
+    readonly visibleValues?: readonly string[];
+    /** What the value is measured in, written after the editor inside its box. */
+    readonly unit?: string | null;
+    /** How a number the canvas writes itself is formatted — a display pin's answer, by the page's culture. */
+    readonly format?: string | null;
+};
+
+export type NodeType = {
+    readonly key: string;
+    readonly title: string;
+    readonly category?: string | null;
+    /** The one line the picker shows under the title. */
+    readonly description?: string | null;
+    readonly icon?: string | null;
+    readonly color?: string | null;
+    /** The least width the node stands at, in rem; the viewer may drag it wider. */
+    readonly minWidth?: number | null;
+    /** Whether the node draws a progress line while it runs; a kind that does not say so draws none. */
+    readonly showProgress?: boolean;
+    /** Whether the viewer may drag the node's corner; unset, they may. */
+    readonly resizable?: boolean;
+    /** Whether the picker leaves the kind out, though a saved document still reads and draws it. */
+    readonly hidden?: boolean;
+    readonly inputs: readonly Pin[];
+    readonly outputs: readonly Pin[];
+};
+
+export type DocumentNode = CanvasItem & {
+    type: string;
+    values: Record<string, unknown>;
+};
+
+export type DocumentEdge = CanvasEdge & {
+    fromNode: string;
+    fromPin: string;
+    toNode: string;
+    toPin: string;
+};
+
+export type GraphDocument = {
+    nodes: DocumentNode[];
+    edges: DocumentEdge[];
+    groups: CanvasGroup[];
+};
+
+export const AnyType = "any";
+export const ArrayType = "array";
+export const ArrayPrefix = "array:";
+export const TextType = "text";
+export const ImageType = "image";
+
+export function emptyDocument(): GraphDocument {
+    return { nodes: [], edges: [], groups: [] };
+}
+
+/** A document as it came off the wire, with every part present and every number a number. */
+export function readDocument(value: unknown): GraphDocument {
+    const source = value as Partial<GraphDocument> | null | undefined;
+
+    if (source === null || source === undefined || typeof source !== "object")
+        return emptyDocument();
+
+    return {
+        nodes: (source.nodes ?? []).map(readNode),
+        edges: (source.edges ?? []).map(readEdge),
+        groups: (source.groups ?? []).map(readGroup)
+    };
+}
+
+function readNode(node: DocumentNode): DocumentNode {
+    return {
+        id: String(node.id),
+        type: String(node.type),
+        x: Number(node.x) || 0,
+        y: Number(node.y) || 0,
+        title: node.title ?? null,
+        color: node.color ?? null,
+        pinned: node.pinned === true,
+        collapsed: node.collapsed === true,
+        values: { ...(node.values ?? {}) },
+        width: readSize(node.width),
+        height: readSize(node.height)
+    };
+}
+
+function readEdge(edge: DocumentEdge): DocumentEdge {
+    return {
+        id: String(edge.id),
+        fromNode: String(edge.fromNode),
+        fromPin: String(edge.fromPin),
+        toNode: String(edge.toNode),
+        toPin: String(edge.toPin),
+        points: readPoints(edge.points)
+    };
+}
+
+export function isArrayType(type: string): boolean {
+    return type === ArrayType || type.startsWith(ArrayPrefix);
+}
+
+/** A picture is an address: it goes into a text pin and a text goes into it. */
+function isTextLike(type: string): boolean {
+    return type === TextType || type === ImageType;
+}
+
+/** Whether an edge may run from an output of `from` into an input of `to` — the same rule the server's UINodePinTypes states. */
+export function canConnect(from: string, to: string): boolean {
+    if (from.length === 0 || to.length === 0)
+        return false;
+
+    if (from === to || from === AnyType || to === AnyType)
+        return true;
+
+    if (isTextLike(from) && isTextLike(to))
+        return true;
+
+    return isArrayType(from) && isArrayType(to) && (from === ArrayType || to === ArrayType);
+}
+
+/** A node of the given kind, at the given place, with every editable pin on its default. */
+export function createNode(type: NodeType, x: number, y: number): DocumentNode {
+    const values: Record<string, unknown> = {};
+
+    for (const pin of type.inputs) {
+        if (pin.editor !== "None" && pin.defaultValue !== undefined && pin.defaultValue !== null)
+            values[pin.name] = pin.defaultValue;
+    }
+
+    return { id: newId("n"), type: type.key, x, y, title: null, color: null, pinned: false, values };
+}
+
+/** The input pin an edge already feeds, if any: an input takes one edge, so a new one replaces it. */
+export function edgeInto(document: GraphDocument, nodeId: string, pinName: string): DocumentEdge | undefined {
+    return document.edges.find(edge => edge.toNode === nodeId && edge.toPin === pinName);
+}
+
+/** Every edge feeding one input pin, in the document's own order — which is the order a pin that takes several is fed in. */
+export function edgesInto(document: GraphDocument, nodeId: string, pinName: string): DocumentEdge[] {
+    return document.edges.filter(edge => edge.toNode === nodeId && edge.toPin === pinName);
+}
+
+/** Whether a pin is drawn: one shown beside another appears only while that one holds a named value (or any non-empty value). A hidden pin is still saved and fed — this decides drawing only. */
+export function isPinVisible(pin: Pin, values: Record<string, unknown>): boolean {
+    const beside = pin.visibleWhen ?? "";
+
+    if (beside.length === 0)
+        return true;
+
+    const value = values[beside];
+    const named = pin.visibleValues ?? [];
+
+    if (named.length > 0)
+        return named.some(candidate => candidate === asText(value));
+
+    return value !== null && value !== undefined && value !== false && asText(value).length > 0;
+}
+
+/** A value as the rule above compares it and as an editor shows it: nothing for nothing, the text of anything else. */
+export function asText(value: unknown): string {
+    return value === null || value === undefined ? "" : String(value);
+}
+
+/** The pin one name stands for on a kind. */
+export function findPin(type: NodeType | undefined, name: string, outputs: boolean): Pin | undefined {
+    return (outputs ? type?.outputs : type?.inputs)?.find(pin => pin.name === name);
+}
+
+/** The type an output pin resolves to: its own, or — via `typeOf` — the type feeding the input it follows, chained; a loop resolves to the universal type rather than hanging. */
+export function resolveOutputType(
+    document: GraphDocument,
+    types: ReadonlyMap<string, NodeType>,
+    nodeId: string,
+    pinName: string,
+    seen: Set<string> = new Set()
+): string {
+    const step = `${nodeId}:${pinName}`;
+
+    if (seen.has(step))
+        return AnyType;
+
+    seen.add(step);
+
+    const node = document.nodes.find(candidate => candidate.id === nodeId);
+    const type = node === undefined ? undefined : types.get(node.type);
+    const pin = findPin(type, pinName, true);
+
+    if (pin === undefined)
+        return AnyType;
+
+    if (pin.typeOf === null || pin.typeOf === undefined || pin.typeOf.length === 0)
+        return pin.type;
+
+    const feeding = edgeInto(document, nodeId, pin.typeOf);
+
+    if (feeding === undefined)
+        return findPin(type, pin.typeOf, false)?.type ?? AnyType;
+
+    // An `object` input carries whatever is connected to it, and a universal array its element type: either way the output
+    // takes the type that reached the input it follows.
+    return resolveOutputType(document, types, feeding.fromNode, feeding.fromPin, seen);
+}
+
+/** Everything the given nodes carry with them: the nodes themselves and the edges that run between two of them. */
+export function slice(document: GraphDocument, nodeIds: ReadonlySet<string>): { nodes: DocumentNode[]; edges: DocumentEdge[] } {
+    const nodes = document.nodes.filter(node => nodeIds.has(node.id));
+    const edges = document.edges.filter(edge => nodeIds.has(edge.fromNode) && nodeIds.has(edge.toNode));
+
+    return { nodes: nodes.map(node => ({ ...node, values: { ...node.values } })), edges: edges.map(edge => ({ ...edge, points: [...edge.points] })) };
+}
+
+/** A copy of a slice with fresh ids, moved by the given offset — what a paste drops onto the canvas. */
+export function duplicate(cut: { nodes: DocumentNode[]; edges: DocumentEdge[] }, offsetX: number, offsetY: number): { nodes: DocumentNode[]; edges: DocumentEdge[] } {
+    const renamed = new Map<string, string>();
+    const nodes = cut.nodes.map(node => {
+        const id = newId("n");
+
+        renamed.set(node.id, id);
+
+        return { ...node, id, x: node.x + offsetX, y: node.y + offsetY, values: { ...node.values } };
+    });
+
+    const edges = cut.edges.map(edge => ({
+        ...edge,
+        id: newId("e"),
+        fromNode: renamed.get(edge.fromNode) ?? edge.fromNode,
+        toNode: renamed.get(edge.toNode) ?? edge.toNode,
+        points: edge.points.map(point => ({ x: point.x + offsetX, y: point.y + offsetY }))
+    }));
+
+    return { nodes, edges };
+}

@@ -1,0 +1,384 @@
+// What every canvas shares: viewport, grid, scene and edge layer, groups, band, corner (map, zoom bar), menu button, save state.
+// The scene is one transformed layer, so an item's place is in canvas units and the zoom is the layer's scale.
+
+@import (reference) "../../plugin/ne-standard-ui.less";
+
+.ui-graph {
+    --ui-graph-grid-size: 20;
+    --ui-graph-height: 32rem;
+    --ui-graph-zoom: 1;
+    --ui-graph-pin-color: var(--ui-color-primary);
+    // What a kind stands along the canvas's foot, which the corner stands on: nothing, unless the kind has a strip there.
+    --ui-graph-foot-height: 0rem;
+    // The map and the zoom bar under it are one column of one width.
+    --ui-graph-corner-width: 10rem;
+
+    display: flex;
+    flex-direction: column;
+    gap: @ui-space-1;
+    min-width: 0;
+}
+
+// The canvas's height is its least: a component given a height of its own — a fill in a page's row — grows the viewport to it.
+.ui-graph__viewport {
+    position: relative;
+    flex: 1 0 auto;
+    overflow: hidden;
+    height: var(--ui-graph-height);
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-card);
+    background: var(--ui-color-background);
+    outline: none;
+    touch-action: none;
+    // A drag on the canvas moves nodes and draws bands; only an editor's own text is selectable.
+    user-select: none;
+    cursor: grab;
+}
+
+    .ui-graph__viewport input,
+    .ui-graph__viewport textarea {
+        user-select: text;
+    }
+
+    // While a connection is pulled, the crosshair stays regardless of what's underneath (a node, an editor, a button), since the aim is a pin, not whatever it crosses.
+    .ui-graph--connecting .ui-graph__viewport,
+    .ui-graph--connecting .ui-graph__viewport * {
+        cursor: crosshair;
+    }
+
+    // Opt-in only, and inset rather than the theme's ring: the canvas takes keyboard focus on every press, so an outer ring would flash on every background click.
+    .ui-graph[data-ui-graph-focus-ring] > .ui-graph__viewport:focus-visible {
+        box-shadow: inset 0 0 0 var(--ui-focus-ring-width, 0) var(--ui-color-focus-ring);
+    }
+
+// The grid is painted, not drawn: two repeating gradients whose step follows the zoom, and whose origin follows the pan.
+.ui-graph__grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-position: var(--ui-graph-pan-x, 0) var(--ui-graph-pan-y, 0);
+    background-size: calc(var(--ui-graph-grid-size) * var(--ui-graph-zoom) * 1px) calc(var(--ui-graph-grid-size) * var(--ui-graph-zoom) * 1px);
+    background-image:
+        linear-gradient(to right, var(--ui-color-border) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--ui-color-border) 1px, transparent 1px);
+}
+
+    .ui-graph:not([data-ui-graph-grid]) > .ui-graph__viewport > .ui-graph__grid {
+        display: none;
+    }
+
+// The scene is the viewport's own box, transformed: a zero-sized frame would give the edge layer a degenerate SVG viewport,
+// which paints nothing whatever its overflow says.
+.ui-graph__scene {
+    position: absolute;
+    inset: 0;
+    transform-origin: 0 0;
+}
+
+.ui-graph__edges {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.ui-graph__edge {
+    fill: none;
+    stroke: var(--ui-graph-pin-color);
+    stroke-width: 2;
+    stroke-linecap: round;
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+    .ui-graph__edge[data-ui-graph-selected] {
+        stroke-width: 3;
+        filter: drop-shadow(0 0 3px var(--ui-graph-pin-color));
+    }
+
+    .ui-graph__edge--pending {
+        stroke-dasharray: 6 4;
+        pointer-events: none;
+    }
+
+    // An edge running against the layers is the one a cycle was broken at: dashed, so the part fed back reads as fed back.
+    .ui-graph__edge--back {
+        stroke-dasharray: 7 5;
+    }
+
+.ui-graph__edge-arrow {
+    fill: var(--ui-graph-pin-color);
+    pointer-events: none;
+}
+
+// While the pointer rests on an item, it and its edges/neighbours stay as they are; everything else dims, so the item's
+// surroundings read at a glance.
+.ui-graph--edge-focus .ui-graph__node {
+    opacity: 0.35;
+    transition: opacity @ui-motion-fast @ui-motion-ease;
+}
+
+.ui-graph--edge-focus .ui-graph__edge,
+.ui-graph--edge-focus .ui-graph__edge-arrow,
+.ui-graph--edge-focus .ui-graph__edge-label,
+.ui-graph--edge-focus .ui-graph__reroute {
+    opacity: 0.18;
+    transition: opacity @ui-motion-fast @ui-motion-ease;
+}
+
+.ui-graph--edge-focus [data-ui-graph-related] {
+    opacity: 1;
+}
+
+// What an edge says stands in a chip of its own, as a node does: the line would otherwise run through the words.
+.ui-graph__edge-label {
+    fill: var(--ui-text-muted);
+    font-size: var(--ui-text-caption-font-size);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: all;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ui-graph__edge-label-box {
+    fill: var(--ui-color-surface);
+    stroke: var(--ui-color-border);
+    stroke-width: 1px;
+    pointer-events: all;
+    cursor: pointer;
+}
+
+.ui-graph__reroute {
+    fill: var(--ui-color-background);
+    stroke: var(--ui-graph-pin-color);
+    stroke-width: 2;
+    pointer-events: all;
+    cursor: move;
+}
+
+// --- groups ---------------------------------------------------------------------------------------------------------------
+
+.ui-graph__group {
+    --ui-graph-group-color: var(--ui-color-series-1);
+
+    position: absolute;
+    left: calc(var(--ui-graph-group-x) * 1px);
+    top: calc(var(--ui-graph-group-y) * 1px);
+    width: calc(var(--ui-graph-group-width) * 1px);
+    height: calc(var(--ui-graph-group-height) * 1px);
+    border: var(--ui-border-width) solid var(--ui-graph-group-color);
+    border-radius: var(--ui-radius-card);
+    background: color-mix(in srgb, var(--ui-graph-group-color) 8%, transparent);
+}
+
+    .ui-graph__group[data-ui-graph-selected] {
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
+    }
+
+// Positioned, so the rename field can lie over the title; a pinned frame is not dragged, and its band stops saying it can be.
+.ui-graph__group-band {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: @ui-space-1;
+    padding: @ui-space-1 @ui-space-2;
+    font-size: var(--ui-text-caption-font-size);
+    font-weight: var(--ui-text-title-font-weight);
+    color: var(--ui-graph-group-color);
+    cursor: move;
+    user-select: none;
+}
+
+    .ui-graph__group[data-ui-graph-pinned] > .ui-graph__group-band {
+        cursor: default;
+    }
+
+.ui-graph__group-title {
+    min-width: 0;
+    .ui-text-nowrap();
+}
+
+.ui-graph__group-pinned {
+    flex: 0 0 auto;
+    font-size: @ui-glyph-sm;
+}
+
+// The framework's rename field over a node's or a group's title, in the title's own type.
+.ui-graph__rename {
+    .ui-inline-rename-field();
+    z-index: 1;
+    color: inherit;
+}
+
+// A colour choice in a node's or a group's menu leads with the colour it paints; the one taking the colour away is a ring.
+.ui-graph .ui-menu-item[data-ui-graph-swatch]::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-right: @ui-space-2;
+    border: var(--ui-border-width) solid color-mix(in srgb, var(--ui-color-on-surface) 30%, transparent);
+    border-radius: 50%;
+    background: var(--ui-graph-swatch, transparent);
+}
+
+
+// --- the band, the picker, the bar ----------------------------------------------------------------------------------------
+
+.ui-graph__marquee {
+    position: absolute;
+    left: calc(var(--ui-graph-marquee-x) * 1px);
+    top: calc(var(--ui-graph-marquee-y) * 1px);
+    width: calc(var(--ui-graph-marquee-width) * 1px);
+    height: calc(var(--ui-graph-marquee-height) * 1px);
+    border: var(--ui-border-width) dashed var(--ui-color-primary);
+    background: color-mix(in srgb, var(--ui-color-primary) 10%, transparent);
+    pointer-events: none;
+}
+
+
+// The trailing bottom corner: map over zoom bar, one column, standing on whatever the kind keeps along the canvas's foot.
+.ui-graph__corner {
+    position: absolute;
+    right: @ui-space-2;
+    bottom: calc(var(--ui-graph-foot-height) + @ui-space-2);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: @ui-space-1;
+    transition: bottom @ui-motion-fast @ui-motion-ease;
+}
+
+
+// The whole sheet over the zoom bar, with the part of it now on screen marked: a press anywhere on it takes the view there. Off
+// unless the author asked for it — a map of four nodes is a box in the way.
+.ui-graph__minimap {
+    position: relative;
+    width: var(--ui-graph-corner-width);
+    height: 6.5rem;
+    padding: @ui-space-1;
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-button);
+    background: color-mix(in srgb, var(--ui-color-surface) 82%, transparent);
+    overflow: hidden;
+    cursor: pointer;
+}
+
+    .ui-graph:not([data-ui-graph-minimap]) .ui-graph__minimap {
+        display: none;
+    }
+
+.ui-graph__minimap-nodes {
+    position: absolute;
+    inset: 0;
+}
+
+.ui-graph__minimap-node {
+    position: absolute;
+    border-radius: 1px;
+    background: var(--ui-color-primary);
+    opacity: 0.7;
+}
+
+.ui-graph__minimap-view {
+    position: absolute;
+    border: var(--ui-border-width) solid var(--ui-color-primary);
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--ui-color-primary) 14%, transparent);
+    pointer-events: none;
+}
+
+// The canvas's menu, since commands otherwise live under a hidden right-click with no visible cue: the core's folding menu in
+// the leading corner. Folded, it's a switch; open, it slides out and scrolls if the canvas is shorter than the list.
+.ui-graph__menu-panel {
+    position: absolute;
+    top: @ui-space-2;
+    left: @ui-space-2;
+    z-index: 3;
+    display: flex;
+    max-height: calc(100% - 2 * @ui-space-2);
+}
+
+    .ui-graph:not([data-ui-graph-menu-button]) .ui-graph__menu-panel {
+        display: none;
+    }
+
+    .ui-graph__menu-panel > .ui-menu {
+        padding: @ui-space-1;
+        border: var(--ui-border-width) solid var(--ui-color-border);
+        border-radius: var(--ui-radius-card);
+        background: var(--ui-color-surface);
+        overflow: hidden;
+        .ui-elevation-1();
+    }
+
+    // Open, the switch stands at the head of the list it folds, where the burger was before it slid out.
+    .ui-graph__menu-panel > .ui-menu > .ui-collapsible__toggle {
+        align-self: flex-start;
+    }
+
+    .ui-graph__menu-panel > .ui-menu:not([data-ui-folding]) > .ui-menu__host {
+        overflow-y: auto;
+    }
+
+    // Folded, the menu is its switch alone: no rail of icons over the sheet, since a command with no icon would leave a blank square.
+    .ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding]) > .ui-menu__host {
+        display: none;
+    }
+
+.ui-graph__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: @ui-space-1;
+    width: var(--ui-graph-corner-width);
+    padding: @ui-space-1;
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-button);
+    background: var(--ui-color-surface);
+}
+
+.ui-graph__zoom {
+    min-width: 3rem;
+    color: var(--ui-text-muted);
+    font-size: var(--ui-text-caption-font-size);
+    text-align: center;
+    user-select: none;
+}
+
+// Both words stand in the markup and the canvas's state picks one: unsaved until the save answers, nothing once the server has it.
+.ui-graph__state {
+    display: none;
+    color: var(--ui-text-muted);
+    font-size: var(--ui-text-caption-font-size);
+    user-select: none;
+}
+
+    .ui-graph--dirty .ui-graph__state,
+    .ui-graph--saving .ui-graph__state {
+        display: inline-flex;
+        flex: 0 0 auto;
+        align-items: center;
+        padding-inline: @ui-space-2;
+    }
+
+    .ui-graph__state-unsaved,
+    .ui-graph__state-saving {
+        display: none;
+    }
+
+    .ui-graph--dirty:not(.ui-graph--saving) .ui-graph__state-unsaved,
+    .ui-graph--saving .ui-graph__state-saving {
+        display: inline;
+    }
+
+// The bar's three are the framework's own small ghost buttons.
+.ui-graph__bar-button > .ui-icon {
+    font-size: @ui-glyph-md;
+}

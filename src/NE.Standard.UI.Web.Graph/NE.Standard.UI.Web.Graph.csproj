@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>NE.Standard.UI.Web.Graph</PackageId>
+    <Description>The web rendering of NE.Standard.UI.Graph: the renderer, and the canvas engine — pan, zoom, groups, typed pins, the node picker and the document's undo history — the package embeds as its own script and stylesheet. Register it with services.AddGraph().</Description>
+    <PackageTags>NE.Standard,UI,Web,Graph,Nodes,Canvas</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NE.Standard.UI.Graph\NE.Standard.UI.Graph.csproj" />
+  </ItemGroup>
+
+  <!-- The framework is a sibling in the monorepo and a package in this slice's mirror. Either way the
+       produced nupkg depends on the framework's renderer foundation at $(CoreVersion): the input header,
+       the validation message and the field chrome are theirs, not copied. -->
+  <ItemGroup Condition="'$(InMonorepo)' == 'true'">
+    <ProjectReference Include="..\..\..\..\src\Platforms\Web\NE.Standard.UI.Web.Renderers.Foundation\NE.Standard.UI.Web.Renderers.Foundation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(InMonorepo)' != 'true'">
+    <PackageReference Include="NE.Standard.UI.Web.Renderers.Foundation" Version="$(CoreVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Client\dist\**" />
+    <Content Remove="Client\dist\**" />
+    <None Remove="Client\node_modules\**" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <GraphClientJs>$(MSBuildProjectDirectory)\Client\dist\ui-graph.js</GraphClientJs>
+    <GraphClientCss>$(MSBuildProjectDirectory)\Client\dist\ui-graph.css</GraphClientCss>
+  </PropertyGroup>
+
+  <!-- The client builds as part of dotnet build, as the framework's own does: a type error or a failing test fails the build. -->
+  <Target Name="BuildGraphClientAssets" BeforeTargets="PrepareResources" Condition="'$(SkipWebClientBuild)' != 'true'">
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
+      Command="npm install"
+      Condition="!Exists('$(MSBuildProjectDirectory)\Client\node_modules')" />
+
+    <!-- Tests run here rather than from `npm run build`, as the framework's client does: a mirror builds, it
+         does not test. -->
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
+      Command="npm test"
+      Condition="'$(InMonorepo)' == 'true'" />
+
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
+      Command="npm run build" />
+
+    <Error Condition="!Exists('$(GraphClientJs)')" Text="Graph client script was not generated: $(GraphClientJs)" />
+    <Error Condition="!Exists('$(GraphClientCss)')" Text="Graph client stylesheet was not generated: $(GraphClientCss)" />
+  </Target>
+
+  <ItemGroup>
+    <EmbeddedResource Include="$(GraphClientJs)" LogicalName="NE.Standard.UI.Web.Graph.Client.dist.ui-graph.js" />
+    <EmbeddedResource Include="$(GraphClientCss)" LogicalName="NE.Standard.UI.Web.Graph.Client.dist.ui-graph.css" />
+  </ItemGroup>
+
+</Project>

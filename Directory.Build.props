@@ -1,0 +1,43 @@
+<Project>
+
+  <!-- Every project in the repository, packable or not. Style and analyzers fail the build here rather than
+       only under `dotnet format`, and each .csproj is left holding what is actually specific to it. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Only a slice's src/ is a package; each slice's Directory.Build.props turns this back on. -->
+    <IsPackable>false</IsPackable>
+    <!-- A repository-wide `dotnet pack` is how a release is built, and the web SDK turns this on for itself:
+         without it the run warns about every project that is deliberately not a package. -->
+    <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
+  </PropertyGroup>
+
+  <!-- One number per released slice, and this file travels to every mirror. A slice's own
+       Directory.Build.props reads its number into <Version>, and every demo pins the packages it consumes
+       to the same numbers - so a mirrored demo restores exactly the release it shipped with.
+       Bump a slice's number in the commit that releases it: Release refuses a tag that disagrees, and a
+       number bumped early would have a demo pointing at a version nobody published yet. -->
+  <PropertyGroup>
+    <CoreVersion>1.0.0-rc.3</CoreVersion>
+    <IconsVersion>1.0.0-rc.3</IconsVersion>
+    <CodeInputVersion>1.0.0-rc.3</CodeInputVersion>
+    <DataGridVersion>1.0.0-rc.3</DataGridVersion>
+    <GraphVersion>1.0.0-rc.3</GraphVersion>
+    <ChartsVersion>1.0.0-rc.3</ChartsVersion>
+  </PropertyGroup>
+
+  <!-- Only the private monorepo has eng/. A mirror does not, so a demo there builds against the published
+       packages - which is also what someone who clones the mirror gets. -->
+  <PropertyGroup>
+    <InMonorepo Condition="Exists('$(MSBuildThisFileDirectory)eng')">true</InMonorepo>
+  </PropertyGroup>
+
+</Project>

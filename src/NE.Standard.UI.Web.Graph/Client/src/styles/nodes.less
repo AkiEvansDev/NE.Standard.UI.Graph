@@ -1,0 +1,996 @@
+// The node canvas over the canvas's own parts: node head/body/resize corner, pins and rows with framework editors, a display
+// pin, the picker, run line and log. Marks (chevron, cross, pin) are framework `ne-` glyphs in `.ui-icon` boxes; rules here only size them.
+
+@import (reference) "../../plugin/ne-standard-ui.less";
+
+.ui-graph[data-ui-graph-kind="nodes"] {
+    --ui-graph-node-min-width: 13.5rem;
+    --ui-graph-run-height: 1.375rem;
+    --ui-graph-log-strip-height: 1.5rem;
+    --ui-graph-log-height: 10rem;
+    --ui-graph-foot-height: var(--ui-graph-log-strip-height);
+}
+
+// --- nodes ----------------------------------------------------------------------------------------------------------------
+
+.ui-graph__nodes {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.ui-graph__node {
+    --ui-graph-node-color: var(--ui-color-primary);
+
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    left: calc(var(--ui-graph-node-x) * 1px);
+    top: calc(var(--ui-graph-node-y) * 1px);
+    // A dragged size is a floor, never a cage: the kind's least width and the contents' own height still have the last word.
+    width: max(var(--ui-graph-node-min-width), calc(var(--ui-graph-node-w, 0) * 1px));
+    min-height: calc(var(--ui-graph-node-h, 0) * 1px);
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-card);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-on-surface);
+    font-size: var(--ui-text-caption-font-size);
+    .ui-elevation-1();
+}
+
+    // The theme's own brand colour, not its focus ring: a chosen node is not a focused one, and the ring belongs to the keyboard.
+    .ui-graph__node[data-ui-graph-selected] {
+        border-color: var(--ui-color-primary);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
+    }
+
+    .ui-graph__node[data-ui-graph-state="running"] {
+        border-color: var(--ui-color-info);
+    }
+
+    .ui-graph__node[data-ui-graph-state="error"] {
+        border-color: var(--ui-color-danger);
+    }
+
+    // Never reached, because something feeding it failed: drawn as stepped-over rather than at fault itself — the fault's own node is the red one.
+    .ui-graph__node[data-ui-graph-state="skipped"] {
+        border-style: dashed;
+        opacity: 0.55;
+    }
+
+.ui-graph__node-head {
+    // The folded node's pins hang on this box's own edges.
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem @ui-space-2;
+    border-bottom: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: calc(var(--ui-radius-card) - 1px) calc(var(--ui-radius-card) - 1px) 0 0;
+    background: color-mix(in srgb, var(--ui-graph-node-color) 16%, var(--ui-color-surface));
+    font-weight: var(--ui-text-title-font-weight);
+    cursor: move;
+    user-select: none;
+}
+
+// The two head marks — the fold chevron at the leading edge (where a disclosure always is) and the pin at the end — share
+// one shape and colour, told apart by how faint each is until hovered.
+.ui-graph-head-mark() {
+    .ui-glyph-host();
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    border: none;
+    border-radius: var(--ui-radius-button);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: opacity @ui-motion-fast @ui-motion-ease;
+}
+
+.ui-graph__node-fold {
+    .ui-graph-head-mark();
+    margin-inline-start: -0.125rem;
+    opacity: 0.55;
+}
+
+    .ui-graph__node-fold > .ui-icon {
+        font-size: @ui-glyph-sm;
+    }
+
+    .ui-graph__node-fold:hover {
+        opacity: 1;
+    }
+
+// Folded, the node is only as wide as its head's words (min-width belongs to the open body), never narrower than reads as a
+// node; the grid step, where it applies, is the floor the engine writes.
+.ui-graph__node[data-ui-graph-collapsed] {
+    width: max-content;
+    min-width: max(7.5rem, calc(var(--ui-graph-node-w, 0) * 1px));
+}
+
+// Folded, the node is its head alone: no divider, corners the body used to round. Takes the node's whole height, since the
+// grid rounds past the head's own and left a strip of the body's ground showing.
+.ui-graph__node[data-ui-graph-collapsed] > .ui-graph__node-head {
+    flex: 1 0 auto;
+    border-bottom: none;
+    border-radius: calc(var(--ui-radius-card) - 1px);
+}
+
+// Every pin of a folded node on the head's two edges, stacked: the edges that reach them converge on one point a side, which is
+// what folding a node means.
+.ui-graph__node-ports {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+    .ui-graph__node-ports > .ui-graph__pin {
+        top: calc(50% - 0.3125rem);
+        pointer-events: auto;
+    }
+
+.ui-graph__node-icon {
+    font-size: @ui-glyph-md;
+}
+
+.ui-graph__node-title {
+    .ui-text-nowrap();
+    flex: 1 1 auto;
+}
+
+// The pin at the head's end: the outlined mark offers to pin, the filled one says the node is pinned and offers to let it go.
+.ui-graph__node-pinned {
+    .ui-graph-head-mark();
+    border-radius: 50%;
+    opacity: 0.35;
+}
+
+    .ui-graph__node-pinned > .ui-icon {
+        font-size: @ui-glyph-sm;
+    }
+
+    .ui-graph__node-pinned:hover {
+        opacity: 0.8;
+    }
+
+    .ui-graph__node[data-ui-graph-pinned] .ui-graph__node-pinned {
+        opacity: 1;
+    }
+
+// Edge to edge under the head, square and roomless: a running node is a line across it, not a control set into it. Only a
+// kind that asked for one carries it, gone once the node stops running.
+.ui-graph__node-progress {
+    --ui-graph-progress: 0;
+
+    height: 3px;
+    background: color-mix(in srgb, var(--ui-color-on-surface) 12%, transparent);
+}
+
+    .ui-graph__node-progress > i {
+        display: block;
+        width: calc(var(--ui-graph-progress) * 100%);
+        height: 100%;
+        background: var(--ui-color-primary);
+        transition: width @ui-motion-fast @ui-motion-ease;
+    }
+
+.ui-graph__node-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: @ui-space-1;
+    min-height: 0;
+    padding: 0.375rem 0;
+}
+
+// The rows that take a dragged node's extra height: a large picture or a display, sharing what there is; every other row keeps
+// its own height, and spare room gathers below with none of these.
+.ui-graph__node-body > .ui-graph__row--grow {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+// The resize corner's hit area hangs past the node's edge, since the eye reads the corner as outside the border and rounding; the drawn mark is half the reach, sitting inside.
+.ui-graph__node-resize {
+    position: absolute;
+    right: -0.25rem;
+    bottom: -0.25rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    cursor: nwse-resize;
+}
+
+    // Two short rules in the corner, the way every resizable box says it is one.
+    .ui-graph__node-resize::after {
+        content: "";
+        position: absolute;
+        right: 0.3125rem;
+        bottom: 0.3125rem;
+        width: 0.4375rem;
+        height: 0.4375rem;
+        background:
+            linear-gradient(135deg, transparent 35%, var(--ui-color-border) 35%, var(--ui-color-border) 55%, transparent 55%),
+            linear-gradient(135deg, transparent 70%, var(--ui-color-border) 70%, var(--ui-color-border) 90%, transparent 90%);
+    }
+
+    .ui-graph__node-resize:hover::after {
+        background:
+            linear-gradient(135deg, transparent 35%, var(--ui-color-primary) 35%, var(--ui-color-primary) 55%, transparent 55%),
+            linear-gradient(135deg, transparent 70%, var(--ui-color-primary) 70%, var(--ui-color-primary) 90%, transparent 90%);
+    }
+
+.ui-graph__node-unknown {
+    padding: @ui-space-2;
+    color: var(--ui-color-danger);
+    text-align: center;
+}
+
+// --- pins and rows --------------------------------------------------------------------------------------------------------
+
+// One value per line. A row is the node's whole width, so a pin sits at the node's own edge whatever stands in the row.
+.ui-graph__row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0 @ui-space-2;
+    min-height: 1.375rem;
+}
+
+    // A picture, list or multi-line text is too tall to share a line with its caption, so the caption stands above and the
+    // editor takes the row's given height. A column, not a wrapped row — a wrap would split height between caption and editor.
+    .ui-graph__row--tall {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .ui-graph__row--tall > .ui-graph__editor {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
+
+    .ui-graph__row--connected > .ui-graph__editor {
+        opacity: var(--ui-disabled-opacity);
+    }
+
+.ui-graph__row-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--ui-text-muted);
+    .ui-text-nowrap();
+}
+
+    .ui-graph__row-label--out {
+        text-align: right;
+    }
+
+    .ui-graph__row--tall > .ui-graph__row-label {
+        flex: 0 0 auto;
+    }
+
+
+// The dot an optional pin wears: near black, taking a trace of the pin's own colour so it sits in the dot rather than on it.
+@ui-graph-pin-dot: color-mix(in srgb, #000 82%, var(--ui-graph-pin-color));
+
+.ui-graph__pin {
+    position: absolute;
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2px solid var(--ui-graph-pin-color);
+    border-radius: 50%;
+    background: var(--ui-color-surface);
+    cursor: crosshair;
+    transition: transform @ui-motion-fast @ui-motion-ease, opacity @ui-motion-fast @ui-motion-ease;
+}
+
+    .ui-graph__pin[data-ui-graph-pin-dir="in"] {
+        left: -0.375rem;
+    }
+
+    .ui-graph__pin[data-ui-graph-pin-dir="out"] {
+        right: -0.375rem;
+    }
+
+    // A two-line row centres its children; the absolutely-positioned pin uses that centre, so it sits on the caption's line, not the picture's middle.
+    .ui-graph__row--tall > .ui-graph__pin {
+        top: calc(0.5lh - 0.3125rem);
+    }
+
+    // A list's caption shares its line with the add button, so the line is a small control's height and the pin centres on that.
+    .ui-graph__row--tall:has(> .ui-graph__row-head) > .ui-graph__pin {
+        top: calc(@ui-control-height-sm / 2 - 0.3125rem);
+    }
+
+    // The target is three times the dot: aiming at a pin is the commonest thing done on the canvas and the dot is 10px across.
+    .ui-graph__pin::after {
+        content: "";
+        position: absolute;
+        inset: -@ui-space-2;
+        border-radius: 50%;
+    }
+
+    // The centre says the pin is live: a disc grows inside the ring under the pointer to say an edge would land here.
+    .ui-graph__pin::before {
+        content: "";
+        position: absolute;
+        inset: 1px;
+        border-radius: 50%;
+        background: var(--ui-graph-pin-color);
+        transform: scale(0);
+        transition: transform @ui-motion-fast @ui-motion-ease;
+    }
+
+    .ui-graph__pin--filled::before,
+    .ui-graph__pin:hover::before {
+        transform: scale(1);
+    }
+
+    // Wired, the pin is one solid disc (grown over the ring and gap) so a carried edge reads at a glance; a ring with a disc inside is only the hover/aim preview.
+    .ui-graph__pin--filled::before {
+        inset: -2px;
+        border-radius: inherit;
+    }
+
+    // An optional pin (and every output) wears a centre dot: the pin's colour on the empty ring, dark on the fill, so optional
+    // reads wired or not — painted as a gradient so it scales with the fill's animation.
+    .ui-graph__pin[data-ui-graph-pin-optional] {
+        background: radial-gradient(circle, var(--ui-graph-pin-color) 0 1.25px, transparent 1.75px), var(--ui-color-surface);
+    }
+
+        .ui-graph__pin[data-ui-graph-pin-optional]::before {
+            background: radial-gradient(circle, @ui-graph-pin-dot 0 1.25px, transparent 1.75px), var(--ui-graph-pin-color);
+        }
+
+        // Wired, a pin is solid whatever it is: the dot says what may be left empty, and a wired pin is not empty.
+        .ui-graph__pin--filled[data-ui-graph-pin-optional]::before {
+            background: var(--ui-graph-pin-color);
+        }
+
+    // A pin that takes several connections is a square, not a dot: the shape says it before anything is tried on it.
+    .ui-graph__pin[data-ui-graph-pin-many] {
+        border-radius: 0.1875rem;
+    }
+
+    .ui-graph__pin[data-ui-graph-pin-many]::before {
+        border-radius: 0.0625rem;
+    }
+
+    .ui-graph__pin:hover {
+        transform: scale(1.2);
+    }
+
+// While a connection is pulled: unreachable pins step back, reachable ones get a colour halo, and the one it would land on grows and fills.
+.ui-graph--connecting .ui-graph__pin[data-ui-graph-drop="no"] {
+    opacity: var(--ui-disabled-opacity);
+}
+
+// A row dims with its pin, so a bright caption/editor over a dimmed dot reads as still in play; an output's trailing caption was never in play, so it stays as-is.
+.ui-graph--connecting .ui-graph__row[data-ui-graph-drop="no"] > :is(.ui-graph__editor, .ui-graph__row-label:not(.ui-graph__row-label--out)) {
+    opacity: var(--ui-disabled-opacity);
+}
+
+.ui-graph--connecting .ui-graph__pin[data-ui-graph-drop="yes"] {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-graph-pin-color) 25%, transparent);
+}
+
+.ui-graph--connecting .ui-graph__pin--aimed {
+    transform: scale(1.4);
+}
+
+    // Aimed at, the pin previews the landed state (a solid disc, dot gone) inside the reachable halo, so the eye sees the connection before the button is released.
+    .ui-graph--connecting .ui-graph__pin--aimed::before {
+        inset: -2px;
+        border-radius: inherit;
+        background: var(--ui-graph-pin-color);
+        transform: scale(1);
+    }
+
+// A node's editor is a box around the framework's component, which takes the box's width and draws itself small with its caption inside, per the server's template.
+.ui-graph__editor {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+    .ui-graph__editor > * {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    // A yes-or-no takes no width but its box's.
+    .ui-graph__editor--check {
+        flex: none;
+    }
+
+// A picture pin drawn large is the framework's own picture field; in a node its surface takes the row's height rather than a form's.
+.ui-graph__editor--picture {
+    min-height: 0;
+}
+
+    .ui-graph__editor--picture > .ui-image-input {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        align-self: stretch;
+        height: auto;
+        min-height: 0;
+    }
+
+    .ui-graph__editor--picture .ui-image-input__surface {
+        flex: 1 1 var(--ui-graph-editor-height, 6rem);
+        min-height: 3rem;
+    }
+
+// While a file is on its way, and after one failed to arrive: the editor says so over the picture it does not yet have.
+.ui-graph__editor[data-ui-graph-uploading] {
+    position: relative;
+}
+
+    .ui-graph__editor[data-ui-graph-uploading]::after {
+        content: attr(data-ui-graph-uploading);
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--ui-radius-input);
+        background: color-mix(in srgb, var(--ui-color-surface) 80%, transparent);
+        color: var(--ui-text-muted);
+    }
+
+// --- a pin that shows rather than takes ------------------------------------------------------------------------------------
+
+.ui-graph__editor--display {
+    display: flex;
+    flex: 1 1 100%;
+    flex-direction: column;
+    gap: @ui-space-1;
+    min-height: var(--ui-graph-editor-height, 3rem);
+    padding: @ui-space-1 0.375rem;
+    border: var(--ui-border-width) dashed var(--ui-color-border);
+    border-radius: var(--ui-radius-input);
+    background: var(--ui-color-background);
+    overflow: auto;
+}
+
+.ui-graph__display-empty {
+    margin: auto;
+    color: var(--ui-text-muted);
+}
+
+.ui-graph__display-number {
+    font-size: var(--ui-text-subtitle-font-size);
+    font-weight: var(--ui-text-title-font-weight);
+    text-align: center;
+}
+
+.ui-graph__display-text {
+    overflow-wrap: anywhere;
+}
+
+.ui-graph__display-image {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 2rem;
+    object-fit: contain;
+}
+
+    // A lone picture fits the panel at whatever height the node gives it (as a picture pin's surface does): laid over the panel rather than measured by it, so it never sizes the node.
+    .ui-graph__editor--display:has(> .ui-graph__display-image:only-child:not(.ui-graph__display-image--sized)) {
+        position: relative;
+        min-height: var(--ui-graph-editor-height, 6rem);
+        overflow: hidden;
+    }
+
+    .ui-graph__editor--display > .ui-graph__display-image:only-child:not(.ui-graph__display-image--sized) {
+        position: absolute;
+        inset: @ui-space-1 0.375rem;
+        width: calc(100% - 0.75rem);
+        height: calc(100% - 2 * @ui-space-1);
+        min-height: 0;
+    }
+
+    // A picture drawn at the size the value asked for: the panel may still be smaller, and then the panel scrolls.
+    .ui-graph__display-image--sized {
+        flex: none;
+        max-width: none;
+        object-fit: fill;
+    }
+
+.ui-graph__display-list,
+.ui-graph__display-record {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-height: 0;
+}
+
+.ui-graph__display-field {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: @ui-space-2;
+}
+
+.ui-graph__display-key {
+    color: var(--ui-text-muted);
+}
+
+.ui-graph__display-value {
+    .ui-text-nowrap();
+}
+
+.ui-graph__display-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+    .ui-graph__display-table th,
+    .ui-graph__display-table td {
+        padding: 0.0625rem @ui-space-1;
+        border-bottom: var(--ui-border-width) solid var(--ui-color-border);
+        text-align: start;
+    }
+
+    .ui-graph__display-table th {
+        color: var(--ui-text-muted);
+        font-weight: var(--ui-text-title-font-weight);
+    }
+
+.ui-graph__editor--list {
+    display: flex;
+    flex: 1 0 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: @ui-space-1;
+    max-height: var(--ui-graph-editor-height, 9rem);
+    overflow: auto;
+}
+
+.ui-graph__list-rows {
+    display: flex;
+    flex-direction: column;
+    gap: @ui-space-1;
+}
+
+.ui-graph__list-row {
+    display: flex;
+    align-items: center;
+    gap: @ui-space-1;
+}
+
+    .ui-graph__list-row > :first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .ui-graph__editor--list > .ui-graph__list-rows {
+        align-self: stretch;
+    }
+
+// A list's add/remove buttons match the small field's height beside them, so those lines keep the spacing every other line of the node has.
+.ui-graph__row-head > .ui-button,
+.ui-graph__list-row > .ui-button {
+    --ui-min-height: @ui-control-height-sm;
+    --ui-padding: 0;
+}
+
+// A list's caption with its add button at the line's end.
+.ui-graph__row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: @ui-space-1;
+    min-width: 0;
+}
+
+
+// The catalogue as a modal dialog: the search above, the categories beside, the kinds and what each says about itself in the list.
+dialog.ui-graph__picker {
+    display: none;
+    width: min(36rem, calc(100vw - 2rem));
+    max-width: none;
+    height: min(26rem, calc(100vh - 4rem));
+    max-height: none;
+    padding: 0;
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-card);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-on-surface);
+    overflow: hidden;
+    .ui-elevation-3();
+}
+
+    dialog.ui-graph__picker[open] {
+        display: flex;
+        flex-direction: column;
+    }
+
+    // The same veil the framework's dialogs draw over the page.
+    dialog.ui-graph__picker::backdrop {
+        background: var(--ui-color-overlay, rgba(0, 0, 0, 0.45));
+    }
+
+.ui-graph__picker-head {
+    display: flex;
+    align-items: center;
+    gap: @ui-space-3;
+    padding: @ui-space-3 @ui-space-4;
+    border-bottom: var(--ui-border-width) solid var(--ui-color-border);
+}
+
+.ui-graph__picker-title {
+    flex: 0 0 auto;
+    font-size: var(--ui-text-subtitle-font-size);
+    font-weight: var(--ui-text-title-font-weight);
+}
+
+.ui-graph__picker-search {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.ui-graph__picker-main {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+// The categories the attributes declare, as a rail of their own: the list beside it never scrolls them out of reach.
+.ui-graph__picker-rail {
+    display: flex;
+    flex: 0 0 10rem;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: @ui-space-2;
+    border-right: var(--ui-border-width) solid var(--ui-color-border);
+    overflow: auto;
+}
+
+.ui-graph__picker-category {
+    padding: 0.375rem 0.625rem;
+    border: none;
+    // A button's corners, as the framework's own menu entries have: a list of square slabs in a rounded dialog reads as a table.
+    border-radius: var(--ui-radius-button);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+    .ui-graph__picker-category:hover {
+        background: var(--ui-wash-hover);
+    }
+
+    .ui-graph__picker-category[aria-selected="true"] {
+        .ui-selected-ground();
+        font-weight: var(--ui-text-title-font-weight);
+    }
+
+.ui-graph__picker-list {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: @ui-space-2;
+    overflow: auto;
+}
+
+// The kind's own icon beside what it says about itself, when the kind names one; without one the text takes the whole entry.
+.ui-graph__picker-entry {
+    display: flex;
+    align-items: center;
+    gap: @ui-space-3;
+    padding: @ui-space-2 0.625rem;
+    border: none;
+    border-radius: var(--ui-radius-button);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+    .ui-graph__picker-entry:hover {
+        background: var(--ui-wash-hover);
+    }
+
+    .ui-graph__picker-entry--current {
+        .ui-selected-ground();
+    }
+
+.ui-graph__picker-entry-icon {
+    .ui-glyph-host();
+    width: @ui-glyph-lg;
+    height: @ui-glyph-lg;
+    font-size: @ui-glyph-lg;
+    color: var(--ui-text-muted);
+}
+
+.ui-graph__picker-entry-text {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+.ui-graph__picker-entry-title {
+    font-weight: var(--ui-text-title-font-weight);
+}
+
+.ui-graph__picker-entry-line {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-text-caption-font-size);
+    .ui-text-nowrap();
+}
+
+.ui-graph__picker-empty {
+    padding: @ui-space-4;
+    color: var(--ui-text-muted);
+    text-align: center;
+}
+
+
+// --- the run line and the log ---------------------------------------------------------------------------------------------
+
+// The corner stands on the log's strip, and is raised by the whole log while it is open, so the two are never under it.
+.ui-graph[data-ui-graph-log-open] .ui-graph__corner {
+    bottom: calc(var(--ui-graph-log-height) + @ui-space-2);
+}
+
+// The corner menu stands under the run line.
+.ui-graph[data-ui-graph-run-progress] .ui-graph__menu-panel {
+    top: calc(var(--ui-graph-run-height) + @ui-space-2);
+}
+
+// Along the canvas's top: upper half the whole run, lower half the running node's own steps, with its name and share written
+// over them. Square and edge to edge; keeps the last run's end, coloured danger on failure.
+.ui-graph__run {
+    --ui-graph-run: 0;
+    --ui-graph-run-step: 0;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: @ui-space-2;
+    height: var(--ui-graph-run-height);
+    padding: 0 @ui-space-2;
+    border-bottom: var(--ui-border-width) solid var(--ui-color-border);
+    background: color-mix(in srgb, var(--ui-color-surface) 88%, transparent);
+    font-size: var(--ui-text-caption-font-size);
+    overflow: hidden;
+    pointer-events: none;
+}
+
+    .ui-graph:not([data-ui-graph-run-progress]) .ui-graph__run {
+        display: none;
+    }
+
+// In the success colour, the one a finished thing wears, so the line never reads as a selection or a control in the brand colour.
+.ui-graph__run-track {
+    position: absolute;
+    left: 0;
+    height: 50%;
+    background: color-mix(in srgb, var(--ui-color-success) 34%, transparent);
+    transition: width @ui-motion-fast @ui-motion-ease;
+}
+
+    .ui-graph__run-track--run {
+        top: 0;
+        width: calc(var(--ui-graph-run) * 100%);
+    }
+
+    // The steps of one node in a paler wash under the run, so the two halves never read as one bar at two lengths.
+    .ui-graph__run-track--step {
+        bottom: 0;
+        width: calc(var(--ui-graph-run-step) * 100%);
+        background: color-mix(in srgb, var(--ui-color-success) 18%, transparent);
+    }
+
+    .ui-graph__run[data-ui-graph-run-state="failed"] > .ui-graph__run-track--run {
+        background: color-mix(in srgb, var(--ui-color-danger) 34%, transparent);
+    }
+
+    .ui-graph__run[data-ui-graph-run-state="failed"] > .ui-graph__run-track--step {
+        background: color-mix(in srgb, var(--ui-color-danger) 18%, transparent);
+    }
+
+.ui-graph__run-label,
+.ui-graph__run-share {
+    position: relative;
+    color: var(--ui-color-on-surface);
+}
+
+.ui-graph__run-label {
+    min-width: 0;
+    .ui-text-nowrap();
+}
+
+.ui-graph__run-share {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+}
+
+// The log at the canvas's foot: folded, a strip with a count (like a code field's status bar); open, lines above the strip
+// at the log's height. The count's colour is the worst line's, so a failure reads even folded.
+.ui-graph__log {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    border-top: var(--ui-border-width) solid var(--ui-color-border);
+    background: var(--ui-color-surface);
+}
+
+    .ui-graph[data-ui-graph-log-open] .ui-graph__log {
+        height: var(--ui-graph-log-height);
+    }
+
+.ui-graph__log-head {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+    height: var(--ui-graph-log-strip-height);
+    // Reserved from the start, in transparent — drawn only on open, it would shift the strip's own line by a pixel each time.
+    border-top: var(--ui-border-width) solid transparent;
+    color: var(--ui-text-muted);
+    font-size: var(--ui-text-caption-font-size);
+    line-height: 1;
+}
+
+    .ui-graph[data-ui-graph-log-open] .ui-graph__log-head {
+        border-top-color: var(--ui-color-border);
+    }
+
+// The whole strip opens the log: square, the strip's height, with the faintest hover response (just the word brightens, no wash), since the log sits under the sheet and isn't what a reader looks at.
+.ui-graph__log-toggle,
+.ui-graph__log-clear {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: color @ui-motion-fast @ui-motion-ease;
+}
+
+    .ui-graph__log-toggle:hover,
+    .ui-graph__log-toggle:focus-visible,
+    .ui-graph__log-clear:hover,
+    .ui-graph__log-clear:focus-visible {
+        outline: none;
+        color: var(--ui-color-on-surface);
+    }
+
+.ui-graph__log-toggle {
+    flex: 1 1 auto;
+    gap: 0.375rem;
+    min-width: 0;
+    padding: 0 @ui-space-2;
+    text-align: start;
+}
+
+.ui-graph__log-chevron {
+    .ui-glyph-host();
+    font-size: @ui-glyph-sm;
+    transition: transform @ui-motion-fast @ui-motion-ease;
+}
+
+    .ui-graph[data-ui-graph-log-open] .ui-graph__log-chevron {
+        transform: rotate(180deg);
+    }
+
+// The count is the framework's badge (the renderer says why); only its figures are the log's.
+.ui-graph__log-count {
+    font-variant-numeric: tabular-nums;
+}
+
+    .ui-graph__log-count[hidden] {
+        display: none;
+    }
+
+// The clear control belongs to the open panel: folded, the strip is only what opens it.
+.ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-clear,
+.ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-entries {
+    display: none;
+}
+
+.ui-graph__log-clear {
+    flex: 0 0 auto;
+    justify-content: center;
+    width: var(--ui-graph-log-strip-height);
+    padding: 0;
+
+    > .ui-icon {
+        font-size: @ui-glyph-sm;
+    }
+}
+
+.ui-graph__log-entries {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin: 0;
+    padding: @ui-space-1 0;
+    overflow: auto;
+    list-style: none;
+    font-size: var(--ui-text-caption-font-size);
+    // A line's words may be copied out of the log: the canvas refuses selection everywhere else.
+    user-select: text;
+    cursor: auto;
+}
+
+    .ui-graph__log-entries:empty::before {
+        content: attr(data-ui-graph-log-empty-word);
+        display: block;
+        padding: @ui-space-2;
+        color: var(--ui-text-muted);
+    }
+
+.ui-graph__log-entry {
+    display: flex;
+    align-items: baseline;
+    gap: @ui-space-2;
+    padding: 0.125rem @ui-space-2;
+    border-inline-start: 2px solid transparent;
+}
+
+    .ui-graph__log-entry[data-ui-graph-log-level="warning"] {
+        border-inline-start-color: var(--ui-color-warning);
+        background: color-mix(in srgb, var(--ui-color-warning) 8%, transparent);
+    }
+
+    .ui-graph__log-entry[data-ui-graph-log-level="error"] {
+        border-inline-start-color: var(--ui-color-danger);
+        background: color-mix(in srgb, var(--ui-color-danger) 8%, transparent);
+    }
+
+.ui-graph__log-time {
+    flex: 0 0 auto;
+    color: var(--ui-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+// The node a line came from, as a link-like control: a press takes the view to the node and chooses it.
+.ui-graph__log-node {
+    flex: 0 0 auto;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--ui-color-primary-ink);
+    font: inherit;
+    font-weight: var(--ui-text-title-font-weight);
+    cursor: pointer;
+}
+
+    .ui-graph__log-node:hover {
+        text-decoration: underline;
+    }
+
+    .ui-graph__log-node:focus-visible {
+        .ui-focus-ring();
+    }
+
+.ui-graph__log-message {
+    min-width: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+    .ui-graph__log-entry[data-ui-graph-log-level="error"] > .ui-graph__log-message {
+        color: var(--ui-color-danger-ink);
+    }

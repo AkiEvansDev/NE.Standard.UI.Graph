@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>NE.Standard.UI.Graph</PackageId>
+    <Description>A node canvas for the NE.Standard UI framework: pan, zoom, groups and typed pins over a document the viewer edits and saves. The node kinds are the application's own classes, read by attributes. Platform-independent; the web rendering is NE.Standard.UI.Web.Graph.</Description>
+    <PackageTags>NE.Standard,UI,Graph,Nodes,Canvas,Editor</PackageTags>
+  </PropertyGroup>
+
+  <!-- The framework is a sibling in the monorepo and a package in this slice's mirror. Either way the
+       produced nupkg depends on the framework at $(CoreVersion). The generator is what turns a declared
+       property into its setter, binder and descriptor, exactly as it does for the built-in components.
+       The built-ins are referenced for one thing: the canvas's own menu is a MenuComponent, so that an
+       application appends entries to the framework's menu instead of learning a second one. -->
+  <ItemGroup Condition="'$(InMonorepo)' == 'true'">
+    <ProjectReference Include="..\..\..\..\src\Generators\NE.Standard.UI.Generators\NE.Standard.UI.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+    <ProjectReference Include="..\..\..\..\src\Core\NE.Standard.UI.Components\NE.Standard.UI.Components.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(InMonorepo)' != 'true'">
+    <PackageReference Include="NE.Standard.UI.Generators" Version="$(CoreVersion)" PrivateAssets="all" />
+    <PackageReference Include="NE.Standard.UI.Components" Version="$(CoreVersion)" />
+  </ItemGroup>
+
+</Project>

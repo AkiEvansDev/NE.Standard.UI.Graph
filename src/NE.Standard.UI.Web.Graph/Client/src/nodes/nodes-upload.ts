@@ -1,0 +1,72 @@
+// A picture pin's file: chosen here, sent through the framework's own upload, and shown only once the server answers with what
+// it was finally stored as.
+
+import type { PluginEngineContext } from "ne-standard-ui";
+import type { CanvasServices } from "../canvas/canvas-kind.ts";
+import type { CanvasSettings } from "../canvas/canvas-settings.ts";
+import type { GraphDocument } from "./model.ts";
+import { UploadAttribute, ValueAttribute } from "./node-view.ts";
+
+/** The event a finished upload is raised as; its keys name the node, the pin, the selection and the file. */
+export const UploadEventName = "image-upload";
+
+export class NodesImageUpload {
+    private readonly root: HTMLElement;
+    private readonly context: PluginEngineContext;
+    private readonly settings: CanvasSettings;
+    private readonly nodeElements: ReadonlyMap<string, HTMLElement>;
+
+    public constructor(services: CanvasServices<GraphDocument>) {
+        this.root = services.root;
+        this.context = services.context;
+        this.settings = services.settings;
+        this.nodeElements = services.nodeElements;
+    }
+
+    /** A file for a picture pin: chosen here, sent through the framework's own upload, and shown only once the server answers. */
+    public pickImage(nodeId: string, pinName: string): void {
+        if (this.settings.readOnly)
+            return;
+
+        const input = document.createElement("input");
+
+        input.type = "file";
+        input.accept = "image/*";
+        input.addEventListener("change", () => {
+            const file = input.files?.[0];
+
+            if (file !== undefined)
+                void this.uploadImage(nodeId, pinName, file);
+        });
+
+        input.click();
+    }
+
+    private async uploadImage(nodeId: string, pinName: string, file: File): Promise<void> {
+        // Looked up at every mark, since a redraw while the file is uploading replaces the node's elements; a mark on the old one would go unseen.
+        this.editorOf(nodeId, pinName)?.setAttribute(UploadAttribute, "0%");
+
+        try {
+            const selection = await this.context.uploads.uploadAsync([file], percent => this.editorOf(nodeId, pinName)?.setAttribute(UploadAttribute, `${percent}%`));
+
+            this.announce(nodeId, pinName, selection.selectionId, file.name);
+        }
+        catch {
+            // The mark stays until the node is drawn again, so a failure is not silent while nothing else has changed.
+            this.editorOf(nodeId, pinName)?.setAttribute(UploadAttribute, this.context.strings.text("ui.graph.upload-failed"));
+        }
+    }
+
+    /** Hands the server a file that has landed for a picture pin — sent here, or by the framework's picture field on the node. */
+    public announce(nodeId: string, pinName: string, selectionId: string, fileName: string): void {
+        // Four keys, in the order UIGraphArguments reads them: the node, the pin, the selection and the file's name.
+        this.root.dispatchEvent(new CustomEvent(UploadEventName, {
+            bubbles: true,
+            detail: { keys: [nodeId, pinName, selectionId, fileName] }
+        }));
+    }
+
+    private editorOf(nodeId: string, pinName: string): HTMLElement | null {
+        return this.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${ValueAttribute}="${CSS.escape(pinName)}"]`) ?? null;
+    }
+}
