@@ -8,30 +8,53 @@ on:
     branches:
       - '**'
   pull_request:
-  # How this runs after a release: the `builds` job of Release starts it once nuget.org carries everything
-  # the tree pins, and it is where the owner starts a run by hand.
+  # Where the owner starts a run by hand.
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Several slices released together each start this once, and only the newest run is worth having: the older
-# ones step aside rather than the three of them building the same commit in turn.
+# A push while a run waits or builds replaces it: only the newest run is worth having.
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    # Not on a sync commit. What this tree pins reaches the feed minutes after the sync lands, and a version
-    # a neighbouring slice publishes may not be out at all yet - so Release starts the run instead, once
-    # nuget.org carries all of it. An ordinary push, were one ever made by hand, still builds.
-    if: ${{ github.event_name != 'push' || !startsWith(github.event.head_commit.message, 'Sync ') }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # A sync commit lands minutes before nuget.org carries what this tree pins, and a slice released beside this
+      # one may publish later still - so a sync waits here for every pinned version first. The wait belongs in the
+      # mirror rather than in Release: a public repository's minutes cost nothing, a private one's are billed.
+      - name: Wait for the pinned packages on the feed
+        if: ${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'Sync ') }}
+        run: |
+          grep -rhoE --exclude-dir=.git 'PackageReference Include="NE\.[^"]+" Version="\$\([A-Za-z]+\)"' . \
+            | sed -E 's/.*Include="([^"]+)" Version="\$\(([A-Za-z]+)\)"/\1 \2/' \
+            | sort -u \
+            | while read -r id property; do
+                echo "$id $(sed -n "s:.*<$property>\(.*\)</$property>.*:\1:p" Directory.Build.props | head -1)"
+              done > "$RUNNER_TEMP/pins"
+
+          deadline=$(( $(date +%s) + 1800 ))
+          while :; do
+            missing=""
+            while read -r id version; do
+              feed="https://api.nuget.org/v3-flatcontainer/$(echo "$id" | tr '[:upper:]' '[:lower:]')/index.json"
+              curl -sf "$feed" | grep -q "\"$version\"" || missing="$missing $id/$version"
+            done < "$RUNNER_TEMP/pins"
+            [ -z "$missing" ] && break
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::Not on nuget.org after thirty minutes:$missing"
+              exit 1
+            fi
+            echo "Waiting for:$missing"
+            sleep 30
+          done
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6

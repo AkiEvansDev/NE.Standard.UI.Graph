@@ -4,6 +4,11 @@ One section per release of this slice, headed `## X.Y.Z` and named by the tag â€
 workflow cuts the matching section out to become the body of the GitHub release, and a tag with no section
 fails the release before anything is published.
 
+## 1.1.0
+
+- **Built on the framework's 1.1.0.** Nothing of this package's own changed; it moves with the framework, which now
+  releases every package on the next minor version whenever it changes.
+
 ## 1.0.1
 
 - **The first stable release.** No `--prerelease` is needed any more. Until 2.0.0 the public surface may still move
