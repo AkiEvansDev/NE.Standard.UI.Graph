@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +15,8 @@ namespace NE.Standard.UI.Graph;
 /// </summary>
 public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? services = null)
 {
+    private static readonly ConcurrentDictionary<Type, bool> AlwaysRunsByType = new();
+
     private readonly UINodeCatalog _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IServiceProvider? _services = services;
 
@@ -45,17 +49,68 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     public Func<int, int, ValueTask>? OnRunProgress { get; set; }
 
     /// <summary>
+    /// Called, once the run is through, with each state value it changed — node id, pin name and value
+    /// (<see cref="GraphInputAttribute.State"/>). A controller turns this into a committed <see cref="SetNodeValueEffect"/>, so the
+    /// canvas holds what the next run starts from; a run stopped part way changes nothing.
+    /// </summary>
+    public Func<string, string, object?, ValueTask>? OnState { get; set; }
+
+    /// <summary>
+    /// Gets or sets what the nodes last came to, so a node whose inputs are the ones it last ran on is handed on rather than run
+    /// again; none, every node runs every time.
+    /// </summary>
+    public UINodeRunCache? Cache { get; set; }
+
+    /// <summary>
+    /// Called before each run of <see cref="RunAllAsync"/> with how many runs came before it.
+    /// </summary>
+    public Func<int, ValueTask>? OnRunStarting { get; set; }
+
+    /// <summary>
+    /// Runs the document again and again, each run starting from the state the last one left, until a sequence node
+    /// (<see cref="IGraphNodeSequence"/>) has nothing left or <paramref name="maxRuns"/> is reached; a document with no sequence
+    /// node runs once.
+    /// </summary>
+    /// <remarks>
+    /// A failure takes its own branch and that run's, as in a single run, and the next run goes on with the next item — one bad file
+    /// does not stop a folder — unless the sequence node itself failed, which leaves nothing to go on with.
+    /// </remarks>
+    public async Task<UINodeRunAllResult> RunAllAsync(UINodeDocument document, int maxRuns, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxRuns, 1);
+
+        var runs = 0;
+        UINodeRunResult last;
+
+        do
+        {
+            if (OnRunStarting is not null)
+                await OnRunStarting(runs).ConfigureAwait(false);
+
+            last = await RunAsync(document, cancellationToken).ConfigureAwait(false);
+            document = last.ApplyState(document);
+            runs++;
+        }
+        while (last.HasMore && runs < maxRuns);
+
+        return new UINodeRunAllResult(document, runs, last);
+    }
+
+    /// <summary>
     /// Runs the document and answers what every node's outputs came to.
     /// </summary>
     /// <remarks>
     /// A failed node's branch stops there — nodes fed by it are skipped, others run normally. A node on a cycle fails the same
-    /// way, waiting for itself; unrelated chains still complete.
+    /// way, waiting for itself; unrelated chains still complete. A kind that does no work and has no pin — a note — is passed over.
     /// </remarks>
     public async Task<UINodeRunResult> RunAsync(UINodeDocument document, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
 
-        UINodeNetwork network = _catalog.Materialize(document);
+        UINodeNetwork network = WithoutPassive(_catalog.Materialize(document));
+
+        Cache?.Retain(network.Nodes.Select(static node => node.Id));
 
         Order(network, out UINodeInstance[] ordered, out UINodeInstance[] cyclic, out UINodeInstance[] beneath);
 
@@ -74,6 +129,10 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         List<string> skipped = [];
         // Both failed and skipped nodes stop their branch; the topological order lets this be one pass rather than a graph walk.
         HashSet<string> stopped = new(StringComparer.Ordinal);
+        Dictionary<string, IReadOnlyDictionary<string, object?>> state = new(StringComparer.Ordinal);
+        // Whether a sequence node ran, and whether every one that did has more to hand out.
+        var sequences = 0;
+        var exhausted = false;
         var total = ordered.Length + cyclic.Length + beneath.Length;
         var completed = 0;
 
@@ -96,14 +155,30 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             if (edges is not null)
                 Feed(node, edges, outputs);
 
-            await ReportStatusAsync(node.Id, UINodeState.Running, null, null).ConfigureAwait(false);
-
-            if (MissingRequired(node) is { } missing)
+            if (MissingRequired(node, edges) is { } missing)
             {
                 await FailAsync(node, missing, stopped, failures).ConfigureAwait(false);
                 await ReportRunAsync(++completed, total).ConfigureAwait(false);
                 continue;
             }
+
+            Dictionary<string, object?>? kept = ReadState(node);
+            // Read before it runs: a node may write to its own inputs, a display pin above all.
+            var inputs = kept is null && CanKeep(node) ? ReadInputs(node) : null;
+
+            if (inputs is not null && Cache!.TryGet(node.Id, node.Type, inputs, out UINodeRunCache.Entry last))
+            {
+                outputs[node.Id] = last.Outputs;
+
+                foreach ((var pinName, var value) in last.Displays)
+                    await ReportDisplayAsync(node.Id, pinName, value).ConfigureAwait(false);
+
+                await ReportStatusAsync(node.Id, UINodeState.Cached, null, null).ConfigureAwait(false);
+                await ReportRunAsync(++completed, total).ConfigureAwait(false);
+                continue;
+            }
+
+            await ReportStatusAsync(node.Id, UINodeState.Running, null, null).ConfigureAwait(false);
 
             UINodeRunContext context = new(node.Id, node.Type, OnStatus, OnLog, _services);
 
@@ -111,13 +186,21 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             {
                 await ExecuteAsync(node, context, cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Stopped under way: the node stands as it did before, not drawn running for good, and the log says where it ended.
+                await ReportStatusAsync(node.Id, UINodeState.Idle, null, null).ConfigureAwait(false);
+
+                if (OnLog is not null)
+                    await OnLog(node.Id, UINodeLogLevel.Warning, "Stopped.").ConfigureAwait(false);
+
                 throw;
             }
             catch (Exception exception)
             {
+                // A node's own cancellation — a timeout of its own — fails its branch like any other failure, not the whole run.
                 // What the node wrote before it fell comes first: it is usually the line that says why.
+                ForgetAbove(node, incoming);
                 await context.FlushAsync().ConfigureAwait(false);
                 await FailAsync(node, exception.Message, stopped, failures).ConfigureAwait(false);
                 await ReportRunAsync(++completed, total).ConfigureAwait(false);
@@ -128,7 +211,20 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
 
             outputs[node.Id] = ReadOutputs(node);
 
-            await ReportDisplaysAsync(node).ConfigureAwait(false);
+            if (kept is not null && ChangedState(node, kept) is { } changed)
+                state[node.Id] = changed;
+
+            if (node.Node is IGraphNodeSequence sequence)
+            {
+                sequences++;
+                exhausted |= !sequence.HasMore;
+            }
+
+            List<KeyValuePair<string, object?>> displays = await ReportDisplaysAsync(node).ConfigureAwait(false);
+
+            if (inputs is not null)
+                Cache!.Keep(node.Id, new UINodeRunCache.Entry(node.Type, inputs, outputs[node.Id], displays));
+
             // No progress with the last word: the line a running node draws goes when the node is done, rather than standing full.
             await ReportStatusAsync(node.Id, UINodeState.Done, null, null).ConfigureAwait(false);
             await ReportRunAsync(++completed, total).ConfigureAwait(false);
@@ -147,9 +243,64 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             await ReportRunAsync(++completed, total).ConfigureAwait(false);
         }
 
+        // A sequence node that could not run — failed, or skipped under a failure — has nothing to go on with: a run of all ends
+        // there, rather than going round on another sequence with this one no further on.
+        foreach (UINodeInstance node in network.Nodes)
+        {
+            if (node.Node is IGraphNodeSequence && stopped.Contains(node.Id))
+                exhausted = true;
+        }
+
+        // Written only now the run is through, so a run stopped part way leaves nothing half done behind it: a folder's place
+        // moves on only for the file whose whole run happened.
+        await ReportStateAsync(state).ConfigureAwait(false);
+
         return failures.Count == 0
-            ? UINodeRunResult.Completed(outputs)
-            : UINodeRunResult.Stopped(outputs, failures, skipped);
+            ? UINodeRunResult.Completed(outputs, state, sequences > 0 && !exhausted)
+            : UINodeRunResult.Stopped(outputs, failures, skipped, state, sequences > 0 && !exhausted);
+    }
+
+    /// <summary>The network without the nodes a run passes over: no work to do, and no pin to feed or be read.</summary>
+    private UINodeNetwork WithoutPassive(UINodeNetwork network)
+    {
+        List<UINodeInstance> nodes = [];
+        HashSet<string> kept = new(StringComparer.Ordinal);
+
+        foreach (UINodeInstance node in network.Nodes)
+        {
+            if (IsPassive(node))
+                continue;
+
+            nodes.Add(node);
+            _ = kept.Add(node.Id);
+        }
+
+        if (nodes.Count == network.Nodes.Length)
+            return network;
+
+        List<UINodeConnection> connections = [];
+
+        foreach (UINodeConnection connection in network.Connections)
+        {
+            if (kept.Contains(connection.From.Id) && kept.Contains(connection.To.Id))
+                connections.Add(connection);
+        }
+
+        return new UINodeNetwork([.. nodes], [.. connections]);
+    }
+
+    private bool IsPassive(UINodeInstance node)
+    {
+        if (node.Node is IGraphNode or IGraphNodeAsync || !_catalog.TryGetType(node.Type, out UINodeType type) || type.Outputs.Length > 0)
+            return false;
+
+        foreach (UINodePin pin in type.Inputs)
+        {
+            if (pin.HasPin)
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -287,12 +438,14 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             if (!outputs.TryGetValue(edge.From.Id, out IReadOnlyDictionary<string, object?>? produced) || !produced.TryGetValue(edge.FromPin, out var value))
                 continue;
 
-            PropertyInfo? target = UINodeProperties.Find(node.Node.GetType(), edge.ToPin);
+            // Only into an input the kind draws a pin for: a saved edge naming a state, an output or a field with no pin is nothing.
+            UINodePin? pin = FindInput(type, edge.ToPin);
+            PropertyInfo? target = pin is { HasPin: true, State: false } ? UINodeProperties.Find(node.Node.GetType(), edge.ToPin) : null;
 
             if (target is null || !target.CanWrite)
                 continue;
 
-            if (!IsMultiple(type, edge.ToPin))
+            if (!pin!.Multiple)
             {
                 UINodeProperties.Set(target, node.Node, value);
                 continue;
@@ -322,22 +475,22 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         }
     }
 
-    private static bool IsMultiple(UINodeType? type, string pinName)
+    private static UINodePin? FindInput(UINodeType? type, string pinName)
     {
         if (type is null)
-            return false;
+            return null;
 
         foreach (UINodePin pin in type.Inputs)
         {
             if (string.Equals(pin.Name, pinName, StringComparison.Ordinal))
-                return pin.Multiple;
+                return pin;
         }
 
-        return false;
+        return null;
     }
 
     /// <summary>The title of the first required input the node was handed nothing for, or nothing when it has all of them.</summary>
-    private string? MissingRequired(UINodeInstance node)
+    private string? MissingRequired(UINodeInstance node, List<UINodeConnection>? edges)
     {
         if (!_catalog.TryGetType(node.Type, out UINodeType type))
             return null;
@@ -349,11 +502,31 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
 
             PropertyInfo? property = UINodeProperties.Find(node.Node.GetType(), pin.Name);
 
-            if (property is not null && property.CanRead && IsEmpty(property.GetValue(node.Node)))
+            if (property is null || !property.CanRead)
+                continue;
+
+            // A value type always holds something; with no wire and no field to fill it in, that is only its type's default.
+            var unfilled = pin.Editor == UINodeEditor.None && property.PropertyType.IsValueType && !IsFed(edges, pin.Name);
+
+            if (unfilled || IsEmpty(property.GetValue(node.Node)))
                 return $"'{pin.Title}' is required.";
         }
 
         return null;
+    }
+
+    private static bool IsFed(List<UINodeConnection>? edges, string pinName)
+    {
+        if (edges is null)
+            return false;
+
+        foreach (UINodeConnection edge in edges)
+        {
+            if (string.Equals(edge.ToPin, pinName, StringComparison.Ordinal))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool IsEmpty(object? value)
@@ -377,12 +550,87 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             await OnLog(node.Id, UINodeLogLevel.Error, message).ConfigureAwait(false);
     }
 
+    /// <summary>A node's state values as the run hands them to it, to tell afterwards which it changed; null for a node with none.</summary>
+    private Dictionary<string, object?>? ReadState(UINodeInstance node)
+    {
+        if (!_catalog.TryGetType(node.Type, out UINodeType type))
+            return null;
+
+        Dictionary<string, object?>? kept = null;
+
+        foreach (UINodePin pin in type.Inputs)
+        {
+            if (!pin.State || UINodeProperties.Find(node.Node.GetType(), pin.Name) is not { CanRead: true } property)
+                continue;
+
+            kept ??= new Dictionary<string, object?>(StringComparer.Ordinal);
+            kept[pin.Name] = property.GetValue(node.Node);
+        }
+
+        return kept;
+    }
+
+    /// <summary>Whether a node's last run may be handed on: a cache to keep it in, no sequence to move on, nothing more than its outputs.</summary>
+    private bool CanKeep(UINodeInstance node)
+        => Cache is not null
+            && node.Node is not IGraphNodeSequence
+            && !AlwaysRunsByType.GetOrAdd(node.Node.GetType(), static type => type.GetCustomAttribute<GraphNodeAttribute>()?.AlwaysRuns == true);
+
+    /// <summary>The values a node is about to run on, pin by pin, for the cache to tell a repeat by.</summary>
+    private object?[] ReadInputs(UINodeInstance node)
+    {
+        if (!_catalog.TryGetType(node.Type, out UINodeType type))
+            return [];
+
+        var values = new object?[type.Inputs.Length];
+
+        for (var i = 0; i < type.Inputs.Length; i++)
+        {
+            PropertyInfo? property = UINodeProperties.Find(node.Node.GetType(), type.Inputs[i].Name);
+
+            values[i] = property is { CanRead: true } ? property.GetValue(node.Node) : null;
+        }
+
+        return values;
+    }
+
     private static async ValueTask ExecuteAsync(UINodeInstance node, UINodeRunContext context, CancellationToken cancellationToken)
     {
         if (node.Node is IGraphNodeAsync asynchronous)
             await asynchronous.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
         else if (node.Node is IGraphNode synchronous)
             synchronous.Execute(context);
+    }
+
+    /// <summary>
+    /// Forgets the last runs of a failed node and of every node above it: the failure may come from what a kept run handed on — a
+    /// picture its store has let go since — so the next run makes all of it afresh rather than handing the same thing on again.
+    /// </summary>
+    private void ForgetAbove(UINodeInstance node, Dictionary<string, List<UINodeConnection>> incoming)
+    {
+        if (Cache is null)
+            return;
+
+        HashSet<string> seen = new(StringComparer.Ordinal) { node.Id };
+        Stack<string> pending = new();
+
+        pending.Push(node.Id);
+
+        while (pending.Count > 0)
+        {
+            var id = pending.Pop();
+
+            Cache.Forget(id);
+
+            if (!incoming.TryGetValue(id, out List<UINodeConnection>? edges))
+                continue;
+
+            foreach (UINodeConnection edge in edges)
+            {
+                if (seen.Add(edge.From.Id))
+                    pending.Push(edge.From.Id);
+            }
+        }
     }
 
     private static Dictionary<string, object?> ReadOutputs(UINodeInstance node)
@@ -398,21 +646,59 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         return values;
     }
 
-    /// <summary>What each of a node's display pins ended up holding: whatever reached it, or whatever the node itself put there.</summary>
-    private async ValueTask ReportDisplaysAsync(UINodeInstance node)
+    /// <summary>The state values the node's run changed; null when it changed none.</summary>
+    private static Dictionary<string, object?>? ChangedState(UINodeInstance node, Dictionary<string, object?> kept)
     {
-        if (OnDisplay is null || !_catalog.TryGetType(node.Type, out UINodeType type))
-            return;
+        Dictionary<string, object?>? changed = null;
+
+        foreach ((var name, var before) in kept)
+        {
+            var after = UINodeProperties.Find(node.Node.GetType(), name)?.GetValue(node.Node);
+
+            if (Equals(before, after))
+                continue;
+
+            changed ??= new Dictionary<string, object?>(StringComparer.Ordinal);
+            changed[name] = after;
+        }
+
+        return changed;
+    }
+
+    /// <summary>What each of a node's display pins ended up holding — whatever reached it, or whatever the node itself put there — passed on and answered.</summary>
+    private async ValueTask<List<KeyValuePair<string, object?>>> ReportDisplaysAsync(UINodeInstance node)
+    {
+        List<KeyValuePair<string, object?>> displays = [];
+
+        if (!_catalog.TryGetType(node.Type, out UINodeType type))
+            return displays;
 
         foreach (UINodePin pin in type.Inputs)
         {
-            if (pin.Editor != UINodeEditor.Display)
+            if (pin.Editor != UINodeEditor.Display || UINodeProperties.Find(node.Node.GetType(), pin.Name) is not { CanRead: true } property)
                 continue;
 
-            PropertyInfo? property = UINodeProperties.Find(node.Node.GetType(), pin.Name);
+            var value = property.GetValue(node.Node);
 
-            if (property is not null && property.CanRead)
-                await OnDisplay(node.Id, pin.Name, property.GetValue(node.Node)).ConfigureAwait(false);
+            displays.Add(new(pin.Name, value));
+            await ReportDisplayAsync(node.Id, pin.Name, value).ConfigureAwait(false);
+        }
+
+        return displays;
+    }
+
+    private ValueTask ReportDisplayAsync(string nodeId, string pinName, object? value)
+        => OnDisplay is null ? ValueTask.CompletedTask : OnDisplay(nodeId, pinName, value);
+
+    private async ValueTask ReportStateAsync(Dictionary<string, IReadOnlyDictionary<string, object?>> state)
+    {
+        if (OnState is null)
+            return;
+
+        foreach ((var nodeId, IReadOnlyDictionary<string, object?> changed) in state)
+        {
+            foreach ((var pinName, var value) in changed)
+                await OnState(nodeId, pinName, value).ConfigureAwait(false);
         }
     }
 }
@@ -427,11 +713,13 @@ public sealed record UINodeFailure(string NodeId, string Error);
 /// </summary>
 public sealed class UINodeRunResult
 {
-    private UINodeRunResult(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped)
+    private UINodeRunResult(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore)
     {
         Outputs = outputs;
         Failures = failures;
         Skipped = skipped;
+        State = state;
+        HasMore = hasMore;
     }
 
     /// <summary>
@@ -455,6 +743,16 @@ public sealed class UINodeRunResult
     public IReadOnlyList<string> Skipped { get; }
 
     /// <summary>
+    /// Gets the state values the run changed, by node id and then by pin name — what the next run starts from.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> State { get; }
+
+    /// <summary>
+    /// Gets whether a sequence node ran and every one that did has another item for the next run.
+    /// </summary>
+    public bool HasMore { get; }
+
+    /// <summary>
     /// Gets the first node the run failed on.
     /// </summary>
     public string? FailedNodeId => Failures.Count == 0 ? null : Failures[0].NodeId;
@@ -476,9 +774,31 @@ public sealed class UINodeRunResult
         return false;
     }
 
-    internal static UINodeRunResult Completed(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs)
-        => new(outputs, [], []);
+    /// <summary>
+    /// The document with the state values this run changed written into its nodes — the one the next run starts from.
+    /// </summary>
+    public UINodeDocument ApplyState(UINodeDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
 
-    internal static UINodeRunResult Stopped(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped)
-        => new(outputs, failures, skipped);
+        foreach ((var nodeId, IReadOnlyDictionary<string, object?> changed) in State)
+        {
+            foreach ((var pinName, var value) in changed)
+                document = document.WithValue(nodeId, pinName, value);
+        }
+
+        return document;
+    }
+
+    internal static UINodeRunResult Completed(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore)
+        => new(outputs, [], [], state, hasMore);
+
+    internal static UINodeRunResult Stopped(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore)
+        => new(outputs, failures, skipped, state, hasMore);
 }
+
+/// <summary>
+/// What <see cref="UINodeRunner.RunAllAsync"/> came to: the document as the last run left it, how many runs there were, and the
+/// last one's result.
+/// </summary>
+public sealed record UINodeRunAllResult(UINodeDocument Document, int Runs, UINodeRunResult Last);

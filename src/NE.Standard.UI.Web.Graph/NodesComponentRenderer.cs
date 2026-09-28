@@ -20,7 +20,11 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
     /// <summary>The catalogue, as JSON, on the root.</summary>
     public const string CatalogAttribute = "data-ui-graph-catalog";
 
+    /// <summary>On the root of a canvas that draws the run's progress line.</summary>
     public const string RunProgressAttribute = "data-ui-graph-run-progress";
+
+    /// <summary>On the root of a canvas that shows its run panel.</summary>
+    public const string RunPanelAttribute = "data-ui-graph-run-panel";
 
     public override string ComponentTypeKey => NodesComponent.ComponentTypeKey;
 
@@ -34,6 +38,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         ArgumentNullException.ThrowIfNull(root);
 
         RenderFlagAttribute(context, root, NodesComponent.ShowRunProgressProperty, RunProgressAttribute);
+        RenderFlagAttribute(context, root, NodesComponent.ShowRunPanelProperty, RunPanelAttribute);
         RenderCatalog(context, root);
     }
 
@@ -58,6 +63,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
         RenderTemplate(context, root, UIGraphRegions.ListRemove, IVisualComponent.EnabledProperty);
         RenderTemplate(context, root, UIGraphRegions.ListAdd, IVisualComponent.EnabledProperty);
+        RenderTemplate(context, root, UIGraphRegions.StateReset, IVisualComponent.EnabledProperty);
 
         foreach (UINodeType type in catalog?.Types ?? [])
         {
@@ -102,6 +108,18 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
                 _ = share.Attribute("data-ui-graph-run-share");
             });
         });
+
+        // The run panel in the top corner, as the zoom bar stands in the bottom one; drawn always, shown by the root's flag, so a
+        // bound ShowRunPanel shows and hides it without a render.
+        _ = viewport.Element("div", panel =>
+        {
+            _ = panel.Class($"{ClassName}__run-panel");
+            _ = panel.Attribute(WebAttributes.NoContextMenu);
+
+            RenderBarButton(context, panel, "run-once", GraphStrings.Run, UIGlyphs.Play);
+            RenderBarButton(context, panel, "run-all", GraphStrings.RunAll, UIGlyphs.FastForward);
+            RenderBarButton(context, panel, "run-stop", GraphStrings.Stop, UIGlyphs.Stop);
+        });
     }
 
     /// <summary>
@@ -116,6 +134,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         _ = viewport.Element("div", log =>
         {
             _ = log.Class($"{ClassName}__log");
+            _ = log.Attribute(WebAttributes.NoContextMenu);
             _ = log.Attribute("data-ui-graph-log");
 
             _ = log.Element("ol", entries =>
@@ -177,5 +196,4 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             });
         });
     }
-
 }

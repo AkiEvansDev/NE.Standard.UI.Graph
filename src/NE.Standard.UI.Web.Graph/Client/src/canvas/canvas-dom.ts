@@ -17,5 +17,11 @@ export const ResizeAttribute = "data-ui-graph-resize";
 export const PinToggleAttribute = "data-ui-graph-pin-toggle";
 /** On an item's own fold mark. */
 export const FoldAttribute = "data-ui-graph-fold";
+/** On a folded item's root element. */
+export const CollapsedAttribute = "data-ui-graph-collapsed";
+/** On a folding control of the framework's — the corner menu, a side panel — while it stands folded; not an item's own fold. */
+export const FoldedControlAttribute = "data-ui-collapsed";
+/** On the root: whether the corner map is drawn. */
+export const MinimapAttribute = "data-ui-graph-minimap";
 /** What a rename field is laid over: an item's title, which a kind draws under this class. */
 export const ItemTitleSelector = ".ui-graph__node-title";

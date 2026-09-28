@@ -56,7 +56,8 @@ test("an output that follows an input takes the type connected to it", () => {
             { id: "b", type: "Pass", x: 0, y: 0, values: {} }
         ],
         edges: [{ id: "e", fromNode: "a", fromPin: "Result", toNode: "b", toPin: "Input", points: [] }],
-        groups: []
+        groups: [],
+        key: null
     };
 
     assert.equal(resolveOutputType(document, types, "b", "Output"), "number");
@@ -66,7 +67,8 @@ test("an output that follows an unconnected input falls back to that input's own
     const document: GraphDocument = {
         nodes: [{ id: "b", type: "Pass", x: 0, y: 0, values: {} }],
         edges: [],
-        groups: []
+        groups: [],
+        key: null
     };
 
     assert.equal(resolveOutputType(document, types, "b", "Output"), "any");
@@ -82,7 +84,8 @@ test("a chain of followed types that loops answers the universal type rather tha
             { id: "e1", fromNode: "a", fromPin: "Output", toNode: "b", toPin: "Input", points: [] },
             { id: "e2", fromNode: "b", fromPin: "Output", toNode: "a", toPin: "Input", points: [] }
         ],
-        groups: []
+        groups: [],
+        key: null
     };
 
     assert.equal(resolveOutputType(document, types, "a", "Output"), "any");
@@ -99,7 +102,8 @@ test("a slice carries only the edges that run between two of its own nodes", () 
             { id: "e1", fromNode: "a", fromPin: "Result", toNode: "b", toPin: "Input", points: [] },
             { id: "e2", fromNode: "b", fromPin: "Output", toNode: "c", toPin: "Input", points: [] }
         ],
-        groups: []
+        groups: [],
+        key: null
     };
 
     const cut = slice(document, new Set(["a", "b"]));
@@ -150,21 +154,33 @@ test("a size the viewer dragged is read, and a nonsense one is no size at all", 
 });
 
 test("a pin shown beside another appears only for the values the rule names", () => {
+    const operation: Pin = { name: "Operation", title: "Operation", type: "text", editor: "Choice" };
     const named: Pin = { name: "ByZero", title: "By zero", type: "text", editor: "Choice", visibleWhen: "Operation", visibleValues: ["Divide"] };
     const any: Pin = { name: "Note", title: "Note", type: "text", editor: "Text", visibleWhen: "Operation" };
     const always: Pin = { name: "Left", title: "Left", type: "number", editor: "Number" };
+    const type: NodeType = { key: "Op", title: "Op", inputs: [operation, named, any, always], outputs: [] };
+    const visible = (pin: Pin, values: Record<string, unknown>): boolean => isPinVisible(pin, { values }, type);
 
-    assert.equal(isPinVisible(named, { Operation: "Divide" }), true);
-    assert.equal(isPinVisible(named, { Operation: "Add" }), false);
-    assert.equal(isPinVisible(named, {}), false);
+    assert.equal(visible(named, { Operation: "Divide" }), true);
+    assert.equal(visible(named, { Operation: "Add" }), false);
+    assert.equal(visible(named, {}), false);
 
     // With no values named, any value at all but an empty one shows it.
-    assert.equal(isPinVisible(any, { Operation: "Add" }), true);
-    assert.equal(isPinVisible(any, { Operation: "" }), false);
-    assert.equal(isPinVisible(any, { Operation: false }), false);
-    assert.equal(isPinVisible(any, { Operation: 0 }), true);
+    assert.equal(visible(any, { Operation: "Add" }), true);
+    assert.equal(visible(any, { Operation: "" }), false);
+    assert.equal(visible(any, { Operation: false }), false);
+    assert.equal(visible(any, { Operation: 0 }), true);
 
-    assert.equal(isPinVisible(always, {}), true);
+    assert.equal(visible(always, {}), true);
+});
+
+test("a pin shown beside another reads that one's default where the node holds no value, as its field shows", () => {
+    const shape: Pin = { name: "Shape", title: "Shape", type: "text", editor: "Choice", defaultValue: "Circle" };
+    const radius: Pin = { name: "Radius", title: "Radius", type: "number", editor: "Number", visibleWhen: "Shape", visibleValues: ["Circle"] };
+    const type: NodeType = { key: "Shape", title: "Shape", inputs: [shape, radius], outputs: [] };
+
+    assert.equal(isPinVisible(radius, { values: {} }, type), true);
+    assert.equal(isPinVisible(radius, { values: { Shape: "Square" } }, type), false);
 });
 
 test("every edge feeding one pin is answered in the document's own order", () => {
@@ -175,7 +191,8 @@ test("every edge feeding one pin is answered in the document's own order", () =>
             { id: "e2", fromNode: "b", fromPin: "Result", toNode: "sum", toPin: "Other", points: [] },
             { id: "e3", fromNode: "c", fromPin: "Result", toNode: "sum", toPin: "Values", points: [] }
         ],
-        groups: []
+        groups: [],
+        key: null
     };
 
     assert.deepEqual(edgesInto(document, "sum", "Values").map(edge => edge.id), ["e1", "e3"]);

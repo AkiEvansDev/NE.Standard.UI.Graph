@@ -6,7 +6,7 @@
 
   <PropertyGroup>
     <PackageId>NE.Standard.UI.Web.Graph</PackageId>
-    <Description>The web rendering of NE.Standard.UI.Graph: the renderer, and the canvas engine — pan, zoom, groups, typed pins, the node picker and the document's undo history — the package embeds as its own script and stylesheet. Register it with services.AddGraph().</Description>
+    <Description>The web rendering of NE.Standard.UI.Graph: the renderers of the node editor, the layered graph and the production graph, and the canvas engine they share — pan, zoom, groups, the layered layout, the planner's solver and the document's undo history — embedded as the package's own script and stylesheet. Register it with services.AddGraph().</Description>
     <PackageTags>NE.Standard,UI,Web,Graph,Nodes,Canvas</PackageTags>
   </PropertyGroup>
 
@@ -37,12 +37,14 @@
   </PropertyGroup>
 
   <!-- The client builds as part of dotnet build, as the framework's own does: a type error or a failing test fails the build. -->
-  <Target Name="BuildGraphClientAssets" BeforeTargets="PrepareResources" Condition="'$(SkipWebClientBuild)' != 'true'">
-    <Exec
-      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
-      Command="npm install"
-      Condition="!Exists('$(MSBuildProjectDirectory)\Client\node_modules')" />
+  <!-- Installed again whenever the lockfile is newer than the install, not only when there is none: a dependency added
+       later (a linter, a bumped tool) would otherwise be missing from a clone that had restored before it. -->
+  <Target Name="RestoreGraphClientPackages" Condition="'$(SkipWebClientBuild)' != 'true'" Inputs="$(MSBuildProjectDirectory)\Client\package-lock.json" Outputs="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\Client" Command="npm install" />
+    <Touch Files="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json" AlwaysCreate="true" />
+  </Target>
 
+  <Target Name="BuildGraphClientAssets" BeforeTargets="PrepareResources" DependsOnTargets="RestoreGraphClientPackages" Condition="'$(SkipWebClientBuild)' != 'true'">
     <!-- Tests run here rather than from `npm run build`, as the framework's client does: a mirror builds, it
          does not test. -->
     <Exec

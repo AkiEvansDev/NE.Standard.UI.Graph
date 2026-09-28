@@ -1,0 +1,7 @@
+{
+  // The other half of `npm run lint`: an export nothing imports, a file nothing reaches, a dependency nothing uses.
+  "entry": ["src/graph.ts", "tests/**/*.test.ts"],
+  "project": ["src/**/*.ts", "tests/**/*.ts", "*.ts"],
+  // The plugin contract's module, declared by plugin/ne-standard-ui.d.ts rather than installed.
+  "ignoreDependencies": ["ne-standard-ui"]
+}

@@ -3,10 +3,12 @@
 
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import type { Craft, ProductionDocument, Resource } from "./model.ts";
+import { broughtIn } from "./plan.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
-import { formatNumber, rateSuffix, round } from "./plan-view.ts";
+import { rateSuffix } from "./plan-view.ts";
 import type { PlanReading } from "./plan-view.ts";
-import { formatTime } from "./craft-view.ts";
+import { formatTime, numberWriter } from "./craft-view.ts";
+import type { NumberWriter } from "./craft-view.ts";
 
 const PanelSelector = "[data-ui-graph-plan]";
 // The framework's own fold: its engine slides the panel and writes the attribute, as it does for the corner menu.
@@ -24,7 +26,8 @@ export type PlanPanelHost = {
     request(): PlanRequest;
     /** The plan as it was last solved, or nothing while there is none to read. */
     reading(): PlanReading | null;
-    infeasible(): boolean;
+    /** Why a plan asked for came to nothing, when it did. */
+    failure(): "infeasible" | "unsettled" | null;
     resource(id: string): Resource | undefined;
     craft(id: string): Craft | undefined;
     /** Another request: written into the document as the viewer's edit. */
@@ -37,6 +40,7 @@ export type PlanPanelHost = {
 
 export class PlanPanel {
     private readonly services: CanvasServices<ProductionDocument>;
+    private readonly number: NumberWriter;
     private readonly host: PlanPanelHost;
     private readonly panel: HTMLElement | null;
     private readonly period: HTMLElement | null;
@@ -46,6 +50,7 @@ export class PlanPanel {
     public constructor(services: CanvasServices<ProductionDocument>, host: PlanPanelHost) {
         this.services = services;
         this.host = host;
+        this.number = numberWriter(services.context.numbers, services.root);
         this.panel = services.root.querySelector<HTMLElement>(PanelSelector);
         this.period = this.field("[data-ui-graph-plan-period]");
         this.objective = this.field("[data-ui-graph-plan-objective]");
@@ -93,9 +98,20 @@ export class PlanPanel {
             return true;
         }
 
-        if (this.services.settings.readOnly)
+        if (!this.services.settings.readOnly && this.edit(target))
             return true;
 
+        // A row only chooses its item and brings it into view, which a plan that may not be changed allows as well.
+        const shown = target.closest<HTMLElement>("[data-ui-graph-plan-item]")?.getAttribute("data-ui-graph-plan-item");
+
+        if (shown !== null && shown !== undefined)
+            this.host.show(shown);
+
+        return true;
+    }
+
+    /** A press that changes the request — the button that adds a target, or a target's remove; false for any other. */
+    private edit(target: Element): boolean {
         if (target.closest(AddSelector) !== null) {
             this.host.pick();
             return true;
@@ -103,18 +119,12 @@ export class PlanPanel {
 
         const removed = target.closest<HTMLElement>(`[${RemoveAttribute}]`)?.getAttribute(RemoveAttribute);
 
-        if (removed !== null && removed !== undefined) {
-            const request = this.host.request();
+        if (removed === null || removed === undefined)
+            return false;
 
-            this.host.change({ ...request, targets: request.targets.filter(entry => entry.resource !== removed) });
-            return true;
-        }
+        const request = this.host.request();
 
-        const shown = target.closest<HTMLElement>("[data-ui-graph-plan-item]")?.getAttribute("data-ui-graph-plan-item");
-
-        if (shown !== null && shown !== undefined)
-            this.host.show(shown);
-
+        this.host.change({ ...request, targets: request.targets.filter(entry => entry.resource !== removed) });
         return true;
     }
 
@@ -167,7 +177,7 @@ export class PlanPanel {
         for (const target of request.targets) {
             const resource = this.host.resource(target.resource);
             const row = document.createElement("div");
-            const name = this.nameOf(target.resource, resource?.title ?? target.resource, resource?.icon ?? null);
+            const name = this.nameOf(target.resource, resource?.title ?? target.resource, resource?.image ?? resource?.icon ?? null);
             const amount = this.clone("graph-plan-amount");
             const remove = this.clone("graph-plan-remove");
 
@@ -221,8 +231,10 @@ export class PlanPanel {
 
         if (message !== null) {
             message.hidden = reading !== null;
-            message.toggleAttribute("data-ui-graph-plan-failed", this.host.infeasible());
-            message.textContent = reading !== null ? "" : words.text(request.targets.length > 0 && this.host.infeasible() ? "ui.graph.plan-infeasible" : "ui.graph.plan-empty");
+            const failure = request.targets.length > 0 ? this.host.failure() : null;
+
+            message.toggleAttribute("data-ui-graph-plan-failed", failure !== null);
+            message.textContent = reading !== null ? "" : words.text(failure === null ? "ui.graph.plan-empty" : `ui.graph.plan-${failure}`);
         }
 
         if (totals === null)
@@ -232,9 +244,9 @@ export class PlanPanel {
 
         if (reading !== null) {
             totals.textContent = words.text("ui.graph.plan-totals")
-                .replace("{time}", formatTime(round(reading.plan.time)))
-                .replace("{raw}", formatNumber(reading.plan.raw))
-                .replace("{cost}", formatNumber(reading.plan.cost));
+                .replace("{time}", formatTime(reading.plan.time, this.number))
+                .replace("{raw}", this.number(reading.plan.raw))
+                .replace("{cost}", this.number(reading.plan.cost));
         }
     }
 
@@ -247,21 +259,23 @@ export class PlanPanel {
         for (const entry of reading?.plan.resources ?? []) {
             const resource = this.host.resource(entry.resource);
             const unit = resource?.unit === null || resource?.unit === undefined ? "" : ` ${resource.unit}`;
-            const name = this.nameOf(entry.resource, resource?.title ?? entry.resource, resource?.icon ?? null);
+            const name = this.nameOf(entry.resource, resource?.title ?? entry.resource, resource?.image ?? resource?.icon ?? null);
 
             if (entry.source) {
-                raw.push(row(entry.resource, name, `${formatNumber(entry.consumed + entry.target)}${unit}`));
+                raw.push(row(entry.resource, name, `${this.number(broughtIn(entry))}${unit}`));
                 continue;
             }
 
-            resources.push(row(entry.resource, name, `${formatNumber(entry.produced)}${unit}`, `${formatNumber(entry.consumed)}${unit}`, entry.surplus > 0 ? `${formatNumber(entry.surplus)}${unit}` : "—"));
+            resources.push(row(entry.resource, name, `${this.number(entry.produced)}${unit}`, `${this.number(entry.consumed)}${unit}`, entry.surplus > 0 ? `${this.number(entry.surplus)}${unit}` : "—"));
         }
 
         for (const entry of reading?.plan.crafts ?? []) {
             const craft = this.host.craft(entry.craft);
-            const name = this.nameOf(entry.craft, craft?.title ?? words.text("ui.graph.recipe"), craft?.icon ?? null);
+            // A recipe with no look of its own wears what it makes, as the resources' rows above wear theirs.
+            const made = craft?.products[0] === undefined ? undefined : this.host.resource(craft.products[0].resource);
+            const name = this.nameOf(entry.craft, craft?.title ?? words.text("ui.graph.recipe"), craft?.icon ?? made?.image ?? made?.icon ?? null);
 
-            crafts.push(row(entry.craft, name, formatNumber(entry.runs), formatTime(round(entry.time)), entry.workers === null ? "—" : String(entry.workers)));
+            crafts.push(row(entry.craft, name, this.number(entry.runs), formatTime(entry.time, this.number), entry.workers === null ? "—" : String(entry.workers)));
         }
 
         this.fill("raw", raw);
@@ -280,7 +294,7 @@ export class PlanPanel {
         body.replaceChildren(...rows);
     }
 
-    /** An item named as the sheet names it: its icon and its title. */
+    /** An item named as the sheet names it: its picture or its icon, and its title. */
     private nameOf(id: string, title: string, icon: string | null): HTMLElement {
         const name = document.createElement("span");
         const text = document.createElement("span");

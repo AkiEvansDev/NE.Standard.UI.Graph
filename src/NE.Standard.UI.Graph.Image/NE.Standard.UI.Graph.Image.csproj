@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>NE.Standard.UI.Graph.Image</PackageId>
+    <Description>Picture node kinds for the NE.Standard UI node canvas, worked on the server with SkiaSharp: load and save a file, size, resize, crop, rotate, flip, greyscale, blur and convert, each writing a new picture to an image store the application chooses; an in-memory store that serves them comes with it.</Description>
+    <PackageTags>NE.Standard,UI,Graph,Nodes,Image,SkiaSharp</PackageTags>
+  </PropertyGroup>
+
+  <!-- The node canvas is this slice's own, so it is a project here and in the mirror alike. -->
+  <ItemGroup>
+    <ProjectReference Include="..\NE.Standard.UI.Graph\NE.Standard.UI.Graph.csproj" />
+  </ItemGroup>
+
+  <!-- The pixels are SkiaSharp's. Its own package carries the Windows and macOS natives; Linux is the host most servers run on,
+       so the dependency-free Linux build comes with this package rather than being left for each application to find. -->
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.152.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.152.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+  </ItemGroup>
+
+  <!-- The store serves what it keeps through the framework's content endpoint (the Shell's contracts): a sibling in the monorepo,
+       a package in the mirror. -->
+  <ItemGroup Condition="'$(InMonorepo)' == 'true'">
+    <ProjectReference Include="..\..\..\..\src\Contracts\NE.Standard.UI.Shell\NE.Standard.UI.Shell.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(InMonorepo)' != 'true'">
+    <PackageReference Include="NE.Standard.UI.Shell" Version="$(CoreVersion)" />
+  </ItemGroup>
+
+</Project>

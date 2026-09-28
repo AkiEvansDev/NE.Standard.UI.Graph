@@ -10,6 +10,9 @@ import { solvePlan } from "../src/production/plan.ts";
 import type { PlanRequest } from "../src/production/plan.ts";
 import { craftNote, edgeFlow, formatFlow, planEntries, readPlan, resourceChip } from "../src/production/plan-view.ts";
 
+// The invariant culture's way, as the framework writes a number with no pack above it.
+const number = (value: number): string => String(Math.round(value * 1000) / 1000);
+
 const words = { text: (key: string) => (key === "ui.graph.per-hour" ? "/h" : key === "ui.graph.per-minute" ? "/min" : "{count} at once") };
 
 const amount = (resource: string, value: number) => ({ resource, amount: value });
@@ -38,10 +41,10 @@ test("a plan draws the crafts that run and the resources they touch, and nothing
 test("made once, a resource says its total and its craft's time; a source, what is brought in", () => {
     const plan = reading({ targets: [amount("plate", 5)], period: "Once", objective: "LeastRaw" });
 
-    assert.equal(resourceChip(plan.resources.get("ingot")!, null, plan.crafts.get("smelt"), words), "×10 · 20 s");
-    assert.equal(resourceChip(plan.resources.get("ore")!, "kg", undefined, words), "×10 kg");
-    assert.equal(craftNote(plan.crafts.get("press")!, words), "×5 · 15 s");
-    assert.equal(formatFlow(plan.crafts.get("press")!.runs * 2, null), "×10");
+    assert.equal(resourceChip(plan.resources.get("ingot")!, null, plan.crafts.get("smelt"), words, number), "×10 · 20 s");
+    assert.equal(resourceChip(plan.resources.get("ore")!, "kg", undefined, words, number), "×10 kg");
+    assert.equal(craftNote(plan.crafts.get("press")!, words, number), "×5 · 15 s");
+    assert.equal(formatFlow(plan.crafts.get("press")!.runs * 2, null, number), "×10");
 });
 
 test("an edge says its amount only where the node it leaves does not say it already", () => {
@@ -51,21 +54,19 @@ test("an edge says its amount only where the node it leaves does not say it alre
     const ingot = plan.resources.get("ingot")!;
 
     assert.equal(ingot.produced, 12);
-    assert.equal(edgeFlow(12, plan.resources.get("ore"), null), null);
-    assert.equal(edgeFlow(10, ingot, null), "×10");
-    assert.equal(edgeFlow(2, ingot, null), "×2");
+    assert.equal(edgeFlow(12, plan.resources.get("ore"), null, number), null);
+    assert.equal(edgeFlow(10, ingot, null, number), "×10");
+    assert.equal(edgeFlow(2, ingot, null, number), "×2");
     // A target that is taken further too: the chip says all that is made, the edge what goes on.
-    assert.equal(edgeFlow(4, { resource: "x", source: false, target: 6, produced: 10, consumed: 4, surplus: 0 }, null), "×4");
+    assert.equal(edgeFlow(4, { resource: "x", source: false, target: 6, produced: 10, consumed: 4, surplus: 0 }, null, number), "×4");
 });
 
 test("counted over a period, a craft says how many of it keep up in place of its time", () => {
     const plan = reading({ targets: [amount("plate", 900)], period: "Hour", objective: "LeastRaw" });
-    // The sheet writes a number the viewer's own way; the test asks for the same rather than for a comma.
-    const ingots = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(1800);
 
     // The period is the whole plan's and the panel's to name: the sheet's own numbers do not repeat it.
-    assert.equal(resourceChip(plan.resources.get("ingot")!, null, plan.crafts.get("smelt"), words), `×${ingots} · 1 at once`);
-    assert.equal(craftNote(plan.crafts.get("press")!, words), "×900 · 1 at once");
+    assert.equal(resourceChip(plan.resources.get("ingot")!, null, plan.crafts.get("smelt"), words, number), "×1800 · 1 at once");
+    assert.equal(craftNote(plan.crafts.get("press")!, words, number), "×900 · 1 at once");
     assert.equal(reading({ targets: [amount("plate", 3600)], period: "Hour", objective: "LeastRaw" }).crafts.get("press")!.workers, 3);
 });
 
@@ -86,5 +87,5 @@ test("a made resource the plan brings in is drawn with nothing behind it", () =>
 
     assert.deepEqual(planEntries(entries, plan).map(entry => entry.id), ["ingot", "plate", "press"]);
     assert.equal(plan.resources.get("ingot")!.source, true);
-    assert.equal(resourceChip(plan.resources.get("ingot")!, null, undefined, words), "×8");
+    assert.equal(resourceChip(plan.resources.get("ingot")!, null, undefined, words, number), "×8");
 });

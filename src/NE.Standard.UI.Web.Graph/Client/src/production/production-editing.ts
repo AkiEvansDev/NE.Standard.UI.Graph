@@ -4,11 +4,12 @@
 
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
 import { openNamedMenu } from "../canvas/canvas-menus.ts";
-import { freeKey } from "../graph/draft.ts";
+import { freeKey, takenKeys } from "../graph/draft.ts";
 import { beginLinkDrag, edgeMiddle, openChipField } from "../graph/link-drag.ts";
-import { parsePositive } from "./craft-view.ts";
+import { numberWriter, parsePositive } from "./craft-view.ts";
+import type { NumberWriter } from "./craft-view.ts";
 import type { Craft, CraftAmount, CraftDraft, ProductionDocument, ProductionEdge, ProductionEntry, ResourceDraft } from "./model.ts";
-import { craftDraft, readSpan, resourceDraft, writeSpan } from "./model.ts";
+import { craftDraft, readSpan, resourceDraft, withoutResources, writeSpan } from "./model.ts";
 
 /** What the editing reaches on the kind: the entries as drawn and as the server has them, and an edge by its key. */
 export type ProductionEditingHost = {
@@ -27,11 +28,16 @@ const LinkMenuName = "graph-link-menu";
 
 export class ProductionEditing {
     private readonly services: CanvasServices<ProductionDocument>;
+    // The page's culture: a field opens on the number as the sheet writes it, and reads the viewer's back the same way.
+    private readonly number: NumberWriter;
+    private readonly decimalSeparator: string;
     private readonly host: ProductionEditingHost;
 
     public constructor(services: CanvasServices<ProductionDocument>, host: ProductionEditingHost) {
         this.services = services;
         this.host = host;
+        this.number = numberWriter(services.context.numbers, services.root);
+        this.decimalSeparator = services.context.numbers.readCulture(services.root).decimalSeparator;
     }
 
     private get document(): ProductionDocument {
@@ -113,15 +119,23 @@ export class ProductionEditing {
     }
 
     private keys(): Set<string> {
-        return new Set(this.host.entries().map(entry => entry.id));
+        // What is drawn holds the server's entries and the viewer's; one the viewer removed is only in the draft until the save.
+        return takenKeys(this.host.entries(), [], this.document.draft.removed);
     }
 
-    /** Entries taken out: one the viewer added simply goes from the draft, and the server's own is marked removed for the save. */
+    /**
+     * Entries taken out: one the viewer added simply goes from the draft, and the server's own is marked removed for the save. A removed
+     * resource leaves the crafts that named it, and a craft that took nothing else goes with it.
+     */
     public removeEntries(ids: ReadonlySet<string>): void {
         const draft = this.document.draft;
+        const resources = new Set<string>();
 
         for (const id of ids) {
             const created = [...draft.resources, ...draft.crafts].some(entry => entry.id === id && entry.created);
+
+            if (this.host.entry(id)?.kind === "resource")
+                resources.add(id);
 
             draft.resources = draft.resources.filter(entry => entry.id !== id);
             draft.crafts = draft.crafts.filter(entry => entry.id !== id);
@@ -129,6 +143,44 @@ export class ProductionEditing {
             if (!created && this.host.serverEntry(id) !== undefined && !draft.removed.includes(id))
                 draft.removed.push(id);
         }
+
+        if (resources.size > 0)
+            this.dropResources(resources);
+    }
+
+    /** The crafts still standing that name removed resources, without them; one left taking nothing goes too. */
+    private dropResources(resources: ReadonlySet<string>): void {
+        const emptied = new Set<string>();
+
+        for (const entry of this.host.entries()) {
+            if (entry.kind !== "craft" || !this.stands(entry.id) || withoutResources(entry, resources) === null)
+                continue;
+
+            // The draft rather than what was drawn: an edge taken out in the same press has already changed it.
+            const craft = this.craftOf(entry.id)!;
+            const kept = withoutResources(craft, resources);
+
+            if (kept === null)
+                continue;
+
+            if (kept.goes) {
+                emptied.add(craft.id);
+                continue;
+            }
+
+            craft.ingredients = kept.ingredients;
+            craft.products = kept.products;
+        }
+
+        if (emptied.size > 0)
+            this.removeEntries(emptied);
+    }
+
+    /** Whether an entry is still there to change: drafted, or the server's and not removed; the drawing is not redone within one press. */
+    private stands(id: string): boolean {
+        const draft = this.document.draft;
+
+        return draft.crafts.some(entry => entry.id === id) || draft.resources.some(entry => entry.id === id) || (this.host.serverEntry(id) !== undefined && !draft.removed.includes(id));
     }
 
     /** Ingredients and products taken out of their crafts; an edge of a craft drawn on its own edges is one of its ingredients, and a craft left with none goes with its last edge. */
@@ -278,8 +330,8 @@ export class ProductionEditing {
         const resource = side === "in" ? edge.resource : edge.product ?? edge.resource;
         const current = side === "in" ? edge.amount : edge.output ?? edge.amount;
 
-        openChipField(this.services, middle, String(current), value => {
-            const amount = parsePositive(value);
+        openChipField(this.services, middle, this.number(current), value => {
+            const amount = parsePositive(value, this.decimalSeparator);
             const craft = amount === null ? null : this.craftOf(edge.craft);
 
             if (amount === null || craft === null)
@@ -306,8 +358,8 @@ export class ProductionEditing {
         if (at === null || entry?.kind !== "craft")
             return;
 
-        openChipField(this.services, at, String(entry.time), value => {
-            const seconds = parsePositive(value);
+        openChipField(this.services, at, this.number(entry.time), value => {
+            const seconds = parsePositive(value, this.decimalSeparator);
             const craft = seconds === null ? null : this.craftOf(id);
 
             if (seconds === null || craft === null || readSpan(craft.time) === seconds)

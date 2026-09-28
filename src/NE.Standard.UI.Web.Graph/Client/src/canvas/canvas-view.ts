@@ -6,7 +6,7 @@ import type { Rect } from "./geometry.ts";
 import { bounds, fitView } from "./geometry.ts";
 import type { CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
-import { RootSelector } from "./canvas-dom.ts";
+import { FoldedControlAttribute, MinimapAttribute } from "./canvas-dom.ts";
 
 /** What the view reaches on the coordinator: the items and groups on the sheet, and the boxes it measures them by. */
 export type CanvasViewHost = {
@@ -18,11 +18,13 @@ export type CanvasViewHost = {
     nodeExtent(id: string): Rect | null;
 };
 
-/** How the sheet's own coordinates land in the map's box: one scale, and the drawing centred in what is left over. */
 /** On a panel of the kind's that takes a column of the viewport's trailing side while it is open — a folding control of the framework's. */
-export const SideAttribute = "data-ui-graph-side";
-const CollapsedAttribute = "data-ui-collapsed";
+const SideAttribute = "data-ui-graph-side";
+const GridSelector = ".ui-graph__grid";
+/** How long the view rests before it is kept: a pan or a zoom writes it once it stops, not on every frame of it. */
+const KeepDelay = 250;
 
+/** How the sheet's own coordinates land in the map's box: one scale, and the drawing centred in what is left over. */
 type MinimapPlacement = { readonly scale: number; readonly offsetX: number; readonly offsetY: number };
 
 export class CanvasView {
@@ -33,6 +35,7 @@ export class CanvasView {
 
     private readonly viewport: HTMLElement;
     private readonly scene: HTMLElement;
+    private readonly grid: HTMLElement | null;
     private readonly zoomLabel: HTMLElement | null;
     private readonly minimap: HTMLElement | null;
     private readonly minimapNodes: HTMLElement | null;
@@ -45,6 +48,7 @@ export class CanvasView {
     private zoomValue = 1;
     private panXValue = 0;
     private panYValue = 0;
+    private keepTimer: ReturnType<typeof setTimeout> | undefined;
 
     public constructor(root: HTMLElement, settings: CanvasSettings, store: ClientStore, host: CanvasViewHost) {
         this.root = root;
@@ -53,6 +57,7 @@ export class CanvasView {
         this.host = host;
         this.viewport = root.querySelector<HTMLElement>(".ui-graph__viewport")!;
         this.scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
+        this.grid = root.querySelector<HTMLElement>(GridSelector);
         this.zoomLabel = root.querySelector<HTMLElement>("[data-ui-graph-zoom]");
         this.minimap = root.querySelector<HTMLElement>("[data-ui-graph-map]");
         this.minimapNodes = root.querySelector<HTMLElement>("[data-ui-graph-map-nodes]");
@@ -88,17 +93,26 @@ export class CanvasView {
 
     public applyView(): void {
         this.scene.style.transform = `translate(${this.panXValue}px, ${this.panYValue}px) scale(${this.zoomValue})`;
-        this.root.style.setProperty("--ui-graph-zoom", String(this.zoomValue));
-        this.root.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`);
-        this.root.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`);
+
+        // On the grid, the one element that reads them: set on the root, they would restyle every node of the sheet each frame.
+        this.grid?.style.setProperty("--ui-graph-zoom", String(this.zoomValue));
+        this.grid?.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`);
+        this.grid?.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`);
 
         if (this.zoomLabel !== null)
             this.zoomLabel.textContent = `${Math.round(this.zoomValue * 100)}%`;
 
         this.placeMinimapView();
 
+        clearTimeout(this.keepTimer);
+        this.keepTimer = setTimeout(() => this.keepView(), KeepDelay);
+    }
+
+    /** The view into the browser's store, and the grid's place for the boot script to paint before the engine starts. */
+    private keepView(): void {
+        this.keepTimer = undefined;
         this.store.write(this.root, "view", JSON.stringify({ zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue }), {
-            selector: RootSelector,
+            selector: GridSelector,
             styles: {
                 "--ui-graph-zoom": String(this.zoomValue),
                 "--ui-graph-pan-x": `${this.panXValue}px`,
@@ -113,7 +127,8 @@ export class CanvasView {
         if (content === null)
             return;
 
-        const view = fitView(content, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight, this.settings.minZoom, this.settings.maxZoom);
+        // Never past its own size: a sheet of three nodes blown up to fill the view reads as a mistake, not as the whole of it.
+        const view = fitView(content, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight, this.settings.minZoom, Math.min(1, this.settings.maxZoom));
 
         this.zoomValue = view.zoom;
         this.panXValue = view.panX;
@@ -123,7 +138,7 @@ export class CanvasView {
 
     /** How much of the viewport's trailing side an open side panel (e.g. a production graph's plan) covers; Fit and centering keep to what's left. */
     private sideWidth(): number {
-        const side = this.viewport.querySelector<HTMLElement>(`[${SideAttribute}]:not([${CollapsedAttribute}])`);
+        const side = this.viewport.querySelector<HTMLElement>(`[${SideAttribute}]:not([${FoldedControlAttribute}])`);
 
         return side === null || side.offsetWidth === 0 ? 0 : this.viewport.clientWidth - side.offsetLeft;
     }
@@ -190,6 +205,13 @@ export class CanvasView {
     public drawMinimap(): void {
         if (this.minimap === null || this.minimapNodes === null)
             return;
+
+        // A canvas showing no map measures nothing for one: this runs on every frame a node is dragged.
+        if (!this.root.hasAttribute(MinimapAttribute)) {
+            this.minimapContent = null;
+            this.minimapPlace = null;
+            return;
+        }
 
         this.minimapContent = this.contentBounds();
         this.minimapNodes.replaceChildren();
@@ -276,7 +298,8 @@ export class CanvasView {
         const x = this.minimapContent.x + (event.clientX - box.left - map.offsetX) / map.scale;
         const y = this.minimapContent.y + (event.clientY - box.top - map.offsetY) / map.scale;
 
-        this.panXValue = this.viewport.clientWidth / 2 - x * this.zoomValue;
+        // In the middle of what an open side panel leaves in view, as Fit and centring keep to.
+        this.panXValue = (this.viewport.clientWidth - this.sideWidth()) / 2 - x * this.zoomValue;
         this.panYValue = this.viewport.clientHeight / 2 - y * this.zoomValue;
         this.applyView();
     }

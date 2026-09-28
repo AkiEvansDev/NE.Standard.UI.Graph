@@ -1,5 +1,7 @@
 // A catalogue as a dialog: search, categories, and a description line per entry. The node canvas offers its kinds through it,
-// the production graph its resources; what is chosen is handed back to whoever opened it.
+// the production graph its resources; what is chosen is handed back to whoever opened it. A category nests by its path —
+// `Maths/Rounding` stands under `Maths` — and choosing one shows what stands in it and under it. A category with others under it
+// is folded until it is chosen or its chevron is pressed, and stays as the viewer left it while the page lives.
 
 import type { Icons, RovingFocus } from "ne-standard-ui";
 
@@ -7,6 +9,7 @@ import type { Icons, RovingFocus } from "ne-standard-ui";
 export type PickerEntry = {
     readonly key: string;
     readonly title: string;
+    /** Where the entry stands, nested by `/`: `Maths/Rounding` is a category of its own under `Maths`. */
     readonly category?: string | null;
     /** The one line the picker shows under the title. */
     readonly description?: string | null;
@@ -21,9 +24,14 @@ const ListSelector = "[data-ui-graph-picker-list]";
 const EmptySelector = "[data-ui-graph-picker-empty]";
 const KindAttribute = "data-ui-graph-kind";
 const CategoryAttribute = "data-ui-graph-category";
+// On a category's chevron: a press on it folds or unfolds the category without choosing it.
+const FoldAttribute = "data-ui-graph-category-fold";
+const PathSeparator = "/";
+const DepthProperty = "--ui-graph-picker-depth";
 const EntryClass = "ui-graph__picker-entry";
 const CurrentClass = "ui-graph__picker-entry--current";
-const AllCategories = "";
+// No clean path is a lone separator, so this cannot collide with a category — the uncategorized one is the empty path.
+const AllCategories = "/";
 
 export type PickerWords = {
     text(key: string): string;
@@ -49,20 +57,12 @@ export class Picker<TEntry extends PickerEntry> {
     private readonly choose: (entry: TEntry) => void;
 
     private category = AllCategories;
+    // The search the list was last drawn for.
+    private drawnTerms = "";
+    // The categories unfolded, by path; every other one with categories under it is folded.
+    private readonly unfolded = new Set<string>();
 
-    private constructor(
-        panel: HTMLDialogElement,
-        search: HTMLInputElement,
-        rail: HTMLElement,
-        list: HTMLElement,
-        empty: HTMLElement,
-        entries: () => readonly TEntry[],
-        words: PickerWords,
-        icons: Icons,
-        ids: PickerIds,
-        roving: RovingFocus,
-        choose: (entry: TEntry) => void
-    ) {
+    private constructor(panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, choose: (entry: TEntry) => void) {
         this.panel = panel;
         this.search = search;
         this.rail = rail;
@@ -76,8 +76,12 @@ export class Picker<TEntry extends PickerEntry> {
         this.choose = choose;
 
         this.search.addEventListener("input", () => this.draw());
-        // The field's clear button is the core's, and it says so with a change rather than an input.
-        this.search.addEventListener("change", () => this.draw());
+        // The field's clear button is the core's, and it says so with a change rather than an input. A change also comes as the field
+        // loses focus to the press on an entry: drawn again then, the entry would be gone before its click.
+        this.search.addEventListener("change", () => {
+            if (this.search.value !== this.drawnTerms)
+                this.draw();
+        });
         this.search.addEventListener("keydown", event => this.key(event));
         this.rail.addEventListener("click", event => this.rails(event));
         this.list.addEventListener("click", event => this.click(event));
@@ -86,17 +90,11 @@ export class Picker<TEntry extends PickerEntry> {
             if (event.target === this.panel)
                 this.close();
         });
+        // However the dialog closed — Escape closes it natively, past close() — the field no longer controls an open list.
+        this.panel.addEventListener("close", () => this.search.setAttribute("aria-expanded", "false"));
     }
 
-    public static create<TEntry extends PickerEntry>(
-        root: HTMLElement,
-        entries: () => readonly TEntry[],
-        words: PickerWords,
-        ids: PickerIds,
-        icons: Icons,
-        roving: RovingFocus,
-        choose: (entry: TEntry) => void
-    ): Picker<TEntry> | null {
+    public static create<TEntry extends PickerEntry>(root: HTMLElement, entries: () => readonly TEntry[], words: PickerWords, ids: PickerIds, icons: Icons, roving: RovingFocus, choose: (entry: TEntry) => void): Picker<TEntry> | null {
         const panel = root.querySelector<HTMLDialogElement>(PickerSelector);
         const search = panel?.querySelector<HTMLInputElement>(SearchSelector) ?? null;
         const rail = panel?.querySelector<HTMLElement>(RailSelector) ?? null;
@@ -143,51 +141,110 @@ export class Picker<TEntry extends PickerEntry> {
         return target instanceof Node && this.panel.contains(target);
     }
 
-    /** The categories the entries declare, in the catalogue's own order, under an entry for all of them. */
+    /**
+     * The categories the entries declare as a tree, in the catalogue's own order — a category first named by an entry deep under it
+     * still stands where that entry put it — under an entry for all of them; what stands under a folded category is left out.
+     */
     private drawRail(): void {
-        const seen = new Set<string>();
-
-        this.rail.replaceChildren(this.railEntry(AllCategories, this.words.text("ui.graph.all-kinds")));
+        const roots: RailNode[] = [];
+        const nodes = new Map<string, RailNode>();
 
         for (const type of this.entries()) {
-            const name = type.category ?? "";
+            const path = categoryOf(type);
+            const segments = path.length === 0 ? [""] : path.split(PathSeparator);
+            let level = roots;
 
-            if (seen.has(name))
-                continue;
+            for (let depth = 0; depth < segments.length; depth++) {
+                const at = segments.slice(0, depth + 1).join(PathSeparator);
+                let node = nodes.get(at);
 
-            seen.add(name);
-            this.rail.append(this.railEntry(name, name.length === 0 ? this.words.text("ui.graph.uncategorized") : name));
+                if (node === undefined) {
+                    node = { path: at, name: segments[depth], children: [] };
+                    nodes.set(at, node);
+                    level.push(node);
+                }
+
+                level = node.children;
+            }
+        }
+
+        this.rail.replaceChildren(this.railEntry(AllCategories, this.words.text("ui.graph.all-kinds"), 0, false));
+        this.appendRail(roots, 0);
+    }
+
+    private appendRail(level: readonly RailNode[], depth: number): void {
+        for (const node of level) {
+            const folds = node.children.length > 0;
+
+            this.rail.append(this.railEntry(node.path, node.path.length === 0 ? this.words.text("ui.graph.uncategorized") : node.name, depth, folds));
+
+            if (folds && this.unfolded.has(node.path))
+                this.appendRail(node.children, depth + 1);
         }
     }
 
-    private railEntry(category: string, caption: string): HTMLElement {
+    private railEntry(category: string, caption: string, depth: number, folds: boolean): HTMLElement {
         const entry = document.createElement("button");
+        const mark = document.createElement("span");
+        const text = document.createElement("span");
 
         entry.type = "button";
         entry.className = "ui-graph__picker-category";
         entry.setAttribute("role", "tab");
         entry.setAttribute(CategoryAttribute, category);
         entry.setAttribute("aria-selected", String(category === this.category));
-        entry.textContent = caption;
+        entry.style.setProperty(DepthProperty, String(depth));
+
+        // Every category keeps the chevron's room, so the names of those with nothing under them line up with the rest.
+        mark.className = "ui-graph__picker-fold";
+        mark.setAttribute("aria-hidden", "true");
+
+        if (folds) {
+            mark.setAttribute(FoldAttribute, "");
+            this.icons.apply(mark, "ne-chevron-right");
+            entry.setAttribute("aria-expanded", String(this.unfolded.has(category)));
+        }
+
+        text.textContent = caption;
+        entry.append(mark, text);
 
         return entry;
     }
 
+    /** A press on a chevron folds or unfolds its category; one on a name chooses it and unfolds it, or folds it if it was chosen and open. */
     private rails(event: MouseEvent): void {
-        const entry = event.target instanceof Element ? event.target.closest<HTMLElement>(`[${CategoryAttribute}]`) : null;
+        const target = event.target instanceof Element ? event.target : null;
+        const entry = target === null ? null : target.closest<HTMLElement>(`[${CategoryAttribute}]`);
 
-        if (entry === null)
+        if (target === null || entry === null)
             return;
 
-        this.category = entry.getAttribute(CategoryAttribute) ?? AllCategories;
+        const category = entry.getAttribute(CategoryAttribute) ?? AllCategories;
 
-        for (const candidate of this.rail.querySelectorAll<HTMLElement>(`[${CategoryAttribute}]`))
-            candidate.setAttribute("aria-selected", String(candidate.getAttribute(CategoryAttribute) === this.category));
+        if (target.closest(`[${FoldAttribute}]`) !== null) {
+            this.toggle(category);
+            this.drawRail();
+            return;
+        }
 
+        if (entry.hasAttribute("aria-expanded"))
+            this.toggle(category, category === this.category ? undefined : true);
+
+        this.category = category;
+        this.drawRail();
         this.draw();
     }
 
+    private toggle(category: string, unfold?: boolean): void {
+        if (unfold ?? !this.unfolded.has(category))
+            this.unfolded.add(category);
+        else
+            this.unfolded.delete(category);
+    }
+
     private draw(): void {
+        this.drawnTerms = this.search.value;
+
         const terms = this.search.value.trim().toLowerCase();
         const matching = this.entries().filter(type => this.chosen(type) && (terms.length === 0 || matches(type, terms)));
 
@@ -256,8 +313,14 @@ export class Picker<TEntry extends PickerEntry> {
             this.search.setAttribute("aria-activedescendant", entry.id);
     }
 
+    /** In the category chosen or in one under it; an entry of no category is in the uncategorized one alone. */
     private chosen(type: TEntry): boolean {
-        return this.category === AllCategories || (type.category ?? "") === this.category;
+        if (this.category === AllCategories)
+            return true;
+
+        const path = categoryOf(type);
+
+        return path === this.category || path.startsWith(this.category + PathSeparator);
     }
 
     private key(event: KeyboardEvent): void {
@@ -301,6 +364,14 @@ export class Picker<TEntry extends PickerEntry> {
         this.close();
         this.choose(type);
     }
+}
+
+/** One category of the rail's tree: its whole path, the last step of it that the rail shows, and the categories under it. */
+type RailNode = { readonly path: string; readonly name: string; readonly children: RailNode[] };
+
+/** An entry's category as a clean path: each step trimmed, empty steps dropped, so `Maths / ` is `Maths`. */
+function categoryOf(type: PickerEntry): string {
+    return (type.category ?? "").split(PathSeparator).map(step => step.trim()).filter(step => step.length > 0).join(PathSeparator);
 }
 
 function matches(type: PickerEntry, terms: string): boolean {

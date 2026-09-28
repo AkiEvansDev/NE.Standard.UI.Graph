@@ -16,6 +16,10 @@
     <RepositoryUrl>https://github.com/AkiEvansDev/NE.Standard.UI.Graph</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <!-- Symbols and sources inside the assembly, since no commit hash can point a debugger at the mirror: a consumer steps
+         into the package and reads its line numbers with nothing else to download. -->
+    <DebugType>embedded</DebugType>
+    <EmbedAllSources>true</EmbedAllSources>
     <!-- The framework's licence: a component is only useful inside it. A file rather than an expression,
          since Prosperity has no SPDX expression NuGet accepts. -->
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>

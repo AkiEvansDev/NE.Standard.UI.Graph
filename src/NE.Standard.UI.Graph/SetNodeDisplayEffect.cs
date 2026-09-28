@@ -29,7 +29,7 @@ public sealed class SetNodeDisplayEffect : TargetedClientEffect
 
         NodeId = nodeId;
         PinName = pinName;
-        Value = value;
+        Value = UINodeDisplayValue.Shorten(value);
     }
 
     /// <inheritdoc/>
@@ -46,7 +46,8 @@ public sealed class SetNodeDisplayEffect : TargetedClientEffect
     public string PinName { get; }
 
     /// <summary>
-    /// Gets what the pin shows; null clears it.
+    /// Gets what the pin shows — a text past ten thousand characters or a list past two hundred entries cut short, what was left
+    /// out said at its end, and a value that cannot travel as JSON as its text; null clears it.
     /// </summary>
     public object? Value { get; }
 

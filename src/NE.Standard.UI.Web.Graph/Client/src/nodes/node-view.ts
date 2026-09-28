@@ -3,7 +3,7 @@
 // marks (chevron, pin) are framework `ne-` glyphs, written as a renderer writes an icon value.
 
 import type { Icons, Tooltips } from "ne-standard-ui";
-import { FoldAttribute, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
+import { CollapsedAttribute, FoldAttribute, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
 import { renderDisplayValue } from "./display.ts";
 import type { DocumentNode, NodeType, Pin } from "./model.ts";
 import { asText, isPinVisible } from "./model.ts";
@@ -16,10 +16,10 @@ export const HeadAttribute = "data-ui-graph-head";
 export const ValueAttribute = "data-ui-graph-value";
 export const DisplayAttribute = "data-ui-graph-display";
 export const UploadAttribute = "data-ui-graph-uploading";
-export const MultipleAttribute = "data-ui-graph-pin-many";
-export const OptionalAttribute = "data-ui-graph-pin-optional";
+const MultipleAttribute = "data-ui-graph-pin-many";
+const OptionalAttribute = "data-ui-graph-pin-optional";
 
-export type Words = {
+type Words = {
     text(key: string): string;
     format(key: string, values: Readonly<Record<string, string | number>>): string;
 };
@@ -33,6 +33,8 @@ export type NodeViewOptions = {
     /** The type an output pin resolves to right now — an `object` output follows what is connected to the input it names. */
     readonly outputType: (nodeId: string, pinName: string) => string;
     readonly isConnected: (nodeId: string, pinName: string, direction: "in" | "out") => boolean;
+    /** The caption of the output an input is fed from, or null while nothing feeds it. */
+    readonly feedTitle: (nodeId: string, pinName: string) => string | null;
     readonly onValueChanged: (nodeId: string, pinName: string, value: unknown) => void;
     /** Asks the canvas to choose a file for a picture pin and send it; the pin shows nothing until the server answers. */
     readonly onPickImage: (nodeId: string, pinName: string) => void;
@@ -57,6 +59,7 @@ const ListRemoveRegion = "graph-list-remove";
 const PictureSelectionClass = "ui-image-input__selection";
 const PictureTextClass = "ui-image-input__text";
 const ListAddRegion = "graph-list-add";
+const StateResetRegion = "graph-state-reset";
 // On a list's add button, for the row to stand it beside the list's caption.
 const ListAddAttribute = "data-ui-graph-list-add";
 
@@ -88,17 +91,21 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
     if (node.pinned === true)
         root.setAttribute("data-ui-graph-pinned", "");
 
+    if (type?.compact === true)
+        return renderCompact(root, node, type, options);
+
     const head = renderHead(node, type, options);
 
     root.append(head);
 
     // Only a kind that says it has progress worth showing carries the line; every other node's run is told by its frame alone.
+    // The head holds it, so it is placed against the head's edge rather than standing in the node's flow.
     if (type?.showProgress === true)
-        root.append(renderProgress());
+        head.append(renderProgress());
 
     // Folded: no body at all, and every pin gathered on the head's two edges, where the edges that reach them converge.
     if (node.collapsed === true) {
-        root.setAttribute("data-ui-graph-collapsed", "");
+        root.setAttribute(CollapsedAttribute, "");
         head.append(renderPorts(node, type, options));
 
         return root;
@@ -117,7 +124,7 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
     }
     else {
         // A pin with no editor is just a name and a dot, so it can share a line with an output without the node widening for it.
-        const shown = type.inputs.filter(pin => isPinVisible(pin, node.values));
+        const shown = type.inputs.filter(pin => isPinVisible(pin, node, type));
         const bare = shown.filter(pin => pin.editor === "None");
 
         for (let index = 0; index < Math.max(bare.length, type.outputs.length); index++)
@@ -137,6 +144,40 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
     return root;
 }
 
+/**
+ * A reroute: a small box with its pins on its two ends, named after the output that feeds it and wearing that output's colour, so a
+ * wire led round a corner reads as the same wire.
+ */
+function renderCompact(root: HTMLElement, node: DocumentNode, type: NodeType, options: NodeViewOptions): HTMLElement {
+    const input = type.inputs[0];
+    const output = type.outputs[0];
+
+    root.classList.add("ui-graph__node--compact");
+
+    if ((node.color ?? null) === null && output !== undefined)
+        root.style.setProperty("--ui-graph-node-color", options.pinColor(options.outputType(node.id, output.name)));
+
+    const name = document.createElement("span");
+
+    name.className = "ui-graph__node-reroute";
+    name.textContent = node.title ?? (input === undefined ? null : options.feedTitle(node.id, input.name)) ?? type.title;
+
+    const ports = document.createElement("div");
+
+    ports.className = "ui-graph__node-ports";
+
+    // Both ends in the colour of what passes through, the way in as much as the way out.
+    if (input !== undefined && output !== undefined)
+        ports.append(renderPin(node, input, options.outputType(node.id, output.name), "in", options));
+
+    if (output !== undefined)
+        ports.append(renderPin(node, output, options.outputType(node.id, output.name), "out", options));
+
+    root.append(name, ports);
+
+    return root;
+}
+
 /** A folded node's pins, inside its head: the inputs at one edge and the outputs at the other, each side's stacked as one. */
 function renderPorts(node: DocumentNode, type: NodeType | undefined, options: NodeViewOptions): HTMLElement {
     const ports = document.createElement("div");
@@ -147,7 +188,7 @@ function renderPorts(node: DocumentNode, type: NodeType | undefined, options: No
         return ports;
 
     for (const pin of type.inputs) {
-        if (pin.hasPin !== false && isPinVisible(pin, node.values))
+        if (pin.hasPin !== false && isPinVisible(pin, node, type))
             ports.append(renderPin(node, pin, pin.type, "in", options));
     }
 
@@ -182,6 +223,8 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
     fold.title = options.words.text(folded ? "ui.graph.expand" : "ui.graph.collapse");
     fold.setAttribute("aria-label", fold.title);
     fold.setAttribute("aria-expanded", String(!folded));
+    // Still drawn read-only, as the node's state: only no longer a control the canvas would answer.
+    fold.disabled = options.readOnly;
     fold.append(glyph(options, folded ? "ne-chevron-right" : "ne-chevron-down"));
     head.append(fold);
 
@@ -203,6 +246,7 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
     pin.setAttribute(PinToggleAttribute, "");
     pin.title = options.words.text(node.pinned === true ? "ui.graph.unpin" : "ui.graph.pin");
     pin.setAttribute("aria-label", pin.title);
+    pin.disabled = options.readOnly;
     pin.append(glyph(options, node.pinned === true ? "ne-pin" : "ne-pin-outlined"));
     head.append(pin);
 
@@ -277,8 +321,8 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
 
     row.className = tall ? "ui-graph__row ui-graph__row--tall" : "ui-graph__row";
 
-    // Only a large picture or a display row takes the node's dragged height; every other row keeps its own, and spare height gathers below.
-    if ((pin.editor === "Image" && pin.large === true) || pin.editor === "Display")
+    // Only a large picture, a display or a multi-line text takes the node's dragged height; every other row keeps its own, and spare height gathers below.
+    if ((pin.editor === "Image" && pin.large === true) || pin.editor === "Display" || (pin.editor === "Text" && (pin.maxLines ?? 1) > 1))
         row.classList.add("ui-graph__row--grow");
 
     if (pin.hasPin !== false)
@@ -311,7 +355,36 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
 
     row.append(editor);
 
+    if (pin.state === true) {
+        const reset = stateReset(node, pin, editor, options);
+
+        if (reset !== null)
+            row.append(reset);
+    }
+
     return row;
+}
+
+/** A state value's way back to where it started: the kind's default, put in as the viewer's own edit, so it undoes like one. */
+function stateReset(node: DocumentNode, pin: Pin, editor: HTMLElement, options: NodeViewOptions): HTMLElement | null {
+    const reset = options.cloneEditor(StateResetRegion);
+
+    if (reset === null)
+        return null;
+
+    disableOnReadOnly(reset, options);
+    reset.addEventListener("click", () => {
+        const value = pin.defaultValue ?? null;
+        const field = editor.firstElementChild;
+
+        // The field shows it at once: an edit redraws only the wires, since a field the viewer typed into already shows its value.
+        if (field !== null)
+            options.setProperty(field, "Value", value);
+
+        options.onValueChanged(node.id, pin.name, value);
+    });
+
+    return reset;
 }
 
 /** Whether the editor is one that cannot share a line with its caption. */
@@ -359,7 +432,10 @@ function typeName(type: string, many: boolean, options: NodeViewOptions): string
 }
 
 function renderEditor(node: DocumentNode, pin: Pin, options: NodeViewOptions): HTMLElement {
-    const value = node.values[pin.name];
+    // A value the document does not hold — a node an application wrote, a field emptied — is the kind's default, which is what
+    // a run takes for it, so the field shows it rather than standing empty; but not on a wired input, whose value the wire brings.
+    const wired = options.isConnected(node.id, pin.name, "in");
+    const value = node.values[pin.name] ?? (wired ? null : pin.defaultValue);
 
     switch (pin.editor) {
         case "Image":
@@ -406,9 +482,12 @@ function bindField(field: HTMLElement, value: unknown, options: NodeViewOptions,
         field.addEventListener("change", onChange);
 }
 
-/** A field's value as the document keeps it: a number as a number, and an emptied field as nothing. */
+/**
+ * A field's value as the document keeps it: a number as a number, an emptied field as nothing — but an emptied text as an empty text,
+ * which a run takes as it is, where nothing would be the kind's default and the field would show what the run does not take.
+ */
 function readPinValue(pin: Pin, value: unknown): unknown {
-    return readValueAs(pin.editor === "Number", value);
+    return pin.editor === "Text" && value === "" ? "" : readValueAs(pin.editor === "Number", value);
 }
 
 function readValueAs(number: boolean, value: unknown): unknown {
@@ -495,7 +574,7 @@ function disableOnReadOnly(button: HTMLElement, options: NodeViewOptions): void 
 /** A list of simple values: a row per value with the element's field and a remove cross; the add button stands beside the list's caption (renderInput). A number list is typed as numbers. */
 function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeViewOptions): HTMLElement {
     const box = editorBox(pin, "ui-graph__editor--list");
-    const values: unknown[] = Array.isArray(value) ? [...value] : [];
+    const values: unknown[] = Array.isArray(value) ? [...(value as unknown[])] : [];
     const numbers = pin.type === "array:number" || pin.type === "number";
 
     const rows = document.createElement("div");

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>NE.Standard.UI.Graph.Calculator</PackageId>
+    <Description>A calculator's node kinds for the NE.Standard UI node canvas: arithmetic, rounding, sums, clamps, the least or most of several, comparisons and a result to read after a run, over the common kinds' numbers. Add them to a catalogue beside an application's own kinds.</Description>
+    <PackageTags>NE.Standard,UI,Graph,Nodes,Calculator</PackageTags>
+  </PropertyGroup>
+
+  <!-- The node canvas is this slice's own, so it is a project here and in the mirror alike. -->
+  <ItemGroup>
+    <ProjectReference Include="..\NE.Standard.UI.Graph\NE.Standard.UI.Graph.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { layered } from "../src/graph/layered.ts";
 import { formatAmount, formatTime, parsePositive } from "../src/production/craft-view.ts";
-import { craftDraft, draftConflicts, drawProduction, overlayDraft, readEntry, readProductionDocument, readSpan, resourceDraft, writeSpan } from "../src/production/model.ts";
+import { freeKey, takenKeys } from "../src/graph/draft.ts";
+import { craftDraft, draftConflicts, drawProduction, overlayDraft, readEntry, readProductionDocument, readSpan, resourceDraft, withoutResources, writeSpan } from "../src/production/model.ts";
 import type { Craft, ProductionDraft, ProductionEntry, Resource } from "../src/production/model.ts";
 
 function resource(id: string): Resource {
@@ -122,12 +123,12 @@ test("a document's draft comes off the wire with both lists and a craft's time a
 });
 
 test("an amount is read as a count of one run, with its unit, and typed back the same way", () => {
-    assert.equal(formatAmount(2.5, null), "×2.5");
-    assert.equal(formatAmount(100, "l"), "×100 l");
-    assert.equal(formatTime(3.5), "3.5 s");
-    assert.equal(parsePositive("×2,5"), 2.5);
-    assert.equal(parsePositive("0"), null);
-    assert.equal(parsePositive("soon"), null);
+    assert.equal(formatAmount(2.5, null, String), "×2.5");
+    assert.equal(formatAmount(100, "l", String), "×100 l");
+    assert.equal(formatTime(3.5, String), "3.5 s");
+    assert.equal(parsePositive("×2,5", ","), 2.5);
+    assert.equal(parsePositive("0", "."), null);
+    assert.equal(parsePositive("soon", "."), null);
 });
 
 test("a resource several crafts make is left out, so neither run speaks for the other", () => {
@@ -139,4 +140,26 @@ test("a resource several crafts make is left out, so neither run speaks for the 
     // Neither maker of X is collapsed: a junction is what says which edges are one run.
     assert.equal(drawing.collapsed.has("make-x"), false);
     assert.equal(drawing.collapsed.has("spare-x"), false);
+});
+
+test("a removed resource leaves the crafts that named it, and one left taking nothing goes with it", () => {
+    const removed = new Set(["z", "g"]);
+
+    // Smelt took only Z: taking nothing, it would make G from nothing, and drawn on its edges it would have none left.
+    assert.equal(withoutResources(craft("smelt", [["z", 1]], [["g", 2]]), removed)?.goes, true);
+
+    const kept = withoutResources(craft("make-y", [["x", 5], ["g", 1]], [["y", 1]]), removed);
+
+    assert.deepEqual(kept, { ingredients: [{ resource: "x", amount: 5 }], products: [{ resource: "y", amount: 1 }], goes: false });
+    assert.equal(withoutResources(craft("make-y", [["x", 5]], [["y", 1]]), removed), null);
+    // A source of the catalogue's own takes nothing from the start: it goes only once it makes nothing either.
+    assert.equal(withoutResources(craft("mine", [], [["g", 1], ["y", 1]]), removed)?.goes, false);
+    assert.equal(withoutResources(craft("dig", [], [["g", 1]]), removed)?.goes, true);
+});
+
+test("a new entry never takes the key of one the viewer removed before the save", () => {
+    const draft: ProductionDraft = { resources: [], crafts: [], removed: ["resource-1"] };
+    const drawn = overlayDraft([resource("resource-1"), resource("resource-2")], draft);
+
+    assert.equal(freeKey("resource", takenKeys(drawn, [], draft.removed)), "resource-3");
 });

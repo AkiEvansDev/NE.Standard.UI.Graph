@@ -45,11 +45,21 @@
     }
 
     .ui-graph__node[data-ui-graph-state="running"] {
-        border-color: var(--ui-color-info);
+        border-color: var(--ui-color-primary);
     }
 
     .ui-graph__node[data-ui-graph-state="error"] {
         border-color: var(--ui-color-danger);
+    }
+
+    // Chosen and failed: the ring takes the failure's colour, or the brand's ring would bury the one thin red edge.
+    .ui-graph__node[data-ui-graph-selected][data-ui-graph-state="error"] {
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-danger) 45%, transparent);
+    }
+
+    // Handed on from its last run rather than run: as quiet as done, told apart by a dotted edge.
+    .ui-graph__node[data-ui-graph-state="cached"] {
+        border-style: dotted;
     }
 
     // Never reached, because something feeding it failed: drawn as stepped-over rather than at fault itself — the fault's own node is the red one.
@@ -86,6 +96,10 @@
     color: inherit;
     cursor: pointer;
     transition: opacity @ui-motion-fast @ui-motion-ease;
+
+    &:disabled {
+        cursor: default;
+    }
 }
 
 .ui-graph__node-fold {
@@ -98,21 +112,19 @@
         font-size: @ui-glyph-sm;
     }
 
-    .ui-graph__node-fold:hover {
+    .ui-graph__node-fold:hover:not(:disabled) {
         opacity: 1;
     }
 
 // Folded, the node is only as wide as its head's words (min-width belongs to the open body), never narrower than reads as a
-// node; the grid step, where it applies, is the floor the engine writes.
+// node; the grid step, where it applies, is the floor the engine writes — for the width only: the height stays the head's own.
 .ui-graph__node[data-ui-graph-collapsed] {
     width: max-content;
     min-width: max(7.5rem, calc(var(--ui-graph-node-w, 0) * 1px));
 }
 
-// Folded, the node is its head alone: no divider, corners the body used to round. Takes the node's whole height, since the
-// grid rounds past the head's own and left a strip of the body's ground showing.
+// Folded, the node is its head alone: no divider, corners the body used to round.
 .ui-graph__node[data-ui-graph-collapsed] > .ui-graph__node-head {
-    flex: 1 0 auto;
     border-bottom: none;
     border-radius: calc(var(--ui-radius-card) - 1px);
 }
@@ -129,6 +141,28 @@
         top: calc(50% - 0.3125rem);
         pointer-events: auto;
     }
+
+// A reroute: a small box with one wire in and one out on its two ends, named after the output that feeds it and wearing its
+// colour. Only as large as its name, whatever size the document keeps for it, with the name in its middle; the whole box drags.
+.ui-graph__node--compact {
+    justify-content: center;
+    width: max-content;
+    min-width: 3rem;
+    min-height: 1.5rem;
+    border-color: color-mix(in srgb, var(--ui-graph-node-color) 60%, var(--ui-color-border));
+    border-radius: var(--ui-radius-button);
+    background: color-mix(in srgb, var(--ui-graph-node-color) 16%, var(--ui-color-surface));
+    cursor: move;
+    user-select: none;
+}
+
+// The side padding keeps the name clear of the pins, which stand half inside the box.
+.ui-graph__node-reroute {
+    .ui-text-nowrap();
+    padding: 0 @ui-space-3;
+    color: var(--ui-text-muted);
+    text-align: center;
+}
 
 .ui-graph__node-icon {
     font-size: @ui-glyph-md;
@@ -150,7 +184,7 @@
         font-size: @ui-glyph-sm;
     }
 
-    .ui-graph__node-pinned:hover {
+    .ui-graph__node-pinned:hover:not(:disabled) {
         opacity: 0.8;
     }
 
@@ -159,13 +193,27 @@
     }
 
 // Edge to edge under the head, square and roomless: a running node is a line across it, not a control set into it. Only a
-// kind that asked for one carries it, gone once the node stops running.
+// kind that asked for one carries it, gone once the node stops running. It lies over the body's top padding, taking no room,
+// so the rows do not jump when a run begins.
 .ui-graph__node-progress {
     --ui-graph-progress: 0;
 
+    position: absolute;
+    top: calc(100% + var(--ui-border-width));
+    left: 0;
+    right: 0;
     height: 3px;
     background: color-mix(in srgb, var(--ui-color-on-surface) 12%, transparent);
+    pointer-events: none;
 }
+
+    // Folded, there is no body under the head: the line lies along the head's own bottom, clear of its rounded corners.
+    .ui-graph__node[data-ui-graph-collapsed] .ui-graph__node-progress {
+        top: auto;
+        bottom: 0;
+        left: var(--ui-radius-card);
+        right: var(--ui-radius-card);
+    }
 
     .ui-graph__node-progress > i {
         display: block;
@@ -184,7 +232,7 @@
     padding: 0.375rem 0;
 }
 
-// The rows that take a dragged node's extra height: a large picture or a display, sharing what there is; every other row keeps
+// The rows that take a dragged node's extra height: a large picture, a display or a multi-line text, sharing what there is; every other row keeps
 // its own height, and spare room gathers below with none of these.
 .ui-graph__node-body > .ui-graph__row--grow {
     flex: 1 1 auto;
@@ -228,6 +276,10 @@
 
 // --- pins and rows --------------------------------------------------------------------------------------------------------
 
+// One line of a row: a caption-only row's height, and the caption line of a tall one, so a pin sits the same distance under
+// a node's top in both and an edge between two nodes on one grid line runs straight.
+@ui-graph-row-line: 1.375rem;
+
 // One value per line. A row is the node's whole width, so a pin sits at the node's own edge whatever stands in the row.
 .ui-graph__row {
     position: relative;
@@ -235,7 +287,7 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0 @ui-space-2;
-    min-height: 1.375rem;
+    min-height: @ui-graph-row-line;
 }
 
     // A picture, list or multi-line text is too tall to share a line with its caption, so the caption stands above and the
@@ -267,8 +319,8 @@
 
     .ui-graph__row--tall > .ui-graph__row-label {
         flex: 0 0 auto;
+        line-height: @ui-graph-row-line;
     }
-
 
 // The dot an optional pin wears: near black, taking a trace of the pin's own colour so it sits in the dot rather than on it.
 @ui-graph-pin-dot: color-mix(in srgb, #000 82%, var(--ui-graph-pin-color));
@@ -292,9 +344,9 @@
         right: -0.375rem;
     }
 
-    // A two-line row centres its children; the absolutely-positioned pin uses that centre, so it sits on the caption's line, not the picture's middle.
+    // A two-line row would centre the absolutely-positioned pin on the picture's middle; it sits on the caption's line instead.
     .ui-graph__row--tall > .ui-graph__pin {
-        top: calc(0.5lh - 0.3125rem);
+        top: calc(@ui-graph-row-line / 2 - 0.3125rem);
     }
 
     // A list's caption shares its line with the add button, so the line is a small control's height and the pin centres on that.
@@ -422,6 +474,12 @@
         flex: 1 1 var(--ui-graph-editor-height, 6rem);
         min-height: 3rem;
     }
+
+// A multi-line text takes the height its row is given, so the node's corner is the one handle that sizes it: the field's own is off
+// (the server's template), since a field grown past the node's stored size is gone at the next redraw, and off the grid.
+.ui-graph__editor > .ui-text-area > .ui-text-area__field {
+    flex: 1 1 auto;
+}
 
 // While a file is on its way, and after one failed to arrive: the editor says so over the picture it does not yet have.
 .ui-graph__editor[data-ui-graph-uploading] {
@@ -570,9 +628,11 @@
         align-self: stretch;
     }
 
-// A list's add/remove buttons match the small field's height beside them, so those lines keep the spacing every other line of the node has.
+// A list's add/remove buttons, and a state value's reset beside its field, match the small field's height beside them, so those
+// lines keep the spacing every other line of the node has.
 .ui-graph__row-head > .ui-button,
-.ui-graph__list-row > .ui-button {
+.ui-graph__list-row > .ui-button,
+.ui-graph__row > .ui-button {
     --ui-min-height: @ui-control-height-sm;
     --ui-padding: 0;
 }
@@ -585,7 +645,6 @@
     gap: @ui-space-1;
     min-width: 0;
 }
-
 
 // The catalogue as a modal dialog: the search above, the categories beside, the kinds and what each says about itself in the list.
 dialog.ui-graph__picker {
@@ -613,10 +672,11 @@ dialog.ui-graph__picker {
         background: var(--ui-color-overlay, rgba(0, 0, 0, 0.45));
     }
 
+// The title at the start and the search at the end, with air between them rather than the field running up to the title.
 .ui-graph__picker-head {
     display: flex;
     align-items: center;
-    gap: @ui-space-3;
+    gap: @ui-space-5;
     padding: @ui-space-3 @ui-space-4;
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
 }
@@ -628,8 +688,9 @@ dialog.ui-graph__picker {
 }
 
 .ui-graph__picker-search {
-    flex: 1 1 auto;
+    flex: 0 1 18rem;
     min-width: 0;
+    margin-inline-start: auto;
 }
 
 .ui-graph__picker-main {
@@ -649,8 +710,13 @@ dialog.ui-graph__picker {
     overflow: auto;
 }
 
+// A category under another steps in by its depth, which the engine writes on the entry.
 .ui-graph__picker-category {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     padding: 0.375rem 0.625rem;
+    padding-inline-start: calc(0.25rem + var(--ui-graph-picker-depth, 0) * 0.875rem);
     border: none;
     // A button's corners, as the framework's own menu entries have: a list of square slabs in a rounded dialog reads as a table.
     border-radius: var(--ui-radius-button);
@@ -668,6 +734,20 @@ dialog.ui-graph__picker {
     .ui-graph__picker-category[aria-selected="true"] {
         .ui-selected-ground();
         font-weight: var(--ui-text-title-font-weight);
+    }
+
+// The chevron of a category with others under it; one with none keeps the room, so every name starts on the same line.
+.ui-graph__picker-fold {
+    .ui-glyph-host();
+    flex: 0 0 auto;
+    width: 1rem;
+    font-size: @ui-glyph-sm;
+    color: var(--ui-text-muted);
+    transition: transform @ui-motion-fast @ui-motion-ease;
+}
+
+    .ui-graph__picker-category[aria-expanded="true"] > .ui-graph__picker-fold {
+        transform: rotate(90deg);
     }
 
 .ui-graph__picker-list {
@@ -710,6 +790,13 @@ dialog.ui-graph__picker {
     color: var(--ui-text-muted);
 }
 
+    // A picture reads at a list row's picture size, not a glyph's.
+    .ui-graph__picker-entry-icon.ui-icon--image {
+        width: 2rem;
+        height: 2rem;
+        font-size: 2rem;
+    }
+
 .ui-graph__picker-entry-text {
     display: flex;
     flex: 1 1 auto;
@@ -734,7 +821,6 @@ dialog.ui-graph__picker {
     text-align: center;
 }
 
-
 // --- the run line and the log ---------------------------------------------------------------------------------------------
 
 // The corner stands on the log's strip, and is raised by the whole log while it is open, so the two are never under it.
@@ -746,6 +832,35 @@ dialog.ui-graph__picker {
 .ui-graph[data-ui-graph-run-progress] .ui-graph__menu-panel {
     top: calc(var(--ui-graph-run-height) + @ui-space-2);
 }
+
+// The run panel, in the top corner as the zoom bar stands in the bottom one: shown only on a canvas that asked for it, and under
+// the run line, as the menu is.
+.ui-graph__run-panel {
+    position: absolute;
+    top: @ui-space-2;
+    right: @ui-space-2;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: @ui-space-1;
+    padding: @ui-space-1;
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-button);
+    background: var(--ui-color-surface);
+}
+
+    .ui-graph:not([data-ui-graph-run-panel]) .ui-graph__run-panel {
+        display: none;
+    }
+
+    .ui-graph[data-ui-graph-run-progress] .ui-graph__run-panel {
+        top: calc(var(--ui-graph-run-height) + @ui-space-2);
+    }
+
+    // Run speaks in the page's own colour, so the panel reads as the way to run the sheet rather than three marks alike.
+    .ui-graph__run-panel > [data-ui-graph-run-once]:not(:disabled) {
+        color: var(--ui-color-primary);
+    }
 
 // Along the canvas's top: upper half the whole run, lower half the running node's own steps, with its name and share written
 // over them. Square and edge to edge; keeps the last run's end, coloured danger on failure.
@@ -802,6 +917,10 @@ dialog.ui-graph__picker {
 
     .ui-graph__run[data-ui-graph-run-state="failed"] > .ui-graph__run-track--step {
         background: color-mix(in srgb, var(--ui-color-danger) 18%, transparent);
+    }
+
+    .ui-graph__run[data-ui-graph-run-state="stopped"] > .ui-graph__run-track--run {
+        background: color-mix(in srgb, var(--ui-color-warning) 34%, transparent);
     }
 
 .ui-graph__run-label,
@@ -870,10 +989,14 @@ dialog.ui-graph__picker {
 }
 
     .ui-graph__log-toggle:hover,
+    .ui-graph__log-clear:hover {
+        color: var(--ui-color-on-surface);
+    }
+
+    // The keyboard's ring as well as the hover's colour: a colour alone reads as the pointer passing, not as where the focus is.
     .ui-graph__log-toggle:focus-visible,
-    .ui-graph__log-clear:hover,
     .ui-graph__log-clear:focus-visible {
-        outline: none;
+        .ui-focus-ring();
         color: var(--ui-color-on-surface);
     }
 

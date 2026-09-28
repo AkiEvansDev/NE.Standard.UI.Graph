@@ -12,9 +12,9 @@ using NE.Standard.UI.Primitives.Styling;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// A graph of resources and the crafts between them, laid out in layers. A resource is a node; a craft is a junction, or, with one
-/// ingredient and one product, an edge mark. Items is the bound collection of both; the value is the document of their placement
-/// and edits.
+/// A graph of resources and the crafts between them, laid out in layers. A resource is a node; a craft that alone makes one
+/// resource is drawn on its edges, and every other craft is a junction. Items is the bound collection of both; the value is the
+/// document of their placement and edits.
 /// </summary>
 /// <remarks>
 /// Two uses distinguished by <see cref="Mode"/>: the constructor, editing the catalogue, and the plan, where the viewer sets
@@ -27,7 +27,7 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
 
     protected ProductionGraphComponent(string? id = null) : base(id)
     {
-        // A resource is its icon, its name what the pointer reads: a production graph is read by its shapes, not by its captions.
+        // A resource is its icon, its name standing under it: a production graph is read by its shapes before its captions.
         NodeShape = UIGraphNodeShape.Icon;
 
         PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, "Add resource"), Separator());

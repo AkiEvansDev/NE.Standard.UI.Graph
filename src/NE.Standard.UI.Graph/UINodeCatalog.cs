@@ -29,7 +29,7 @@ public sealed class UINodeCatalog
 
     /// <summary>
     /// Reads a catalogue off the given classes; each must carry <see cref="GraphNodeAttribute"/> and have a parameterless
-    /// constructor.
+    /// constructor. The <see cref="RerouteNode"/> is added when the classes do not name it.
     /// </summary>
     public static UINodeCatalog FromTypes(params Type[] types)
     {
@@ -38,7 +38,10 @@ public sealed class UINodeCatalog
         List<UINodeType> read = [];
         Dictionary<string, Type> clrTypes = new(StringComparer.Ordinal);
 
-        foreach (Type type in types)
+        // Every catalogue carries the reroute: a wire's menu puts one on the sheet whatever kinds the application named.
+        Type[] all = Array.IndexOf(types, typeof(RerouteNode)) >= 0 ? types : [.. types, typeof(RerouteNode)];
+
+        foreach (Type type in all)
         {
             ArgumentNullException.ThrowIfNull(type);
 
@@ -116,7 +119,8 @@ public sealed class UINodeCatalog
             double.IsNaN(node.MinWidth) ? null : node.MinWidth,
             node.ShowProgress,
             node.Resizable,
-            node.Hidden);
+            node.Hidden,
+            node.Compact);
     }
 
     /// <summary>The pins in the order the attributes ask for, ties kept in the order the class declares them.</summary>
@@ -150,21 +154,29 @@ public sealed class UINodeCatalog
         if (input.Display && input.NoPin)
             throw new ArgumentException($"{property.DeclaringType?.FullName}.{property.Name} is both Display and NoPin: nothing could ever reach it.", nameof(input));
 
+        if (input.State && (input.PinOnly || input.Display || input.Multiple))
+            throw new ArgumentException($"{property.DeclaringType?.FullName}.{property.Name} is a State with a pin: what the node keeps is its own, never fed.", nameof(input));
+
+        if (input.Hidden && !input.State)
+            throw new ArgumentException($"{property.DeclaringType?.FullName}.{property.Name} is Hidden without being a State: nothing could ever set it.", nameof(input));
+
         var pinType = UINodePinTypes.FromClrType(property.PropertyType);
         UIChoice[] choices = ReadAuthoredChoices(property, input);
 
         // A text with a list of values is a combo box, and one holding a picture's address shows the picture; both stay text pins.
+        // A collection with a list of values stays a list, a combo box a row.
         UINodeEditor editor = input.Display
             ? UINodeEditor.Display
             : input.PinOnly ? UINodeEditor.None
-            : choices.Length > 0 ? UINodeEditor.Choice
+            : choices.Length > 0 && !UINodePinTypes.IsArray(pinType) ? UINodeEditor.Choice
             : input.Image && UINodePinTypes.IsTextLike(pinType) ? UINodeEditor.Image
             : EditorFor(property.PropertyType, pinType);
 
-        if (editor == UINodeEditor.Image)
+        if (input.Image && UINodePinTypes.IsTextLike(pinType))
             pinType = UINodePinTypes.Image;
-        else if (editor == UINodeEditor.Choice && choices.Length == 0)
-            choices = [.. UIChoices.FromEnum(Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType)];
+
+        if (choices.Length == 0)
+            choices = EnumChoices(property.PropertyType, editor);
 
         if (input.Large && editor != UINodeEditor.Image)
             throw new ArgumentException($"{property.DeclaringType?.FullName}.{property.Name} is Large without being a picture: only a picture editor is drawn large.", nameof(input));
@@ -199,7 +211,7 @@ public sealed class UINodeCatalog
             step,
             input.MaxLines > 0 ? input.MaxLines : null,
             input.MaxLength > 0 ? input.MaxLength : null,
-            hasPin: !input.NoPin,
+            hasPin: !input.NoPin && !input.State,
             height: double.IsNaN(input.Height) ? null : input.Height,
             large: input.Large,
             required: input.Required,
@@ -208,7 +220,9 @@ public sealed class UINodeCatalog
             visibleWhen: input.VisibleWhen,
             visibleValues: input.VisibleValues,
             unit: input.Unit,
-            format: input.Format);
+            format: input.Format,
+            state: input.State,
+            hidden: input.Hidden);
     }
 
     /// <summary>The choices the attribute names, either as a list on it or from a member of the node's own class.</summary>
@@ -278,6 +292,22 @@ public sealed class UINodeCatalog
         };
     }
 
+    /// <summary>An enum's members, for its own combo box or for each row of a list of it; none for any other editor.</summary>
+    private static UIChoice[] EnumChoices(Type propertyType, UINodeEditor editor)
+    {
+        Type underlying = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+
+        if (editor == UINodeEditor.Choice)
+            return [.. UIChoices.FromEnum(underlying)];
+
+        if (editor != UINodeEditor.List || !UINodePinTypes.TryGetElementType(underlying, out Type element))
+            return [];
+
+        element = Nullable.GetUnderlyingType(element) ?? element;
+
+        return element.IsEnum ? [.. UIChoices.FromEnum(element)] : [];
+    }
+
     private static object? ReadDefault(PropertyInfo property, object? defaults)
     {
         if (defaults is null || !property.CanRead)
@@ -298,12 +328,14 @@ public sealed class UINodeCatalog
     }
 
     private static UINodePin ReadOutput(PropertyInfo property, GraphOutputAttribute output)
-        => new(
-            property.Name,
-            output.Title ?? UINaming.Humanize(property.Name),
-            UINodePinTypes.FromClrType(property.PropertyType),
-            typeOf: output.TypeOf,
-            description: output.Description);
+    {
+        var pinType = UINodePinTypes.FromClrType(property.PropertyType);
+
+        if (output.Image && UINodePinTypes.IsTextLike(pinType))
+            pinType = UINodePinTypes.Image;
+
+        return new(property.Name, output.Title ?? UINaming.Humanize(property.Name), pinType, typeOf: output.TypeOf, description: output.Description);
+    }
 
     /// <summary>
     /// The kind one key names.

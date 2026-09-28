@@ -14,13 +14,14 @@ import type { PickerEntry } from "../canvas/picker.ts";
 import { renderCard } from "../graph/card-view.ts";
 import type { DraftConflict } from "../graph/draft.ts";
 import { resolveConflict } from "../graph/draft.ts";
-import { CaptionRoom, CaptionWidth, NodesAttribute } from "../graph/graph-kind.ts";
+import { circleBox, NodesAttribute } from "../graph/layered-kind.ts";
 import { applyCollectionChange } from "../graph/keyed-list.ts";
 import { LayeredSheet } from "../graph/layered-sheet.ts";
 import { HandleAttribute, openChipField } from "../graph/link-drag.ts";
 import type { GraphNodeShape } from "../graph/model.ts";
 import { readShape } from "../graph/model.ts";
-import { formatAmount, formatOutput, parsePositive, renderCraft } from "./craft-view.ts";
+import { formatAmount, formatOutput, numberWriter, parsePositive, renderCraft } from "./craft-view.ts";
+import type { NumberWriter } from "./craft-view.ts";
 import { ProductionEditing } from "./production-editing.ts";
 import type { ProductionDocument, ProductionEdge, ProductionEntry, Resource, ResourceOutput } from "./model.ts";
 import { drawProduction, draftConflicts, overlayDraft, readEntry, readProductionDocument } from "./model.ts";
@@ -55,6 +56,9 @@ export class ProductionKind implements CanvasKind {
     public readonly snapsByCenter = true;
 
     private readonly services: CanvasServices<ProductionDocument>;
+    // The page's culture, read once: every number the sheet writes, and how a typed one is read back.
+    private readonly number: NumberWriter;
+    private readonly decimalSeparator: string;
     private readonly editing: ProductionEditing;
     private readonly sheet: LayeredSheet;
     private readonly panel: PlanPanel;
@@ -78,12 +82,14 @@ export class ProductionKind implements CanvasKind {
     private quiet = new Set<string>();
     // The plan as it was last solved, while the graph plans and the targets can be reached; otherwise the catalogue is drawn as it is.
     private reading: PlanReading | null = null;
-    private unreachable = false;
+    private failure: "infeasible" | "unsettled" | null = null;
 
     public constructor(services: CanvasServices<ProductionDocument>) {
         const read = readJson(services.root.getAttribute(NodesAttribute));
 
         this.services = services;
+        this.number = numberWriter(services.context.numbers, services.root);
+        this.decimalSeparator = services.context.numbers.readCulture(services.root).decimalSeparator;
         this.server = Array.isArray(read) ? read.map(readEntry).filter((entry): entry is ProductionEntry => entry !== null) : [];
         this.editing = new ProductionEditing(services, {
             entries: () => this.entries,
@@ -100,12 +106,12 @@ export class ProductionKind implements CanvasKind {
             layoutKey: () => (this.reading === null ? this.shape : `${this.shape}|${this.drawn.map(entry => entry.id).join(",")}`),
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
             // next layer's circles.
-            nodeBox: (width, height, widest) => (this.shape === "icon" ? { width: Math.max(width, CaptionWidth, widest), height: height + CaptionRoom } : { width, height })
+            nodeBox: (width, height, widest) => (this.shape === "icon" ? circleBox(width, height, widest) : { width, height })
         }, { nodeGap: NodeGap, layerGap: LayerGap });
         this.panel = new PlanPanel(services, {
             request: () => this.document.plan,
             reading: () => this.reading,
-            infeasible: () => this.unreachable,
+            failure: () => this.failure,
             resource: id => this.resource(id),
             craft: id => {
                 const entry = this.entryById.get(id);
@@ -120,11 +126,11 @@ export class ProductionKind implements CanvasKind {
         this.refresh();
     }
 
-    /** What the picker offers: every resource that is not a target yet, by the name the sheet wears. */
+    /** What the picker offers: every resource that is not a target yet, by the name and the picture the sheet wears. */
     private targetChoices(): PickerEntry[] {
         const targets = new Set(this.document.plan.targets.map(target => target.resource));
 
-        return this.entries.flatMap(entry => (entry.kind === "resource" && !targets.has(entry.id) ? [{ key: entry.id, title: entry.title ?? entry.id, category: entry.category, icon: entry.icon }] : []));
+        return this.entries.flatMap(entry => (entry.kind === "resource" && !targets.has(entry.id) ? [{ key: entry.id, title: entry.title ?? entry.id, category: entry.category, icon: entry.image ?? entry.icon }] : []));
     }
 
     /** Whether the graph is put to planning rather than to its catalogue. */
@@ -156,7 +162,8 @@ export class ProductionKind implements CanvasKind {
     private refresh(): void {
         const draft = this.document.draft;
         const planning = this.planning;
-        const key = `${this.serverVersion}|${JSON.stringify(draft)}|${planning ? JSON.stringify(this.document.plan) : ""}|${this.services.settings.readOnly}`;
+        // The document's own edit count, not the draft and the plan stringified: this runs on every pointer move of a drag.
+        const key = `${this.serverVersion}|${this.services.documentState.version}|${planning}|${this.services.settings.readOnly}`;
 
         if (key === this.structureKey)
             return;
@@ -168,10 +175,10 @@ export class ProductionKind implements CanvasKind {
         const plan = planning ? solvePlan(this.entries, this.document.plan) : null;
 
         this.reading = plan?.status === "Solved" ? readPlan(plan, this.document.plan.period) : null;
-        this.unreachable = plan?.status === "Infeasible";
+        this.failure = plan?.status === "Infeasible" ? "infeasible" : plan?.status === "Unsettled" ? "unsettled" : null;
 
-        // A plan draws what takes part in it; with none to draw, the catalogue stands as it is, to choose a target from.
-        const shown = this.reading === null ? this.entries : planEntries(this.entries, this.reading);
+        // A plan draws what takes part in it, and a plan with nothing solved draws nothing: the whole catalogue there read as a plan.
+        const shown = this.reading !== null ? planEntries(this.entries, this.reading) : planning ? [] : this.entries;
         const drawing = drawProduction(shown);
 
         this.links = drawing.edges;
@@ -218,8 +225,9 @@ export class ProductionKind implements CanvasKind {
                 word: words.text("ui.graph.recipe"),
                 connectable: this.editable,
                 conflict,
-                note: planned === undefined ? null : craftNote(planned, words),
-                resource: id => this.resource(id)
+                note: planned === undefined ? null : craftNote(planned, words, this.number),
+                resource: id => this.resource(id),
+                number: this.number
             });
         }
 
@@ -231,8 +239,8 @@ export class ProductionKind implements CanvasKind {
         // A resource is the graph's own node: its category is the card's subtitle, and its badge is what one run of its maker
         // gives — or, under a plan, how much the plan makes plus its maker's runs.
         const badge = planned !== undefined && this.reading !== null
-            ? resourceChip(planned, resource.unit ?? null, output !== undefined && this.collapsed.has(output.craft) ? this.reading.crafts.get(output.craft) : undefined, words)
-            : output === undefined ? null : formatOutput(output.amount, resource.unit ?? null, output.time);
+            ? resourceChip(planned, resource.unit ?? null, output !== undefined && this.collapsed.has(output.craft) ? this.reading.crafts.get(output.craft) : undefined, words, this.number)
+            : output === undefined ? null : formatOutput(output.amount, resource.unit ?? null, output.time, this.number);
 
         const card = renderCard(item, {
             id: resource.id,
@@ -292,9 +300,9 @@ export class ProductionKind implements CanvasKind {
         const planned = this.reading?.crafts.get(link.craft);
 
         if (planned === undefined || this.reading === null)
-            return formatAmount(link.amount, unit);
+            return formatAmount(link.amount, unit, this.number);
 
-        return link.role === "product" ? formatFlow(planned.runs * link.amount, unit) : edgeFlow(planned.runs * link.amount, this.reading.resources.get(link.resource), unit);
+        return link.role === "product" ? formatFlow(planned.runs * link.amount, unit, this.number) : edgeFlow(planned.runs * link.amount, this.reading.resources.get(link.resource), unit, this.number);
     }
 
     /** The whole line the resource or the craft stands on: what it is made from, all the way up, and what is made from it, all the way down. */
@@ -369,22 +377,33 @@ export class ProductionKind implements CanvasKind {
 
         const current = this.document.plan.targets.find(target => target.resource === id);
 
-        openChipField(this.services, { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }, current === undefined ? "" : String(current.amount), value => {
+        openChipField(this.services, { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }, current === undefined ? "" : this.number(current.amount), value => {
+            const amount = parsePositive(value, this.decimalSeparator);
+
             if (value.trim().length === 0)
                 this.setTarget(id, null);
-            else if (parsePositive(value) !== null)
-                this.setTarget(id, parsePositive(value));
+            else if (amount !== null)
+                this.setTarget(id, amount);
         });
     }
 
     /** A row of the panel pressed: the item it names is chosen, and brought to the middle of the sheet when it is drawn. */
     private show(id: string): void {
-        const rect = this.services.nodeRect(id);
+        // A recipe drawn on its edges has no node of its own: its edges are what is chosen, and the resource they run into is shown.
+        const recipe = this.collapsed.has(id) ? this.links.filter(link => link.craft === id) : [];
+        const rect = this.services.nodeRect(recipe[0]?.product ?? id);
 
         if (rect === null)
             return;
 
-        this.services.selection.selectOnly(id);
+        this.services.selection.clearSets();
+
+        if (recipe.length === 0)
+            this.services.selection.selectOnly(id);
+
+        for (const link of recipe)
+            this.services.selection.toggleEdge(link.id, true);
+
         this.services.view.centerOnRect(rect, 0, 0);
         this.services.draw();
     }
@@ -542,14 +561,14 @@ export class ProductionKind implements CanvasKind {
             enableMenuEntries(this.services.root, key, allowed);
 
         const planned = this.planning && target?.kind === "node" && this.resource(target.id) !== undefined;
-        const made = planned && this.isMade(target!.id);
+        const made = planned && this.isMade(target.id);
 
         // A plan's own entries stand only in the menu of a graph that plans: a target on any resource, Brought in on one something makes.
         showMenuEntries(this.services.root, TargetCommand, planned);
         showMenuEntries(this.services.root, BoughtCommand, made);
         enableMenuEntries(this.services.root, TargetCommand, editable && planned);
         enableMenuEntries(this.services.root, BoughtCommand, editable && made);
-        checkMenuEntries(this.services.root, BoughtCommand, made && (this.document.plan.bought ?? []).includes(target!.id));
+        checkMenuEntries(this.services.root, BoughtCommand, made && (this.document.plan.bought ?? []).includes(target.id));
         enableMenuEntries(this.services.root, OutputCommand, allowed && recipe);
         enableMenuEntries(this.services.root, TimeCommand, allowed && (craft || recipe));
     }

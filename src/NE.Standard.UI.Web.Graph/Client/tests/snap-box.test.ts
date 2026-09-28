@@ -6,9 +6,14 @@ import test from "node:test";
 
 import { snapBoxes } from "../src/canvas/canvas-drag.ts";
 
-function box(width: number, height: number): { element: HTMLElement; written: Map<string, string> } {
+function box(width: number, height: number, folded = false): { element: HTMLElement; written: Map<string, string> } {
     const written = new Map<string, string>();
-    const element = { offsetWidth: width, offsetHeight: height, style: { setProperty: (name: string, value: string) => written.set(name, value) } };
+    const element = {
+        offsetWidth: width,
+        offsetHeight: height,
+        hasAttribute: (name: string) => folded && name === "data-ui-graph-collapsed",
+        style: { setProperty: (name: string, value: string) => written.set(name, value) }
+    };
 
     return { element: element as unknown as HTMLElement, written };
 }
@@ -19,6 +24,14 @@ test("a box is rounded up to the grid's step, each side by itself", () => {
     snapBoxes([node.element], 20);
 
     assert.deepEqual([...node.written], [["--ui-graph-node-w", "220"], ["--ui-graph-node-h", "100"]]);
+});
+
+test("a folded box is rounded in width only, keeping its head's own height", () => {
+    const folded = box(133, 35, true);
+
+    snapBoxes([folded.element], 20);
+
+    assert.deepEqual([...folded.written], [["--ui-graph-node-w", "140"]]);
 });
 
 test("a box that stands on the grid is left alone, and so is every box while the grid has no step", () => {

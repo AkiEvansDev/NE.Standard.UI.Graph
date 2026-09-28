@@ -20,7 +20,7 @@ public sealed class GraphNodeAttribute : Attribute
     public string? Title { get; set; }
 
     /// <summary>
-    /// Gets or sets the group the picker sorts the kind into.
+    /// Gets or sets the group the picker sorts the kind into; a path nests it, <c>Maths/Rounding</c> standing under <c>Maths</c>.
     /// </summary>
     public string? Category { get; set; }
 
@@ -54,6 +54,17 @@ public sealed class GraphNodeAttribute : Attribute
     /// Gets or sets whether the viewer may drag the node's corner to resize it; unset, they may.
     /// </summary>
     public bool Resizable { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the node is drawn as a small box with its pins on its two ends and no head or editors — a reroute.
+    /// </summary>
+    public bool Compact { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the node runs every time, even on the inputs it last ran on — one that waits, reads or writes the disk,
+    /// or otherwise does more than turn its inputs into its outputs. A node with state always runs by itself.
+    /// </summary>
+    public bool AlwaysRuns { get; set; }
 
     /// <summary>
     /// Gets or sets whether the picker leaves the kind out; a hidden kind is still read, run and drawn, so documents that already
@@ -136,7 +147,8 @@ public sealed class GraphInputAttribute : Attribute
     public string? ChoicesFrom { get; set; }
 
     /// <summary>
-    /// Gets or sets whether a text input holds a picture's address: the editor shows the picture and the address under it.
+    /// Gets or sets whether a text input holds a picture's address: its pin is a picture's, and its editor, if it has one, shows
+    /// the picture and the address under it.
     /// </summary>
     public bool Image { get; set; }
 
@@ -150,6 +162,18 @@ public sealed class GraphInputAttribute : Attribute
     /// Gets or sets whether the node cannot run without this value; a run stops here with an error, skipping everything below.
     /// </summary>
     public bool Required { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the node itself changes this value as it runs — a counter's count, a place in a list: what a run leaves
+    /// it at is written back into the document for the next run, and the node offers to put it back to its default. Never a pin.
+    /// </summary>
+    public bool State { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether nothing of the value is drawn on the node: a state the node keeps for itself, which the node's menu
+    /// resets. Only a <see cref="State"/> may be hidden.
+    /// </summary>
+    public bool Hidden { get; set; }
 
     /// <summary>
     /// Gets or sets the smallest value a number editor accepts.
@@ -213,6 +237,11 @@ public sealed class GraphOutputAttribute : Attribute
     /// Gets or sets the input pin whose connected type this output's type follows — <c>nameof(SomeInput)</c>.
     /// </summary>
     public string? TypeOf { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether a text output carries a picture's address, so its pin is a picture's.
+    /// </summary>
+    public bool Image { get; set; }
 
     /// <summary>
     /// Gets or sets where the pin stands among its siblings, counted from one; unset, the class's declaration order.

@@ -2,9 +2,9 @@
 // what a new node starts with, and how a copy is renamed.
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
-import { newId, readGroup, readPoints, readSize } from "../canvas/canvas-model.ts";
+import { newId, readDocumentKey, readGroup, readPoints, readSize } from "../canvas/canvas-model.ts";
 
-export type PinEditor = "None" | "Text" | "Number" | "Boolean" | "Image" | "Date" | "Time" | "DateTime" | "Choice" | "List" | "Display";
+type PinEditor = "None" | "Text" | "Number" | "Boolean" | "Image" | "Date" | "Time" | "DateTime" | "Choice" | "List" | "Display";
 
 export type Pin = {
     readonly name: string;
@@ -38,6 +38,10 @@ export type Pin = {
     readonly unit?: string | null;
     /** How a number the canvas writes itself is formatted — a display pin's answer, by the page's culture. */
     readonly format?: string | null;
+    /** The node itself changes the value as it runs; the node offers to put it back to its default. */
+    readonly state?: boolean;
+    /** A state drawn nowhere on the node, which the node's menu resets. */
+    readonly hidden?: boolean;
 };
 
 export type NodeType = {
@@ -56,6 +60,8 @@ export type NodeType = {
     readonly resizable?: boolean;
     /** Whether the picker leaves the kind out, though a saved document still reads and draws it. */
     readonly hidden?: boolean;
+    /** Whether the node is a small box with its pins on its two ends and no head or editors — a reroute. */
+    readonly compact?: boolean;
     readonly inputs: readonly Pin[];
     readonly outputs: readonly Pin[];
 };
@@ -76,16 +82,17 @@ export type GraphDocument = {
     nodes: DocumentNode[];
     edges: DocumentEdge[];
     groups: CanvasGroup[];
+    key: string | null;
 };
 
 export const AnyType = "any";
-export const ArrayType = "array";
-export const ArrayPrefix = "array:";
-export const TextType = "text";
-export const ImageType = "image";
+const ArrayType = "array";
+const ArrayPrefix = "array:";
+const TextType = "text";
+const ImageType = "image";
 
 export function emptyDocument(): GraphDocument {
-    return { nodes: [], edges: [], groups: [] };
+    return { nodes: [], edges: [], groups: [], key: null };
 }
 
 /** A document as it came off the wire, with every part present and every number a number. */
@@ -98,7 +105,8 @@ export function readDocument(value: unknown): GraphDocument {
     return {
         nodes: (source.nodes ?? []).map(readNode),
         edges: (source.edges ?? []).map(readEdge),
-        groups: (source.groups ?? []).map(readGroup)
+        groups: (source.groups ?? []).map(readGroup),
+        key: readDocumentKey(source)
     };
 }
 
@@ -112,7 +120,7 @@ function readNode(node: DocumentNode): DocumentNode {
         color: node.color ?? null,
         pinned: node.pinned === true,
         collapsed: node.collapsed === true,
-        values: { ...(node.values ?? {}) },
+        values: { ...node.values },
         width: readSize(node.width),
         height: readSize(node.height)
     };
@@ -129,7 +137,7 @@ function readEdge(edge: DocumentEdge): DocumentEdge {
     };
 }
 
-export function isArrayType(type: string): boolean {
+function isArrayType(type: string): boolean {
     return type === ArrayType || type.startsWith(ArrayPrefix);
 }
 
@@ -174,20 +182,31 @@ export function edgesInto(document: GraphDocument, nodeId: string, pinName: stri
     return document.edges.filter(edge => edge.toNode === nodeId && edge.toPin === pinName);
 }
 
-/** Whether a pin is drawn: one shown beside another appears only while that one holds a named value (or any non-empty value). A hidden pin is still saved and fed — this decides drawing only. */
-export function isPinVisible(pin: Pin, values: Record<string, unknown>): boolean {
+/**
+ * Whether a pin is drawn: one shown beside another appears only while that one holds a named value (or any non-empty value) — the
+ * value its field shows, the kind's default where the node holds none. A hidden pin is still saved and fed — this decides drawing only.
+ */
+export function isPinVisible(pin: Pin, node: { readonly values: Record<string, unknown> }, type: NodeType): boolean {
+    if (pin.hidden === true)
+        return false;
+
     const beside = pin.visibleWhen ?? "";
 
     if (beside.length === 0)
         return true;
 
-    const value = values[beside];
+    const value = pinValue(node.values, type, beside);
     const named = pin.visibleValues ?? [];
 
     if (named.length > 0)
         return named.some(candidate => candidate === asText(value));
 
     return value !== null && value !== undefined && value !== false && asText(value).length > 0;
+}
+
+/** What one input holds as its field shows it: the node's value, or the kind's default where the node holds none. */
+function pinValue(values: Record<string, unknown>, type: NodeType, pinName: string): unknown {
+    return values[pinName] ?? type.inputs.find(pin => pin.name === pinName)?.defaultValue;
 }
 
 /** A value as the rule above compares it and as an editor shows it: nothing for nothing, the text of anything else. */
@@ -201,13 +220,7 @@ export function findPin(type: NodeType | undefined, name: string, outputs: boole
 }
 
 /** The type an output pin resolves to: its own, or — via `typeOf` — the type feeding the input it follows, chained; a loop resolves to the universal type rather than hanging. */
-export function resolveOutputType(
-    document: GraphDocument,
-    types: ReadonlyMap<string, NodeType>,
-    nodeId: string,
-    pinName: string,
-    seen: Set<string> = new Set()
-): string {
+export function resolveOutputType(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pinName: string, seen = new Set<string>()): string {
     const step = `${nodeId}:${pinName}`;
 
     if (seen.has(step))

@@ -36,7 +36,7 @@ public sealed class UINodeType
     /// Creates a node kind.
     /// </summary>
     [JsonConstructor]
-    public UINodeType(string key, string title, UINodePin[] inputs, UINodePin[] outputs, string? category = null, string? description = null, string? icon = null, string? color = null, double? minWidth = null, bool showProgress = false, bool resizable = true, bool hidden = false)
+    public UINodeType(string key, string title, UINodePin[] inputs, UINodePin[] outputs, string? category = null, string? description = null, string? icon = null, string? color = null, double? minWidth = null, bool showProgress = false, bool resizable = true, bool hidden = false, bool compact = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -53,6 +53,7 @@ public sealed class UINodeType
         ShowProgress = showProgress;
         Resizable = resizable;
         Hidden = hidden;
+        Compact = compact;
     }
 
     /// <summary>
@@ -66,7 +67,7 @@ public sealed class UINodeType
     public string Title { get; }
 
     /// <summary>
-    /// Gets the group the picker sorts the kind into.
+    /// Gets the group the picker sorts the kind into; a path nests it, <c>Maths/Rounding</c> standing under <c>Maths</c>.
     /// </summary>
     public string? Category { get; }
 
@@ -106,6 +107,11 @@ public sealed class UINodeType
     public bool Hidden { get; }
 
     /// <summary>
+    /// Gets whether the node is drawn as a small box with its pins on its two ends — a reroute.
+    /// </summary>
+    public bool Compact { get; }
+
+    /// <summary>
     /// Gets the input pins, in the order they are drawn.
     /// </summary>
     public UINodePin[] Inputs { get; }
@@ -125,7 +131,7 @@ public sealed class UINodePin
     /// Creates a pin.
     /// </summary>
     [JsonConstructor]
-    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null)
+    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(type);
@@ -152,6 +158,8 @@ public sealed class UINodePin
         VisibleValues = visibleValues ?? [];
         Unit = unit;
         Format = format;
+        State = state;
+        Hidden = hidden;
     }
 
     /// <summary>
@@ -264,4 +272,14 @@ public sealed class UINodePin
     /// Gets how a number is written where the canvas writes one itself — a display pin's answer.
     /// </summary>
     public string? Format { get; }
+
+    /// <summary>
+    /// Gets whether the node itself changes the value as it runs, the document keeping what a run left it at.
+    /// </summary>
+    public bool State { get; }
+
+    /// <summary>
+    /// Gets whether the value is drawn nowhere on the node — a state the node keeps for itself, which the node's menu resets.
+    /// </summary>
+    public bool Hidden { get; }
 }

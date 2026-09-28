@@ -3,6 +3,9 @@
 
 @import (reference) "../../plugin/ne-standard-ui.less";
 
+// The map's own height, which the corner it stands in counts too.
+@ui-graph-minimap-height: 6.5rem;
+
 .ui-graph {
     --ui-graph-grid-size: 20;
     --ui-graph-height: 32rem;
@@ -10,8 +13,10 @@
     --ui-graph-pin-color: var(--ui-color-primary);
     // What a kind stands along the canvas's foot, which the corner stands on: nothing, unless the kind has a strip there.
     --ui-graph-foot-height: 0rem;
-    // The map and the zoom bar under it are one column of one width.
+    // The map and the zoom bar under it are one column of one width, and as tall as the two: a panel over the trailing side ends
+    // above it.
     --ui-graph-corner-width: 10rem;
+    --ui-graph-corner-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width));
 
     display: flex;
     flex-direction: column;
@@ -115,7 +120,7 @@
     pointer-events: none;
 }
 
-// While the pointer rests on an item, it and its edges/neighbours stay as they are; everything else dims, so the item's
+// While the pointer rests on an item, it and what the kind relates to it stay as they are; everything else dims, so the item's
 // surroundings read at a glance.
 .ui-graph--edge-focus .ui-graph__node {
     opacity: 0.35;
@@ -134,23 +139,28 @@
     opacity: 1;
 }
 
-// What an edge says stands in a chip of its own, as a node does: the line would otherwise run through the words.
-.ui-graph__edge-label {
-    fill: var(--ui-text-muted);
-    font-size: var(--ui-text-caption-font-size);
-    text-anchor: middle;
-    dominant-baseline: middle;
-    pointer-events: all;
-    cursor: pointer;
-    user-select: none;
+// An edge's words stand in a chip of their own, as a node's do: the line would otherwise run through them. HTML over the lines,
+// placed in the scene's coordinates by the render; the layer lets the pointer through to the edges and nodes under it.
+.ui-graph__labels {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
 }
 
-.ui-graph__edge-label-box {
-    fill: var(--ui-color-surface);
-    stroke: var(--ui-color-border);
-    stroke-width: 1px;
-    pointer-events: all;
+.ui-graph__edge-label {
+    position: absolute;
+    padding: 0.125rem 0.25rem;
+    border: 1px solid var(--ui-color-border);
+    border-radius: 0.25rem;
+    background: var(--ui-color-surface);
+    color: var(--ui-text-muted);
+    font-size: var(--ui-text-caption-font-size);
+    line-height: 1;
+    white-space: nowrap;
+    pointer-events: auto;
     cursor: pointer;
+    user-select: none;
 }
 
 .ui-graph__reroute {
@@ -227,7 +237,6 @@
     background: var(--ui-graph-swatch, transparent);
 }
 
-
 // --- the band, the picker, the bar ----------------------------------------------------------------------------------------
 
 .ui-graph__marquee {
@@ -240,7 +249,6 @@
     background: color-mix(in srgb, var(--ui-color-primary) 10%, transparent);
     pointer-events: none;
 }
-
 
 // The trailing bottom corner: map over zoom bar, one column, standing on whatever the kind keeps along the canvas's foot.
 .ui-graph__corner {
@@ -255,13 +263,12 @@
     transition: bottom @ui-motion-fast @ui-motion-ease;
 }
 
-
 // The whole sheet over the zoom bar, with the part of it now on screen marked: a press anywhere on it takes the view there. Off
 // unless the author asked for it — a map of four nodes is a box in the way.
 .ui-graph__minimap {
     position: relative;
     width: var(--ui-graph-corner-width);
-    height: 6.5rem;
+    height: @ui-graph-minimap-height;
     padding: @ui-space-1;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-button);
@@ -272,6 +279,10 @@
 
     .ui-graph:not([data-ui-graph-minimap]) .ui-graph__minimap {
         display: none;
+    }
+
+    .ui-graph[data-ui-graph-minimap] {
+        --ui-graph-corner-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width) + @ui-graph-minimap-height + @ui-space-1);
     }
 
 .ui-graph__minimap-nodes {

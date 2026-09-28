@@ -1,11 +1,9 @@
 using NE.Standard.UI.Abstractions.Binding.Properties;
-using NE.Standard.UI.Components.BuiltIns.Navigation;
 
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// Shared by every canvas laid out in layers: layer direction, default node shape, whether structure may be edited, and the edge
-/// menu.
+/// Shared by every canvas laid out in layers: layer direction, default node shape, and whether structure may be edited.
 /// </summary>
 public interface ILayeredGraphComponent : IGraphCanvasComponent
 {
@@ -17,9 +15,6 @@ public interface ILayeredGraphComponent : IGraphCanvasComponent
 
     /// <summary>Gets the registered property key for <see cref="EditStructure"/>.</summary>
     static UIProperty EditStructureProperty { get; } = new(nameof(EditStructure));
-
-    /// <summary>Gets the menu the right button opens on an edge.</summary>
-    MenuComponent EdgeMenu { get; }
 
     /// <summary>Gets which way the layered layout runs.</summary>
     UIGraphDirection? Direction { get; }

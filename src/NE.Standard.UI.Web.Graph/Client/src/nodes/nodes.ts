@@ -5,6 +5,7 @@ import type { EffectContext, GlobalApi } from "ne-standard-ui";
 import type { GraphEngine } from "../canvas/canvas.ts";
 import { findCanvas } from "../canvas/canvas.ts";
 import { NodesKind } from "./nodes-kind.ts";
+import { StopEventName } from "./nodes-run-panel.ts";
 import { UploadEventName } from "./nodes-upload.ts";
 
 /** The effect kind a node's status travels under. */
@@ -22,14 +23,19 @@ const LogEffectKind = "graph.add-node-log";
 /** The effect kind a run's progress travels under. */
 const RunProgressEffectKind = "graph.set-run-progress";
 
+/** The effect kind a run's beginning and end travel under. */
+const RunningEffectKind = "graph.set-running";
+
 type NodeEffect = {
     target?: { id?: unknown; dynamicParameters?: readonly unknown[] };
     level?: unknown;
     completed?: unknown;
     total?: unknown;
+    running?: unknown;
     nodeId?: string;
     pinName?: string;
     value?: unknown;
+    committed?: unknown;
     state?: string;
     progress?: unknown;
     message?: unknown;
@@ -46,10 +52,16 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
         dynamicParameters: context => [...(context.domEvent.detail?.keys ?? [])]
     });
 
+    // The node canvas an effect is addressed to, by the canvas it names; none when that canvas is not a node canvas.
+    const nodesOf = (context: EffectContext, effect: NodeEffect): NodesKind | null => {
+        const component = findCanvas(context, effect);
+
+        return component === null ? null : engine()?.kindOf(component, NodesKind) ?? null;
+    };
+
     const withNodes = (context: EffectContext, apply: (kind: NodesKind, nodeId: string, effect: NodeEffect) => void): void => {
         const effect = context.effect as NodeEffect;
-        const component = findCanvas(context, effect);
-        const kind = component === null ? null : engine()?.kindOf(component, NodesKind) ?? null;
+        const kind = nodesOf(context, effect);
 
         if (kind !== null && effect.nodeId !== undefined)
             apply(kind, effect.nodeId, effect);
@@ -69,7 +81,7 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
 
     api.registerEffect({
         kind: ValueEffectKind,
-        handler: context => withNodes(context, (kind, nodeId, effect) => kind.setPinValue(nodeId, effect.pinName ?? "", effect.value))
+        handler: context => withNodes(context, (kind, nodeId, effect) => kind.setPinValue(nodeId, effect.pinName ?? "", effect.value, effect.committed === true))
     });
 
     // A line of a run's log, addressed by the canvas and the node it came from; a click on it takes the view to that node.
@@ -83,10 +95,21 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
         kind: RunProgressEffectKind,
         handler: context => {
             const effect = context.effect as NodeEffect;
-            const component = findCanvas(context, effect);
-            const kind = component === null ? null : engine()?.kindOf(component, NodesKind) ?? null;
 
-            kind?.setRunProgress(Number(effect.completed) || 0, Number(effect.total) || 0);
+            nodesOf(context, effect)?.setRunProgress(Number(effect.completed) || 0, Number(effect.total) || 0);
         }
     });
+
+    // A run of the sheet has begun or ended: the run panel holds its Run buttons and offers Stop in between.
+    api.registerEffect({
+        kind: RunningEffectKind,
+        handler: context => {
+            const effect = context.effect as NodeEffect;
+
+            nodesOf(context, effect)?.setRunning(effect.running === true);
+        }
+    });
+
+    // The run panel's Stop, while a run is on.
+    api.registerEvent<CustomEvent>(StopEventName, {});
 }

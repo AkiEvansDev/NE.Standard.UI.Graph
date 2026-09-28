@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using NE.Standard.UI.Authoring.Components;
-using NE.Standard.UI.Components.BuiltIns.Models;
-using NE.Standard.UI.Components.BuiltIns.Navigation;
 using NE.Standard.UI.Primitives.Annotations;
 
 namespace NE.Standard.UI.Graph;
@@ -17,11 +15,6 @@ public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCan
 {
     protected LayeredGraphComponentBase(string? id = null) : base(id)
     {
-        // Delete is every edge's; what else an edge's menu offers is the kind's, put ahead of it.
-        EdgeMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.DeleteEdge, "Delete")]);
-
-        SetCanvasRegion(UIGraphMenus.Edge, EdgeMenu);
-
         // A conflict is answered on the item, or on the edge where a recipe's edges carry it — the only menus these entries show in.
         PrependEntries(NodeMenu, Entry(UIGraphCommands.TakeServer, "Take the server's"), Entry(UIGraphCommands.KeepMine, "Keep mine"));
         PrependEntries(EdgeMenu, Entry(UIGraphCommands.TakeServer, "Take the server's"), Entry(UIGraphCommands.KeepMine, "Keep mine"));
@@ -29,9 +22,6 @@ public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCan
         // A layered graph is read by its lines: the one under the pointer stands out, whole, unless the author takes that off.
         HighlightOnHover = true;
     }
-
-    /// <inheritdoc/>
-    public MenuComponent EdgeMenu { get; }
 
     /// <summary>
     /// Gets or sets whether the viewer may edit items and links — add, rename, recolour, remove, draw and delete — beside moving
@@ -54,7 +44,7 @@ public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCan
 
     /// <inheritdoc/>
     /// <remarks>A layered canvas has no components inside an item template, so a change to an item has to reach it as a replace of the item.</remarks>
-    [UIComponentProperty(Contract = typeof(IItemValuesComponent), IsBindable = false, GenerateBinder = false, GenerateSetter = false, DefaultValue = false)]
+    [UIComponentProperty(Contract = typeof(IItemValuesComponent), IsBindable = false, GenerateSetter = false, DefaultValue = false)]
     public bool TakesItemValues => true;
 
     /// <summary>The unbound items replaced whole, each checked for null first so a bad list leaves the old one standing.</summary>
@@ -74,10 +64,4 @@ public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCan
         foreach (TItem item in buffer)
             target.Add(item);
     }
-
-    /// <summary>
-    /// Appends a separator and then the given entries to the menu the right button opens on an edge; the command hears which edge.
-    /// </summary>
-    public T AddEdgeMenuEntries(params MenuItem[] entries)
-        => AppendEntries(EdgeMenu, entries);
 }

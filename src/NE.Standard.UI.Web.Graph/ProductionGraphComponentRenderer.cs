@@ -38,12 +38,13 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
     }
 
     /// <summary>
-    /// The plan panel on the sheet's trailing side, folded until pressed: targets, period and objective fields, and tables the
-    /// engine fills from the solved plan. Always in the markup; the stylesheet shows it only for a planning graph.
+    /// The plan panel on the sheet's trailing side, open until folded, the fold remembered per canvas: targets, period and objective
+    /// fields, and tables the engine fills from the solved plan. Always in the markup; the stylesheet shows it only for a planning
+    /// graph.
     /// </summary>
     /// <remarks>
-    /// Uses the framework's collapsible shape so <c>collapsible-engine.ts</c> slides it like the corner menu; the package writes no
-    /// fold logic of its own.
+    /// Uses the framework's collapsible shape so <c>collapsible-engine.ts</c> slides it like the corner menu; the package only
+    /// remembers the fold.
     /// </remarks>
     protected override void RenderViewportFoot(WebRenderContext context, IHtmlElementBuilder viewport)
     {
@@ -53,6 +54,8 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
         _ = viewport.Element("aside", plan =>
         {
             _ = plan.Class($"{ClassName}__plan");
+            // A panel over the sheet, not the sheet: a right press on it opens none of the canvas's menus.
+            _ = plan.Attribute(WebAttributes.NoContextMenu);
             _ = plan.Class(CollapsibleChromeRenderer.RootClassName);
             _ = plan.Class(WebClassNames.Side(UISide.Right));
             _ = plan.Attribute("data-ui-graph-plan");

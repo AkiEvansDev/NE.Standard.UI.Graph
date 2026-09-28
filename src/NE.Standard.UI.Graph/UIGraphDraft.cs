@@ -77,7 +77,6 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
                 node.Links = kept;
         }
     }
-
 }
 
 /// <summary>
@@ -85,19 +84,7 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 /// (for conflict detection).
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphNodeDraft(
-    string id,
-    string? title = null,
-    string? subtitle = null,
-    string? icon = null,
-    string? image = null,
-    UIGraphNodeShape? shape = null,
-    string? color = null,
-    string? badge = null,
-    string? tooltip = null,
-    UIGraphLink[]? links = null,
-    bool created = false,
-    string? baseline = null)
+public sealed class UIGraphNodeDraft(string id, string? title = null, string? subtitle = null, string? icon = null, string? image = null, UIGraphNodeShape? shape = null, string? color = null, string? badge = null, string? tooltip = null, UIGraphLink[]? links = null, bool created = false, string? baseline = null)
 {
     /// <summary>Gets the node's key.</summary>
     public string Id { get; } = id;

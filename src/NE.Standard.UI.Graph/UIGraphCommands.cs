@@ -77,6 +77,12 @@ public static class UIGraphCommands
     /// <summary>Takes out the edge the menu was opened on.</summary>
     public const string DeleteEdge = Prefix + "delete-edge";
 
+    /// <summary>Puts a reroute where the menu was opened: on an edge, the edge running through it; on the empty sheet, unwired.</summary>
+    public const string AddReroute = Prefix + "add-reroute";
+
+    /// <summary>Puts every state value of the node the menu was opened on back to its default — a counter to its start.</summary>
+    public const string ResetState = Prefix + "reset-state";
+
     /// <summary>The entry whose choices are the colours a node or a group may wear.</summary>
     public const string Color = Prefix + "color";
 
@@ -99,7 +105,7 @@ public static class UIGraphCommands
 /// </summary>
 public static class UIGraphMenus
 {
-    /// <summary>The menu under the button in the canvas's corner — every command, and the application's own.</summary>
+    /// <summary>The menu under the button in the canvas's corner — Arrange, Fit and Save, and the application's own.</summary>
     public const string Main = "graph-menu";
 
     /// <summary>The menu the right button opens on a node.</summary>
@@ -154,6 +160,9 @@ public static class UIGraphRegions
     /// <summary>The button that adds a row to a list pin.</summary>
     public const string ListAdd = "graph-list-add";
 
+    /// <summary>The button that puts a state value back to its default (<see cref="GraphInputAttribute.State"/>).</summary>
+    public const string StateReset = "graph-state-reset";
+
     /// <summary>What a plan's amounts are counted over, in the production graph's plan panel.</summary>
     public const string PlanPeriod = "graph-plan-period";
 
@@ -182,19 +191,49 @@ public static class UIGraphRegions
 /// </summary>
 public static class UIGraphWords
 {
+    /// <summary>A list row's or a plan target's remove button.</summary>
     public const string Remove = "ui.graph.remove";
+
+    /// <summary>A list pin's add-a-row button.</summary>
     public const string AddValue = "ui.graph.add-value";
+
+    /// <summary>A state value's reset button.</summary>
+    public const string ResetState = "ui.graph.reset-state";
+
+    /// <summary>A picture field's choose-a-file button.</summary>
     public const string ChooseFile = "ui.graph.choose-file";
+
+    /// <summary>The plan panel's add-a-target button.</summary>
     public const string AddTarget = "ui.graph.add-target";
+
+    /// <summary>The plan panel's resource search.</summary>
     public const string SearchResources = "ui.graph.search-resources";
+
+    /// <summary>The word a target of the plan is named by.</summary>
     public const string Target = "ui.graph.target";
+
+    /// <summary>The plan's period select.</summary>
     public const string Period = "ui.graph.plan-period";
+
+    /// <summary>The period for one batch.</summary>
     public const string PeriodOnce = "ui.graph.plan-once";
+
+    /// <summary>The period of a minute.</summary>
     public const string PeriodMinute = "ui.graph.plan-minute";
+
+    /// <summary>The period of an hour.</summary>
     public const string PeriodHour = "ui.graph.plan-hour";
+
+    /// <summary>The plan's objective select.</summary>
     public const string Objective = "ui.graph.plan-objective";
+
+    /// <summary>The objective of the least raw resources.</summary>
     public const string LeastRaw = "ui.graph.plan-least-raw";
+
+    /// <summary>The objective of the least time.</summary>
     public const string LeastTime = "ui.graph.plan-least-time";
+
+    /// <summary>The objective of the least cost.</summary>
     public const string LeastCost = "ui.graph.plan-least-cost";
 }
 
@@ -204,13 +243,14 @@ public static class UIGraphWords
 public sealed record UIGraphColorChoice(string Title, string Color);
 
 /// <summary>
-/// The events a node canvas raises beyond an input's own.
+/// The events a canvas of the package raises beyond an input's own.
 /// </summary>
 public static class GraphEvents
 {
     /// <summary>
-    /// Raised after the document commits, from Ctrl+S, the menu's Save, or a <see cref="SaveDocumentEffect"/>. Its key is the
-    /// save's reason — empty for the viewer's own.
+    /// Raised after the document commits, from Ctrl+S, the menu's Save, an edit saved as it is made
+    /// (<see cref="IGraphCanvasComponent.AutoSave"/>), the run panel's Run and Run all, or a <see cref="SaveDocumentEffect"/>. Its
+    /// key is the save's reason (<see cref="UIGraphArguments.Reason"/>) — empty for the viewer's own.
     /// </summary>
     public const string Save = "save";
 
@@ -228,4 +268,7 @@ public static class GraphEvents
     /// The pin shows nothing until the application replies with the stored address.
     /// </summary>
     public const string ImageUpload = "image-upload";
+
+    /// <summary>The run panel's Stop, while a run is on: the command ends it (<see cref="UINodeRuns.Stop"/>).</summary>
+    public const string RunStop = "run-stop";
 }

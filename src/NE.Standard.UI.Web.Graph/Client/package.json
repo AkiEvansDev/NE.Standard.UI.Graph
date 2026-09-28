@@ -4,13 +4,17 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint && knip --no-config-hints",
     "test": "node --test tests/*.test.ts",
-    "build": "npm run typecheck && vite build --clearScreen false --logLevel error"
+    "build": "npm run typecheck && npm run lint && vite build --clearScreen false --logLevel error"
   },
   "devDependencies": {
-    "@types/node": "26.4.1",
-    "less": "4.9.0",
+    "@types/node": "26.6.2",
+    "knip": "6.38.0",
+    "less": "4.9.1",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2003",
     "typescript": "7.0.2",
-    "vite": "8.2.2"
+    "vite": "8.3.0"
   }
 }

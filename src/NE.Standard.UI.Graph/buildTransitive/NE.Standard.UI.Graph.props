@@ -1,0 +1,9 @@
+<Project>
+
+  <!-- The namespaces of this package an application writes against. The .targets beside this file turns them into global
+       usings unless the project sets NEStandardUIImplicitUsings to false; a package only names its own. -->
+  <ItemGroup>
+    <NEStandardUIUsing Include="NE.Standard.UI.Graph" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,4 @@
-// Draws one graph node as a card (icon/picture, title, subtitle, badge) or a circle (picture/icon alone, title read on hover).
+// Draws one graph node as a card (icon/picture, title, subtitle, badge) or a circle (picture/icon, its title under it and as its tooltip).
 // The title carries the class a rename field lays over; the root carries the attribute every canvas finds an item by.
 
 import type { Icons, Tooltips } from "ne-standard-ui";
@@ -64,7 +64,7 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
         root.append(entry, handle);
     }
 
-    // A circle says nothing on its own, so its title is what the pointer reads when the node names no words of its own.
+    // A circle's title, small under it, is also what the pointer reads when the node names no words of its own.
     const words = node.tooltip ?? (round ? title : null);
 
     if (words !== null) {

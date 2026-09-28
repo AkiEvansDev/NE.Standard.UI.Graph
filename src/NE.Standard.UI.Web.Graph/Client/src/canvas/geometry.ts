@@ -3,6 +3,7 @@
 // one set of rules draws both axes.
 
 import type { Point } from "./canvas-model.ts";
+import { LeastRun } from "./lanes.ts";
 
 export type EdgeShape = "bezier" | "straight" | "orthogonal";
 
@@ -108,7 +109,7 @@ function orthogonalCommands(stops: readonly Point[], turns: readonly (number | u
         const start = stops[index - 1];
         const end = stops[index];
 
-        if (end.x - start.x >= 48) {
+        if (end.x - start.x >= LeastRun) {
             const middle = Math.min(end.x - TurnRoom, Math.max(start.x + TurnRoom, turns[index - 1] ?? (start.x + end.x) / 2));
 
             line(middle, start.y);
@@ -217,6 +218,27 @@ export function fitView(content: Rect, width: number, height: number, minZoom: n
     };
 }
 
+/** How far one wheel line and one wheel page go, in pixels, for a wheel that counts in those rather than in pixels. */
+const WheelLine = 33;
+const WheelPage = 400;
+/** The pixels of a mouse's one notch, which zoom by a tenth; a turn is held to three notches, however far a flick throws it. */
+const WheelNotch = 100;
+const WheelMost = 300;
+
+/**
+ * How much one wheel event zooms: continuously by how far it turned, so a trackpad's many small steps and a mouse's one notch come
+ * to the same zoom for the same distance; a turn that is mostly sideways — a swipe across, Shift and the wheel — zooms nothing.
+ */
+export function wheelZoom(deltaX: number, deltaY: number, deltaMode: number): number {
+    const scale = deltaMode === 1 ? WheelLine : deltaMode === 2 ? WheelPage : 1;
+    const pixels = deltaY * scale;
+
+    if (!Number.isFinite(pixels) || Math.abs(pixels) < 0.5 || Math.abs(deltaX) > Math.abs(deltaY))
+        return 1;
+
+    return Math.exp((-Math.max(-WheelMost, Math.min(WheelMost, pixels)) * Math.log(1.1)) / WheelNotch);
+}
+
 /** A value rounded to the grid's step, or left alone when the canvas does not snap. */
 export function snap(value: number, step: number, snapping: boolean): number {
     return snapping && step > 0 ? Math.round(value / step) * step : value;
@@ -234,4 +256,11 @@ export function distanceToSegment(point: Point, start: Point, end: Point): numbe
     const along = Math.min(1, Math.max(0, ((point.x - start.x) * dx + (point.y - start.y) * dy) / length));
 
     return Math.hypot(point.x - (start.x + along * dx), point.y - (start.y + along * dy));
+}
+
+/** Where a drawn path is half way along its length: an edge's label stands there, and a field opened on the edge. */
+export function pathMiddle(path: SVGPathElement): Point {
+    const point = path.getPointAtLength(path.getTotalLength() / 2);
+
+    return { x: point.x, y: point.y };
 }

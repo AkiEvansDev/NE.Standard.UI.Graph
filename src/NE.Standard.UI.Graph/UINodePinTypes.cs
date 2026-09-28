@@ -12,7 +12,7 @@ public static class UINodePinTypes
     /// <summary>The universal type: an edge is allowed to or from it whatever stands at the other end.</summary>
     public const string Any = "any";
 
-    /// <summary>An array of anything — the universal array, which an array pin of any element type accepts.</summary>
+    /// <summary>An array of anything — the universal array, which an array pin of any element type accepts; an <c>object[]</c> property's pin.</summary>
     public const string Array = "array";
 
     public const string Text = "text";
@@ -69,8 +69,9 @@ public static class UINodePinTypes
         if (underlying.IsEnum)
             return EnumPrefix + underlying.Name;
 
+        // An array of anything is the universal array, or no typed array could ever feed it.
         if (TryGetElementType(underlying, out Type? element))
-            return ArrayPrefix + FromClrType(element);
+            return element == typeof(object) ? Array : ArrayPrefix + FromClrType(element);
 
         return underlying.Name;
     }

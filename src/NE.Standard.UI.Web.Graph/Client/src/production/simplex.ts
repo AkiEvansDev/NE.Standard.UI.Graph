@@ -17,8 +17,11 @@ export type LinearProgramme = {
     readonly tieCost: readonly number[];
 };
 
-/** The x of the least cost, or nothing when no x >= 0 reaches every row. */
-export function minimise(programme: LinearProgramme): number[] | null {
+/**
+ * The x of the least cost; `infeasible` when no x >= 0 reaches every row, `unsettled` when the walk to the least found no end — a
+ * cost that falls without bound, or a table that would not settle.
+ */
+export function minimise(programme: LinearProgramme): number[] | "infeasible" | "unsettled" {
     const count = programme.cost.length;
     const height = programme.rows.length;
     const artificial: number[] = [];
@@ -77,7 +80,7 @@ export function minimise(programme: LinearProgramme): number[] | null {
 
     if (artificial.length > 0) {
         if (!walk(table, basis, costs, real, column => phase[column] < -Eps))
-            return null;
+            return "unsettled";
 
         let left = 0;
 
@@ -87,17 +90,14 @@ export function minimise(programme: LinearProgramme): number[] | null {
         }
 
         if (left > 1e-7 * ceiling)
-            return null;
+            return "infeasible";
 
         leaveArtificials(table, basis, costs, real);
     }
 
-    if (!walk(table, basis, costs, real, column => first[column] < -Eps))
-        return null;
-
-    // Along the answers the first cost holds equal: a column it is indifferent to, which the second cost gains by.
-    if (!walk(table, basis, costs, real, column => Math.abs(first[column]) <= Eps && second[column] < -Eps))
-        return null;
+    // Along the answers the first cost holds equal, the second walk takes a column it is indifferent to, which the second cost gains by.
+    if (!walk(table, basis, costs, real, column => first[column] < -Eps) || !walk(table, basis, costs, real, column => Math.abs(first[column]) <= Eps && second[column] < -Eps))
+        return "unsettled";
 
     const answer = new Array<number>(count).fill(0);
 
@@ -154,25 +154,6 @@ function walk(table: number[][], basis: number[], costs: number[][], real: numbe
     return false;
 }
 
-/** An artificial still in the basis stands at zero; it leaves for any real column its row has, or — if none — the row is redundant and no later pivot changes it. */
-function leaveArtificials(table: number[][], basis: number[], costs: number[][], real: number): void {
-    const width = table[0].length - 1;
-
-    for (let row = 0; row < table.length; row++) {
-        if (basis[row] < real)
-            continue;
-
-        table[row][width] = 0;
-
-        for (let column = 0; column < real; column++) {
-            if (Math.abs(table[row][column]) > Eps) {
-                pivot(table, basis, costs, row, column);
-                break;
-            }
-        }
-    }
-}
-
 function pivot(table: number[][], basis: number[], costs: number[][], row: number, column: number): void {
     const line = table[row];
     const by = line[column];
@@ -207,4 +188,23 @@ function eliminate(target: number[], line: number[], column: number): void {
 
 function clean(value: number): number {
     return Math.abs(value) < Dust ? 0 : value;
+}
+
+/** An artificial still in the basis stands at zero; it leaves for any real column its row has, or — if none — the row is redundant and no later pivot changes it. */
+function leaveArtificials(table: number[][], basis: number[], costs: number[][], real: number): void {
+    const width = table[0].length - 1;
+
+    for (let row = 0; row < table.length; row++) {
+        if (basis[row] < real)
+            continue;
+
+        table[row][width] = 0;
+
+        for (let column = 0; column < real; column++) {
+            if (Math.abs(table[row][column]) > Eps) {
+                pivot(table, basis, costs, row, column);
+                break;
+            }
+        }
+    }
 }

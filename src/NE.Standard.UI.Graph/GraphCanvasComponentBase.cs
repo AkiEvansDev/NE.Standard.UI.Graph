@@ -65,15 +65,46 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         NodeMenu = new MenuComponent().AddItems(ItemEntries());
         GroupMenu = new MenuComponent().AddItems(ItemEntries());
 
+        // Delete is every edge's; what else an edge's menu offers is the kind's, put ahead of it.
+        EdgeMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.DeleteEdge, "Delete")]);
+
         _regions = new Dictionary<string, IVisualComponent>(StringComparer.Ordinal)
         {
             [UIGraphMenus.Main] = Menu,
             [UIGraphMenus.Node] = NodeMenu,
-            [UIGraphMenus.Group] = GroupMenu
+            [UIGraphMenus.Group] = GroupMenu,
+            [UIGraphMenus.Edge] = EdgeMenu
         };
 
         // The canvas's own menu, so an application appends to it rather than replacing it; SetContextMenu still overrides it whole.
         _ = SetContextMenu(CanvasMenu);
+    }
+
+    /// <summary>What an item's menu and a group's menu both hold — built once for each, since an entry stands in one menu only.</summary>
+    private MenuItem[] ItemEntries()
+    {
+        MenuItem color = Entry(UIGraphCommands.Color, "Color", kind: UIMenuItemKind.Select);
+
+        FillColorChoices(color);
+
+        return
+        [
+            Entry(UIGraphCommands.Pin, "Pinned", kind: UIMenuItemKind.Check),
+            Entry(UIGraphCommands.Rename, "Rename"),
+            color
+        ];
+    }
+
+    /// <summary>The colour entry's choices: the colour taken away first, then each choice — checks the engine marks as the menu opens.</summary>
+    private void FillColorChoices(MenuItem color)
+    {
+        color.Items.Clear();
+        color.Items.Add(new MenuItem { Id = UIGraphCommands.DefaultColor, Title = "Default", Kind = UIMenuItemKind.Check });
+
+        UIGraphColorChoice[] choices = ColorChoices ?? [];
+
+        for (var index = 0; index < choices.Length; index++)
+            color.Items.Add(new MenuItem { Id = UIGraphCommands.ColorChoice(index), Title = choices[index].Title, Kind = UIMenuItemKind.Check });
     }
 
     /// <summary>
@@ -102,10 +133,15 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public MenuComponent GroupMenu { get; }
 
     /// <summary>
+    /// Gets the menu the right button opens on an edge: delete, and whatever the kind puts ahead of it.
+    /// </summary>
+    public MenuComponent EdgeMenu { get; }
+
+    /// <summary>
     /// Gets the colours an item's or a group's menu offers, in their order.
     /// </summary>
     /// <remarks>Render-time only: the choices are how the menus are built.</remarks>
-    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), IsBindable = false, GenerateBinder = false, GenerateSetter = false, DefaultValue = null)]
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), IsBindable = false, GenerateSetter = false, DefaultValue = null)]
     public UIGraphColorChoice[]? ColorChoices { get; private set; }
 
     /// <summary>
@@ -162,6 +198,13 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public bool? HighlightOnHover { get; set; }
 
     /// <summary>
+    /// Gets or sets whether every edit is saved as it is made — the save event raised with <see cref="UIGraphArguments.AutoSaveReason"/>
+    /// — for a page whose document is the application's at once rather than the viewer's until Ctrl+S. Off by default.
+    /// </summary>
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = false)]
+    public bool? AutoSave { get; set; }
+
+    /// <summary>
     /// Gets or sets whether a moved item's position, and a node's size on the node canvas, snap to the grid step. On by default.
     /// </summary>
     [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = true)]
@@ -213,6 +256,12 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// </summary>
     public T AddNodeMenuEntries(params MenuItem[] entries)
         => AppendEntries(NodeMenu, entries);
+
+    /// <summary>
+    /// Appends a separator and then the given entries to the menu the right button opens on an edge; the command hears which edge.
+    /// </summary>
+    public T AddEdgeMenuEntries(params MenuItem[] entries)
+        => AppendEntries(EdgeMenu, entries);
 
     /// <summary>
     /// Appends a separator and then the given entries to the menu the right button opens on a group's band; the command hears which group.
@@ -360,33 +409,6 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
             _ = _regions.Remove(name);
     }
 
-    /// <summary>What an item's menu and a group's menu both hold — built once for each, since an entry stands in one menu only.</summary>
-    private MenuItem[] ItemEntries()
-    {
-        MenuItem color = Entry(UIGraphCommands.Color, "Color", kind: UIMenuItemKind.Select);
-
-        FillColorChoices(color);
-
-        return
-        [
-            Entry(UIGraphCommands.Pin, "Pinned", kind: UIMenuItemKind.Check),
-            Entry(UIGraphCommands.Rename, "Rename"),
-            color
-        ];
-    }
-
-    /// <summary>The colour entry's choices: the colour taken away first, then each choice — checks the engine marks as the menu opens.</summary>
-    private void FillColorChoices(MenuItem color)
-    {
-        color.Items.Clear();
-        color.Items.Add(new MenuItem { Id = UIGraphCommands.DefaultColor, Title = "Default", Kind = UIMenuItemKind.Check });
-
-        UIGraphColorChoice[] choices = ColorChoices ?? [];
-
-        for (var index = 0; index < choices.Length; index++)
-            color.Items.Add(new MenuItem { Id = UIGraphCommands.ColorChoice(index), Title = choices[index].Title, Kind = UIMenuItemKind.Check });
-    }
-
     /// <summary>One of the canvas's own menu entries, remembered so SetCommandIcon can dress it.</summary>
     protected MenuItem Entry(string key, string title, string? shortcut = null, UIMenuItemKind kind = UIMenuItemKind.Item)
     {
@@ -396,6 +418,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         return entry;
     }
 
+    /// <summary>A line between two groups of a menu's entries.</summary>
     protected static MenuItem Separator()
         => new() { Id = Guid.NewGuid().ToString("N"), Kind = UIMenuItemKind.Separator };
 }

@@ -15,6 +15,8 @@ export type KindDrag = {
     move(scene: Point, event: PointerEvent): void;
     /** The pointer let go: the drag's own edit, if it makes one. */
     finish(event: PointerEvent): void;
+    /** The browser took the pointer away: whatever the drag took out of the document goes back, as though it never began. */
+    cancel?(): void;
     /** The drag is over, finished or cancelled: whatever it marked on the canvas while it lasted goes. */
     end(): void;
 };
@@ -84,7 +86,7 @@ export type CanvasKind = {
     itemColor(item: CanvasItem): string;
     /** Where an edge starts and ends and how it is drawn, or nothing while either end is not drawn. */
     edgeEnds(edge: CanvasEdge): EdgeEnds | null;
-    /** What stands with one item — its own edges and the items at their other ends — which alone keep their colour while the pointer rests on it. */
+    /** What stands with one item, which alone keeps its colour while the pointer rests on it: its neighbours, or the whole line it stands on, as the kind decides. */
     related(itemId: string): { readonly edges: readonly string[]; readonly items: readonly string[] };
     edgeColor(edge: CanvasEdge): string;
     /** An editor inside an item, whose presses, wheel and keys are its own. */
@@ -119,6 +121,8 @@ export type CanvasKind = {
     hasEdgeMenu(): boolean;
     /** The kind's own menu entries as the canvas stands now, with what the menu about to show was opened on. */
     syncMenus(editable: boolean, target: MenuTarget | null): void;
+    /** The command a save raised has answered, with what the save was for; a kind that waits on a save — a run panel — hears it here. */
+    saveCompleted?(success: boolean, reason: string): void;
 };
 
 /** A kind as the engine registers it: its name on the root, how its document is read, and how it is made once the core stands. */

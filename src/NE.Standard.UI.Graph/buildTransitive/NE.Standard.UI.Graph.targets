@@ -1,0 +1,9 @@
+<Project>
+
+  <!-- Every NE.Standard.UI package ships this same file: each turns the namespaces the packages named into global usings,
+       and the Exclude keeps a namespace one package already added from being added again. -->
+  <ItemGroup Condition="'$(NEStandardUIImplicitUsings)' != 'false'">
+    <Using Include="@(NEStandardUIUsing)" Exclude="@(Using)" />
+  </ItemGroup>
+
+</Project>

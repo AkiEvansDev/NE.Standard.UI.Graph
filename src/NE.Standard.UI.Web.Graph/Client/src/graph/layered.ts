@@ -1,19 +1,35 @@
 // Sugiyama-style layered layout: cycles broken by Eades-Lin-Smyth greedy ordering, layers by longest path, long edges get virtual
-// nodes, order by barycentre sweeps. Pure and deterministic — ties always fall to input order, so the same graph lays out the same way.
+// nodes, order by barycentre sweeps, places across the layers by Brandes-Köpf. Pure and deterministic — ties always fall to input
+// order, so the same graph lays out the same way.
 
 import type { Point } from "../canvas/canvas-model.ts";
 
 /** Which way the layers run: the axis, and which end the first layer stands at. */
 export type LayeredDirection = "right" | "down" | "left" | "up";
 
-export type LayeredNode = { readonly id: string; readonly width: number; readonly height: number };
+export type LayeredNode = {
+    readonly id: string;
+    readonly width: number;
+    readonly height: number;
+    /** Where the node's edges meet it, from its box's top-left corner; unset, the box's middle. A circle with its name under it meets them at the circle's. */
+    readonly anchor?: Point;
+};
 
-export type LayeredEdge = { readonly id: string; readonly from: string; readonly to: string };
+export type LayeredEdge = {
+    readonly id: string;
+    readonly from: string;
+    readonly to: string;
+    /** Where the edge leaves its first node and meets its last, along the order axis from each box's leading edge; unset, the node's anchor. */
+    readonly fromOffset?: number | undefined;
+    readonly toOffset?: number | undefined;
+};
 
 export type LayeredOptions = {
     readonly direction: LayeredDirection;
     /** The room between two layers, along the layer axis; unset, it follows how deep the nodes are. */
     readonly layerGap?: number;
+    /** The room after some layers, by the layer, given every node's layer; a layer it leaves out takes `layerGap`. */
+    readonly layerGaps?: (layers: ReadonlyMap<string, number>) => ReadonlyMap<number, number>;
     /** The room between two nodes of one layer, along the order axis. */
     readonly nodeGap?: number;
     readonly originX?: number;
@@ -34,13 +50,14 @@ export type LayeredResult = {
 /** How thick a virtual node stands along the order axis: an edge passing through a layer still takes a little room in it. */
 const VirtualThickness = 8;
 const Sweeps = 4;
-/** How many passes straighten the placed layers; each one is a sweep of the sheet, the first downwards. */
-const StraightenSweeps = 6;
 /** The room between layers when the caller names none: a part of how deep the nodes are, held between these two. */
 const LeastLayerGap = 48;
 const MostLayerGap = 96;
 
-type Link = { readonly id: string; readonly from: string; readonly to: string };
+type Link = { readonly id: string; readonly from: string; readonly to: string; readonly fromOffset?: number | undefined; readonly toOffset?: number | undefined };
+
+/** A one-layer link, with where it meets either end along the order axis from the end's leading edge. */
+type Chain = { readonly from: string; readonly to: string; readonly fromOffset: number; readonly toOffset: number };
 
 type Slot = {
     readonly id: string;
@@ -48,11 +65,13 @@ type Slot = {
     /** The node's extent along the layer axis and the order axis. */
     readonly depth: number;
     readonly breadth: number;
+    /** How far along the order axis the node's line runs from its box's leading edge: where its edges meet it unless an edge names its own offset. */
+    readonly lead: number;
     readonly input: number;
     layer: number;
     order: number;
-    /** The centre along the order axis, once placed. */
-    center: number;
+    /** Where the node's edges run along the order axis, once placed. */
+    line: number;
 };
 
 export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEdge[], options: LayeredOptions): LayeredResult {
@@ -64,44 +83,24 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
     const slots = new Map<string, Slot>();
 
     nodes.forEach((node, input) => {
+        const breadth = down ? node.width : node.height;
+        const lead = node.anchor === undefined ? breadth / 2 : down ? node.anchor.x : node.anchor.y;
+
         if (!slots.has(node.id))
-            slots.set(node.id, { id: node.id, real: true, depth: down ? node.height : node.width, breadth: down ? node.width : node.height, input, layer: 0, order: 0, center: 0 });
+            slots.set(node.id, { id: node.id, real: true, depth: down ? node.height : node.width, breadth, lead, input, layer: 0, order: 0, line: 0 });
     });
 
-    const backEdges = new Set<string>();
-    const known = edges.filter(edge => slots.has(edge.from) && slots.has(edge.to));
-
-    for (const edge of known) {
-        if (edge.from === edge.to)
-            backEdges.add(edge.id);
-    }
-
-    const links = known.filter(edge => edge.from !== edge.to);
-    const sequence = breakCycles([...slots.values()], links);
-    const rank = new Map(sequence.map((slot, index) => [slot.id, index]));
-
-    // Every edge now runs forward along the sequence: a backward one is turned round for the layering and remembered.
-    const forward: Link[] = [];
-
-    for (const edge of links) {
-        if (rank.get(edge.from)! > rank.get(edge.to)!) {
-            backEdges.add(edge.id);
-            forward.push({ id: edge.id, from: edge.to, to: edge.from });
-        }
-        else {
-            forward.push({ id: edge.id, from: edge.from, to: edge.to });
-        }
-    }
+    const { sequence, forward, backEdges } = orient([...slots.values()], edges);
 
     assignLayers(sequence, forward, slots);
 
+    // Asked before the virtual nodes come in, so the caller sees only its own nodes.
+    const gaps = options.layerGaps?.(new Map([...slots.values()].map(slot => [slot.id, slot.layer])));
     const through = new Map<string, string[]>();
     const chains = addVirtualNodes(forward, slots, through);
     const layers = orderLayers(slots, chains);
 
-    place(layers, chains, nodeGap);
-    straighten(layers, chains, nodeGap);
-    level(layers, chains, nodeGap);
+    placeAcross(layers, chains, nodeGap);
 
     const positions = new Map<string, Point>();
     const centers = new Map<string, Point>();
@@ -110,14 +109,15 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
     const originY = options.originY ?? 0;
     const placed: { id: string; real: boolean; along: number; depth: number; across: number }[] = [];
     let start = 0;
+    let lastGap = layerGap;
     let least = Number.POSITIVE_INFINITY;
 
     for (const layer of layers) {
         for (const slot of layer)
-            least = Math.min(least, slot.center - slot.breadth / 2);
+            least = Math.min(least, slot.line - slot.lead);
     }
 
-    for (const layer of layers) {
+    for (const [index, layer] of layers.entries()) {
         const band = Math.max(0, ...layer.map(slot => slot.depth));
 
         for (const slot of layer) {
@@ -129,17 +129,18 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
                 real: slot.real,
                 along: slot.real ? start : start + band / 2,
                 depth: slot.real ? slot.depth : 0,
-                across: slot.real ? slot.center - slot.breadth / 2 - shift : slot.center - shift
+                across: slot.real ? slot.line - slot.lead - shift : slot.line - shift
             });
 
             if (slot.real)
                 layerOf.set(slot.id, slot.layer);
         }
 
-        start += band + layerGap;
+        lastGap = gaps?.get(index) ?? layerGap;
+        start += band + lastGap;
     }
 
-    const extent = Math.max(0, start - layerGap);
+    const extent = Math.max(0, start - lastGap);
 
     for (const slot of placed) {
         const along = mirrored ? extent - slot.along - slot.depth : slot.along;
@@ -161,8 +162,52 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
     return { positions, backEdges, layers: layerOf, routes };
 }
 
+/**
+ * The edges that run against the layers — where a cycle breaks, and a node's link to itself — as `layered` finds them, without laying
+ * anything out: what a sheet asks for on every change of its nodes or links.
+ */
+export function backEdgesOf(nodeIds: readonly string[], edges: readonly LayeredEdge[]): Set<string> {
+    const nodes = new Map<string, { readonly id: string }>();
+
+    for (const id of nodeIds) {
+        if (!nodes.has(id))
+            nodes.set(id, { id });
+    }
+
+    return orient([...nodes.values()], edges).backEdges;
+}
+
+/** The nodes in an order every edge runs forward along but the back edges, which are turned round for the layering and remembered. */
+function orient<TNode extends { readonly id: string }>(all: readonly TNode[], edges: readonly LayeredEdge[]): { sequence: TNode[]; forward: Link[]; backEdges: Set<string> } {
+    const ids = new Set(all.map(node => node.id));
+    const backEdges = new Set<string>();
+    const known = edges.filter(edge => ids.has(edge.from) && ids.has(edge.to));
+
+    for (const edge of known) {
+        if (edge.from === edge.to)
+            backEdges.add(edge.id);
+    }
+
+    const links = known.filter(edge => edge.from !== edge.to);
+    const sequence = breakCycles(all, links);
+    const rank = new Map(sequence.map((node, index) => [node.id, index]));
+    const forward: Link[] = [];
+
+    for (const edge of links) {
+        if (rank.get(edge.from)! > rank.get(edge.to)!) {
+            backEdges.add(edge.id);
+            forward.push({ id: edge.id, from: edge.to, to: edge.from, fromOffset: edge.toOffset, toOffset: edge.fromOffset });
+        }
+        else {
+            forward.push({ id: edge.id, from: edge.from, to: edge.to, fromOffset: edge.fromOffset, toOffset: edge.toOffset });
+        }
+    }
+
+    return { sequence, forward, backEdges };
+}
+
 /** Eades-Lin-Smyth cycle breaking: sinks to the end, sources to the front, else the node with the highest out-minus-in degree to the front; a resulting backward edge is where a cycle breaks. */
-function breakCycles(all: readonly Slot[], links: readonly LayeredEdge[]): Slot[] {
+function breakCycles<TNode extends { readonly id: string }>(all: readonly TNode[], links: readonly LayeredEdge[]): TNode[] {
     const outgoing = new Map<string, Set<string>>();
     const incoming = new Map<string, Set<string>>();
 
@@ -177,8 +222,9 @@ function breakCycles(all: readonly Slot[], links: readonly LayeredEdge[]): Slot[
     }
 
     const left = new Set(all.map(slot => slot.id));
-    const front: Slot[] = [];
-    const back: Slot[] = [];
+    const front: TNode[] = [];
+    // The sinks in the order they were taken; the last taken stands first, so the list is read backwards at the end.
+    const taken: TNode[] = [];
 
     const take = (id: string): void => {
         left.delete(id);
@@ -191,7 +237,7 @@ function breakCycles(all: readonly Slot[], links: readonly LayeredEdge[]): Slot[
     };
 
     // The nodes still left, in the order they came in: every choice below takes the earliest of its equals.
-    const remaining = (): Slot[] => all.filter(slot => left.has(slot.id));
+    const remaining = (): TNode[] => all.filter(slot => left.has(slot.id));
 
     while (left.size > 0) {
         let changed = true;
@@ -201,7 +247,7 @@ function breakCycles(all: readonly Slot[], links: readonly LayeredEdge[]): Slot[
 
             for (const slot of remaining()) {
                 if (outgoing.get(slot.id)!.size === 0) {
-                    back.unshift(slot);
+                    taken.push(slot);
                     take(slot.id);
                     changed = true;
                 }
@@ -219,7 +265,7 @@ function breakCycles(all: readonly Slot[], links: readonly LayeredEdge[]): Slot[
         if (left.size === 0)
             break;
 
-        let best: Slot | null = null;
+        let best: TNode | null = null;
         let bestScore = Number.NEGATIVE_INFINITY;
 
         for (const slot of remaining()) {
@@ -235,7 +281,7 @@ function breakCycles(all: readonly Slot[], links: readonly LayeredEdge[]): Slot[
         take(best!.id);
     }
 
-    return [...front, ...back];
+    return [...front, ...taken.reverse()];
 }
 
 /** The longest path: a node stands one layer past the furthest of what feeds it. The sequence is already a topological order. */
@@ -282,9 +328,12 @@ function pullForward(sequence: readonly Slot[], forward: readonly Link[], slots:
     }
 }
 
-/** An edge longer than one layer, broken into one-layer links through a virtual node per layer it crosses, which `through` lists by edge. */
-function addVirtualNodes(forward: readonly Link[], slots: Map<string, Slot>, through: Map<string, string[]>): { from: string; to: string }[] {
-    const links: { from: string; to: string }[] = [];
+/**
+ * An edge longer than one layer, broken into one-layer links through a virtual node per layer it crosses, which `through` lists by
+ * edge. The edge meets its ends where it says, and each virtual node at its middle, where the edge's line passes.
+ */
+function addVirtualNodes(forward: readonly Link[], slots: Map<string, Slot>, through: Map<string, string[]>): Chain[] {
+    const links: Chain[] = [];
     let serial = 0;
 
     for (const edge of forward) {
@@ -292,6 +341,7 @@ function addVirtualNodes(forward: readonly Link[], slots: Map<string, Slot>, thr
         const to = slots.get(edge.to)!;
         const virtuals: string[] = [];
         let previous = from.id;
+        let leaving = edge.fromOffset ?? from.lead;
 
         for (let layer = from.layer + 1; layer < to.layer; layer++) {
             let id = `virtual:${serial++}`;
@@ -300,16 +350,17 @@ function addVirtualNodes(forward: readonly Link[], slots: Map<string, Slot>, thr
             while (slots.has(id))
                 id = `virtual:${serial++}`;
 
-            slots.set(id, { id, real: false, depth: 0, breadth: VirtualThickness, input: from.input, layer, order: 0, center: 0 });
-            links.push({ from: previous, to: id });
+            slots.set(id, { id, real: false, depth: 0, breadth: VirtualThickness, lead: VirtualThickness / 2, input: from.input, layer, order: 0, line: 0 });
+            links.push({ from: previous, to: id, fromOffset: leaving, toOffset: VirtualThickness / 2 });
             virtuals.push(id);
             previous = id;
+            leaving = VirtualThickness / 2;
         }
 
         if (virtuals.length > 0)
             through.set(edge.id, virtuals);
 
-        links.push({ from: previous, to: to.id });
+        links.push({ from: previous, to: to.id, fromOffset: leaving, toOffset: edge.toOffset ?? to.lead });
     }
 
     return links;
@@ -390,172 +441,238 @@ function autoLayerGap(nodes: readonly LayeredNode[], down: boolean): number {
 }
 
 /**
- * Sugiyama's priority method: each sweep pulls a node toward its neighbours' median, pushing lower-priority ones aside (virtual
- * nodes outrank real). Must stay within the sheet's originally placed extent, or a stop and its neighbour's chain can push each
- * other outward every sweep, doubling the sheet's height in six passes.
+ * Brandes and Köpf's placement along the order axis: each node is lined up with a median neighbour wherever the order allows, so
+ * it stands in line with one of what it is joined to rather than half way between two, and a long edge's stops are one block
+ * that runs straight. What lines up is where the edge meets either node, so an aligned edge runs straight even when it leaves one
+ * node off its middle. Four alignments — to the layer before or after, taken from either end of a layer — are each packed tight,
+ * and the narrowest is kept.
  */
-function straighten(layers: readonly Slot[][], links: readonly { from: string; to: string }[], nodeGap: number): void {
+function placeAcross(layers: readonly Slot[][], links: readonly Chain[], nodeGap: number): void {
+    const slots = new Map(layers.flat().map(slot => [slot.id, slot]));
     const above = neighbours(links, true);
     const below = neighbours(links, false);
-    const centers = new Map<string, Slot>();
+    const conflicts = markConflicts(layers, above, slots);
+    const drift = driftOf(links, slots);
+    const variants: Map<string, number>[] = [];
 
-    let least = Number.POSITIVE_INFINITY;
-    let most = Number.NEGATIVE_INFINITY;
+    for (const downward of [false, true]) {
+        for (const reversed of [false, true]) {
+            const rows = (downward ? [...layers].reverse() : [...layers]).map(layer => (reversed ? [...layer].reverse() : [...layer]));
 
-    for (const layer of layers) {
-        for (const slot of layer) {
-            centers.set(slot.id, slot);
-            least = Math.min(least, slot.center - slot.breadth / 2);
-            most = Math.max(most, slot.center + slot.breadth / 2);
+            variants.push(compact(rows, align(rows, downward ? below : above, conflicts, drift, slots), nodeGap, reversed));
         }
     }
 
-    for (let sweep = 0; sweep < StraightenSweeps; sweep++) {
-        const downward = sweep % 2 === 0;
-
-        for (let step = 1; step < layers.length; step++) {
-            const index = downward ? step : layers.length - 1 - step;
-            const layer = layers[index];
-            const adjacent = downward ? above : below;
-            const wanted = layer.map(slot => median((adjacent.get(slot.id) ?? []).map(id => centers.get(id)?.center)));
-            // What a node has to say about where it stands: a virtual one holds a long edge straight, a real one speaks for its edges.
-            const priority = layer.map(slot => (slot.real ? (adjacent.get(slot.id) ?? []).length : Number.POSITIVE_INFINITY));
-            const order = layer.map((_, at) => at).sort((left, right) => priority[right] - priority[left] || left - right);
-
-            for (const at of order) {
-                if (wanted[at] !== null)
-                    draw(layer, at, wanted[at]! - layer[at].center, priority, nodeGap, least, most);
-            }
-        }
-    }
-}
-
-/** Draws one node of a layer towards where it wants to stand, pushing what it outranks and stopping where it does not — or at the sheet's own edge. */
-function draw(layer: readonly Slot[], at: number, delta: number, priority: readonly number[], nodeGap: number, least: number, most: number): void {
-    const step = Math.sign(delta);
-
-    if (step === 0)
-        return;
-
-    const pushed: number[] = [];
-    let room = Number.NaN;
-    let slack = 0;
-
-    for (let index = at + step; index >= 0 && index < layer.length; index += step) {
-        const ahead = layer[index];
-        const behind = layer[index - step];
-
-        slack += Math.max(0, step > 0
-            ? (ahead.center - ahead.breadth / 2) - (behind.center + behind.breadth / 2) - nodeGap
-            : (behind.center - behind.breadth / 2) - (ahead.center + ahead.breadth / 2) - nodeGap);
-
-        // A node with as much to say as this one is not pushed: this is as far as the move goes.
-        if (priority[index] >= priority[at]) {
-            room = slack;
-            break;
-        }
-
-        pushed.push(index);
-    }
-
-    // Nothing in the way as far as the layer goes: what is left is the room between its last node and the edge of the sheet.
-    if (Number.isNaN(room)) {
-        const last = layer[step > 0 ? layer.length - 1 : 0];
-
-        room = slack + Math.max(0, step > 0 ? most - (last.center + last.breadth / 2) : (last.center - last.breadth / 2) - least);
-    }
-
-    const amount = Math.min(Math.abs(delta), room);
-
-    if (amount <= 0)
-        return;
-
-    layer[at].center += step * amount;
-
-    let previous = at;
-
-    for (const index of pushed) {
-        const overlap = step > 0
-            ? (layer[previous].center + layer[previous].breadth / 2 + nodeGap) - (layer[index].center - layer[index].breadth / 2)
-            : (layer[index].center + layer[index].breadth / 2 + nodeGap) - (layer[previous].center - layer[previous].breadth / 2);
-
-        if (overlap <= 0)
-            break;
-
-        layer[index].center += step * overlap;
-        previous = index;
-    }
-}
-
-/** Levels a long edge's via-stops with its source, as room allows, so it runs flat through crossed layers and bends only once, on arrival. */
-function level(layers: readonly Slot[][], links: readonly { from: string; to: string }[], nodeGap: number): void {
-    const above = neighbours(links, true);
-    const centers = new Map<string, Slot>();
+    const chosen = narrowest(layers, variants);
 
     for (const layer of layers) {
         for (const slot of layer)
-            centers.set(slot.id, slot);
+            slot.line = chosen.get(slot.id)!;
     }
+}
 
-    for (const layer of layers) {
+/**
+ * The edges between two layers that cross an edge running from one virtual node to the next: a long edge's own segments win, so
+ * it stays one straight block and whatever crosses it gives way. Keyed by the ends, the earlier layer's first.
+ */
+function markConflicts(layers: readonly Slot[][], above: Map<string, string[]>, slots: Map<string, Slot>): Set<string> {
+    const marked = new Set<string>();
+
+    for (let index = 1; index < layers.length; index++) {
+        const layer = layers[index];
+        let from = 0;
+        let scanned = 0;
+
         for (let at = 0; at < layer.length; at++) {
-            const slot = layer[at];
-            const wanted = slot.real ? undefined : centers.get((above.get(slot.id) ?? [])[0])?.center;
+            const inner = innerSegment(layer[at], above, slots);
 
-            if (wanted === undefined)
+            if (at !== layer.length - 1 && inner === undefined)
                 continue;
 
-            const before = layer[at - 1];
-            const after = layer[at + 1];
-            const least = before === undefined ? Number.NEGATIVE_INFINITY : before.center + before.breadth / 2 + nodeGap + slot.breadth / 2;
-            const most = after === undefined ? Number.POSITIVE_INFINITY : after.center - after.breadth / 2 - nodeGap - slot.breadth / 2;
+            const to = inner ?? layers[index - 1].length - 1;
 
-            if (least <= most)
-                slot.center = Math.min(most, Math.max(least, wanted));
+            for (; scanned <= at; scanned++) {
+                const slot = layer[scanned];
+                const own = innerSegment(slot, above, slots);
+
+                for (const id of above.get(slot.id) ?? []) {
+                    const order = slots.get(id)!.order;
+
+                    if ((order < from || order > to) && order !== own)
+                        marked.add(segment(id, slot.id));
+                }
+            }
+
+            from = to;
         }
     }
+
+    return marked;
 }
 
-/** The middle of what a node is joined to, or nothing when it is joined to nothing placed. */
-function median(values: readonly (number | undefined)[]): number | null {
-    const known = values.filter((value): value is number => value !== undefined).sort((left, right) => left - right);
+/** Where a virtual node's own virtual predecessor stands in the layer before, when it has one: the segment between them is inner. */
+function innerSegment(slot: Slot, above: Map<string, string[]>, slots: Map<string, Slot>): number | undefined {
+    if (slot.real)
+        return undefined;
 
-    if (known.length === 0)
-        return null;
+    const from = slots.get((above.get(slot.id) ?? [])[0]);
 
-    const middle = Math.floor(known.length / 2);
-
-    return known.length % 2 === 1 ? known[middle] : (known[middle - 1] + known[middle]) / 2;
+    return from === undefined || from.real ? undefined : from.order;
 }
 
-/** Places the order axis: each node wants its feeders' median, overlapping nodes are pushed apart, then the layer shifts to average out at where its nodes wanted to sit. */
-function place(layers: readonly Slot[][], links: readonly { from: string; to: string }[], nodeGap: number): void {
-    const feeders = neighbours(links, true);
+function segment(earlier: string, later: string): string {
+    return `${earlier}\u0000${later}`;
+}
 
-    for (const [index, layer] of layers.entries()) {
-        const wanted = layer.map(slot => {
-            const from = index === 0 ? [] : feeders.get(slot.id) ?? [];
-            const centers = from.map(id => layers[index - 1].find(candidate => candidate.id === id)?.center).filter((center): center is number => center !== undefined);
+/**
+ * How far the later end's line stands from the earlier end's, along the order axis, when the two meet the link at one level — zero
+ * when both meet it on their lines. Keyed as `segment` keys a link; of two links between one pair, the first speaks for both.
+ */
+function driftOf(links: readonly Chain[], slots: Map<string, Slot>): Map<string, number> {
+    const drift = new Map<string, number>();
 
-            return centers.length === 0 ? null : centers.reduce((sum, center) => sum + center, 0) / centers.length;
+    for (const link of links) {
+        const key = segment(link.from, link.to);
+
+        if (!drift.has(key))
+            drift.set(key, link.fromOffset - slots.get(link.from)!.lead - (link.toOffset - slots.get(link.to)!.lead));
+    }
+
+    return drift;
+}
+
+/** Each node's block, by the block's first node, and how far the node's line stands from that first node's. */
+type Blocks = { readonly root: Map<string, string>; readonly shift: Map<string, number> };
+
+/**
+ * Lines each node up with the median of its neighbours in the row before — the first of two medians, then the second — as long
+ * as it stands past the last alignment of its row, so no two alignments cross; a node stands off the one it lines up with by the
+ * drift of the link between them, so the link runs straight.
+ */
+function align(rows: readonly Slot[][], adjacent: Map<string, string[]>, conflicts: Set<string>, drift: Map<string, number>, slots: Map<string, Slot>): Blocks {
+    const root = new Map<string, string>();
+    const shift = new Map<string, number>();
+    const position = new Map<string, number>();
+
+    for (const row of rows) {
+        row.forEach((slot, at) => {
+            root.set(slot.id, slot.id);
+            shift.set(slot.id, 0);
+            position.set(slot.id, at);
         });
+    }
 
-        let edge = Number.NEGATIVE_INFINITY;
+    for (const row of rows.slice(1)) {
+        let last = -1;
 
-        layer.forEach((slot, order) => {
-            const start = Math.max(wanted[order] === null ? edge : wanted[order]! - slot.breadth / 2, edge);
+        for (const slot of row) {
+            const others = [...new Set(adjacent.get(slot.id) ?? [])].sort((left, right) => position.get(left)! - position.get(right)!);
 
-            slot.center = (Number.isFinite(start) ? start : 0) + slot.breadth / 2;
-            edge = slot.center + slot.breadth / 2 + nodeGap;
-        });
+            for (const at of new Set([Math.floor((others.length - 1) / 2), Math.ceil((others.length - 1) / 2)])) {
+                const other = others[at];
 
-        const placed = layer.map((slot, order) => (wanted[order] === null ? null : wanted[order]! - slot.center)).filter((shift): shift is number => shift !== null);
+                if (other === undefined)
+                    continue;
 
-        if (placed.length > 0) {
-            const shift = placed.reduce((sum, value) => sum + value, 0) / placed.length;
+                const earlier = slots.get(other)!.layer < slot.layer;
+                const key = earlier ? segment(other, slot.id) : segment(slot.id, other);
 
-            for (const slot of layer)
-                slot.center += shift;
+                if (!conflicts.has(key) && last < position.get(other)!) {
+                    root.set(slot.id, root.get(other)!);
+                    shift.set(slot.id, shift.get(other)! + (earlier ? drift.get(key)! : -drift.get(key)!));
+                    last = position.get(other)!;
+                    break;
+                }
+            }
         }
     }
+
+    return { root, shift };
+}
+
+/**
+ * Packs the blocks as close to the rows' start as the order allows — the longest path over "stands after" — each node of a block at
+ * the block's one coordinate plus its own shift, its line apart from the line of the node before it by what of each stands between
+ * them and the gap. A reversed variant counts from the far end.
+ */
+function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, reversed: boolean): Map<string, number> {
+    const { root } = blocks;
+    // A node's shift counted the way the pass runs: a reversed pass turns every coordinate round at the end.
+    const shift = (slot: Slot): number => (reversed ? -blocks.shift.get(slot.id)! : blocks.shift.get(slot.id)!);
+    const after = new Map<string, { block: string; room: number }[]>();
+    const waiting = new Map<string, number>();
+    // The least shift in each block: a block nothing stands before starts where its furthest-back node reaches the start.
+    const lowest = new Map<string, number>();
+
+    for (const row of rows) {
+        for (const slot of row) {
+            waiting.set(root.get(slot.id)!, waiting.get(root.get(slot.id)!) ?? 0);
+            lowest.set(root.get(slot.id)!, Math.min(lowest.get(root.get(slot.id)!) ?? 0, shift(slot)));
+        }
+
+        for (let at = 1; at < row.length; at++) {
+            const block = root.get(row[at - 1].id)!;
+            const next = root.get(row[at].id)!;
+            // Measured in the layer's own order whichever end the row is walked from: a node's line need not be its middle.
+            const [first, second] = reversed ? [row[at], row[at - 1]] : [row[at - 1], row[at]];
+            const room = first.breadth - first.lead + nodeGap + second.lead + shift(row[at - 1]) - shift(row[at]);
+            const list = after.get(block);
+
+            if (list === undefined)
+                after.set(block, [{ block: next, room }]);
+            else
+                list.push({ block: next, room });
+
+            waiting.set(next, waiting.get(next)! + 1);
+        }
+    }
+
+    const coordinate = new Map<string, number>();
+    const ready = [...waiting].filter(([, count]) => count === 0).map(([block]) => block);
+
+    for (const block of waiting.keys()) {
+        const least = lowest.get(block)!;
+
+        // Plain zero, never minus zero, when nothing stands off the root: a zero's sign reaches the answer through a reversed pass.
+        coordinate.set(block, least < 0 ? -least : 0);
+    }
+
+    // Read by a cursor rather than shifted off the front, which would move every block still waiting.
+    for (let next = 0; next < ready.length; next++) {
+        const block = ready[next];
+
+        for (const { block: next, room } of after.get(block) ?? []) {
+            coordinate.set(next, Math.max(coordinate.get(next)!, coordinate.get(block)! + room));
+            waiting.set(next, waiting.get(next)! - 1);
+
+            if (waiting.get(next) === 0)
+                ready.push(next);
+        }
+    }
+
+    const centers = new Map<string, number>();
+
+    for (const row of rows) {
+        for (const slot of row)
+            centers.set(slot.id, (reversed ? -1 : 1) * (coordinate.get(root.get(slot.id)!)! + shift(slot)));
+    }
+
+    return centers;
+}
+
+/**
+ * The narrowest of the four alignments, the first of equals. Not their balance, the mean of each node's two middle places: where the
+ * alignments line a node up with different neighbours, the mean stands it half way between them, which is what this placement is for
+ * undoing.
+ */
+function narrowest(layers: readonly Slot[][], variants: readonly Map<string, number>[]): Map<string, number> {
+    const all = layers.flat();
+    const widths = variants.map(centers => {
+        const least = Math.min(...all.map(slot => centers.get(slot.id)! - slot.lead));
+        const most = Math.max(...all.map(slot => centers.get(slot.id)! + slot.breadth - slot.lead));
+
+        return most - least;
+    });
+
+    return variants[widths.indexOf(Math.min(...widths))];
 }

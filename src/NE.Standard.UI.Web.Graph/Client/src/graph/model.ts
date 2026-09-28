@@ -2,11 +2,11 @@
 // and the draft of what they changed, laid over the bound collection by key; a server change under a draft entry is a conflict.
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
-import { readGroup, readPoints } from "../canvas/canvas-model.ts";
+import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "./draft.ts";
 import { conflicts, overlay } from "./draft.ts";
 
-export type GraphLink = {
+type GraphLink = {
     readonly id: string;
     readonly to: string;
     readonly caption: string | null;
@@ -59,10 +59,11 @@ export type GraphDocument = {
     edges: CanvasEdge[];
     groups: CanvasGroup[];
     draft: GraphDraft;
+    key: string | null;
 };
 
-export function emptyGraphDocument(): GraphDocument {
-    return { nodes: [], edges: [], groups: [], draft: { nodes: [], removed: [] } };
+function emptyGraphDocument(): GraphDocument {
+    return { nodes: [], edges: [], groups: [], draft: { nodes: [], removed: [] }, key: null };
 }
 
 /** A document as it came off the wire, with every part present and every number a number. */
@@ -90,7 +91,8 @@ export function readGraphDocument(value: unknown): GraphDocument {
                 return node === null ? [] : [{ ...toDraft(node), created: entry.created === true, baseline: typeof entry.baseline === "string" ? entry.baseline : null }];
             }),
             removed: (draft?.removed ?? []).map(id => String(id))
-        }
+        },
+        key: readDocumentKey(source)
     };
 }
 
@@ -113,7 +115,7 @@ export function toDraft(node: GraphNode): GraphNodeDraft {
 }
 
 /** A draft entry as the node the canvas draws. */
-export function fromDraft(entry: GraphNodeDraft): GraphNode {
+function fromDraft(entry: GraphNodeDraft): GraphNode {
     return readGraphNode(entry)!;
 }
 

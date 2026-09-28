@@ -5,6 +5,13 @@
 // runtime does not do. Only what a package is meant to reach is declared; the rest of the runtime is not a contract.
 
 declare module "ne-standard-ui" {
+    /**
+     * This contract's version, which `GlobalApi.contractVersion` carries at run time. It moves when a shape here changes in a way
+     * a package compiled against the old one would break on; a package checks it before it registers anything, so a stale copy
+     * fails loudly instead of half-working.
+     */
+    export type ContractVersion = 1;
+
     /** One DOM operation of a bound property, as the compiled metadata carries it; a package's own kind arrives by its name. */
     export type DomOperation = {
         readonly kind: string | number;
@@ -181,6 +188,8 @@ declare module "ne-standard-ui" {
         readonly childList?: boolean;
         readonly characterData?: boolean;
         readonly attributeFilter?: readonly string[];
+        /** Which records the engine answers at all; the rest are skipped before their components are looked for. Default: every one. */
+        readonly relevant?: (mutation: MutationRecord) => boolean;
     };
 
     /** The one observer shape: which components under `root` a batch of mutations touched, whole components at a time. */
@@ -491,8 +500,10 @@ declare module "ne-standard-ui" {
         isSelected(row: Element): boolean;
         /** Adds the row to the chosen ones or takes it out, leaving the rest alone. */
         toggle(row: Element): void;
-        /** Takes or clears every row named, in one write; the rows not named keep whatever they were. */
+        /** Takes or clears every row named, in one write; the rows not named keep whatever they were. A row a filter hides is not taken. */
         setSelected(root: Element, rows: Iterable<Element>, selected: boolean): void;
+        /** The same by key, for rows a virtualized host has not drawn: every key named is taken or cleared in one write. */
+        setSelectedKeys(root: Element, keys: Iterable<string>, selected: boolean): void;
     };
 
     /** What a package's engine starts from: the page's root and the services a built-in engine gets. */
@@ -530,6 +541,8 @@ declare module "ne-standard-ui" {
      * it — so a package module may load before or after the framework's.
      */
     export type GlobalApi = {
+        /** The version of this contract the framework's client implements. */
+        readonly contractVersion: ContractVersion;
         registerEvent<TEvent extends Event = Event>(name: string, registration?: EventRegistration<TEvent>): void;
         registerConverter(name: string, converter: ValueConverterRegistration | ((value: unknown) => unknown)): void;
         registerDomOperation(registration: DomOperationRegistration): void;

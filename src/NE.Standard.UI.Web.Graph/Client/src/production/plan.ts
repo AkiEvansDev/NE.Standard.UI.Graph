@@ -9,7 +9,7 @@ const Eps = 1e-9;
 export type PlanPeriod = "Once" | "Minute" | "Hour";
 export type PlanObjective = "LeastRaw" | "LeastTime" | "LeastCost";
 
-export type PlanTarget = {
+type PlanTarget = {
     readonly resource: string;
     readonly amount: number;
 };
@@ -44,9 +44,17 @@ export type PlanResource = {
     readonly surplus: number;
 };
 
+/** How much of a source has to be brought in; nothing for a resource the plan makes — the server's `UIPlannedResource.BroughtIn`. */
+export function broughtIn(resource: PlanResource): number {
+    return resource.source ? resource.consumed + resource.target : 0;
+}
+
 export type Plan = {
-    /** `Empty` with no target to reach, `Infeasible` when no runs reach them — a cycle that takes more than it gives. */
-    readonly status: "Empty" | "Solved" | "Infeasible";
+    /**
+     * `Empty` with no target to reach, `Infeasible` when no runs reach them — a cycle that takes more than it gives — and `Unsettled`
+     * when the solver found no answer it can stand by.
+     */
+    readonly status: "Empty" | "Solved" | "Infeasible" | "Unsettled";
     readonly crafts: readonly PlanCraft[];
     readonly resources: readonly PlanResource[];
     /** Every run's time together, in seconds. */
@@ -56,9 +64,7 @@ export type Plan = {
     readonly cost: number;
 };
 
-export const EmptyPlanRequest: PlanRequest = { targets: [], period: "Once", objective: "LeastRaw" };
-
-export function periodSeconds(period: PlanPeriod): number | null {
+function periodSeconds(period: PlanPeriod): number | null {
     return period === "Minute" ? 60 : period === "Hour" ? 3600 : null;
 }
 
@@ -133,8 +139,8 @@ export function solvePlan(entries: readonly ProductionEntry[], request: PlanRequ
         ? minimise({ rows, atLeast, cost: time, tieCost: raw })
         : minimise({ rows, atLeast, cost: priced, tieCost: time });
 
-    if (runs === null)
-        return { status: "Infeasible", crafts: [], resources: [], time: 0, raw: 0, cost: 0 };
+    if (!Array.isArray(runs))
+        return { status: runs === "infeasible" ? "Infeasible" : "Unsettled", crafts: [], resources: [], time: 0, raw: 0, cost: 0 };
 
     // Made once, a craft runs a whole number of times; counted over a period, a run and a half a minute is a rate like any other.
     const whole = request.period === "Once" ? wholeRuns(rows, atLeast, runs) : null;
@@ -222,7 +228,7 @@ function readPlan(resources: ReadonlyMap<string, Resource>, makers: ReadonlyMap<
 
         if (source) {
             raw += takes + target;
-            cost += (takes + target) * (entry.cost ?? 1);
+            cost += (takes + target) * costOf(entry);
         }
 
         read.push({ resource: entry.id, source, target, produced: gives, consumed: takes, surplus: source ? 0 : settle(gives - takes - target) });
@@ -237,10 +243,15 @@ function rawOf(craft: Craft, resources: ReadonlyMap<string, Resource>, makers: R
 
     for (const ingredient of amountsOf(craft.ingredients, resources)) {
         if (!makers.has(ingredient.resource))
-            sum += ingredient.amount * (priced ? resources.get(ingredient.resource)!.cost ?? 1 : 1);
+            sum += ingredient.amount * (priced ? costOf(resources.get(ingredient.resource)!) : 1);
     }
 
     return sum;
+}
+
+/** What one of a source costs: its own cost, or one when it names none — or one it cannot mean, since a source that paid to be taken would make the least cost fall without end. */
+function costOf(resource: Resource): number {
+    return resource.cost !== null && Number.isFinite(resource.cost) && resource.cost >= 0 ? resource.cost : 1;
 }
 
 /** The amounts that count: of a resource the catalogue has, and above zero. */

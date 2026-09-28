@@ -41,6 +41,7 @@ export class NodesLog {
     private runCompleted = 0;
     private runTotal = 0;
     private runFailed = false;
+    private runStopped = false;
     private runningNode: string | null = null;
 
     private readonly statuses = new Map<string, NodeStatus>();
@@ -98,7 +99,7 @@ export class NodesLog {
         else if (this.runningNode === nodeId)
             this.runningNode = null;
 
-        if (status.state === "failed")
+        if (status.state === "error")
             this.runFailed = true;
 
         this.applyStatus(nodeId, status);
@@ -287,6 +288,7 @@ export class NodesLog {
             this.clearLog();
             this.runStarted = true;
             this.runFailed = false;
+            this.runStopped = false;
             this.runningNode = null;
         }
 
@@ -296,6 +298,16 @@ export class NodesLog {
         if (this.runCompleted >= this.runTotal)
             this.runningNode = null;
 
+        this.drawRun();
+    }
+
+    /** The server's word that a run has begun or ended; one that ended short of its last node was stopped, and the line says so. */
+    public setRunning(running: boolean): void {
+        if (running || !this.runStarted || this.runCompleted >= this.runTotal)
+            return;
+
+        this.runStopped = true;
+        this.runningNode = null;
         this.drawRun();
     }
 
@@ -313,7 +325,7 @@ export class NodesLog {
         this.runLine.style.setProperty("--ui-graph-run", String(whole));
         this.runLine.style.setProperty("--ui-graph-run-step", String(step));
         this.runLine.setAttribute("aria-valuenow", String(share));
-        this.runLine.setAttribute(RunStateAttribute, !this.runStarted ? "idle" : this.runFailed ? "failed" : done ? "done" : "running");
+        this.runLine.setAttribute(RunStateAttribute, !this.runStarted ? "idle" : this.runFailed ? "failed" : this.runStopped ? "stopped" : done ? "done" : "running");
 
         if (this.runLabel !== null)
             this.runLabel.textContent = this.runLabelText(status);
@@ -330,8 +342,11 @@ export class NodesLog {
             return said.length > 0 ? `${this.nodeName(this.runningNode)} · ${said}` : this.nodeName(this.runningNode);
         }
 
-        const failure = this.log.find(entry => entry.level === "error");
+        // Stopped, the line the stop left in the log — the node it cut short — rather than a failure from before it.
+        const said = this.runStopped && !this.runFailed
+            ? [...this.log].reverse().find(entry => entry.level === "warning")
+            : this.log.find(entry => entry.level === "error");
 
-        return failure === undefined ? "" : `${this.nodeName(failure.nodeId)} · ${failure.message}`;
+        return said === undefined ? "" : `${this.nodeName(said.nodeId)} · ${said.message}`;
     }
 }

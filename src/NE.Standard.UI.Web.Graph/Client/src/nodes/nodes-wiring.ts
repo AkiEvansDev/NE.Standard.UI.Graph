@@ -1,5 +1,5 @@
-// Pins joined and pulled apart: starting a connection, showing which pins would take it, and finishing it on a drop. Edits the
-// document only; the canvas redraws.
+// Pins joined and pulled apart: starting a connection, showing which pins would take it, and finishing it on a drop — on a pin,
+// or on the empty sheet, where the host offers a node to take it. Edits the document only; the canvas redraws.
 
 import { markAimed } from "../canvas/aim.ts";
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
@@ -9,6 +9,7 @@ import type { Point } from "../canvas/canvas-model.ts";
 import { AnyType, canConnect, edgesInto, findPin, resolveOutputType } from "./model.ts";
 import type { DocumentEdge, GraphDocument, NodeType, Pin } from "./model.ts";
 import { PinAttribute, PinDirectionAttribute, PinTypeAttribute } from "./node-view.ts";
+import type { LooseWire } from "./nodes-picker-binding.ts";
 
 const DropAttribute = "data-ui-graph-drop";
 const RowSelector = ".ui-graph__row";
@@ -17,16 +18,20 @@ const AimClass = "ui-graph__pin--aimed";
 /** What a connection being pulled carries: the output it comes from, its type, and the edge it was pulled off, if any. */
 type Connection = { readonly fromNode: string; readonly fromPin: string; readonly fromType: string; readonly detached: DocumentEdge | null };
 
-/** What the wiring reaches on the kind: a pin's place and the colour a type wears. */
+/** What the wiring reaches on the kind: a pin's place, the colour a type wears, and what becomes of a wire let go on nothing. */
 export type WiringHost = {
     pinPoint(nodeId: string, pinName: string, direction: "in" | "out"): Point | null;
     pinColor(type: string): string;
+    dropOnNothing(wire: LooseWire): void;
 };
 
 export class NodesWiring {
     private readonly services: CanvasServices<GraphDocument>;
     private readonly host: WiringHost;
     private readonly types: ReadonlyMap<string, NodeType>;
+
+    // Where the pulled end last stood on the sheet: a drop on nothing is where the new node goes.
+    private pulledTo: Point | null = null;
 
     public constructor(services: CanvasServices<GraphDocument>, host: WiringHost, types: ReadonlyMap<string, NodeType>) {
         this.services = services;
@@ -46,11 +51,13 @@ export class NodesWiring {
             return null;
 
         this.offerDropTargets(connection.fromNode, connection.fromType);
+        this.pulledTo = null;
 
         return {
             kind: "kind",
             move: (scene, event) => this.trackConnect(connection, scene, event),
             finish: event => this.finishConnection(event, connection),
+            cancel: () => this.cancelConnection(connection),
             end: () => this.clearDropTargets()
         };
     }
@@ -131,7 +138,18 @@ export class NodesWiring {
         if (from !== null)
             this.services.drawPending(from, scene, this.host.pinColor(connection.fromType));
 
+        this.pulledTo = scene;
+
         this.aimAt(event);
+    }
+
+    /** An edge pulled off an input goes back where it was; a new wire simply never was. */
+    private cancelConnection(connection: Connection): void {
+        if (connection.detached === null)
+            return;
+
+        this.document.edges.push(connection.detached);
+        this.services.draw();
     }
 
     private finishConnection(event: PointerEvent, connection: Connection): void {
@@ -142,14 +160,24 @@ export class NodesWiring {
         const toPin = target?.getAttribute(PinAttribute) ?? null;
 
         if (toNode === null || toPin === null) {
-            // Dropped on nothing: an edge pulled off an input stays off, which is how a connection is removed.
+            // Dropped on nothing: an edge pulled off an input stays off, which is how a connection is removed; a new wire asks
+            // which node to take it, unless it was let go on a node, which is no place for another.
             if (connection.detached !== null)
                 this.services.documentState.edited();
+            else if (this.pulledTo !== null && under?.closest(`[${NodeAttribute}]`) === null)
+                this.host.dropOnNothing({ fromNode: connection.fromNode, fromPin: connection.fromPin, fromType: connection.fromType, at: this.pulledTo });
 
             return;
         }
 
         const toType = target?.getAttribute(PinTypeAttribute) ?? "any";
+
+        // Let go where it was taken from — a press on a wired input, a wire pulled and brought back: the same edge, reroutes and all,
+        // and no edit.
+        if (connection.detached !== null && connection.detached.toNode === toNode && connection.detached.toPin === toPin) {
+            this.cancelConnection(connection);
+            return;
+        }
 
         if (toNode === connection.fromNode || !canConnect(connection.fromType, toType)) {
             if (connection.detached !== null) {

@@ -30,20 +30,46 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     /// <summary>The CSS colours of the menus' colour choices, as a JSON array in their order, on the root.</summary>
     public const string ColorsAttribute = "data-ui-graph-colors";
 
+    /// <summary>How edges are drawn (<see cref="UIGraphEdgeShape"/>), on the root.</summary>
     public const string EdgeShapeAttribute = "data-ui-graph-edge-shape";
+
+    /// <summary>Whether the grid is drawn, on the root.</summary>
     public const string ShowGridAttribute = "data-ui-graph-grid";
+
+    /// <summary>Whether a moved node snaps to the grid, on the root.</summary>
     public const string SnapAttribute = "data-ui-graph-snap";
+
+    /// <summary>Whether the canvas draws its focus ring, on the root.</summary>
     public const string FocusRingAttribute = "data-ui-graph-focus-ring";
+
+    /// <summary>Whether the corner menu's button is drawn, on the root.</summary>
     public const string MenuButtonAttribute = "data-ui-graph-menu-button";
 
     /// <summary>On the box the corner menu stands in: the menu's name, as a context menu's region carries its own.</summary>
     public const string MenuPanelAttribute = "data-ui-graph-menu-panel";
+
+    /// <summary>Whether the minimap is drawn, on the root.</summary>
     public const string MinimapAttribute = "data-ui-graph-minimap";
+
+    /// <summary>Whether the pointer resting on an item lights what it is joined to, on the root.</summary>
     public const string HighlightAttribute = "data-ui-graph-highlight";
+
+    /// <summary>Whether every edit is saved as it is made, on the root.</summary>
+    public const string AutoSaveAttribute = "data-ui-graph-auto-save";
+
+    /// <summary>The least zoom, on the root.</summary>
     public const string MinZoomAttribute = "data-ui-graph-min-zoom";
+
+    /// <summary>The greatest zoom, on the root.</summary>
     public const string MaxZoomAttribute = "data-ui-graph-max-zoom";
+
+    /// <summary>Whether the viewer may not edit the sheet, on the root.</summary>
     public const string ReadOnlyAttribute = "data-ui-graph-read-only";
+
+    /// <summary>The grid's step, as a CSS variable on the root.</summary>
     public const string GridSizeVariable = "--ui-graph-grid-size";
+
+    /// <summary>The canvas's height in rem, as a CSS variable on the root.</summary>
     public const string HeightVariable = "--ui-graph-height";
 
     /// <summary>On a template a part of the canvas is cloned from — a node's editor, a plan's amount: the region's name.</summary>
@@ -95,6 +121,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowMenuButtonProperty, MenuButtonAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowMinimapProperty, MinimapAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.HighlightOnHoverProperty, HighlightAttribute);
+        RenderFlagAttribute(context, root, IGraphCanvasComponent.AutoSaveProperty, AutoSaveAttribute);
         RenderFlagAttribute(context, root, IInputComponent.IsReadOnlyProperty, ReadOnlyAttribute);
 
         RenderNumber(context, root, IGraphCanvasComponent.GridSizeProperty, GridSizeVariable, style: true);
@@ -152,7 +179,9 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         _ = root.Element("template", template =>
         {
             _ = template.Attribute(EditorTemplateAttribute, region);
-            RenderRegion(context, template, region, exposed);
+
+            // Cloned once per node, so nothing inside may carry an id of its own.
+            RenderRegion(context.AsTemplate(template), template, region, exposed);
         });
     }
 
@@ -222,24 +251,6 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     }
 
     /// <summary>
-    /// The corner, node and group menus, each opened by the part naming it, plus the colours their colour entries paint — matched
-    /// by the engine to what it draws.
-    /// </summary>
-    private static void RenderMenus(WebRenderContext context, IHtmlElementBuilder root)
-    {
-        UIGraphColorChoice[] choices = ReadRenderValue<UIGraphColorChoice[]?>(context, IGraphCanvasComponent.ColorChoicesProperty, null) ?? [];
-        var colors = new string[choices.Length];
-
-        for (var index = 0; index < choices.Length; index++)
-            colors[index] = choices[index].Color;
-
-        _ = root.Attribute(ColorsAttribute, JsonSerializer.Serialize(colors, WireJson));
-
-        RenderContextMenuRegion(context, root, UIGraphMenus.Node, UIGraphMenus.Node);
-        RenderContextMenuRegion(context, root, UIGraphMenus.Group, UIGraphMenus.Group);
-    }
-
-    /// <summary>
     /// The document on its own hidden element — the canvas's writable value. The engine writes the attribute and raises
     /// <c>change</c>; a server push arrives through the custom operation.
     /// </summary>
@@ -270,6 +281,9 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             _ = viewport.Attribute("role", "application");
             _ = viewport.Attribute("aria-label", context.Translate(GraphStrings.Canvas));
 
+            // The canvas is what takes the keyboard, so a caption names it over the generic word.
+            RenderFieldLabel(context, viewport);
+
             _ = viewport.Element("div", grid => _ = grid.Class($"{ClassName}__grid"));
 
             _ = viewport.Element("div", scene =>
@@ -282,6 +296,14 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 {
                     _ = edges.Class($"{ClassName}__edges");
                     _ = edges.Attribute("aria-hidden", "true");
+                });
+
+                // An edge's words are HTML over the lines rather than SVG text: Chrome lays SVG text out for the scale of every
+                // transform above it and does not lay it out again when the scene's zoom changes, so the words stood where they were.
+                _ = scene.Element("div", labels =>
+                {
+                    _ = labels.Class($"{ClassName}__labels");
+                    _ = labels.Attribute("aria-hidden", "true");
                 });
 
                 _ = scene.Element("div", nodes => _ = nodes.Class($"{ClassName}__nodes"));
@@ -302,6 +324,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             _ = viewport.Element("div", corner =>
             {
                 _ = corner.Class($"{ClassName}__corner");
+                // The canvas's own chrome over the sheet: a right press there is not one on the sheet, and opens none of its menus.
+                _ = corner.Attribute(WebAttributes.NoContextMenu);
 
                 RenderMinimap(context, corner);
                 RenderBar(context, corner);
@@ -335,6 +359,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         _ = viewport.Element("div", panel =>
         {
             _ = panel.Class($"{ClassName}__menu-panel");
+            _ = panel.Attribute(WebAttributes.NoContextMenu);
             _ = panel.Attribute(MenuPanelAttribute, UIGraphMenus.Main);
             _ = panel.Attribute("aria-label", context.Translate(GraphStrings.Menu));
             RenderRegion(context, panel, UIGraphMenus.Main);
@@ -391,6 +416,25 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     }
 
     /// <summary>
+    /// The node, group and edge menus, each opened by the part naming it, plus the colours their colour entries paint — matched by
+    /// the engine to what it draws. The corner menu stands in its own panel.
+    /// </summary>
+    private static void RenderMenus(WebRenderContext context, IHtmlElementBuilder root)
+    {
+        UIGraphColorChoice[] choices = ReadRenderValue<UIGraphColorChoice[]?>(context, IGraphCanvasComponent.ColorChoicesProperty, null) ?? [];
+        var colors = new string[choices.Length];
+
+        for (var index = 0; index < choices.Length; index++)
+            colors[index] = choices[index].Color;
+
+        _ = root.Attribute(ColorsAttribute, JsonSerializer.Serialize(colors, WireJson));
+
+        RenderContextMenuRegion(context, root, UIGraphMenus.Node, UIGraphMenus.Node);
+        RenderContextMenuRegion(context, root, UIGraphMenus.Group, UIGraphMenus.Group);
+        RenderContextMenuRegion(context, root, UIGraphMenus.Edge, UIGraphMenus.Edge);
+    }
+
+    /// <summary>
     /// Whether the canvas's sheet matches the server's. Both words render; the stylesheet shows whichever the canvas's state calls
     /// for, avoiding a browser-side translation.
     /// </summary>
@@ -415,7 +459,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         });
     }
 
-    private void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string name, string wordKey, string icon)
+    /// <summary>One of the canvas's own small buttons: a mark of the framework's, its word as the tooltip, and a name the engine finds it by.</summary>
+    protected void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string name, string wordKey, string icon)
     {
         _ = bar.Element("button", button =>
         {

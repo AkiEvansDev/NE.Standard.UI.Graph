@@ -20,7 +20,7 @@ public static class GraphWebExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, NodesComponentRenderer>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, GraphComponentRenderer>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, LayeredGraphComponentRenderer>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, ProductionGraphComponentRenderer>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IUIStringsSource, GraphStrings>());
 

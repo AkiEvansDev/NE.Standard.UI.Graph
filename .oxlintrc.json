@@ -1,0 +1,177 @@
+{
+  // The lint of every TypeScript client (the framework's and each package's). A client's `npm run lint` finds this file by
+  // walking up from its own folder, so the monorepo and every slice's mirror share one rule set. `npm run build` runs it after
+  // the type check, which is how a finding fails `dotnet build`.
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import"],
+  "options": {
+    // Type-aware rules run on oxlint-tsgolint, which is typescript-go: the same TypeScript 7 the clients compile with.
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "ignorePatterns": [
+    "**/dist/**",
+    // The plugin contract is the framework's own file copied byte for byte into each package; it is linted where it is written.
+    "**/plugin/ne-standard-ui.d.ts"
+  ],
+  "rules": {
+    // The drift a manual sweep kept finding, and its neighbours.
+    // A `let` a callback reads before the line that assigns it is how an engine is wired to one built after it.
+    "eslint/prefer-const": ["error", { "ignoreReadBeforeAssign": true }],
+    "eslint/no-var": "error",
+    // `== null` is the one loose comparison the clients use, and they use it on purpose: null or undefined.
+    "eslint/eqeqeq": ["error", "always", { "null": "ignore" }],
+    "eslint/object-shorthand": "error",
+    "eslint/logical-assignment-operators": "error",
+    "eslint/prefer-exponentiation-operator": "error",
+    "eslint/prefer-object-has-own": "error",
+    "eslint/prefer-rest-params": "error",
+    "eslint/prefer-spread": "error",
+    "eslint/no-useless-computed-key": "error",
+    "eslint/no-return-assign": "error",
+    "eslint/no-loop-func": "error",
+    "eslint/no-sequences": "error",
+    "eslint/no-throw-literal": "error",
+    "eslint/no-self-compare": "error",
+    "eslint/no-new-wrappers": "error",
+    "eslint/no-array-constructor": "error",
+    "eslint/no-case-declarations": "error",
+    "eslint/no-fallthrough": "error",
+    "eslint/no-lone-blocks": "error",
+    "eslint/no-useless-call": "error",
+    "eslint/no-prototype-builtins": "error",
+    "eslint/array-callback-return": "error",
+    "eslint/default-case-last": "error",
+    "eslint/default-param-last": "error",
+    "eslint/radix": "error",
+    "eslint/symbol-description": "error",
+
+    // The TypeScript the clients are written in: `type` over `interface`, explicit accessibility, `T[]`, no `any`.
+    "typescript/consistent-type-definitions": ["error", "type"],
+    "typescript/explicit-member-accessibility": "error",
+    "typescript/explicit-module-boundary-types": "error",
+    "typescript/array-type": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-inferrable-types": "error",
+    "typescript/consistent-type-assertions": "error",
+    "typescript/consistent-indexed-object-style": "error",
+    "typescript/consistent-generic-constructors": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/prefer-function-type": "error",
+    "typescript/no-empty-interface": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-namespace": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/prefer-enum-initializers": "error",
+    "typescript/prefer-literal-enum-member": "error",
+    "typescript/no-mixed-enums": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/unified-signatures": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/no-deprecated": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/restrict-plus-operands": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/first": "error",
+    "import/no-mutable-exports": "error",
+    "import/consistent-type-specifier-style": "error",
+
+    "unicorn/throw-new-error": "error",
+    "unicorn/new-for-builtins": "error",
+    "unicorn/no-instanceof-array": "error",
+    "unicorn/no-typeof-undefined": "error",
+    "unicorn/prefer-array-some": "error",
+    "unicorn/prefer-array-flat": "error",
+    "unicorn/prefer-array-index-of": "error",
+    "unicorn/prefer-date-now": "error",
+    "unicorn/prefer-keyboard-event-key": "error",
+    "unicorn/prefer-optional-catch-binding": "error",
+    "unicorn/prefer-string-slice": "error",
+    "unicorn/prefer-string-trim-start-end": "error",
+    "unicorn/prefer-classlist-toggle": "error",
+    "unicorn/prefer-structured-clone": "error",
+    "unicorn/prefer-negative-index": "error",
+    "unicorn/no-useless-promise-resolve-reject": "error",
+    "unicorn/no-useless-switch-case": "error",
+    "unicorn/no-unnecessary-slice-end": "error",
+    "unicorn/no-zero-fractions": "error",
+    "unicorn/error-message": "error",
+    "oxc/no-accumulating-spread": "error",
+
+    // Default rules that are wrong for this code.
+    // A tokenizer, a layout pass and the simplex fill a preallocated array; `Array.from({ length })` is the slow way to the same thing.
+    "unicorn/no-new-array": "off",
+    // A spread before a loop is a snapshot of a live collection the loop's callbacks may change.
+    "unicorn/no-useless-spread": "off",
+    // Wire values arrive as `unknown` and are stringified on purpose.
+    "typescript/no-base-to-string": "off",
+    // The plugin contract declares its callbacks in method shorthand, and none of them reads `this`.
+    "typescript/unbound-method": "off",
+
+    // Suspicious rules that are wrong for this code.
+    // A name reused in a nested callback reads as what it is.
+    "eslint/no-shadow": "off",
+    // An engine is started by constructing it.
+    "eslint/no-new": "off",
+    // `__pending*` is the queue a page script fills before the client loads.
+    "eslint/no-underscore-dangle": "off",
+    // A client's stylesheet is imported for its effect.
+    "import/no-unassigned-import": "off",
+    // A switch over a closed union returns from every case; the type check already says so.
+    "typescript/consistent-return": "off",
+    // A local helper stays beside its only caller.
+    "unicorn/consistent-function-scoping": "off",
+    // `toSorted` and `toReversed` are ES2023; the clients target ES2022.
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-array-reverse": "off",
+    // Wire payloads are asserted to their contract types at the boundary.
+    "typescript/no-unsafe-type-assertion": "off",
+    // An explicit element type on `querySelector` and a collection says what the line works with.
+    "typescript/no-unnecessary-type-arguments": "off",
+    // Wire values are converted, and compared with `=== true`, whatever their declared type says.
+    "typescript/no-unnecessary-type-conversion": "off",
+    "typescript/no-unnecessary-boolean-literal-compare": "off",
+    // `read<T>()` names the type a stored value is read back as.
+    "typescript/no-unnecessary-type-parameters": "off"
+  },
+  "overrides": [
+    {
+      // node:test's `test()` returns a promise the runner itself awaits.
+      "files": ["**/tests/**"],
+      "rules": {
+        "typescript/no-floating-promises": ["error", { "allowForKnownSafeCalls": [{ "from": "package", "name": ["test", "describe", "it", "suite"], "package": "node:test" }] }]
+      }
+    },
+    {
+      // The build scripts are plain JavaScript outside every tsconfig, so their types are unknown to the type-aware rules.
+      "files": ["**/*.mjs"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    }
+  ]
+}

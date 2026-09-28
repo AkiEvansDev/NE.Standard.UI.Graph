@@ -1,6 +1,32 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bounds, contains, drawEdge, edgePath, fitView, intersects, snap } from "../src/canvas/geometry.ts";
+import { bounds, contains, drawEdge, edgePath, fitView, intersects, snap, wheelZoom } from "../src/canvas/geometry.ts";
+
+test("a mouse notch zooms by a tenth, either way", () => {
+    assert.ok(Math.abs(wheelZoom(0, -100, 0) - 1.1) < 1e-9);
+    assert.ok(Math.abs(wheelZoom(0, 100, 0) - 1 / 1.1) < 1e-9);
+    // Three lines are a notch where the wheel counts in lines.
+    assert.ok(Math.abs(wheelZoom(0, 3, 1) - wheelZoom(0, 99, 0)) < 1e-9);
+});
+
+test("a sideways swipe and a turn of nothing do not zoom", () => {
+    assert.equal(wheelZoom(40, 0, 0), 1);
+    assert.equal(wheelZoom(40, 3, 0), 1);
+    assert.equal(wheelZoom(0, 0, 0), 1);
+});
+
+test("a trackpad's small steps come to what one notch does over the same distance", () => {
+    let zoom = 1;
+
+    for (let step = 0; step < 25; step++)
+        zoom *= wheelZoom(0, -4, 0);
+
+    assert.ok(Math.abs(zoom - 1.1) < 1e-9);
+});
+
+test("a flick is held to three notches", () => {
+    assert.ok(Math.abs(wheelZoom(0, 5000, 0) - 1.1 ** -3) < 1e-9);
+});
 
 test("a straight edge is the stops joined in order", () => {
     assert.equal(edgePath("straight", { x: 0, y: 0 }, { x: 100, y: 50 }), "M0,0 L100,50");

@@ -21,7 +21,11 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 {
     protected NodesComponent(string? id = null) : base(id)
     {
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, "Add node"), Separator());
+        // A reroute is a shape of the sheet, not a kind to look for: its own entry, not a line of the picker.
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, "Add node"), Entry(UIGraphCommands.AddReroute, "Add reroute"), Separator());
+        PrependEntries(EdgeMenu, Entry(UIGraphCommands.AddReroute, "Add reroute"));
+        // Shown only on a node whose kind keeps a state; a hidden state has no reset button of its own.
+        _ = NodeMenu.AddItems([Entry(UIGraphCommands.ResetState, "Reset")]);
 
         // The core's own field, not an input of the package's: the page's appearance, its clear button and its focus ring.
         PickerSearch = new TextInputComponent()
@@ -33,6 +37,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         SetCanvasRegion(UIGraphRegions.PickerSearch, PickerSearch);
         SetCanvasRegion(UIGraphRegions.ListRemove, GlyphButton(UIGlyphs.Close, UIGraphWords.Remove));
         SetCanvasRegion(UIGraphRegions.ListAdd, GlyphButton(UIGlyphs.Add, UIGraphWords.AddValue));
+        SetCanvasRegion(UIGraphRegions.StateReset, GlyphButton(UIGlyphs.Restart, UIGraphWords.ResetState));
     }
 
     /// <summary>
@@ -44,7 +49,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     /// Gets the node kinds the picker offers and a saved document is read back through.
     /// </summary>
     /// <remarks>Render-time only: the catalogue is how the canvas is built.</remarks>
-    [UIComponentProperty(IsBindable = false, GenerateBinder = false, GenerateSetter = false, DefaultValue = null)]
+    [UIComponentProperty(IsBindable = false, GenerateSetter = false, DefaultValue = null)]
     public UINodeCatalog? Catalog { get; private set; }
 
     /// <summary>
@@ -53,6 +58,18 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     /// </summary>
     [UIComponentProperty(DefaultValue = true)]
     public bool? ShowRunProgress { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the canvas carries a run panel in its top corner: Run and Run all save the sheet with a run's reason
+    /// (<see cref="UIGraphArguments.RunReason"/>, <see cref="UIGraphArguments.RunAllReason"/>) for the save command to hand to
+    /// <see cref="UINodeRuns"/>, and Stop raises <see cref="GraphEvents.RunStop"/> while a run is on.
+    /// </summary>
+    [UIComponentProperty(DefaultValue = false)]
+    public bool? ShowRunPanel { get; set; }
+
+    /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
+    public T SetCatalog(params Type[] nodeTypes)
+        => SetCatalog(UINodeCatalog.FromTypes(nodeTypes));
 
     /// <summary>
     /// Sets the node kinds, read off the application's own classes.
@@ -85,7 +102,8 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     private static IVisualComponent? CreateEditor(UINodePin pin)
         => pin.Editor switch
         {
-            UINodeEditor.Text when pin.MaxLines > 1 => Limited(new TextAreaComponent().SetRows(pin.MaxLines.Value).SetSize(UIInputSize.Small), pin),
+            // Not resizable itself: it fills the node's height, and the node's corner sizes both on the grid.
+            UINodeEditor.Text when pin.MaxLines > 1 => Limited(new TextAreaComponent().SetRows(pin.MaxLines.Value).SetSize(UIInputSize.Small).SetResize(UITextAreaResizeMode.None), pin),
             UINodeEditor.Text => Limited(TextEditor(pin), pin),
             UINodeEditor.Number => NumberEditor(pin),
             UINodeEditor.Boolean => new CheckboxComponent().SetSize(UIInputSize.Small),
@@ -170,10 +188,6 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
             .SetSize(UIButtonSize.Small)
             .SetIcon(icon)
             .SetTooltip(tooltip);
-
-    /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
-    public T SetCatalog(params Type[] nodeTypes)
-        => SetCatalog(UINodeCatalog.FromTypes(nodeTypes));
 }
 
 /// <summary>

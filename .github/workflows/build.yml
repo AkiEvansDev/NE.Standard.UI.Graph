@@ -1,4 +1,4 @@
-# Runs in the public mirror of the data grid. The framework arrives as a package here, so this also proves
+# Runs in the public mirror of the graph. The framework arrives as a package here, so this also proves
 # that the version the component is built against is really on the feed.
 name: Build
 
@@ -38,7 +38,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      # The grid engines and the stylesheet build from the TypeScript client as part of `dotnet build`.
+      # The canvas engine and the stylesheet build from the TypeScript client as part of `dotnet build`.
       - name: Setup Node
         uses: actions/setup-node@v7
         with:

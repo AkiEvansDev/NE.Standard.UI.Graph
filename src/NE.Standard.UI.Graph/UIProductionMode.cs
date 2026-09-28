@@ -11,7 +11,7 @@ public enum UIProductionMode
     /// <summary>
     /// A plan over the catalogue: the viewer names target amounts, the graph draws the crafts and resources involved with their
     /// totals, and a panel summarizes what's brought in, made, taken and left over. Not edited here; with no reachable target, the
-    /// whole catalogue is shown.
+    /// sheet is empty.
     /// </summary>
     Plan
 }

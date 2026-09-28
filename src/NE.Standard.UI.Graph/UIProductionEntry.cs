@@ -75,7 +75,7 @@ public sealed partial class UIResource(string id) : UIProductionEntry(id)
     public partial string? Image { get; set; }
 
     /// <summary>
-    /// Gets or sets the group the resource belongs to — ores, parts, fluids.
+    /// Gets or sets the group the resource belongs to — ores, parts, fluids; a path nests it, <c>Parts/Plates</c> under <c>Parts</c>.
     /// </summary>
     [RecursiveMember]
     public partial string? Category { get; set; }

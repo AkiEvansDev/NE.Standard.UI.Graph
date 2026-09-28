@@ -9,7 +9,10 @@ namespace NE.Standard.UI.Graph;
 /// </summary>
 public enum UIProductionPeriod
 {
-    /// <summary>Made once: the amounts are totals, so are the runs and their time, and every craft runs a whole number of times.</summary>
+    /// <summary>
+    /// Made once: the amounts are totals, so are the runs and their time, and every craft runs a whole number of times — unless rounding
+    /// them up to whole runs never settles, and the plan keeps the fractional runs it solved.
+    /// </summary>
     Once,
 
     /// <summary>Every minute of a line that keeps running.</summary>
@@ -96,7 +99,10 @@ public enum UIProductionPlanStatus
     Solved,
 
     /// <summary>No runs reach the targets: a cycle takes more than it gives.</summary>
-    Infeasible
+    Infeasible,
+
+    /// <summary>The solver found no answer it can stand by: the least it was asked for falls without bound, or would not settle.</summary>
+    Unsettled
 }
 
 /// <summary>

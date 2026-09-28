@@ -205,3 +205,6 @@ _attic/
 
 # The mini application's own database, created at its first start.
 examples/TeamRoom.Web/data/
+
+# The graph demo's planner database, created at its first start; no prefix, so the rule holds in the slice's mirror too.
+**/DemoApp.Graph.Web/data/

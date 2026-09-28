@@ -19,10 +19,13 @@ internal static class ProductionSimplex
 
     /// <summary>
     /// The x of the least cost under <c>sum(rows[i][j] * x[j]) >= atLeast[i]</c>, no <paramref name="atLeast"/> below zero, or nothing
-    /// when no x >= 0 reaches every row.
+    /// when no x >= 0 reaches every row — or, <paramref name="unsettled"/> then, when the walk to the least found no end: a cost that
+    /// falls without bound, or a table that would not settle.
     /// </summary>
-    public static double[]? Minimise(double[][] rows, double[] atLeast, double[] cost, double[] tieCost)
+    public static double[]? Minimise(double[][] rows, double[] atLeast, double[] cost, double[] tieCost, out bool unsettled)
     {
+        unsettled = false;
+
         var count = cost.Length;
         var height = rows.Length;
         List<int> artificial = [];
@@ -87,7 +90,10 @@ internal static class ProductionSimplex
         if (artificial.Count > 0)
         {
             if (!Walk(table, basis, costs, real, column => phase[column] < -Eps))
+            {
+                unsettled = true;
                 return null;
+            }
 
             double left = 0;
 
@@ -103,12 +109,12 @@ internal static class ProductionSimplex
             LeaveArtificials(table, basis, costs, real);
         }
 
-        if (!Walk(table, basis, costs, real, column => first[column] < -Eps))
+        // Along the answers the first cost holds equal, the second walk takes a column it is indifferent to, which the second cost gains by.
+        if (!Walk(table, basis, costs, real, column => first[column] < -Eps) || !Walk(table, basis, costs, real, column => Math.Abs(first[column]) <= Eps && second[column] < -Eps))
+        {
+            unsettled = true;
             return null;
-
-        // Along the answers the first cost holds equal: a column it is indifferent to, which the second cost gains by.
-        if (!Walk(table, basis, costs, real, column => Math.Abs(first[column]) <= Eps && second[column] < -Eps))
-            return null;
+        }
 
         var answer = new double[count];
 
@@ -174,29 +180,6 @@ internal static class ProductionSimplex
         return false;
     }
 
-    /// <summary>Removes an artificial still in the basis via any real column in its row; a row with none is already implied by the others.</summary>
-    private static void LeaveArtificials(double[][] table, int[] basis, double[][] costs, int real)
-    {
-        var width = table[0].Length - 1;
-
-        for (var row = 0; row < table.Length; row++)
-        {
-            if (basis[row] < real)
-                continue;
-
-            table[row][width] = 0;
-
-            for (var column = 0; column < real; column++)
-            {
-                if (Math.Abs(table[row][column]) > Eps)
-                {
-                    Pivot(table, basis, costs, row, column);
-                    break;
-                }
-            }
-        }
-    }
-
     private static void Pivot(double[][] table, int[] basis, double[][] costs, int row, int column)
     {
         var line = table[row];
@@ -234,4 +217,27 @@ internal static class ProductionSimplex
 
     private static double Clean(double value)
         => Math.Abs(value) < Dust ? 0 : value;
+
+    /// <summary>Removes an artificial still in the basis via any real column in its row; a row with none is already implied by the others.</summary>
+    private static void LeaveArtificials(double[][] table, int[] basis, double[][] costs, int real)
+    {
+        var width = table[0].Length - 1;
+
+        for (var row = 0; row < table.Length; row++)
+        {
+            if (basis[row] < real)
+                continue;
+
+            table[row][width] = 0;
+
+            for (var column = 0; column < real; column++)
+            {
+                if (Math.Abs(table[row][column]) > Eps)
+                {
+                    Pivot(table, basis, costs, row, column);
+                    break;
+                }
+            }
+        }
+    }
 }

@@ -47,7 +47,8 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
 
     /// <summary>
     /// Applies the draft to an application's catalogue: removed entries go, changed ones take the viewer's state, added ones join,
-    /// and amounts of a removed resource are dropped from crafts. Only differing properties are written.
+    /// and amounts of a removed resource are dropped from crafts — a craft that loses its last ingredient to it, or is left with
+    /// nothing, goes too, as the canvas takes it off. Only differing properties are written.
     /// </summary>
     public void ApplyTo(IList<UIProductionEntry> entries)
     {
@@ -55,15 +56,16 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
 
         HashSet<string> removed = UIGraphDraftSupport.RemoveAll(entries, Removed);
 
-        foreach (UIResourceDraft draft in Resources)
+        // The draft is the browser's: an entry it sent as nothing, or with no key, is no entry.
+        foreach (UIResourceDraft? draft in Resources)
         {
-            if (!removed.Contains(draft.Id))
+            if (!string.IsNullOrEmpty(draft?.Id) && !removed.Contains(draft.Id))
                 draft.WriteTo(Take(entries, draft.Id, static id => new UIResource(id)));
         }
 
-        foreach (UICraftDraft draft in Crafts)
+        foreach (UICraftDraft? draft in Crafts)
         {
-            if (!removed.Contains(draft.Id))
+            if (!string.IsNullOrEmpty(draft?.Id) && !removed.Contains(draft.Id))
                 draft.WriteTo(Take(entries, draft.Id, static id => new UICraft(id)));
         }
 
@@ -75,15 +77,25 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
                 _ = resources.Add(entry.Id);
         }
 
-        foreach (UIProductionEntry entry in entries)
+        for (var index = entries.Count - 1; index >= 0; index--)
         {
-            if (entry is not UICraft craft)
+            if (entries[index] is not UICraft craft)
                 continue;
 
-            if (Kept(craft.Ingredients, resources) is List<UICraftAmount> ingredients)
+            List<UICraftAmount>? ingredients = Kept(craft.Ingredients, resources);
+            List<UICraftAmount>? products = Kept(craft.Products, resources);
+
+            // Taking nothing, it would make its products from nothing, and the canvas would have no edge left to draw it on.
+            if ((ingredients ?? craft.Ingredients).Count == 0 && (ingredients is not null || products?.Count == 0))
+            {
+                entries.RemoveAt(index);
+                continue;
+            }
+
+            if (ingredients is not null)
                 craft.Ingredients = ingredients;
 
-            if (Kept(craft.Products, resources) is List<UICraftAmount> products)
+            if (products is not null)
                 craft.Products = products;
         }
     }
@@ -112,14 +124,14 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
         return added;
     }
 
-    /// <summary>The amounts whose resource is still there, or nothing when every one of them is.</summary>
+    /// <summary>The amounts whose resource is still there, or nothing when every one of them is; one the browser sent as nothing is none.</summary>
     private static List<UICraftAmount>? Kept(IReadOnlyList<UICraftAmount> amounts, HashSet<string> resources)
     {
         List<UICraftAmount> kept = [];
 
-        foreach (UICraftAmount amount in amounts)
+        foreach (UICraftAmount? amount in amounts)
         {
-            if (resources.Contains(amount.Resource))
+            if (amount?.Resource is { } resource && resources.Contains(resource))
                 kept.Add(amount);
         }
 
@@ -132,18 +144,7 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
 /// change (for conflict detection).
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIResourceDraft(
-    string id,
-    string? title = null,
-    string? icon = null,
-    string? color = null,
-    string? tooltip = null,
-    string? image = null,
-    string? category = null,
-    string? unit = null,
-    double? cost = null,
-    bool created = false,
-    string? baseline = null)
+public sealed class UIResourceDraft(string id, string? title = null, string? icon = null, string? color = null, string? tooltip = null, string? image = null, string? category = null, string? unit = null, double? cost = null, bool created = false, string? baseline = null)
 {
     /// <summary>Gets the resource's key.</summary>
     public string Id { get; } = id;
@@ -214,17 +215,7 @@ public sealed class UIResourceDraft(
 /// viewer first changed it.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UICraftDraft(
-    string id,
-    string? title = null,
-    string? icon = null,
-    string? color = null,
-    string? tooltip = null,
-    UICraftAmount[]? ingredients = null,
-    UICraftAmount[]? products = null,
-    TimeSpan time = default,
-    bool created = false,
-    string? baseline = null)
+public sealed class UICraftDraft(string id, string? title = null, string? icon = null, string? color = null, string? tooltip = null, UICraftAmount[]? ingredients = null, UICraftAmount[]? products = null, TimeSpan time = default, bool created = false, string? baseline = null)
 {
     /// <summary>Gets the craft's key.</summary>
     public string Id { get; } = id;

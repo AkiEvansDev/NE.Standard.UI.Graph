@@ -20,6 +20,8 @@ export class CanvasSelection {
     private readonly host: SelectionHost;
 
     private readonly selection = new Set<string>();
+    // What was chosen when the band began: a band adds to it (it is drawn with Ctrl), so what it leaves goes back to this, not out.
+    private beforeMarquee: ReadonlySet<string> = new Set<string>();
     private readonly selectedEdges = new Set<string>();
 
     public constructor(root: HTMLElement, nodeElements: ReadonlyMap<string, HTMLElement>, groupLayer: HTMLElement, host: SelectionHost) {
@@ -131,6 +133,7 @@ export class CanvasSelection {
     }
 
     public beginMarquee(): void {
+        this.beforeMarquee = new Set(this.selection);
         this.marquee.hidden = false;
     }
 
@@ -153,7 +156,7 @@ export class CanvasSelection {
             if (nodeRect === null)
                 continue;
 
-            if (intersects(rect, nodeRect))
+            if (intersects(rect, nodeRect) || this.beforeMarquee.has(node.id))
                 this.selection.add(node.id);
             else
                 this.selection.delete(node.id);

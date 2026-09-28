@@ -2,7 +2,7 @@
 // changed or removed. Every change goes into the document's draft, by key, and nothing reaches the application until the save.
 
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
-import { freeKey } from "./draft.ts";
+import { freeKey, takenKeys } from "./draft.ts";
 import { beginLinkDrag, edgeMiddle, openChipField } from "./link-drag.ts";
 import type { GraphDocument, GraphEdge, GraphNode, GraphNodeDraft } from "./model.ts";
 import { toDraft } from "./model.ts";
@@ -10,6 +10,7 @@ import { toDraft } from "./model.ts";
 /** What the editing reaches on the kind: the nodes as drawn and as the server has them, and a link by its key. */
 export type GraphEditingHost = {
     nodes(): readonly GraphNode[];
+    serverNodes(): readonly GraphNode[];
     node(id: string): GraphNode | undefined;
     serverNode(id: string): GraphNode | undefined;
     link(id: string): GraphEdge | undefined;
@@ -64,7 +65,8 @@ export class GraphEditing {
 
     /** A node of the viewer's own where the pointer last stood, chosen, and named at once. */
     public addNode(): void {
-        const id = freeKey("node", new Set(this.host.nodes().map(node => node.id)));
+        // Not the drawn nodes alone: a removed server node's key is still the server's until the save, and a node added under it would never be drawn.
+        const id = freeKey("node", takenKeys(this.host.serverNodes(), this.document.draft.nodes, this.document.draft.removed));
         const at = this.services.pointerScene();
         const title = this.services.context.strings.text("ui.graph.new-node");
 

@@ -1,26 +1,33 @@
 // The node canvas as a kind of canvas: typed nodes and pins, edges between them, and what a run paints over them. Concerns:
 // `NodesWiring`, `NodesLog`, `NodesPickerBinding` and `NodesImageUpload` handle wiring, run status/log, the picker and picture uploads.
 
-import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag } from "../canvas/canvas-kind.ts";
+import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { snapBoxes } from "../canvas/canvas-drag.ts";
-import { enableMenuEntries } from "../canvas/canvas-menus.ts";
+import { enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
+import { newId, readJson } from "../canvas/canvas-model.ts";
+import { snap } from "../canvas/geometry.ts";
 import { assignLanes } from "../canvas/lanes.ts";
-import { readJson } from "../canvas/canvas-model.ts";
 import { arrange } from "./layout.ts";
-import type { DocumentEdge, DocumentNode, GraphDocument, NodeType } from "./model.ts";
-import { AnyType, duplicate, edgeInto, readDocument, resolveOutputType, slice } from "./model.ts";
+import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
+import { AnyType, createNode, duplicate, edgeInto, findPin, readDocument, resolveOutputType, slice } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
+import { NodesRunPanel } from "./nodes-run-panel.ts";
 import { NodesImageUpload } from "./nodes-upload.ts";
 import { NodesWiring } from "./nodes-wiring.ts";
-import { HeadAttribute, PinAttribute, PinDirectionAttribute, renderNode } from "./node-view.ts";
+import { HeadAttribute, PinAttribute, PinDirectionAttribute, renderNode, ValueAttribute } from "./node-view.ts";
 
 // A node's editor — the framework's own component, its open list among it — whose pointer, wheel and keys are its own.
 const EditorSelector = ".ui-graph__editor";
-// The panels a node canvas stands over its sheet: the log and the run line.
-const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run]";
+// The panels a node canvas stands over its sheet: the log, the run line and the run panel.
+const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel";
 const CatalogAttribute = "data-ui-graph-catalog";
+// The kind every catalogue carries (`RerouteNode` on the server), which a wire's menu puts on the wire.
+const RerouteKey = "graph.reroute";
+// Half a reroute's box at its least, so the one a menu puts down is centred on where the menu was opened.
+const RerouteHalfWidth = 30;
+const RerouteHalfHeight = 12;
 
 export const NodesKindDefinition: CanvasKindDefinition<GraphDocument> = {
     name: "nodes",
@@ -38,6 +45,7 @@ export class NodesKind implements CanvasKind {
     private readonly log: NodesLog;
     private readonly pickerBinding: NodesPickerBinding;
     private readonly upload: NodesImageUpload;
+    private readonly runPanel: NodesRunPanel;
 
     private clipboard: { nodes: DocumentNode[]; edges: DocumentEdge[] } | null = null;
 
@@ -50,10 +58,15 @@ export class NodesKind implements CanvasKind {
         for (const type of catalog)
             this.types.set(type.key, type);
 
-        this.wiring = new NodesWiring(services, { pinPoint: (nodeId, pinName, direction) => this.pinPoint(nodeId, pinName, direction), pinColor: type => this.pinColor(type) }, this.types);
-        this.log = new NodesLog(services, this.types);
         this.pickerBinding = new NodesPickerBinding(services, catalog);
+        this.wiring = new NodesWiring(services, {
+            pinPoint: (nodeId, pinName, direction) => this.pinPoint(nodeId, pinName, direction),
+            pinColor: type => this.pinColor(type),
+            dropOnNothing: wire => this.pickerBinding.openFor(wire)
+        }, this.types);
+        this.log = new NodesLog(services, this.types);
         this.upload = new NodesImageUpload(services);
+        this.runPanel = new NodesRunPanel(services);
 
         this.log.setLogOpen(services.context.store.read(services.root, "log") === "open");
         this.log.drawRun();
@@ -86,6 +99,7 @@ export class NodesKind implements CanvasKind {
             readOnly: this.services.settings.readOnly,
             pinColor: type => this.pinColor(type),
             outputType: (nodeId, pinName) => resolveOutputType(this.document, this.types, nodeId, pinName),
+            feedTitle: (nodeId, pinName) => this.feedTitle(nodeId, pinName, new Set()),
             isConnected: (nodeId, pinName, direction) => direction === "in"
                 ? edgeInto(this.document, nodeId, pinName) !== undefined
                 : this.document.edges.some(edge => edge.fromNode === nodeId && edge.fromPin === pinName),
@@ -180,6 +194,22 @@ export class NodesKind implements CanvasKind {
         return pin === null || pin === undefined ? null : this.services.centerOf(pin);
     }
 
+    /** The caption of the output that feeds an input, looking through reroutes to the output the wire first left. */
+    private feedTitle(nodeId: string, pinName: string, seen: Set<string>): string | null {
+        const edge = edgeInto(this.document, nodeId, pinName);
+
+        if (edge === undefined || seen.has(edge.fromNode))
+            return null;
+
+        seen.add(nodeId);
+
+        const from = this.document.nodes.find(candidate => candidate.id === edge.fromNode);
+        const type = from === undefined ? undefined : this.types.get(from.type);
+        const through = type?.compact === true ? type.inputs[0] : undefined;
+
+        return through !== undefined ? this.feedTitle(edge.fromNode, through.name, seen) : findPin(type, edge.fromPin, true)?.title ?? null;
+    }
+
     /** The colour a pin type wears: a theme series picked by the type's name, cycled the way `ThemeColorRenderer.SeriesColorCss` cycles it server-side; the universal pin wears neutral instead. */
     private pinColor(type: string): string {
         if (type === AnyType)
@@ -204,15 +234,45 @@ export class NodesKind implements CanvasKind {
         this.services.documentState.edited(this.types.get(node.type)?.inputs.some(pin => pin.visibleWhen === pinName) === true);
     }
 
-    /** The value effect: one pin's saved value, from the server — an edit like any other, so it is undone and saved like one. */
-    public setPinValue(nodeId: string, pinName: string, value: unknown): void {
-        const node = this.document.nodes.find(candidate => candidate.id === nodeId);
+    /**
+     * The value effect: one pin's value, from the server — an edit like any other, undone and saved like one, unless the server
+     * already holds it (a node's state as a run left it), when it is no edit at all.
+     */
+    public setPinValue(nodeId: string, pinName: string, value: unknown, committed: boolean): void {
+        const write = (document: GraphDocument): void => {
+            const node = document.nodes.find(candidate => candidate.id === nodeId);
 
-        if (node === undefined)
+            if (node !== undefined)
+                node.values[pinName] = value;
+        };
+
+        if (!this.document.nodes.some(candidate => candidate.id === nodeId))
             return;
 
-        node.values[pinName] = value;
+        if (committed) {
+            // In place when the pin's own field shows it and nothing hangs on it: a run writes state after every run of a Run all.
+            const inPlace = this.showCommitted(nodeId, pinName, value);
+
+            this.services.documentState.committed(document => write(document), !inPlace);
+            return;
+        }
+
+        write(this.document);
         this.services.documentState.edited();
+    }
+
+    /** Writes a committed value into the field already drawn for it; false when there is none, or another pin's showing hangs on it. */
+    private showCommitted(nodeId: string, pinName: string, value: unknown): boolean {
+        const node = this.document.nodes.find(candidate => candidate.id === nodeId);
+        const type = node === undefined ? undefined : this.types.get(node.type);
+        const field = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${ValueAttribute}="${CSS.escape(pinName)}"] > *`);
+
+        if (type === undefined || field === null || field === undefined || type.inputs.some(pin => pin.visibleWhen === pinName))
+            return false;
+
+        this.services.context.properties.set(field, "Value", value ?? type.inputs.find(pin => pin.name === pinName)?.defaultValue ?? null);
+
+        return true;
     }
 
     // --- the run's channel -------------------------------------------------------------------------------------------------------
@@ -235,6 +295,22 @@ export class NodesKind implements CanvasKind {
     /** The run effect: how many of a run's nodes are through, of how many. */
     public setRunProgress(completed: number, total: number): void {
         this.log.setRunProgress(completed, total);
+    }
+
+    /**
+     * The running effect: a run of the sheet has begun or ended. Begun, the save it was asked with has landed — the server runs what
+     * it took — though the command answers only at the run's end, so the canvas counts it saved now and its other saves go on.
+     */
+    public setRunning(running: boolean): void {
+        if (running)
+            this.services.documentState.settle();
+
+        this.runPanel.setRunning(running);
+        this.log.setRunning(running);
+    }
+
+    public saveCompleted(_success: boolean, reason: string): void {
+        this.runPanel.saveCompleted(reason);
     }
 
     // --- presses -------------------------------------------------------------------------------------------------------------------
@@ -303,8 +379,9 @@ export class NodesKind implements CanvasKind {
         this.document.nodes.push(...copy.nodes);
         this.document.edges.push(...copy.edges);
 
-        // The pasted copy becomes the clipboard, so pasting again steps further rather than landing on the same spot.
-        this.clipboard = copy;
+        // The pasted copy becomes the clipboard, so pasting again steps further rather than landing on the same spot — a copy of it,
+        // not the nodes now on the sheet, or an edit to them would ride along into the next paste.
+        this.clipboard = slice(this.document, new Set(copy.nodes.map(node => node.id)));
 
         return copy.nodes.map(node => node.id);
     }
@@ -317,7 +394,18 @@ export class NodesKind implements CanvasKind {
     }
 
     public arrange(sizes: ReadonlyMap<string, { width: number; height: number }>, only: ReadonlySet<string> | undefined): Map<string, Point> {
-        return arrange(this.document, { sizes, only });
+        const settings = this.services.settings;
+
+        return arrange(this.document, { sizes, only, pinOffset: (nodeId, pinName, direction) => this.pinOffset(nodeId, pinName, direction), gridSize: settings.snapping ? settings.gridSize : 0 });
+    }
+
+    /** How far below its node's top a pin's middle stands, in canvas units, off the page as the node is drawn now — folded, its pins sit on its head. */
+    private pinOffset(nodeId: string, pinName: string, direction: "in" | "out"): number | null {
+        const element = this.services.nodeElements.get(nodeId);
+        const pin = this.pinPoint(nodeId, pinName, direction);
+
+        // Whole pixels: read back through the zoom, the offset carries float dust, which would land in the document as a place.
+        return element === undefined || pin === null ? null : Math.round(pin.y - (this.services.centerOf(element).y - element.offsetHeight / 2));
     }
 
     public canEditItems(): boolean {
@@ -333,19 +421,94 @@ export class NodesKind implements CanvasKind {
     }
 
     public hasEdgeMenu(): boolean {
-        return false;
-    }
-
-    public runCommand(key: string): boolean {
-        if (key !== "graph:add-node")
-            return false;
-
-        this.pickerBinding.open();
         return true;
     }
 
-    public syncMenus(editable: boolean): void {
-        enableMenuEntries(this.services.root, "graph:add-node", editable);
+    public runCommand(key: string, target: MenuTarget | null): boolean {
+        switch (key) {
+            case "graph:add-node":
+                this.pickerBinding.open();
+                return true;
+
+            case "graph:add-reroute":
+                if (target === null || target.kind === "edge")
+                    this.addReroute(target?.id ?? null);
+
+                return true;
+
+            case "graph:reset-state":
+                if (target?.kind === "node")
+                    this.resetState(target.id);
+
+                return true;
+
+            case "graph:delete-edge":
+                if (target?.kind === "edge" && !this.services.settings.readOnly) {
+                    this.document.edges = this.document.edges.filter(edge => edge.id !== target.id);
+                    this.services.documentState.edited();
+                }
+
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /** A reroute where the menu was opened: on an edge, taking the edge through it; on the empty sheet, standing unwired. */
+    private addReroute(edgeId: string | null): void {
+        const edge = edgeId === null ? null : this.document.edges.find(candidate => candidate.id === edgeId);
+        const type = this.types.get(RerouteKey);
+        const input = type?.inputs[0];
+        const output = type?.outputs[0];
+
+        if (this.services.settings.readOnly || edge === undefined || type === undefined || input === undefined || output === undefined)
+            return;
+
+        const settings = this.services.settings;
+        const at = this.services.pointerScene();
+        const node = createNode(type, snap(at.x - RerouteHalfWidth, settings.gridSize, settings.snapping), snap(at.y - RerouteHalfHeight, settings.gridSize, settings.snapping));
+
+        this.document.nodes.push(node);
+
+        if (edge !== null) {
+            this.document.edges = [
+                ...this.document.edges.filter(candidate => candidate.id !== edge.id),
+                { id: newId("e"), fromNode: edge.fromNode, fromPin: edge.fromPin, toNode: node.id, toPin: input.name, points: [] },
+                { id: newId("e"), fromNode: node.id, fromPin: output.name, toNode: edge.toNode, toPin: edge.toPin, points: [] }
+            ];
+        }
+
+        this.services.selection.selectOnly(node.id);
+        this.services.documentState.edited();
+    }
+
+    public syncMenus(editable: boolean, target: MenuTarget | null): void {
+        for (const key of ["graph:add-node", "graph:add-reroute", "graph:delete-edge", "graph:reset-state"])
+            enableMenuEntries(this.services.root, key, editable);
+
+        // Reset stands only in the menu of a node whose kind keeps a state.
+        showMenuEntries(this.services.root, "graph:reset-state", target?.kind === "node" && this.statePins(target.id).length > 0);
+    }
+
+    /** Every state value of the node back to its kind's default, as one edit of the viewer's. */
+    private resetState(nodeId: string): void {
+        const node = this.document.nodes.find(candidate => candidate.id === nodeId);
+        const pins = this.statePins(nodeId);
+
+        if (this.services.settings.readOnly || node === undefined || pins.length === 0)
+            return;
+
+        for (const pin of pins)
+            node.values[pin.name] = pin.defaultValue ?? null;
+
+        this.services.documentState.edited();
+    }
+
+    private statePins(nodeId: string): Pin[] {
+        const node = this.document.nodes.find(candidate => candidate.id === nodeId);
+
+        return node === undefined ? [] : (this.types.get(node.type)?.inputs.filter(pin => pin.state === true) ?? []);
     }
 }
 

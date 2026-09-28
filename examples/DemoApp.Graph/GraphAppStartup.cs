@@ -1,31 +1,39 @@
 using System;
+using System.IO;
+using DemoApp.Graph.Planner;
 using Microsoft.Extensions.DependencyInjection;
-using NE.Standard.UI.Application;
-using NE.Standard.UI.Shell.Files;
-using NE.Standard.UI.Startup;
+using NE.Standard.UI.Shell.Runtime;
 
 namespace DemoApp.Graph;
 
 public sealed class GraphAppStartup : UIStartupBase
 {
+    /// <summary>Where the planner's database lives: beside the host, under <c>data/</c>.</summary>
+    public static string DataDirectory
+        => Path.Combine(Directory.GetCurrentDirectory(), "data");
+
     protected override void ConfigureServices(IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        // Where this demo keeps the pictures its canvas uploads, and how they are served back: the application's own decision,
-        // which is the whole of what the canvas asks of it.
-        _ = services.AddSingleton<PictureStore>();
-        _ = services.AddSingleton<IUIContentProvider>(static provider => provider.GetRequiredService<PictureStore>());
+        _ = services.AddSingleton(new PlannerDatabase(DataDirectory));
+        _ = services.AddSingleton<PlannerStore>();
+        _ = services.AddSingleton<PlannerPictures>();
+
+        // The resources' pictures are the one content this demo serves, so the planner's store is the application's provider.
+        _ = services.AddSingleton<IUIContentProvider>(static provider => provider.GetRequiredService<PlannerPictures>());
     }
 
     protected override void ConfigureApplication(UIApplicationBuilder application)
     {
         ArgumentNullException.ThrowIfNull(application);
 
-        _ = application.Route<NodesView, GraphController>(GraphDemoView.NodesRoute);
+        // A page is read fresh each time it is opened: the builds must see the resources as the other page last wrote them, and a
+        // runtime kept for the window would show them as they were.
+        _ = application.ConfigurePersistence(static persistence => persistence.Lifetime = UIRuntimeLifetime.PerPage);
+
+        _ = application.Route<ResourcesView, ResourcesController>(GraphDemoView.ResourcesRoute);
+        _ = application.Route<BuildsView, BuildsController>(GraphDemoView.BuildsRoute);
         _ = application.Route<GraphView, DependenciesController>(GraphDemoView.GraphRoute);
-        _ = application.Route<ProductionView, ProductionController>(GraphDemoView.ProductionRoute);
-        _ = application.Route<ChainView, ChainController>(GraphDemoView.ChainRoute);
-        _ = application.Route<PlanView, PlanController>(GraphDemoView.PlanRoute);
     }
 }

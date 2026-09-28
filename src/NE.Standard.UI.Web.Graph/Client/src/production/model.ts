@@ -3,7 +3,7 @@
 // crafts, craft edges out to resources.
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
-import { readGroup, readPoints } from "../canvas/canvas-model.ts";
+import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
 import type { DraftConflict, DraftEntry } from "../graph/draft.ts";
 import { conflicts, overlay } from "../graph/draft.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
@@ -93,10 +93,11 @@ export type ProductionDocument = {
     groups: CanvasGroup[];
     draft: ProductionDraft;
     plan: PlanRequest;
+    key: string | null;
 };
 
-export function emptyProductionDocument(): ProductionDocument {
-    return { nodes: [], edges: [], groups: [], draft: { resources: [], crafts: [], removed: [] }, plan: { targets: [], period: "Once", objective: "LeastRaw", bought: [] } };
+function emptyProductionDocument(): ProductionDocument {
+    return { nodes: [], edges: [], groups: [], draft: { resources: [], crafts: [], removed: [] }, plan: { targets: [], period: "Once", objective: "LeastRaw", bought: [] }, key: null };
 }
 
 /** A document as it came off the wire, with every part present and every number a number. */
@@ -125,7 +126,8 @@ export function readProductionDocument(value: unknown): ProductionDocument {
             }),
             removed: (draft?.removed ?? []).map(id => String(id))
         },
-        plan: readPlanRequest(source.plan)
+        plan: readPlanRequest(source.plan),
+        key: readDocumentKey(source)
     };
 }
 
@@ -293,6 +295,22 @@ export function overlayDraft(server: readonly ProductionEntry[], draft: Producti
     return overlay(server, entries, draft.removed, entry => (crafts.has(entry as CraftDraft) ? readCraft(entry)! : readResource(entry)!));
 }
 
+/**
+ * A craft with the amounts of removed resources dropped, or nothing when it names none of them. It goes when it lost its last
+ * ingredient or was left with nothing at all — as `UIProductionDraft.ApplyTo` holds on the server — since taking nothing it would
+ * make its products from nothing, and one drawn on its edges would have none left to be drawn on.
+ */
+export function withoutResources(craft: { readonly ingredients: readonly CraftAmount[]; readonly products: readonly CraftAmount[] }, removed: ReadonlySet<string>): { readonly ingredients: CraftAmount[]; readonly products: CraftAmount[]; readonly goes: boolean } | null {
+    const ingredients = craft.ingredients.filter(amount => !removed.has(amount.resource));
+    const products = craft.products.filter(amount => !removed.has(amount.resource));
+    const lostIngredient = ingredients.length !== craft.ingredients.length;
+
+    if (!lostIngredient && products.length === craft.products.length)
+        return null;
+
+    return { ingredients, products, goes: ingredients.length === 0 && (lostIngredient || products.length === 0) };
+}
+
 /** Every drafted entry the server moved under the viewer, by key. */
 export function draftConflicts(server: readonly ProductionEntry[], draft: ProductionDraft): Map<string, DraftConflict> {
     return conflicts(server, [...draft.resources, ...draft.crafts]);
@@ -384,11 +402,11 @@ export function drawProduction(entries: readonly ProductionEntry[]): ProductionD
     return { edges, collapsed, outputs, quiet };
 }
 
-export function ingredientEdge(craft: string, resource: string): string {
+function ingredientEdge(craft: string, resource: string): string {
     return `${craft}<${resource}`;
 }
 
-export function productEdge(craft: string, resource: string): string {
+function productEdge(craft: string, resource: string): string {
     return `${craft}>${resource}`;
 }
 

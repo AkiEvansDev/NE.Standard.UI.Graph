@@ -3,8 +3,8 @@
 
 import type { PluginEngineContext } from "ne-standard-ui";
 import type { Rect } from "./geometry.ts";
-import { drawEdge, edgePath } from "./geometry.ts";
-import type { CanvasDocument, Point } from "./canvas-model.ts";
+import { drawEdge, edgePath, intersects, pathMiddle } from "./geometry.ts";
+import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind } from "./canvas-kind.ts";
 import { EdgeMenuName, GroupMenuName, MenuUseAttribute, NodeMenuName } from "./canvas-menus.ts";
 import type { CanvasDocumentState } from "./canvas-document.ts";
@@ -18,9 +18,8 @@ const SvgNamespace = "http://www.w3.org/2000/svg";
 const FocusClass = "ui-graph--edge-focus";
 /** On the parts of an edge that hangs on the item the pointer rests on. */
 const RelatedAttribute = "data-ui-graph-related";
-/** How far in from an edge's end a label of that end stands: clear of the node, and still plainly its. */
-/** The air between an edge label's words and the chip they stand in. */
-const LabelPadding = 4;
+// Where along its edge a label may stand, nearest the middle first: the first that covers no node is taken.
+const LabelPlaces = [0.5, 0.38, 0.62, 0.26, 0.74];
 
 export class CanvasRender {
     private readonly context: PluginEngineContext;
@@ -28,6 +27,7 @@ export class CanvasRender {
     private readonly nodeLayer: HTMLElement;
     private readonly groupLayer: HTMLElement;
     private readonly edgeLayer: SVGSVGElement;
+    private readonly labelLayer: HTMLElement;
     private readonly nodeElements: Map<string, HTMLElement>;
     private readonly documentState: CanvasDocumentState<CanvasDocument>;
     private readonly selection: CanvasSelection;
@@ -39,29 +39,21 @@ export class CanvasRender {
     // tell a real change from the watcher's first report.
     private readonly nodeWatchers: (() => void)[] = [];
     private readonly nodeBoxes = new Map<string, string>();
+    private readonly drawnItems = new Map<string, CanvasItem>();
+    // The nodes' boxes as one draw of the edges found them, for its labels to keep off.
+    private labelObstacles: Rect[] | null = null;
     private edgesQueued = false;
     // Which item the pointer rests on, and the parts of every drawn edge by its key: what the focus marks, without drawing again.
     private focusItem: string | null = null;
-    private readonly edgeParts = new Map<string, SVGElement[]>();
+    private readonly edgeParts = new Map<string, Element[]>();
 
-    public constructor(
-        context: PluginEngineContext,
-        scene: HTMLElement,
-        nodeLayer: HTMLElement,
-        groupLayer: HTMLElement,
-        edgeLayer: SVGSVGElement,
-        nodeElements: Map<string, HTMLElement>,
-        documentState: CanvasDocumentState<CanvasDocument>,
-        selection: CanvasSelection,
-        settings: CanvasSettings,
-        view: CanvasView,
-        kind: () => CanvasKind
-    ) {
+    public constructor(context: PluginEngineContext, scene: HTMLElement, nodeLayer: HTMLElement, groupLayer: HTMLElement, edgeLayer: SVGSVGElement, labelLayer: HTMLElement, nodeElements: Map<string, HTMLElement>, documentState: CanvasDocumentState<CanvasDocument>, selection: CanvasSelection, settings: CanvasSettings, view: CanvasView, kind: () => CanvasKind) {
         this.context = context;
         this.scene = scene;
         this.nodeLayer = nodeLayer;
         this.groupLayer = groupLayer;
         this.edgeLayer = edgeLayer;
+        this.labelLayer = labelLayer;
         this.nodeElements = nodeElements;
         this.documentState = documentState;
         this.selection = selection;
@@ -103,8 +95,12 @@ export class CanvasRender {
         this.nodeLayer.replaceChildren();
         this.nodeElements.clear();
 
+        this.drawnItems.clear();
+
         for (const node of kind.items()) {
             const element = kind.renderItem(node);
+
+            this.drawnItems.set(node.id, node);
 
             if (this.selection.has(node.id))
                 element.setAttribute(SelectedAttribute, "");
@@ -239,11 +235,14 @@ export class CanvasRender {
         const edgeMenu = kind.hasEdgeMenu();
 
         this.edgeLayer.replaceChildren();
+        this.labelLayer.replaceChildren();
         this.edgeParts.clear();
+        this.labelObstacles = null;
 
         // Marks a part as it's made, before it's appended to the sheet — marking after a layout-triggering measure (a label) makes the
         // focused line blink during a drag's redraws.
         const focused = this.focusItem === null ? null : new Set(kind.related(this.focusItem).edges);
+        const labels: DrawnLabel[] = [];
 
         for (const edge of kind.edges()) {
             const ends = kind.edgeEnds(edge);
@@ -251,7 +250,7 @@ export class CanvasRender {
             if (ends === null)
                 continue;
 
-            const parts: SVGElement[] = [];
+            const parts: Element[] = [];
             const related = focused !== null && focused.has(edge.id);
 
             this.edgeParts.set(edge.id, parts);
@@ -291,7 +290,7 @@ export class CanvasRender {
             }
 
             if (ends.label !== null && ends.label !== undefined && ends.label.length > 0)
-                parts.push(...[this.drawLabel(path, ends.label, edge.id, edgeMenu, related)].flat());
+                parts.push(this.drawLabel(path, ends.label, edge.id, edgeMenu, related, labels));
 
             edge.points.forEach((point, index) => {
                 const mark = document.createElementNS(SvgNamespace, "circle");
@@ -310,49 +309,67 @@ export class CanvasRender {
             });
         }
 
+        this.placeLabels(labels);
+
         // The pointer may already rest on an item: what was marked before this draw is marked again on the parts it made.
         this.markFocus();
     }
 
-    /** Draws an edge's label, at the path's midpoint, or near one end when the label belongs to that end rather than the edge. */
-    private drawLabel(path: SVGPathElement, label: string, edgeId: string, edgeMenu: boolean, related: boolean): SVGElement | SVGElement[] {
-        const point = path.getPointAtLength(path.getTotalLength() / 2);
-        const text = document.createElementNS(SvgNamespace, "text");
+    /** Draws an edge's label, words in a chip of their own; it is placed with the rest once every edge is drawn. */
+    private drawLabel(path: SVGPathElement, label: string, edgeId: string, edgeMenu: boolean, related: boolean, labels: DrawnLabel[]): HTMLElement {
+        const chip = document.createElement("span");
 
-        text.setAttribute("class", "ui-graph__edge-label");
-        text.setAttribute("x", String(point.x));
-        text.setAttribute("y", String(point.y));
-        text.setAttribute(EdgeAttribute, edgeId);
+        chip.className = "ui-graph__edge-label";
+        chip.setAttribute(EdgeAttribute, edgeId);
 
         if (edgeMenu)
-            text.setAttribute(MenuUseAttribute, EdgeMenuName);
+            chip.setAttribute(MenuUseAttribute, EdgeMenuName);
 
-        text.textContent = label;
-        text.toggleAttribute(RelatedAttribute, related);
-        this.edgeLayer.append(text);
+        chip.textContent = label;
+        chip.toggleAttribute(RelatedAttribute, related);
+        this.labelLayer.append(chip);
+        labels.push({ chip, path });
 
-        // The chip behind the words, measured off them once they stand on the sheet; a box of no size is one nothing laid out yet.
-        const size = text.getBBox();
-        const box = document.createElementNS(SvgNamespace, "rect");
+        return chip;
+    }
 
-        if (size.width === 0)
-            return text;
+    /**
+     * Places every label half way along its edge, or near there where the middle would put it on a node. Every chip is measured and
+     * every place found before any chip moves: a move between two measures would lay the page out once a label.
+     */
+    private placeLabels(labels: readonly DrawnLabel[]): void {
+        // Measured once it stands on the sheet: the scene's zoom is a transform, which leaves a box's own size as it was laid out.
+        const sizes = labels.map(({ chip }) => ({ width: chip.offsetWidth, height: chip.offsetHeight }));
+        const places = labels.map(({ path }, index) => this.labelPlace(path, sizes[index].width, sizes[index].height));
 
-        box.setAttribute("class", "ui-graph__edge-label-box");
-        box.setAttribute("x", String(size.x - LabelPadding));
-        box.setAttribute("y", String(size.y - LabelPadding / 2));
-        box.setAttribute("width", String(size.width + LabelPadding * 2));
-        box.setAttribute("height", String(size.height + LabelPadding));
-        box.setAttribute("rx", "4");
-        box.setAttribute(EdgeAttribute, edgeId);
+        labels.forEach(({ chip }, index) => {
+            chip.style.left = `${places[index].x}px`;
+            chip.style.top = `${places[index].y}px`;
+        });
+    }
 
-        if (edgeMenu)
-            box.setAttribute(MenuUseAttribute, EdgeMenuName);
+    /** A label's corner at the first of its places along its edge where it covers no node; nowhere clear, it stands in the middle. */
+    private labelPlace(path: SVGPathElement, width: number, height: number): Point {
+        const length = path.getTotalLength();
 
-        box.toggleAttribute(RelatedAttribute, related);
-        this.edgeLayer.insertBefore(box, text);
+        for (const place of LabelPlaces) {
+            const point = place === 0.5 ? pathMiddle(path) : path.getPointAtLength(length * place);
+            const corner = { x: point.x - width / 2, y: point.y - height / 2 };
 
-        return [box, text];
+            if (width === 0 || !this.coversNode({ ...corner, width, height }))
+                return corner;
+        }
+
+        const middle = pathMiddle(path);
+
+        return { x: middle.x - width / 2, y: middle.y - height / 2 };
+    }
+
+    /** Whether a label's box would stand on a node; the nodes' boxes are read once a draw of the edges, not once a label. */
+    private coversNode(box: Rect): boolean {
+        this.labelObstacles ??= [...this.nodeElements.keys()].map(id => this.nodeRect(id)).filter((rect): rect is Rect => rect !== null);
+
+        return this.labelObstacles.some(rect => intersects(box, rect));
     }
 
     /** A temporary edge while one is being pulled. */
@@ -384,7 +401,9 @@ export class CanvasRender {
     }
 
     public nodeRect(id: string): Rect | null {
-        const node = this.kind().items().find(candidate => candidate.id === id);
+        // The items as the last draw laid them, by id: a drag frame asks for a node's box many times over, and a layered kind's
+        // items() builds its list afresh. The objects are the document's own, which a drag moves, so the map stays true.
+        const node = this.drawnItems.get(id) ?? this.kind().items().find(candidate => candidate.id === id);
         const element = this.nodeElements.get(id);
 
         if (node === undefined || element === undefined)
@@ -423,6 +442,9 @@ export class CanvasRender {
         return { x: rect.x - (own.left - left) / scale, y: rect.y - (own.top - top) / scale, width: (right - left) / scale, height: (bottom - top) / scale };
     }
 }
+
+/** A label drawn and waiting to be placed, with the edge it stands on. */
+type DrawnLabel = { readonly chip: HTMLElement; readonly path: SVGPathElement };
 
 function boxOf(element: HTMLElement): string {
     return `${element.offsetWidth}x${element.offsetHeight}`;

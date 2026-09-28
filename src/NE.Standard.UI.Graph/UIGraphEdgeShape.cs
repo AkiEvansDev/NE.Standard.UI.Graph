@@ -14,18 +14,3 @@ public enum UIGraphEdgeShape
     /// <summary>Horizontal and vertical runs with square corners.</summary>
     Orthogonal
 }
-
-/// <summary>
-/// What a node's status line says about it — the frame takes the colour.
-/// </summary>
-public enum UINodeState
-{
-    /// <summary>Nothing is happening; no status is drawn.</summary>
-    Idle,
-    Running,
-    Done,
-    Error,
-
-    /// <summary>Never reached: something the node is fed by failed, so the run went round it.</summary>
-    Skipped
-}

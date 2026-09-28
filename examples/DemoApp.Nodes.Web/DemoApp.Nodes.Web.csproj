@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- The application, and the slice's own rendering beside it. -->
+  <ItemGroup>
+    <ProjectReference Include="..\DemoApp.Nodes\DemoApp.Nodes.csproj" />
+    <ProjectReference Include="..\..\src\NE.Standard.UI.Web.Graph\NE.Standard.UI.Web.Graph.csproj" />
+  </ItemGroup>
+
+  <!-- See DemoApp.Nodes.csproj: sources in the monorepo, packages in a mirror. -->
+  <ItemGroup Condition="'$(InMonorepo)' == 'true'">
+    <ProjectReference Include="..\..\..\..\src\Platforms\Web\NE.Standard.UI.Web\NE.Standard.UI.Web.csproj" />
+    <ProjectReference Include="..\..\..\..\src\Platforms\Web\NE.Standard.UI.Web.Renderers\NE.Standard.UI.Web.Renderers.csproj" />
+    <ProjectReference Include="..\..\..\Icons\src\NE.Standard.UI.Web.Icons.Material\NE.Standard.UI.Web.Icons.Material.csproj" />
+    <ProjectReference Include="..\..\..\CodeInput\src\NE.Standard.UI.Web.CodeInput\NE.Standard.UI.Web.CodeInput.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(InMonorepo)' != 'true'">
+    <PackageReference Include="NE.Standard.UI.Web" Version="$(CoreVersion)" />
+    <PackageReference Include="NE.Standard.UI.Web.Renderers" Version="$(CoreVersion)" />
+    <PackageReference Include="NE.Standard.UI.Web.Icons.Material" Version="$(IconsVersion)" />
+    <PackageReference Include="NE.Standard.UI.Web.CodeInput" Version="$(CodeInputVersion)" />
+  </ItemGroup>
+
+</Project>

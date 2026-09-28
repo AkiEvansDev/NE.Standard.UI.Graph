@@ -49,9 +49,15 @@
     outline-offset: 3px;
 }
 
+    // Lifted by the ring's own reach, so the badge stands on the ring as it stands on a plain circle's edge rather than hiding it.
+    .ui-graph[data-ui-graph-kind="production"] .ui-graph__node[data-ui-graph-target] .ui-graph__bubble-badge {
+        top: calc(-0.5rem - 5px);
+    }
+
 // --- the plan panel -------------------------------------------------------------------------------------------------------------
-// Over the sheet's trailing side, mirroring the corner menu's leading one; shown only when planning. Open, it takes a column
-// and the zoom bar steps aside; folded, it's its switch alone. The fold is the framework's own (`ui-collapsible`).
+// Over the sheet's trailing side, mirroring the corner menu's leading one; shown only when planning. Open, it takes a column that
+// ends above the zoom bar, so the bar keeps its corner however long the plan runs; folded, it's its switch alone. The fold is the
+// framework's own (`ui-collapsible`).
 
 .ui-graph {
     --ui-graph-plan-width: 21rem;
@@ -66,7 +72,7 @@
     flex-direction: column;
     width: var(--ui-graph-plan-width);
     max-width: calc(100% - 2 * @ui-space-2);
-    max-height: calc(100% - 2 * @ui-space-2);
+    max-height: calc(100% - 3 * @ui-space-2 - var(--ui-graph-corner-height) - var(--ui-graph-foot-height));
     gap: 0;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
@@ -93,11 +99,6 @@
         width: calc(var(--ui-graph-plan-width) - 2 * var(--ui-border-width));
     }
 
-    // The zoom bar and the map keep clear of the open panel rather than stand under it.
-    .ui-graph[data-ui-graph-mode="plan"]:has(.ui-graph__plan:not([data-ui-collapsed])) .ui-graph__corner {
-        right: calc(var(--ui-graph-plan-width) + 2 * @ui-space-2);
-    }
-
 .ui-graph__plan-toggle {
     display: flex;
     flex: 0 0 auto;
@@ -116,8 +117,9 @@
     cursor: pointer;
 }
 
+    // The keyboard's ring as well as the colour: a colour alone reads as the pointer passing, not as where the focus is.
     .ui-graph__plan-toggle:focus-visible {
-        outline: none;
+        .ui-focus-ring();
         color: var(--ui-color-primary);
     }
 
@@ -262,7 +264,6 @@
     thead th {
         color: var(--ui-text-muted);
     }
-
 
     tbody tr:hover > th {
         color: var(--ui-color-primary);

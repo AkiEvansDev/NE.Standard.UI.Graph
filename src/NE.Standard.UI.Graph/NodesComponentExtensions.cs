@@ -29,6 +29,16 @@ public static class NodesComponentExtensions
             UIGraphArguments.FileName("fileName"));
     }
 
+    /// <summary>
+    /// Runs <paramref name="command"/> when the run panel's Stop is pressed, a run being on — <c>UINodeRuns.Stop()</c> in it.
+    /// </summary>
+    public static T OnStop<T>(this T canvas, string command)
+        where T : NodesComponent<T>, IUIComponentDefinition
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        return canvas.On(GraphEvents.RunStop, command);
+    }
+
     /// <inheritdoc cref="OnImageUpload{T}(T, string)"/>
     public static T OnImageUpload<T>(this T canvas, string command, params KeyValuePair<string, UIActionArgument>[] arguments)
         where T : NodesComponent<T>, IUIComponentDefinition

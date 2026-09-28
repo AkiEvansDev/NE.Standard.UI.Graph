@@ -15,12 +15,14 @@
     <ProjectReference Include="..\..\..\..\src\Platforms\Web\NE.Standard.UI.Web\NE.Standard.UI.Web.csproj" />
     <ProjectReference Include="..\..\..\..\src\Platforms\Web\NE.Standard.UI.Web.Renderers\NE.Standard.UI.Web.Renderers.csproj" />
     <ProjectReference Include="..\..\..\Icons\src\NE.Standard.UI.Web.Icons.Material\NE.Standard.UI.Web.Icons.Material.csproj" />
+    <ProjectReference Include="..\..\..\CodeInput\src\NE.Standard.UI.Web.CodeInput\NE.Standard.UI.Web.CodeInput.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(InMonorepo)' != 'true'">
     <PackageReference Include="NE.Standard.UI.Web" Version="$(CoreVersion)" />
     <PackageReference Include="NE.Standard.UI.Web.Renderers" Version="$(CoreVersion)" />
     <PackageReference Include="NE.Standard.UI.Web.Icons.Material" Version="$(IconsVersion)" />
+    <PackageReference Include="NE.Standard.UI.Web.CodeInput" Version="$(CodeInputVersion)" />
   </ItemGroup>
 
 </Project>

@@ -8,7 +8,7 @@ namespace NE.Standard.UI.Graph;
 /// What a node canvas holds: nodes, edges between their pins, and groups. One JSON object, committed whole by a save.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges = null, UIGraphGroup[]? groups = null)
+public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges = null, UIGraphGroup[]? groups = null, string? key = null)
 {
     /// <summary>
     /// Gets the empty document.
@@ -29,6 +29,41 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
     /// Gets the groups, each a frame that carries the nodes inside it.
     /// </summary>
     public UIGraphGroup[] Groups { get; } = groups ?? [];
+
+    /// <summary>
+    /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given, so
+    /// a save names the document it was made from even when another has taken its place on the canvas since.
+    /// </summary>
+    public string? Key { get; } = key;
+
+    /// <summary>
+    /// The same document under another key — how an application names the document it puts on the canvas.
+    /// </summary>
+    public UINodeDocument WithKey(string? key)
+        => new(Nodes, Edges, Groups, key);
+
+    /// <summary>
+    /// A copy of the document with one pin of one node set to a value — a node's state as a run left it, say; the document itself
+    /// when no node has the id.
+    /// </summary>
+    public UINodeDocument WithValue(string nodeId, string pinName, object? value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(pinName);
+
+        var at = Array.FindIndex(Nodes, node => string.Equals(node.Id, nodeId, StringComparison.Ordinal));
+
+        if (at < 0)
+            return this;
+
+        UINode node = Nodes[at];
+        UINode[] nodes = [.. Nodes];
+        Dictionary<string, object?> values = new(node.Values, StringComparer.Ordinal) { [pinName] = value };
+
+        nodes[at] = new UINode(node.Id, node.Type, node.X, node.Y, node.Title, node.Color, node.Pinned, node.Collapsed, values, node.Width, node.Height);
+
+        return new UINodeDocument(nodes, Edges, Groups, Key);
+    }
 }
 
 /// <summary>

@@ -5,8 +5,8 @@ using NE.Standard.UI.Abstractions.Effects;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// Sets one node's status on a canvas — its state, progress bar and message line — without touching the document; how a running
-/// network reports.
+/// Sets one node's status on a canvas — the state its frame shows, and while it runs its progress line and what the run line says
+/// of it — without touching the document; how a running network reports.
 /// </summary>
 public sealed class SetNodeStatusEffect : TargetedClientEffect
 {
@@ -46,12 +46,12 @@ public sealed class SetNodeStatusEffect : TargetedClientEffect
     public UINodeState State { get; }
 
     /// <summary>
-    /// Gets or sets how far along the work is, from 0 to 1; unset, no bar is drawn.
+    /// Gets or sets how far along the work is, from 0 to 1; unset, no progress line is drawn.
     /// </summary>
     public double? Progress { get; set; }
 
     /// <summary>
-    /// Gets or sets the line under the node's title; unset, the line is cleared.
+    /// Gets or sets what the run line says beside the node's name while it runs; unset, it says nothing more.
     /// </summary>
     public string? Message { get; set; }
 

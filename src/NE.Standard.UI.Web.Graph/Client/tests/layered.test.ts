@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { layered } from "../src/graph/layered.ts";
+import { backEdgesOf, layered } from "../src/graph/layered.ts";
 import type { LayeredEdge, LayeredNode } from "../src/graph/layered.ts";
 
 function nodes(...ids: string[]): LayeredNode[] {
@@ -74,6 +74,23 @@ test("an edge from a node to itself is a backward edge and moves nothing", () =>
 
     assert.ok(result.backEdges.has("a>a"));
     assert.equal(result.layers.get("a"), 0);
+});
+
+test("the back edges a sheet asks for on every change are the ones the whole layout finds", () => {
+    const all = nodes("a", "b", "c", "d", "e");
+    const links = edges("a>b", "b>c", "c>a", "c>d", "d>d", "e>d", "d>b", "x>a");
+
+    assert.deepEqual([...backEdgesOf(all.map(node => node.id), links)].sort(), [...layered(all, links, { direction: "right" }).backEdges].sort());
+});
+
+test("a sheet of many nodes and edges finds its back edges without laying itself out", () => {
+    const ids = Array.from({ length: 2000 }, (_, index) => `n${index}`);
+    const links = ids.flatMap((id, index) => [{ id: `${id}>next`, from: id, to: ids[(index + 1) % ids.length] }, { id: `${id}>skip`, from: id, to: ids[(index * 7 + 3) % ids.length] }]);
+    const started = performance.now();
+    const back = backEdgesOf(ids, links);
+
+    assert.ok(back.size > 0);
+    assert.ok(performance.now() - started < 2000, "finding the back edges of 2000 nodes took more than two seconds");
 });
 
 test("nodes of one layer never overlap, and neither do nodes of a graph that fans out and back in", () => {
@@ -245,4 +262,101 @@ test("a long edge joined to something below the node it stands over does not pus
     // The chains still run straight inside it.
     assert.equal(result.positions.get("jincao")!.y, result.positions.get("jincao-powder")!.y);
     assert.equal(result.positions.get("ferrium-ore")!.y, result.positions.get("ferrium")!.y);
+});
+
+test("a node fed by two stands in line with one of them, not half way between", () => {
+    const result = layered(nodes("a", "b", "c"), edges("a>c", "b>c"), { direction: "right" });
+    const c = result.positions.get("c")!.y;
+
+    assert.ok([result.positions.get("a")!.y, result.positions.get("b")!.y].includes(c), `${c} is in line with neither`);
+});
+
+// The planner's HC Valley Battery as the owner laid it out by hand: every node in line with one of what feeds it, and the long
+// edges running flat, so the chains read as rows.
+const battery = ["Ferrium Ore", "Ferrium", "Ferrium Powder", "Dense Ferrium Powder", "Steel", "Steel Part", "HC Valley Battery", "Sandleaf Powder", "Dense Originium Powder", "Originium Ore", "Originium Powder", "Sandleaf", "Sandleaf Seed"];
+const batteryLinks = [
+    "Ferrium Ore>Ferrium", "Ferrium>Ferrium Powder", "Ferrium Powder>Dense Ferrium Powder", "Dense Ferrium Powder>Steel", "Steel>Steel Part",
+    "Steel Part>HC Valley Battery", "Sandleaf Powder>Dense Ferrium Powder", "Sandleaf Powder>Dense Originium Powder", "Originium Powder>Dense Originium Powder",
+    "Dense Originium Powder>HC Valley Battery", "Originium Ore>Originium Powder", "Sandleaf>Sandleaf Powder", "Sandleaf>Sandleaf Seed", "Sandleaf Seed>Sandleaf"
+];
+
+test("the planner's battery lays out in rows: each merge in line with one input, each long edge flat", () => {
+    const all = battery.map(id => ({ id, width: 96, height: 90 }));
+    const result = layered(all, edges(...batteryLinks), { direction: "right", nodeGap: 32, layerGap: 84 });
+    const y = (id: string): number => result.positions.get(id)!.y;
+
+    assert.ok([y("Ferrium Powder"), y("Sandleaf Powder")].includes(y("Dense Ferrium Powder")));
+    assert.ok([y("Steel Part"), y("Dense Originium Powder")].includes(y("HC Valley Battery")));
+
+    for (const [id, from] of [["Sandleaf Powder>Dense Ferrium Powder", "Sandleaf Powder"], ["Dense Originium Powder>HC Valley Battery", "Dense Originium Powder"]]) {
+        const route = result.routes.get(id)!;
+
+        assert.ok(route.every(point => point.y === y(from) + 45), `${id} runs ${route.map(point => point.y).join(", ")}`);
+    }
+
+    // The long edge into Dense Ferrium Powder runs straight into it, as the owner's own layout has it.
+    assert.equal(y("Dense Ferrium Powder"), y("Sandleaf Powder"));
+    assert.equal(y("HC Valley Battery"), y("Dense Originium Powder"));
+    assert.equal(overlaps(result, all), false);
+    assert.deepEqual([...result.positions], [...layered(all, edges(...batteryLinks), { direction: "right", nodeGap: 32, layerGap: 84 }).positions]);
+});
+
+test("a circle with its name under it lines up by the circle: a long edge runs at the circle's middle, not the room's", () => {
+    // The production graph's circle, 56 across, with the 34 its name takes under it.
+    const all = battery.map(id => ({ id, width: 96, height: 90, anchor: { x: 48, y: 28 } }));
+    const result = layered(all, edges(...batteryLinks), { direction: "right", nodeGap: 32, layerGap: 84 });
+    const line = (id: string): number => result.positions.get(id)!.y + 28;
+
+    for (const [id, from, to] of [["Sandleaf Powder>Dense Ferrium Powder", "Sandleaf Powder", "Dense Ferrium Powder"], ["Dense Originium Powder>HC Valley Battery", "Dense Originium Powder", "HC Valley Battery"]]) {
+        const route = result.routes.get(id)!;
+
+        assert.ok(route.every(point => point.y === line(from)), `${id} runs ${route.map(point => point.y).join(", ")} against ${line(from)}`);
+        assert.equal(line(to), line(from));
+    }
+
+    assert.equal(overlaps(result, all), false);
+});
+
+test("an edge that names where it meets its ends lines those points up, not the nodes' middles", () => {
+    const all: LayeredNode[] = [{ id: "a", width: 100, height: 40 }, { id: "b", width: 100, height: 120 }, { id: "c", width: 100, height: 60 }];
+    const links: LayeredEdge[] = [{ id: "a>b", from: "a", to: "b", fromOffset: 30, toOffset: 90 }, { id: "b>c", from: "b", to: "c", fromOffset: 20, toOffset: 45 }];
+    const result = layered(all, links, { direction: "right" });
+    const y = (id: string): number => result.positions.get(id)!.y;
+
+    assert.equal(y("a") + 30, y("b") + 90);
+    assert.equal(y("b") + 20, y("c") + 45);
+    assert.equal(Math.min(y("a"), y("b"), y("c")), 0);
+});
+
+test("a long edge that names its ends runs flat through the layers it crosses, level with one of them", () => {
+    const all = nodes("a", "b", "c", "d", "e");
+    const links: LayeredEdge[] = [...edges("a>b", "b>c", "c>d", "e>b"), { id: "a>d", from: "a", to: "d", fromOffset: 8, toOffset: 34 }];
+    const result = layered(all, links, { direction: "right" });
+    const route = result.routes.get("a>d")!;
+    const ends = [result.positions.get("a")!.y + 8, result.positions.get("d")!.y + 34];
+
+    assert.equal(route.length, 2);
+    assert.equal(route[0].y, route[1].y);
+    assert.ok(ends.some(end => Math.abs(end - route[0].y) < 0.5), `${route[0].y} is level with neither ${ends.join(" nor ")}`);
+    assert.equal(overlaps(result, all), false);
+});
+
+test("nodes whose edges meet them off their middles still never overlap", () => {
+    const all: LayeredNode[] = ["root", "a", "b", "c", "d", "sink"].map((id, index) => ({ id, width: 100, height: 30 + index * 17 }));
+    const links: LayeredEdge[] = edges("root>a", "root>b", "root>c", "root>d", "a>sink", "b>sink", "c>sink", "d>sink").map((edge, index) => ({ ...edge, fromOffset: 5 + index * 3, toOffset: 25 - index * 2 }));
+
+    for (const direction of ["right", "down", "left", "up"] as const)
+        assert.equal(overlaps(layered(all, links, { direction }), all), false, direction);
+});
+
+test("a layer the caller names a gap for takes that room after it; the rest take the one gap", () => {
+    const result = layered(nodes("a", "b", "c"), edges("a>b", "b>c"), { direction: "right", layerGap: 50, layerGaps: layers => new Map([[layers.get("a")!, 120]]) });
+
+    assert.equal(result.positions.get("b")!.x, 220);
+    assert.equal(result.positions.get("c")!.x, 370);
+
+    const left = layered(nodes("a", "b", "c"), edges("a>b", "b>c"), { direction: "left", layerGap: 50, layerGaps: () => new Map([[0, 120]]) });
+
+    assert.equal(left.positions.get("a")!.x, 370);
+    assert.equal(left.positions.get("c")!.x, 0);
 });

@@ -241,6 +241,18 @@
       ],
       "request": {"targets": [{"resource": "plate", "amount": 4}], "period": "Once", "objective": "LeastRaw", "bought": ["ingot"]},
       "expected": {"status": "Solved", "runs": {"press": 2}, "surplus": {}, "time": 6, "raw": 6, "cost": 6}
+    },
+    {
+      "case": "a source that names a cost below zero counts as one, rather than making the least cost fall without end",
+      "entries": [
+        {"kind": "Resource", "id": "ore", "cost": -5},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "time": 2, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]},
+        {"kind": "Craft", "id": "press", "time": 3, "ingredients": [{"resource": "ingot", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "plate", "amount": 5}], "period": "Once", "objective": "LeastCost"},
+      "expected": {"status": "Solved", "runs": {"smelt": 10, "press": 5}, "surplus": {}, "time": 35, "raw": 10, "cost": 10}
     }
   ]
 }

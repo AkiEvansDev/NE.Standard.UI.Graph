@@ -119,7 +119,7 @@ function sharedColumns(values: readonly unknown[]): string[] | null {
         if (entry === null || typeof entry !== "object" || Array.isArray(entry))
             return null;
 
-        for (const key of Object.keys(entry as Record<string, unknown>)) {
+        for (const key of Object.keys(entry)) {
             if (!columns.includes(key))
                 columns.push(key);
         }
@@ -131,7 +131,7 @@ function sharedColumns(values: readonly unknown[]): string[] | null {
 /** An object's fields, with a picture field drawn as one; an object with a picture plus `width`/`height` is drawn at that size, without repeating those two fields below. */
 function record(value: Record<string, unknown>, options: DisplayOptions): HTMLElement {
     const box = document.createElement("div");
-    const addressKey = Object.keys(value).find(key => typeof value[key] === "string" && looksLikePicture(value[key] as string));
+    const addressKey = Object.keys(value).find(key => typeof value[key] === "string" && looksLikePicture(value[key]));
     const width = readSize(value["width"]);
     const height = readSize(value["height"]);
     const sized = addressKey !== undefined && width !== null;

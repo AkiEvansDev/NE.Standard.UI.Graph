@@ -5,6 +5,7 @@ import { markAimed } from "../canvas/aim.ts";
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
 import { NodeAttribute } from "../canvas/canvas-dom.ts";
 import type { CanvasDocument, Point } from "../canvas/canvas-model.ts";
+import { pathMiddle } from "../canvas/geometry.ts";
 
 /** On a node's handle: pressed, it pulls a link out of the node. */
 export const HandleAttribute = "data-ui-graph-handle";
@@ -95,7 +96,7 @@ function aim(services: CanvasServices<CanvasDocument>, from: string, event: Poin
 export function edgeMiddle(services: CanvasServices<CanvasDocument>, id: string): Point | null {
     const path = services.root.querySelector<SVGPathElement>(`.ui-graph__edge[data-ui-graph-edge="${CSS.escape(id)}"]`);
 
-    return path === null ? null : path.getPointAtLength(path.getTotalLength() / 2);
+    return path === null ? null : pathMiddle(path);
 }
 
 /** Opens the framework's rename field in a chip centred on a point, over the chip's title text; commit gets what was typed untrimmed, and the chip is removed when done. */

@@ -91,6 +91,103 @@
 @ui-glyph-fit: "\ea10"; // fit_screen
 @ui-glyph-replace: "\e881"; // find_replace
 @ui-glyph-replace-all: "\e877"; // done_all — the doubled mark of a thing done to every one of them
+// The value kinds a node canvas offers every application: a number, a text, a switch, a text made of anything, a view, a note.
+@ui-glyph-numbers: "\eac7";
+@ui-glyph-text: "\e262"; // text_fields
+@ui-glyph-toggle: "\e9f6"; // toggle_on
+@ui-glyph-abc: "\eb94";
+@ui-glyph-visibility: "\e8f4";
+@ui-glyph-note: "\f1fc"; // sticky_note_2
+@ui-glyph-hourglass: "\ebff";
+// The file kinds and a node that keeps a state of its own: a folder, a text file, a save, the reset of a kept value, a counter.
+@ui-glyph-folder-open: "\e2c8";
+@ui-glyph-description: "\e873";
+@ui-glyph-save: "\e161";
+@ui-glyph-restart: "\f053"; // restart_alt
+@ui-glyph-plus-one: "\e800"; // exposure_plus_1
+// A run: once, all the way, stopped; and a die, the mark of a value drawn at random.
+@ui-glyph-play: "\e037"; // play_arrow
+@ui-glyph-fast-forward: "\e01f";
+@ui-glyph-stop: "\e047";
+@ui-glyph-dice: "\eb40"; // casino
+// The kinds that decide, walk a list, cut a text and count with dates: a fork, the two joins, a refusal, an equals sign, a
+// numbered list, a repeat, sorted lines, a fingerprint (one of each), squeezed ends, scissors, digits, a pattern, and the dates'.
+@ui-glyph-route: "\f184"; // alt_route
+@ui-glyph-join-inner: "\eaf4"; // join_inner
+@ui-glyph-join-full: "\f84f"; // join_full
+@ui-glyph-block: "\f08c";
+@ui-glyph-equal: "\f77b";
+@ui-glyph-list-numbered: "\e242"; // format_list_numbered
+@ui-glyph-repeat: "\e040";
+@ui-glyph-sorted: "\e164"; // sort
+@ui-glyph-fingerprint: "\e90d";
+@ui-glyph-compress: "\e94d";
+@ui-glyph-cut: "\e14e"; // content_cut
+@ui-glyph-digits: "\f045"; // pin
+@ui-glyph-regular-expression: "\f750"; // regular_expression
+@ui-glyph-calendar-add: "\ef85"; // calendar_add_on
+@ui-glyph-date-range: "\e916"; // date_range
+@ui-glyph-event-note: "\e616"; // event_note
+// Two ways becoming one and one becoming two: a text joined and split.
+@ui-glyph-merge: "\e0b3"; // call_merge
+@ui-glyph-split: "\e0b6"; // call_split
+// The marks the calculator's and the pictures' kinds wear, so neither package needs an icon pack.
+@ui-glyph-functions: "\e24a";
+@ui-glyph-calculate: "\ea5f";
+@ui-glyph-compare-arrows: "\e915";
+@ui-glyph-unfold-more: "\e5d7";
+@ui-glyph-flag: "\f0c6";
+@ui-glyph-swap-horizontal: "\e8d4"; // swap_horiz
+@ui-glyph-straighten: "\e41c";
+@ui-glyph-rounded-corner: "\e920";
+@ui-glyph-rotate-right: "\e41a";
+@ui-glyph-flip: "\e3e8";
+@ui-glyph-filter-black-white: "\e3db"; // filter_b_and_w
+@ui-glyph-file-open: "\eaf3";
+@ui-glyph-crop: "\e3be";
+@ui-glyph-blur: "\e3a5"; // blur_on
+@ui-glyph-aspect-ratio: "\e85b";
+// A message's standing: said for information, done, a warning, a failure, and a question.
+@ui-glyph-info: "\e88e";
+@ui-glyph-check-circle: "\f0be";
+@ui-glyph-warning: "\f083";
+@ui-glyph-error: "\f8b6";
+@ui-glyph-help: "\e8fd";
+// What a control's chrome offers: copy, undo and redo, refresh, settings, a link out and in, a file sent and fetched, a secret
+// shown, zoom, the whole screen, a handle to drag by, a fold, and what came before.
+@ui-glyph-copy: "\e14d"; // content_copy
+@ui-glyph-undo: "\e166";
+@ui-glyph-redo: "\e15a";
+@ui-glyph-refresh: "\e5d5";
+@ui-glyph-settings: "\e8b8";
+@ui-glyph-open-in-new: "\e89e";
+@ui-glyph-link: "\e250";
+@ui-glyph-upload: "\f09b";
+@ui-glyph-download: "\f090";
+@ui-glyph-attach-file: "\e226";
+@ui-glyph-visibility-off: "\e8f5";
+@ui-glyph-zoom-in: "\e8ff";
+@ui-glyph-zoom-out: "\e900";
+@ui-glyph-fullscreen: "\e5d0";
+@ui-glyph-fullscreen-exit: "\e5d1";
+@ui-glyph-drag-indicator: "\e945";
+@ui-glyph-unfold-less: "\e5d6";
+@ui-glyph-history: "\e8b3";
+// Files and data, and an application's own frame: a folder, a new one, a new file, code, an object, a terminal, the cloud, a store,
+// a lock shut and open, a star, home, and the way out.
+@ui-glyph-folder: "\e2c7";
+@ui-glyph-create-new-folder: "\e2cc";
+@ui-glyph-note-add: "\e89c";
+@ui-glyph-code: "\e86f";
+@ui-glyph-data-object: "\ead3";
+@ui-glyph-terminal: "\eb8e";
+@ui-glyph-cloud: "\f15c";
+@ui-glyph-storage: "\e1db";
+@ui-glyph-lock: "\e899";
+@ui-glyph-lock-open: "\e898";
+@ui-glyph-star: "\f09a";
+@ui-glyph-home: "\e9b2";
+@ui-glyph-logout: "\e9ba";
 
 // The mark itself, on a pseudo-element: the glyph face's character, an em square, said to a screen reader as nothing (the
 // slash form of `content`), with none of the host's own text settings.
@@ -577,9 +674,10 @@
 }
 
 // The keyboard's row washes like the pointer's while the host holds focus, except with a single choice, whose chosen row
-// already is the keyboard's. `:focus`, not `:focus-within`, since a click in another row must not light a stale one.
-.ui-row-cursor(@host; @row) {
-    @{host}:focus:not([data-ui-selection="one"]) > [data-ui-items-host] > @{row}[data-ui-row-focus] {
+// already is the keyboard's. `:focus`, not `:focus-within`, since a click in another row must not light a stale one. `@via` is
+// the child path from the host to its items host where that is not a direct child (a table's scrolling box), ending in " > ".
+.ui-row-cursor(@host; @row; @via: ~"") {
+    @{host}:focus:not([data-ui-selection="one"]) > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus] {
         .ui-row-hover();
     }
 }

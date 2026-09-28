@@ -1,13 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using NE.Standard.UI.Abstractions.Effects;
-using NE.Standard.UI.Abstractions.Recursive;
-using NE.Standard.UI.Controllers;
-using NE.Standard.UI.Graph;
-using NE.Standard.UI.Icons.Material;
-using NE.Standard.UI.Primitives.Annotations;
-using NE.Standard.UI.Shell.Commands;
 
 namespace DemoApp.Graph;
 
@@ -30,8 +23,6 @@ internal sealed partial class DependenciesController : UIControllerBase
     private const string Pages = "var(--ui-color-series-5)";
     private const string Hosting = "var(--ui-color-series-8)";
 
-    private const int StartingCount = 12;
-
     // A picture the page carries itself, so the demo shows one without a file to fetch: a storefront's awning in the theme's hues.
     private const string ShopPicture = "data:image/svg+xml;charset=utf-8,"
         + "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E"
@@ -39,6 +30,9 @@ internal sealed partial class DependenciesController : UIControllerBase
         + "%3Cpath d='M8 22h48l-4-10H12z' fill='%23fbbf24'/%3E"
         + "%3Crect x='14' y='26' width='36' height='26' rx='2' fill='%23f8fafc'/%3E"
         + "%3Crect x='28' y='36' width='10' height='16' fill='%233b82f6'/%3E%3C/svg%3E";
+
+    // The modules the form added, in the order it added them: the canvas may add and remove modules too, so a count says nothing.
+    private readonly List<string> _added = [];
 
     [RecursiveMember(false)]
     public RecursiveCollection<UIGraphNode> Modules { get; } = [.. StartingModules()];
@@ -101,6 +95,7 @@ internal sealed partial class DependenciesController : UIControllerBase
         // The new link is the used module's: its whole list is replaced, which is what reaches the browser as that node replaced.
         used.Links = [.. used.Links, new UIGraphLink($"{used.Id}>{id}", id)];
         Modules.Add(Module(id, title, "Added while the page runs", MaterialIcons.Extension, Pages));
+        _added.Add(id);
 
         Status = $"{title} is built on {used.Title}.";
         return UICommandResult.Ok();
@@ -110,13 +105,20 @@ internal sealed partial class DependenciesController : UIControllerBase
     [UICommand]
     public UICommandResult RemoveAdded()
     {
-        if (Modules.Count <= StartingCount)
+        UIGraphNode? last = null;
+
+        // One the canvas has taken off since is no longer there to go.
+        while (last is null && _added.Count > 0)
+        {
+            last = FindModule(_added[^1]);
+            _added.RemoveAt(_added.Count - 1);
+        }
+
+        if (last is null)
         {
             Status = "Nothing was added.";
             return UICommandResult.Ok();
         }
-
-        UIGraphNode last = Modules[^1];
 
         foreach (UIGraphNode module in Modules)
         {

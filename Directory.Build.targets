@@ -1,0 +1,34 @@
+<Project>
+
+  <!-- On every mirror's manifest. A package brings its namespaces as global usings through buildTransitive/, which a project
+       reference never imports, so a demo collects the same lists from the projects it references - transitively, as NuGet
+       would. A demo then builds with the same usings here, in the core's mirror (all project references) and in a component
+       slice's mirror (its own projects referenced, the framework's packages installed). -->
+
+  <!-- A package project's own list, inert here: only the .targets beside it would turn it into usings, and that is for its
+       consumers. -->
+  <Import Project="$(MSBuildProjectDirectory)/buildTransitive/*.props" Condition="Exists('$(MSBuildProjectDirectory)/buildTransitive')" />
+
+  <!-- What this project and everything it references name, for a referencing demo to collect. -->
+  <Target Name="GetNEStandardUIUsings" Returns="@(_NEStandardUIUsingsOut)">
+    <MSBuild Projects="@(ProjectReference)" Targets="GetNEStandardUIUsings" SkipNonexistentTargets="true" Condition="'@(ProjectReference)' != ''">
+      <Output TaskParameter="TargetOutputs" ItemName="_NEStandardUIReferencedUsings" />
+    </MSBuild>
+
+    <ItemGroup>
+      <_NEStandardUIUsingsOut Include="@(NEStandardUIUsing);@(_NEStandardUIReferencedUsings)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Before PrepareForBuild, so the SDK's global-usings step, which runs after it and only when a Using exists, sees them. -->
+  <Target Name="AddNEStandardUIUsingsFromProjects" BeforeTargets="PrepareForBuild" Condition="'$(NEStandardUIImplicitUsings)' != 'false' and $(NEStandardUIProjectFolder.Contains('/examples/'))">
+    <MSBuild Projects="@(ProjectReference)" Targets="GetNEStandardUIUsings" SkipNonexistentTargets="true" Condition="'@(ProjectReference)' != ''">
+      <Output TaskParameter="TargetOutputs" ItemName="_NEStandardUIProjectUsings" />
+    </MSBuild>
+
+    <ItemGroup>
+      <Using Include="@(_NEStandardUIProjectUsings->Distinct())" Exclude="@(Using)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

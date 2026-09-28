@@ -47,7 +47,7 @@ internal static class UIGraphDraftSupport
 
         for (var index = 0; index < right.Length; index++)
         {
-            if (!left[index].Equals(right[index]))
+            if (!EqualityComparer<TValue>.Default.Equals(left[index], right[index]))
                 return false;
         }
 

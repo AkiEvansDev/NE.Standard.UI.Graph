@@ -3,9 +3,9 @@
 // `CanvasMenus`, `CanvasRender`, `CanvasDocumentState`) what it needs; a `CanvasKind` owns what an item looks like and can do.
 
 import type { EffectContext, PluginEngineContext } from "ne-standard-ui";
-import type { CanvasDocument, CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
+import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, KindDrag } from "./canvas-kind.ts";
-import { EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, NodeAttribute, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
+import { EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MinimapAttribute, NodeAttribute, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
 import { CanvasDocumentState } from "./canvas-document.ts";
 import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix, MenuAttribute, MenuPanelAttribute } from "./canvas-menus.ts";
@@ -13,9 +13,10 @@ import { CanvasRender } from "./canvas-render.ts";
 import { CanvasSelection, adds } from "./canvas-selection.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, ReadOnlyAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
-import { distanceToSegment, snap } from "./geometry.ts";
+import { distanceToSegment, snap, wheelZoom } from "./geometry.ts";
 
-const MinimapAttribute = "data-ui-graph-minimap";
+// Raised by the framework on a context menu just before it opens, with the element pressed (context-menu-engine.ts).
+const MenuOpeningEvent = "ui-context-menu-opening";
 
 /** The kind a document patched from the server arrives under, and the kind its value is read back by. */
 export const DocumentValueKind = "graph-document";
@@ -94,8 +95,11 @@ export class GraphEngine {
     }
 
     /** What became of the command a save raised: it is clean only once the server has taken it. */
-    public saveCompleted(component: Element, success: boolean): void {
-        this.canvases.get(component as HTMLElement)?.documentState.saveCompleted(success);
+    public saveCompleted(component: Element, success: boolean, id: number | undefined, reason: string): void {
+        const canvas = this.canvases.get(component as HTMLElement);
+
+        canvas?.documentState.saveCompleted(success, id);
+        canvas?.kind.saveCompleted?.(success, reason);
     }
 
     /** The save effect: a command asking the canvas to commit what the viewer is looking at, under a reason it names. */
@@ -119,7 +123,7 @@ export function findCanvas(context: EffectContext, effect: { target?: { id?: unk
 export type Drag =
     | { kind: "pan"; startX: number; startY: number; panX: number; panY: number }
     | { kind: "nodes"; startX: number; startY: number; moving: Map<string, Point> }
-    | { kind: "group"; startX: number; startY: number; group: CanvasGroup; origin: Point; moving: Map<string, Point> }
+    | { kind: "group"; startX: number; startY: number; groupId: string; origin: Point; moving: Map<string, Point> }
     | { kind: "marquee"; startX: number; startY: number }
     | { kind: "reroute"; edge: string; index: number }
     | { kind: "resize"; nodeId: string; startX: number; startY: number; width: number; height: number }
@@ -155,6 +159,7 @@ class Canvas {
         const scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
         const nodeLayer = root.querySelector<HTMLElement>(".ui-graph__nodes")!;
         const edgeLayer = root.querySelector<SVGSVGElement>(".ui-graph__edges")!;
+        const labelLayer = root.querySelector<HTMLElement>(".ui-graph__labels")!;
         const valueElement = root.querySelector<HTMLElement>(".ui-graph__value")!;
 
         // Every concern reaches the kind through here, lazily: the kind is made last, once everything it is lent stands.
@@ -166,7 +171,6 @@ class Canvas {
             itemColor: (item: CanvasItem) => this.kind.itemColor(item),
             nodeRect: (id: string) => this.render.nodeRect(id),
             nodeExtent: (id: string) => this.render.nodeExtent(id),
-            snapPlace: (id: string, point: Point) => this.dragging.snapPlace(id, point),
             drawEdges: () => this.render.drawEdges(),
             drawGroups: () => this.render.drawGroups(),
             drawMinimap: () => this.view.drawMinimap(),
@@ -183,7 +187,7 @@ class Canvas {
         this.view = new CanvasView(root, this.settings, context.store, host);
         this.dragging = new CanvasDrag(this.selection, host, this.settings);
         this.menus = new CanvasMenus(root, context, this.documentState, this.selection, this.view, this.settings, host, this.groupLayer);
-        this.render = new CanvasRender(context, scene, nodeLayer, this.groupLayer, edgeLayer, this.nodeElements, this.documentState, this.selection, this.settings, this.view, () => this.kind);
+        this.render = new CanvasRender(context, scene, nodeLayer, this.groupLayer, edgeLayer, labelLayer, this.nodeElements, this.documentState, this.selection, this.settings, this.view, () => this.kind);
         this.kind = definition.create({
             root,
             context,
@@ -224,7 +228,17 @@ class Canvas {
         this.render.dispose();
     }
 
+    /**
+     * A document from the server. A drag of nodes, a group, a size or a bend goes on over it, since each finds what it moves by
+     * id, and its drop saves the move onto the new document; a kind's own gesture — a wire being pulled — holds the old sheet's
+     * parts, so it is let go first.
+     */
     public load(value: unknown): void {
+        if (this.drag?.kind === "kind") {
+            this.drag.cancel?.();
+            this.endDrag();
+        }
+
         this.documentState.load(this.definition.readDocument(value));
     }
 
@@ -292,7 +306,7 @@ class Canvas {
         this.viewport.addEventListener("pointerdown", event => this.pointerDown(event));
         this.viewport.addEventListener("pointermove", event => this.pointerMove(event));
         this.viewport.addEventListener("pointerup", event => this.pointerUp(event));
-        this.viewport.addEventListener("pointercancel", () => this.endDrag());
+        this.viewport.addEventListener("pointercancel", () => this.pointerCancel());
         // The item the pointer rests on: its edges stand out while it does, and nothing stands out while a drag is under way.
         this.viewport.addEventListener("pointerleave", () => this.render.setFocusItem(null));
         this.viewport.addEventListener("dblclick", event => this.doubleClick(event));
@@ -300,8 +314,9 @@ class Canvas {
         this.viewport.addEventListener("click", event => this.click(event));
 
         this.root.addEventListener("click", event => this.chrome(event));
-        // After the framework opens and places the menu — this only covers the keyboard's menu key, since a right press already marked entries.
-        this.root.addEventListener("contextmenu", event => this.menus.prepareMenus(event.target));
+        // Before the framework shows the menu and gives its first shown entry the keyboard — for the keyboard's menu key, since a right
+        // press already marked the entries on its press.
+        this.root.addEventListener(MenuOpeningEvent, event => this.menus.prepareMenus(event instanceof CustomEvent ? (event.detail as { readonly target?: Element } | null)?.target ?? null : null));
     }
 
     private wheel(event: WheelEvent): void {
@@ -311,13 +326,24 @@ class Canvas {
 
         event.preventDefault();
 
+        const factor = wheelZoom(event.deltaX, event.deltaY, event.deltaMode);
+
+        if (factor === 1)
+            return;
+
         const at = this.view.toViewport(event);
 
-        this.view.zoomBy(event.deltaY < 0 ? 1.1 : 1 / 1.1, at.x, at.y);
+        this.view.zoomBy(factor, at.x, at.y);
     }
 
     private pointerDown(event: PointerEvent): void {
         if (event.button === 2) {
+            // Where the menu opens is where what it adds goes — a reroute on a wire.
+            const at = this.view.toViewport(event);
+            const scene = this.view.toScene(at.x, at.y);
+
+            this.pointerX = scene.x;
+            this.pointerY = scene.y;
             this.menus.prepareMenus(event.target);
             return;
         }
@@ -495,11 +521,37 @@ class Canvas {
         if (drag === null)
             return;
 
+        // Ended whatever the kind's drop does: one that throws must not leave the canvas believing the pointer is still down.
+        try {
+            if (drag.kind === "kind")
+                drag.finish(event);
+        }
+        finally {
+            this.endDrag();
+        }
+
+        this.recordMoved(drag);
+    }
+
+    /**
+     * The browser took the pointer away mid-drag — a touch that became a scroll, a window that lost focus: what the hand moved stays
+     * where it was let go and is recorded as a drop would be, and a kind's own drag puts back what it took out.
+     */
+    private pointerCancel(): void {
+        const drag = this.drag;
+
+        if (drag === null)
+            return;
+
         if (drag.kind === "kind")
-            drag.finish(event);
+            drag.cancel?.();
 
         this.endDrag();
+        this.recordMoved(drag);
+    }
 
+    /** A move, a group's move, a reroute or a resize, settled on the grid and made a step to undo. */
+    private recordMoved(drag: Drag): void {
         if (drag.kind === "nodes" || drag.kind === "group" || drag.kind === "reroute" || drag.kind === "resize") {
             this.settleDrag(drag);
             this.documentState.edited(false);

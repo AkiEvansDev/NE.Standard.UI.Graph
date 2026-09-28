@@ -26,12 +26,29 @@
        Bump a slice's number in the commit that releases it: Release refuses a tag that disagrees, and a
        number bumped early would have a demo pointing at a version nobody published yet. -->
   <PropertyGroup>
-    <CoreVersion>1.0.0-rc.3</CoreVersion>
-    <IconsVersion>1.0.0-rc.3</IconsVersion>
-    <CodeInputVersion>1.0.0-rc.3</CodeInputVersion>
-    <DataGridVersion>1.0.0-rc.3</DataGridVersion>
-    <GraphVersion>1.0.0-rc.3</GraphVersion>
-    <ChartsVersion>1.0.0-rc.3</ChartsVersion>
+    <CoreVersion>1.0.1</CoreVersion>
+    <IconsVersion>1.0.1</IconsVersion>
+    <CodeInputVersion>1.0.1</CodeInputVersion>
+    <DataGridVersion>1.0.1</DataGridVersion>
+    <GraphVersion>1.0.1</GraphVersion>
+    <ChartsVersion>1.0.1</ChartsVersion>
+  </PropertyGroup>
+
+  <!-- A package's buildTransitive/ folder - the namespaces it turns into global usings for whoever installs it - ships with
+       it. Items are evaluated after every property, so IsPackable here is the slice's final word. -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="buildTransitive/**" Pack="true" PackagePath="buildTransitive/" Visible="false" />
+  </ItemGroup>
+
+  <!-- The project's folder below this file, as /a/b/: a folder test must not see the folders a clone happens to sit in. -->
+  <PropertyGroup>
+    <NEStandardUIProjectFolder>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</NEStandardUIProjectFolder>
+  </PropertyGroup>
+
+  <!-- A package's sources write their usings out. In a component slice's mirror they install the framework's packages, whose
+       global usings would make every one of those lines IDE0005. -->
+  <PropertyGroup Condition="$(NEStandardUIProjectFolder.Contains('/src/'))">
+    <NEStandardUIImplicitUsings>false</NEStandardUIImplicitUsings>
   </PropertyGroup>
 
   <!-- Only the private monorepo has eng/. A mirror does not, so a demo there builds against the published

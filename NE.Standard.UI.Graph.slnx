@@ -3,12 +3,16 @@
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
     <Project Path="src/NE.Standard.UI.Graph/NE.Standard.UI.Graph.csproj" />
+    <Project Path="src/NE.Standard.UI.Graph.Calculator/NE.Standard.UI.Graph.Calculator.csproj" />
+    <Project Path="src/NE.Standard.UI.Graph.Image/NE.Standard.UI.Graph.Image.csproj" />
     <Project Path="src/NE.Standard.UI.Web.Graph/NE.Standard.UI.Web.Graph.csproj" />
   </Folder>
 
   <Folder Name="/examples/">
     <Project Path="examples/DemoApp.Graph/DemoApp.Graph.csproj" />
     <Project Path="examples/DemoApp.Graph.Web/DemoApp.Graph.Web.csproj" />
+    <Project Path="examples/DemoApp.Nodes/DemoApp.Nodes.csproj" />
+    <Project Path="examples/DemoApp.Nodes.Web/DemoApp.Nodes.Web.csproj" />
   </Folder>
 
   <Folder Name="/solution/">

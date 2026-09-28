@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveConflict } from "../src/graph/draft.ts";
+import { freeKey, resolveConflict, takenKeys } from "../src/graph/draft.ts";
 import { draftConflicts, graphEdges, overlayDraft, readGraphDocument, readGraphNode, toDraft } from "../src/graph/model.ts";
 import type { GraphDraft, GraphNode } from "../src/graph/model.ts";
 
@@ -87,4 +87,11 @@ test("a document's draft comes off the wire whole, a shape in the server's spell
     assert.equal(read.draft.nodes[0].links[0].caption, "uses");
     assert.deepEqual(read.draft.removed, ["z"]);
     assert.deepEqual(readGraphDocument(null).draft, { nodes: [], removed: [] });
+});
+
+test("a node added after a server node was removed never takes the removed node's key, which is the server's until the save", () => {
+    const withAdded = [...server, node("node-1", "Added before")];
+    const draft: GraphDraft = { nodes: [{ ...toDraft(node("node-2", "Drafted")), created: true }], removed: ["node-1"] };
+
+    assert.equal(freeKey("node", takenKeys(withAdded, draft.nodes, draft.removed)), "node-3");
 });

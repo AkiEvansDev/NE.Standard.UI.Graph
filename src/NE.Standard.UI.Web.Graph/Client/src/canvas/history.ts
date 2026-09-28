@@ -32,12 +32,12 @@ export class DocumentHistory<TDocument> {
         return this.present !== this.saved;
     }
 
-    /** Records a document as the present one; an edit that changed nothing is not a step to undo. */
-    public record(document: TDocument): void {
+    /** Records a document as the present one and answers whether it was a step; an edit that changed nothing is not one. */
+    public record(document: TDocument): boolean {
         const next = JSON.stringify(document);
 
         if (next === this.present)
-            return;
+            return false;
 
         this.past.push(this.present);
 
@@ -46,6 +46,30 @@ export class DocumentHistory<TDocument> {
 
         this.future.length = 0;
         this.present = next;
+
+        return true;
+    }
+
+    /**
+     * Takes what the canvas changed on its own since the last step — a layout placing what it had not placed yet — into that step
+     * rather than a step of its own, so a save of it leaves the canvas clean.
+     */
+    public absorb(document: string): void {
+        this.present = document;
+    }
+
+    /**
+     * Writes a change the server already holds — a node's state as a run left it — into every step behind and ahead and into what
+     * is saved, so neither undo nor redo takes the canvas back to a value the server has moved on from.
+     */
+    public commit(change: (document: TDocument) => void): void {
+        for (let index = 0; index < this.past.length; index++)
+            this.past[index] = rewrite(this.past[index], change);
+
+        for (let index = 0; index < this.future.length; index++)
+            this.future[index] = rewrite(this.future[index], change);
+
+        this.saved = rewrite(this.saved, change);
     }
 
     /** Replaces the whole history — a document the server pushed is a new beginning, not a step. */
@@ -86,4 +110,16 @@ export class DocumentHistory<TDocument> {
 
         return this.read(JSON.parse(next));
     }
+}
+
+/**
+ * One stored document with a change made to it, as the text it was kept as: read back as plain JSON rather than through the kind's
+ * reader, which would rewrite a document the change left alone into text of another shape.
+ */
+export function rewrite<TDocument>(snapshot: string, change: (document: TDocument) => void): string {
+    const document = JSON.parse(snapshot) as TDocument;
+
+    change(document);
+
+    return JSON.stringify(document);
 }

@@ -6,9 +6,14 @@
 
   <PropertyGroup>
     <PackageId>NE.Standard.UI.Graph</PackageId>
-    <Description>A node canvas for the NE.Standard UI framework: pan, zoom, groups and typed pins over a document the viewer edits and saves. The node kinds are the application's own classes, read by attributes. Platform-independent; the web rendering is NE.Standard.UI.Web.Graph.</Description>
+    <Description>Graphs for the NE.Standard UI framework, three components on one canvas (pan, zoom, groups, a document the viewer edits and saves): NodesComponent, a node editor whose kinds are the application's own attributed classes, with a runner; LayeredGraphComponent, a layered graph over the application's nodes and links; ProductionGraphComponent, resources and recipes with a planner. Platform-independent; the web rendering is NE.Standard.UI.Web.Graph.</Description>
     <PackageTags>NE.Standard,UI,Graph,Nodes,Canvas,Editor</PackageTags>
   </PropertyGroup>
+
+  <!-- AddGraphFiles is how an application opens folders to the file kinds. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+  </ItemGroup>
 
   <!-- The framework is a sibling in the monorepo and a package in this slice's mirror. Either way the
        produced nupkg depends on the framework at $(CoreVersion). The generator is what turns a declared

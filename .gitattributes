@@ -17,10 +17,6 @@
 **/Client/plugin/ne-standard-ui.d.ts text eol=lf
 **/Client/plugin/ne-standard-ui.less text eol=lf
 
-# The icon packs ship their glyph tables as deflate streams. Content detection already treats them as
-# binary; saying so outright means it can never guess wrong on one.
-**/Client/dist/*.deflate binary
-
 # The demo's photographs. Content detection already treats them as binary; saying so outright means it can
 # never guess wrong on one.
 *.jpg binary

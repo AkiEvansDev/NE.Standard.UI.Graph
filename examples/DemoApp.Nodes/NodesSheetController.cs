@@ -1,0 +1,245 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace DemoApp.Nodes;
+
+/// <summary>
+/// A sheet of nodes, which every page of the demo is: the canvas holds it, Ctrl+S commits it, and Run works the network out on the
+/// server through the same classes the canvas drew. A page brings its kinds — the common ones and one package's — and its sheet.
+/// </summary>
+internal abstract partial class NodesSheetController : UIControllerBase
+{
+    public const string CanvasId = "sheet";
+
+    /// <summary>The form the canvas's sheet is held in until it is saved.</summary>
+    public const string CanvasForm = "sheet";
+
+    // The whole of a run, from the package: the canvas's run panel saves under a run's reason, and SaveAsync hands the save here.
+    private readonly UINodeRuns _runs;
+    private readonly UINodeCatalog _catalog;
+    private readonly Func<string, UINodeDocument> _startingSheet;
+
+    // The page's own folder under the demo's out, so one viewer's thumbnails never overwrite another's.
+    private readonly string _out = $"{DemoFolders.Out}/{Guid.NewGuid().ToString("N")[..8]}";
+
+    /// <summary>A page's sheet: its kinds, the sheet it opens with (handed the page's own folder to write into) and its first line.</summary>
+    protected NodesSheetController(UINodeCatalog catalog, Func<string, UINodeDocument> startingSheet, string status)
+    {
+        _catalog = catalog;
+        _startingSheet = startingSheet;
+        _runs = new UINodeRuns(CanvasId, catalog, () => Sheet, sheet => Sheet = sheet);
+        Sheet = startingSheet(_out);
+        Status = status;
+    }
+
+    [RecursiveMember]
+    public partial UINodeDocument Sheet { get; set; } = UINodeDocument.Empty;
+
+    [RecursiveMember]
+    public partial string Status { get; set; } = string.Empty;
+
+    [RecursiveMember]
+    public partial string Answer { get; set; } = string.Empty;
+
+    [RecursiveMember]
+    public partial UIGraphEdgeShape EdgeShape { get; set; } = UIGraphEdgeShape.Orthogonal;
+
+    [RecursiveMember]
+    public partial bool SnapToGrid { get; set; } = true;
+
+    [RecursiveMember]
+    public partial bool ReadOnly { get; set; }
+
+    /// <summary>
+    /// Ctrl+S, the menu's Save, or a save this controller asked for: the whole document has already landed on <see cref="Sheet"/>
+    /// by the time this runs, and <paramref name="reason"/> says who asked — which is how Run gets the sheet the viewer is
+    /// looking at rather than the one last committed. A background command: a run may go on for a while, and the tab sends Stop
+    /// and every other command while it does.
+    /// </summary>
+    [UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background)]
+    public async Task<UICommandResult> SaveAsync(string reason, CancellationToken cancellationToken)
+    {
+        Status = $"Saved {Sheet.Nodes.Length} nodes and {Sheet.Edges.Length} connections at {DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}.";
+
+        UINodeRunOutcome? outcome = await _runs.SavedAsync(Context.SendEffectsAsync, Context.Runtime.InvokeAsync, Context.Services, reason, cancellationToken).ConfigureAwait(false);
+
+        // In the runtime's turn: past its first wait the command runs beside the tab and its other commands.
+        if (outcome is not null)
+            _ = await Context.Runtime.InvokeAsync(() => Report(outcome), cancellationToken).ConfigureAwait(false);
+
+        return UICommandResult.Ok();
+    }
+
+    /// <summary>What a run came to, on the page's lines.</summary>
+    private void Report(UINodeRunOutcome outcome)
+    {
+        if (outcome.Stopped)
+        {
+            Status = $"Stopped in run {outcome.Runs}. The counters and the folder stand where the runs before it left them.";
+        }
+        else if (outcome.Last is { } last)
+        {
+            Answer = AnswerOf(last);
+            Status = outcome.Runs > 1 ? $"{outcome.Runs} runs. {Describe(last)}" : Describe(last);
+        }
+    }
+
+    /// <summary>The run panel's Stop: the run under way ends, cut short.</summary>
+    [UICommand]
+    public void Stop()
+        => _runs.Stop();
+
+    /// <summary>
+    /// One of the page's own menu entries was clicked: Run in the corner menu — the panel's Run, asked for by the server — and
+    /// Show node position in a node's, which hears the node it was opened on. The canvas's own entries never come here.
+    /// </summary>
+    [UICommand]
+    public UICommandResult MenuEntry(string key, string target)
+    {
+        // Not while a run is under way: the canvas would queue the save behind the run's, and it would run again once Stop ended it.
+        if (string.Equals(key, NodesSheetView.RunEntryKey, StringComparison.Ordinal))
+            return _runs.IsRunning ? UICommandResult.Ok() : UICommandResult.Ok([new SaveDocumentEffect(CanvasId, UIGraphArguments.RunReason)]);
+
+        if (string.Equals(key, NodesSheetView.PositionEntryKey, StringComparison.Ordinal))
+            NodeClicked(target);
+
+        return UICommandResult.Ok();
+    }
+
+    /// <summary>A click on a node, with the node's id as the key the event named.</summary>
+    [UICommand]
+    public void NodeClicked(string node)
+    {
+        foreach (UINode candidate in Sheet.Nodes)
+        {
+            if (string.Equals(candidate.Id, node, StringComparison.Ordinal))
+                Status = $"{candidate.Title ?? candidate.Type} at {candidate.X:0}, {candidate.Y:0}.";
+        }
+    }
+
+    /// <summary>
+    /// A picture chosen on a node has reached the server. Where it is kept is this application's own business — here, the picture
+    /// package's store in memory, served through the framework's content endpoint, which the picture kinds read and write too —
+    /// and the pin shows nothing until this answers with an address.
+    /// </summary>
+    [UICommand]
+    public async Task<UICommandResult> ImageUploadedAsync(string node, string pin, string selection, string fileName, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(node) || string.IsNullOrEmpty(pin) || string.IsNullOrEmpty(selection))
+            return UICommandResult.Ok();
+
+        UIUploadSelection chosen = await Context.Uploads.GetSelectionAsync(Context.Handle, selection, cancellationToken).ConfigureAwait(false);
+        UIUploadFile? file = chosen.SingleFile;
+
+        if (file is null)
+        {
+            _ = await Context.Runtime.InvokeAsync(() => Status = "That upload carried no single picture.", cancellationToken).ConfigureAwait(false);
+            return UICommandResult.Ok();
+        }
+
+        UIUploadedFile opened = await Context.Uploads.OpenAsync(Context.Handle, file.FileId, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        await using (opened.ConfigureAwait(false))
+        {
+            using MemoryStream bytes = new();
+
+            await opened.Content.CopyToAsync(bytes, cancellationToken).ConfigureAwait(false);
+
+            UINodeImageFile picture = new(bytes.ToArray(), file.ContentType ?? "application/octet-stream", file.FileName ?? fileName);
+            var address = await Context.Services.GetRequiredService<IUINodeImageStore>().WriteAsync(picture, cancellationToken).ConfigureAwait(false);
+
+            var kept = $"Kept {file.FileName ?? fileName} ({bytes.Length / 1024} KB). Press Run.";
+
+            // The address reaches the node, not the sheet: the document is the viewer's until a save. Run commits it first,
+            // so nothing has to be saved by hand before the picture can be used.
+            _ = await Context.Runtime.InvokeAsync(() => Status = kept, cancellationToken).ConfigureAwait(false);
+
+            // One pin's value, not the whole document: a patch of the value would take the viewer's unsaved work with it.
+            return UICommandResult.Ok([new SetNodeValueEffect(CanvasId, node, pin, address)]);
+        }
+    }
+
+    /// <summary>What the page reads off a run beside the sheet; nothing, unless the page has an answer to give.</summary>
+    protected virtual string AnswerOf(UINodeRunResult result)
+        => string.Empty;
+
+    /// <summary>What the run came to, in a line: how much ran, or which node stopped and how much it took with it.</summary>
+    private string Describe(UINodeRunResult result)
+    {
+        if (result.Success)
+            return $"Ran {result.Outputs.Count} nodes.";
+
+        UINodeFailure first = result.Failures[0];
+        var skipped = result.Skipped.Count == 0 ? string.Empty : $" {result.Skipped.Count} below it were skipped.";
+
+        return $"{NameOf(first.NodeId)}: {first.Error}{skipped} Ran {result.Outputs.Count} of {Sheet.Nodes.Length} nodes.";
+    }
+
+    /// <summary>What the viewer calls a node: its own title, else the kind's, as the catalogue titles it.</summary>
+    private string NameOf(string nodeId)
+    {
+        foreach (UINode node in Sheet.Nodes)
+        {
+            if (!string.Equals(node.Id, nodeId, StringComparison.Ordinal))
+                continue;
+
+            return node.Title ?? (_catalog.TryGetType(node.Type, out UINodeType type) ? type.Title : node.Type);
+        }
+
+        return nodeId;
+    }
+
+    /// <summary>Puts the sheet back to the one the page opened with.</summary>
+    [UICommand]
+    public UICommandResult Reset()
+    {
+        // A run under way would carry on over the sheet it began with, and what it last came to belongs to that sheet.
+        _runs.Stop();
+        _runs.Cache.Clear();
+
+        Sheet = _startingSheet(_out);
+        Answer = string.Empty;
+        Status = "The sheet is back to the one the page opened with.";
+
+        // The canvas holds a viewer's unsaved work against a push of its value, so a sheet the application puts back says so itself.
+        return UICommandResult.Ok([new DiscardFormEffect(CanvasForm)]);
+    }
+
+    /// <summary>The page is gone: a run under way ends, and the page's own folder goes with it, so the temporary folder keeps no page's leftovers.</summary>
+    protected override void OnDispose()
+    {
+        _runs.Stop();
+
+        var folder = Path.Combine(DemoFolders.Root, _out);
+
+        try
+        {
+            if (Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // A file still held — a run's last write — is left for the system's own cleaning of its temporary folder.
+        }
+
+        base.OnDispose();
+    }
+
+    /// <summary>A node's values as a starting sheet writes them.</summary>
+    protected static Dictionary<string, object?> Values(params (string Name, object? Value)[] values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+
+        Dictionary<string, object?> map = new(StringComparer.Ordinal);
+
+        foreach ((var name, var value) in values)
+            map[name] = value;
+
+        return map;
+    }
+}

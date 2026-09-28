@@ -2,7 +2,7 @@
 // shared product is drawn here — a craft that alone makes one resource collapses onto its edges instead, and that resource states
 // what the run gives. Resources use the graph's own card; amounts are the edge's label.
 
-import type { Tooltips } from "ne-standard-ui";
+import type { NumberFormatting, Tooltips } from "ne-standard-ui";
 import { ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "../graph/draft.ts";
@@ -20,10 +20,20 @@ export type CraftViewOptions = {
     readonly note?: string | null;
     /** A resource by its key, for the words the craft's tooltip says. */
     readonly resource: (id: string) => Resource | undefined;
+    readonly number: NumberWriter;
 };
 
 const TitleClass = ItemTitleSelector.slice(1);
-const Numbers = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
+
+/** How the production views write a number: in the culture the page carries, to three decimals at most. */
+export type NumberWriter = (value: number) => string;
+
+/** The framework's own formatting for the canvas's culture, so a plan's table and the page's number fields write one number alike. */
+export function numberWriter(numbers: NumberFormatting, root: Element): NumberWriter {
+    const culture = numbers.readCulture(root);
+
+    return value => numbers.format(Math.round(value * 1000) / 1000, null, culture);
+}
 
 export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftViewOptions): HTMLElement {
     const root = document.createElement("div");
@@ -48,7 +58,7 @@ export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftV
     name.className = `${TitleClass} ui-graph__craft-name`;
     name.textContent = craft.title ?? options.word;
     time.className = "ui-graph__craft-time";
-    time.textContent = options.note ?? formatTime(craft.time);
+    time.textContent = options.note ?? formatTime(craft.time, options.number);
     root.append(name, time);
 
     if (options.connectable) {
@@ -62,7 +72,7 @@ export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftV
         root.append(entry, handle);
     }
 
-    const words = craft.tooltip ?? describe(craft, options.resource);
+    const words = craft.tooltip ?? describe(craft, options.resource, options.number);
 
     root.addEventListener("pointerenter", () => options.tooltips.show(root, words));
     root.addEventListener("pointerleave", () => options.tooltips.hide());
@@ -71,30 +81,34 @@ export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftV
 }
 
 /** What one run does, as the tooltip says it: what it takes and what it gives, resource by resource. */
-function describe(craft: Craft, resource: (id: string) => Resource | undefined): string {
-    const side = (amounts: readonly CraftAmount[]): string => amounts.map(amount => `${formatAmount(amount.amount, resource(amount.resource)?.unit ?? null)} ${resource(amount.resource)?.title ?? amount.resource}`).join(" + ");
+function describe(craft: Craft, resource: (id: string) => Resource | undefined, number: NumberWriter): string {
+    const side = (amounts: readonly CraftAmount[]): string => amounts.map(amount => `${formatAmount(amount.amount, resource(amount.resource)?.unit ?? null, number)} ${resource(amount.resource)?.title ?? amount.resource}`).join(" + ");
 
     return `${side(craft.ingredients) || "—"} → ${side(craft.products) || "—"}`;
 }
 
 /** A run's length in seconds, with the SI symbol, which needs no translation. */
-export function formatTime(seconds: number): string {
-    return `${Numbers.format(seconds)} s`;
+export function formatTime(seconds: number, number: NumberWriter): string {
+    return `${number(seconds)} s`;
 }
 
 /** An amount of one run, as a count of it: a multiplication sign the way a recipe is read, and the resource's unit when it has one. */
-export function formatAmount(amount: number, unit: string | null): string {
-    return unit === null ? `×${Numbers.format(amount)}` : `×${Numbers.format(amount)} ${unit}`;
+export function formatAmount(amount: number, unit: string | null, number: NumberWriter): string {
+    return unit === null ? `×${number(amount)}` : `×${number(amount)} ${unit}`;
 }
 
 /** What a resource says on itself: what one run of the craft that makes it gives of it, and how long that run lasts. */
-export function formatOutput(amount: number, unit: string | null, seconds: number): string {
-    return `${formatAmount(amount, unit)} · ${formatTime(seconds)}`;
+export function formatOutput(amount: number, unit: string | null, seconds: number, number: NumberWriter): string {
+    return `${formatAmount(amount, unit, number)} · ${formatTime(seconds, number)}`;
 }
 
-/** A number the viewer typed, with a comma read as the decimal point and a leading × dropped; null unless it's a positive number. */
-export function parsePositive(value: string): number | null {
-    const read = Number(value.trim().replace("×", "").replace(",", ".").trim());
+/**
+ * A number the viewer typed, a leading × dropped; null unless it's a positive number. A comma is the decimal point where the page's
+ * culture writes one so and a thousands mark where it does not; a point is always the decimal point, as the server writes one.
+ */
+export function parsePositive(value: string, decimalSeparator: string): number | null {
+    const bare = value.trim().replace("×", "").trim();
+    const read = Number(decimalSeparator === "," ? bare.replace(",", ".") : bare.replaceAll(",", ""));
 
     return Number.isFinite(read) && read > 0 ? read : null;
 }

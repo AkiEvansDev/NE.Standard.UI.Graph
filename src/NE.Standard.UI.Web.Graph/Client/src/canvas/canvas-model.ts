@@ -41,6 +41,11 @@ export type CanvasDocument = {
     groups: CanvasGroup[];
 };
 
+/** What the application calls a document, off the wire: kept as it came and sent back with every save. */
+export function readDocumentKey(source: { readonly key?: unknown }): string | null {
+    return typeof source.key === "string" ? source.key : null;
+}
+
 /** JSON off an attribute: nothing for an empty or an unreadable one, since neither is a document or a catalogue. */
 export function readJson(value: string | null): unknown {
     if (value === null || value.length === 0)

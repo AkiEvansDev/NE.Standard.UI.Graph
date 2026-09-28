@@ -5,7 +5,7 @@ using NE.Standard.UI.Components.BuiltIns.Navigation;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// What every canvas of the package has, whatever its kind draws on it: the view's settings and the four menus.
+/// What every canvas of the package has, whatever its kind draws on it: the view's settings, the corner menu and the empty surface's.
 /// </summary>
 public interface IGraphCanvasComponent : IInputComponent
 {
@@ -29,6 +29,9 @@ public interface IGraphCanvasComponent : IInputComponent
 
     /// <summary>Gets the registered property key for <see cref="HighlightOnHover"/>.</summary>
     static UIProperty HighlightOnHoverProperty { get; } = new(nameof(HighlightOnHover));
+
+    /// <summary>Gets the registered property key for <see cref="AutoSave"/>.</summary>
+    static UIProperty AutoSaveProperty { get; } = new(nameof(AutoSave));
 
     /// <summary>Gets the registered property key for <see cref="SnapToGrid"/>.</summary>
     static UIProperty SnapToGridProperty { get; } = new(nameof(SnapToGrid));
@@ -71,6 +74,9 @@ public interface IGraphCanvasComponent : IInputComponent
 
     /// <summary>Gets whether the item under the pointer brings out what it is joined to and lets the rest step back.</summary>
     bool? HighlightOnHover { get; }
+
+    /// <summary>Gets whether every edit is saved as it is made, as Ctrl+S would save it.</summary>
+    bool? AutoSave { get; }
 
     /// <summary>Gets whether a moved item's position is rounded to the grid's step.</summary>
     bool? SnapToGrid { get; }

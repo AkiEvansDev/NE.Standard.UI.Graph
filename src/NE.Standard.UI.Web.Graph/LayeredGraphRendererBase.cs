@@ -18,6 +18,7 @@ public abstract class LayeredGraphRendererBase<TDocument, TItem> : GraphCanvasRe
     /// <summary>The items the page starts with, as JSON, on the root.</summary>
     public const string NodesAttribute = "data-ui-graph-nodes";
 
+    /// <summary>The way the layers run (<see cref="UIGraphDirection"/>), on the root.</summary>
     public const string DirectionAttribute = "data-ui-graph-direction";
 
     /// <summary>How a node that names no shape of its own is drawn, on the root.</summary>
@@ -44,15 +45,6 @@ public abstract class LayeredGraphRendererBase<TDocument, TItem> : GraphCanvasRe
 
         RenderFlagAttribute(context, root, ILayeredGraphComponent.EditStructureProperty, EditStructureAttribute);
         RenderItems(context, root);
-    }
-
-    /// <summary>The menu the right button opens on an edge, which an edge names as its own.</summary>
-    protected override void RenderKindTemplates(WebRenderContext context, IHtmlElementBuilder root)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(root);
-
-        RenderContextMenuRegion(context, root, UIGraphMenus.Edge, UIGraphMenus.Edge);
     }
 
     /// <summary>

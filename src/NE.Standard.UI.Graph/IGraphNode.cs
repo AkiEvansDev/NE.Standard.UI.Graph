@@ -28,6 +28,17 @@ public interface IGraphNodeAsync
 }
 
 /// <summary>
+/// A node that hands out one item of a sequence each run — the next file of a folder, the next count — keeping its place in a
+/// <see cref="GraphInputAttribute.State"/> value: <see cref="UINodeRunner.RunAllAsync"/> runs a sheet again until one such node
+/// has nothing left.
+/// </summary>
+public interface IGraphNodeSequence
+{
+    /// <summary>Gets whether another run would find one more item, once this one has run.</summary>
+    bool HasMore { get; }
+}
+
+/// <summary>
 /// What a running node is told and what it may say back: which node it is, how far along it is, and lines for the canvas's log.
 /// </summary>
 public sealed class UINodeRunContext

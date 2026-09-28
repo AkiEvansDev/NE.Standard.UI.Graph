@@ -27,6 +27,9 @@ public sealed class GraphStrings : IUIStringsSource
     public const string ClearLog = "ui.graph.clear-log";
     public const string LogEmpty = "ui.graph.log-empty";
     public const string RunProgress = "ui.graph.run-progress";
+    public const string Run = "ui.graph.run";
+    public const string RunAll = "ui.graph.run-all";
+    public const string Stop = "ui.graph.stop";
     public const string PinMany = "ui.graph.pin-many";
     public const string Collapse = "ui.graph.collapse";
     public const string Expand = "ui.graph.expand";
@@ -38,6 +41,7 @@ public sealed class GraphStrings : IUIStringsSource
     public const string Recipe = "ui.graph.recipe";
     public const string Remove = UIGraphWords.Remove;
     public const string AddValue = UIGraphWords.AddValue;
+    public const string ResetState = UIGraphWords.ResetState;
     public const string NoValue = "ui.graph.no-value";
     public const string ChooseFile = UIGraphWords.ChooseFile;
     public const string UploadFailed = "ui.graph.upload-failed";
@@ -59,6 +63,7 @@ public sealed class GraphStrings : IUIStringsSource
     public const string LeastCost = UIGraphWords.LeastCost;
     public const string PlanEmpty = "ui.graph.plan-empty";
     public const string PlanInfeasible = "ui.graph.plan-infeasible";
+    public const string PlanUnsettled = "ui.graph.plan-unsettled";
     public const string PlanTotals = "ui.graph.plan-totals";
     public const string PlanBroughtIn = "ui.graph.plan-brought-in";
     public const string PlanResources = "ui.graph.plan-resources";
@@ -94,6 +99,9 @@ public sealed class GraphStrings : IUIStringsSource
         [LogEmpty] = "Nothing has been written yet",
         [RunProgress] = "Run progress",
         [PinMany] = "{type}, several",
+        [Run] = "Run",
+        [RunAll] = "Run all",
+        [Stop] = "Stop",
         [Collapse] = "Fold",
         [Expand] = "Unfold",
         [Pin] = "Pin",
@@ -104,6 +112,7 @@ public sealed class GraphStrings : IUIStringsSource
         [Recipe] = "Recipe",
         [Remove] = "Remove",
         [AddValue] = "Add",
+        [ResetState] = "Start over",
         [NoValue] = "Nothing yet",
         [ChooseFile] = "Choose a picture",
         [UploadFailed] = "Upload failed",
@@ -123,8 +132,9 @@ public sealed class GraphStrings : IUIStringsSource
         [LeastRaw] = "What is brought in",
         [LeastTime] = "The time",
         [LeastCost] = "The cost",
-        [PlanEmpty] = "Name a resource to plan for: Add target, or Target on a resource's own menu.",
+        [PlanEmpty] = "Name a resource to plan for with Add target; the sheet draws what it takes.",
         [PlanInfeasible] = "No runs reach these targets: a cycle takes more than it gives.",
+        [PlanUnsettled] = "No plan could be settled for these targets.",
         [PlanTotals] = "Time {time} · brought in {raw} · cost {cost}",
         [PlanBroughtIn] = "Brought in",
         [PlanResources] = "Resources",

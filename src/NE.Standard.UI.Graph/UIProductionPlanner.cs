@@ -53,9 +53,10 @@ public static class UIProductionPlanner
 
         Dictionary<string, double> targets = new(StringComparer.Ordinal);
 
-        foreach (UIProductionTarget target in request.Targets)
+        // The request may be the browser's own document: a target sent as nothing, or naming nothing, asks for nothing.
+        foreach (UIProductionTarget? target in request.Targets)
         {
-            if (resources.ContainsKey(target.Resource) && target.Amount > Eps)
+            if (target?.Resource is not null && resources.ContainsKey(target.Resource) && target.Amount > Eps)
                 targets[target.Resource] = targets.GetValueOrDefault(target.Resource) + target.Amount;
         }
 
@@ -94,12 +95,11 @@ public static class UIProductionPlanner
             time[column] = Math.Max(0, columns[column].Time.TotalSeconds);
         }
 
-        var runs = request.Objective == UIProductionObjective.LeastTime
-            ? ProductionSimplex.Minimise(rows, atLeast, time, raw)
-            : ProductionSimplex.Minimise(rows, atLeast, priced, time);
+        (var least, var tie) = request.Objective == UIProductionObjective.LeastTime ? (time, raw) : (priced, time);
+        var runs = ProductionSimplex.Minimise(rows, atLeast, least, tie, out var unsettled);
 
         if (runs is null)
-            return new UIProductionPlan(UIProductionPlanStatus.Infeasible);
+            return new UIProductionPlan(unsettled ? UIProductionPlanStatus.Unsettled : UIProductionPlanStatus.Infeasible);
 
         // Made once, a craft runs a whole number of times; counted over a period, a run and a half a minute is a rate like any other.
         var whole = request.Period == UIProductionPeriod.Once ? WholeRuns(rows, atLeast, runs) : null;
@@ -107,9 +107,9 @@ public static class UIProductionPlanner
         return Read(catalogue, resources, makers, targets, columns, whole ?? runs, request.PeriodLength);
     }
 
-    /// <summary>Whether an amount counts: of a resource the catalogue has, and above zero.</summary>
-    private static bool Counts(UICraftAmount amount, Dictionary<string, UIResource> resources)
-        => amount.Amount > 0 && resources.ContainsKey(amount.Resource);
+    /// <summary>Whether an amount counts: of a resource the catalogue has, and above zero; one a draft carried in as nothing does not.</summary>
+    private static bool Counts(UICraftAmount? amount, Dictionary<string, UIResource> resources)
+        => amount?.Resource is not null && amount.Amount > 0 && resources.ContainsKey(amount.Resource);
 
     /// <summary>Everything that can help, in the catalogue's order: the crafts that make something needed, and what those take in their turn.</summary>
     private static List<UICraft> Helping(List<UICraft> crafts, Dictionary<string, UIResource> resources, Dictionary<string, List<UICraft>> makers, Dictionary<string, double> targets, out HashSet<string> needed)
@@ -152,9 +152,9 @@ public static class UIProductionPlanner
     {
         double sum = 0;
 
-        foreach (UICraftAmount amount in amounts)
+        foreach (UICraftAmount? amount in amounts)
         {
-            if (amount.Amount > 0 && string.Equals(amount.Resource, resource, StringComparison.Ordinal))
+            if (amount is not null && amount.Amount > 0 && string.Equals(amount.Resource, resource, StringComparison.Ordinal))
                 sum += amount.Amount;
         }
 
@@ -169,11 +169,18 @@ public static class UIProductionPlanner
         foreach (UICraftAmount ingredient in craft.Ingredients)
         {
             if (Counts(ingredient, resources) && !makers.ContainsKey(ingredient.Resource))
-                sum += ingredient.Amount * (priced ? resources[ingredient.Resource].Cost ?? 1 : 1);
+                sum += ingredient.Amount * (priced ? CostOf(resources[ingredient.Resource]) : 1);
         }
 
         return sum;
     }
+
+    /// <summary>
+    /// What one of a source costs: its own cost, or one when it names none — or one it cannot mean: a source that paid to be taken
+    /// would make the least cost fall without end.
+    /// </summary>
+    private static double CostOf(UIResource resource)
+        => resource.Cost is double cost && double.IsFinite(cost) && cost >= 0 ? cost : 1;
 
     /// <summary>
     /// Rounds runs up to whole numbers, then tops up any shortfall with whole runs of the biggest maker until nothing is short;
@@ -273,7 +280,7 @@ public static class UIProductionPlanner
             if (source)
             {
                 raw += takes + target;
-                cost += (takes + target) * (resource.Cost ?? 1);
+                cost += (takes + target) * CostOf(resource);
             }
 
             read.Add(new UIPlannedResource(resource.Id, source, target, gives, takes, source ? 0 : Settle(gives - takes - target)));

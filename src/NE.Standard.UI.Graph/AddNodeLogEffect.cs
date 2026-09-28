@@ -9,8 +9,13 @@ namespace NE.Standard.UI.Graph;
 /// </summary>
 public enum UINodeLogLevel
 {
+    /// <summary>What the node chose to say.</summary>
     Info,
+
+    /// <summary>What it warns of.</summary>
     Warning,
+
+    /// <summary>What stopped it.</summary>
     Error
 }
 

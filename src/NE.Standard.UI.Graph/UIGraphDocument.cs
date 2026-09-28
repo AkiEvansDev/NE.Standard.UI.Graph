@@ -7,8 +7,8 @@ namespace NE.Standard.UI.Graph;
 /// the bound collection's, not the document's; an unplaced node is placed by the layout.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphDocument(UIGraphPlacement[]? nodes = null, UIGraphRoute[]? edges = null, UIGraphGroup[]? groups = null, UIGraphDraft? draft = null)
-    : UIGraphDocumentBase(nodes, edges, groups)
+public sealed class UIGraphDocument(UIGraphPlacement[]? nodes = null, UIGraphRoute[]? edges = null, UIGraphGroup[]? groups = null, UIGraphDraft? draft = null, string? key = null)
+    : UIGraphDocumentBase(nodes, edges, groups, key)
 {
     /// <summary>
     /// Gets the empty document.
@@ -24,7 +24,13 @@ public sealed class UIGraphDocument(UIGraphPlacement[]? nodes = null, UIGraphRou
     /// The same layout with the draft taken off — what an application puts back once it has applied the draft to its nodes.
     /// </summary>
     public UIGraphDocument WithoutDraft()
-        => new(Nodes, Edges, Groups);
+        => new(Nodes, Edges, Groups, key: Key);
+
+    /// <summary>
+    /// The same document under another key — how an application names the document it puts on the canvas.
+    /// </summary>
+    public UIGraphDocument WithKey(string? key)
+        => new(Nodes, Edges, Groups, Draft, key);
 }
 
 /// <summary>

@@ -7,6 +7,8 @@ export const EdgeShapeAttribute = "data-ui-graph-edge-shape";
 export const SnapAttribute = "data-ui-graph-snap";
 /** Whether the item under the pointer brings out what it is joined to; read at every move, so nothing is redrawn when it changes. */
 const HighlightAttribute = "data-ui-graph-highlight";
+/** Whether every edit is saved as it is made; read at each edit. */
+const AutoSaveAttribute = "data-ui-graph-auto-save";
 export const ReadOnlyAttribute = "data-ui-graph-read-only";
 /** Which way a layered kind runs its layers; the core only redraws when it changes. */
 export const DirectionAttribute = "data-ui-graph-direction";
@@ -42,6 +44,10 @@ export class CanvasSettings {
 
     public get highlightOnHover(): boolean {
         return this.root.hasAttribute(HighlightAttribute);
+    }
+
+    public get autoSave(): boolean {
+        return this.root.hasAttribute(AutoSaveAttribute);
     }
 
     public get gridSize(): number {

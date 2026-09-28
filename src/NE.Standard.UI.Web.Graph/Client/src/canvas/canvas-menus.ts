@@ -4,14 +4,14 @@
 import type { PluginEngineContext } from "ne-standard-ui";
 import type { Rect } from "./geometry.ts";
 import { bounds } from "./geometry.ts";
-import type { CanvasDocument, CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
+import type { CanvasDocument, CanvasGroup, CanvasItem } from "./canvas-model.ts";
 import { newId, readJson } from "./canvas-model.ts";
 import type { CanvasDocumentState } from "./canvas-document.ts";
 import type { CanvasKind, MenuTarget } from "./canvas-kind.ts";
 import type { CanvasSelection } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
 import type { CanvasView } from "./canvas-view.ts";
-import { EdgeAttribute, GroupAttribute, ItemTitleSelector, NodeAttribute } from "./canvas-dom.ts";
+import { EdgeAttribute, FoldedControlAttribute, GroupAttribute, ItemTitleSelector, NodeAttribute } from "./canvas-dom.ts";
 
 const ColorsAttribute = "data-ui-graph-colors";
 // The framework's context menus, by the names the renderer gave the canvas's regions (UIGraphMenus): a part names the one it opens.
@@ -24,7 +24,6 @@ export const EdgeMenuName = "graph-edge-menu";
 export const MenuPanelAttribute = "data-ui-graph-menu-panel";
 /** Either kind of menu a command's entry stands in: a context menu the framework opens, or the corner menu's panel. */
 const AnyMenuSelector = `[${MenuAttribute}], [${MenuPanelAttribute}]`;
-const CollapsedAttribute = "data-ui-collapsed";
 const CollapseToggleAttribute = "data-ui-collapse-toggle";
 const MenuEntryClass = "ui-menu-item";
 const CheckedClass = "ui-menu-item--checked";
@@ -38,8 +37,6 @@ export type MenusHost = {
     readonly nodeElements: ReadonlyMap<string, HTMLElement>;
     kind(): CanvasKind;
     nodeRect(id: string): Rect | null;
-    /** Where the grid puts an item standing at a point, by the kind's own anchor. */
-    snapPlace(id: string, point: Point): Point;
     drawEdges(): void;
     deleteSelection(): void;
 };
@@ -89,7 +86,7 @@ export class CanvasMenus {
     public foldPanel(): void {
         const menu = this.root.querySelector<HTMLElement>(`[${MenuPanelAttribute}] > .ui-menu`);
 
-        if (menu !== null && !menu.hasAttribute(CollapsedAttribute))
+        if (menu !== null && !menu.hasAttribute(FoldedControlAttribute))
             menu.querySelector<HTMLElement>(`:scope > [${CollapseToggleAttribute}]`)?.click();
     }
 
@@ -389,17 +386,17 @@ export class CanvasMenus {
         for (const [id, element] of this.host.nodeElements)
             sizes.set(id, { width: element.offsetWidth, height: element.offsetHeight });
 
-        // A kind's arrange answer may already be grid-snapped (a layered sheet remembers node placement), so it must be honored as given.
+        // Taken as given, on the grid already: each kind grids its answer its own way — a layered sheet by the nodes' middles, which it
+        // remembers, a node canvas without bending the wires it laid level — and snapping every corner here would undo either.
         const placed = this.host.kind().arrange(sizes, this.selection.size > 1 ? new Set(this.selection.nodeIds) : undefined);
 
         for (const node of this.host.kind().items()) {
             const place = placed.get(node.id);
 
-            if (place !== undefined) {
-                const snapped = this.settings.snapping ? this.host.snapPlace(node.id, place) : place;
-
-                node.x = snapped.x;
-                node.y = snapped.y;
+            // Here rather than in each kind: a pinned item stays put whichever layout answered, the layered one lays out every item.
+            if (place !== undefined && node.pinned !== true) {
+                node.x = place.x;
+                node.y = place.y;
             }
         }
 

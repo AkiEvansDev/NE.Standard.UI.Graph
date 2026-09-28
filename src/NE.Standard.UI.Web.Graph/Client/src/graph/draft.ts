@@ -80,6 +80,11 @@ export function resolveConflict<TEntry extends DraftEntry>(entries: TEntry[], id
     return true;
 }
 
+/** Every key a new entry must not take: the server's items, drawn or removed, and every entry of the draft. */
+export function takenKeys(server: readonly { readonly id: string }[], entries: readonly DraftEntry[], removedIds: readonly string[]): Set<string> {
+    return new Set([...server.map(item => item.id), ...entries.map(entry => entry.id), ...removedIds]);
+}
+
 /** A key nothing in `taken` carries: the prefix and the first free serial after it. */
 export function freeKey(prefix: string, taken: ReadonlySet<string>): string {
     let serial = 1;
