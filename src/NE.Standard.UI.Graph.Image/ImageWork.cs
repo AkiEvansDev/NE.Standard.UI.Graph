@@ -7,8 +7,7 @@ using SkiaSharp;
 namespace NE.Standard.UI.Graph.Image;
 
 /// <summary>
-/// What every picture kind does around its own step: the store the run was handed, the picture that reached the node decoded,
-/// and the new one encoded in the old one's format and kept.
+/// What every picture kind does around its own step: decoding the picture that reached it, and encoding and keeping the new one.
 /// </summary>
 internal static class ImageWork
 {
@@ -37,11 +36,11 @@ internal static class ImageWork
     public static ValueTask<string> TransformAsync(UINodeRunContext context, string? address, Func<SKBitmap, SKBitmap> transform, CancellationToken cancellationToken)
         => TransformAsync(context, address, transform, null, null, DefaultQuality, cancellationToken);
 
-    /// <summary>
-    /// Reads the picture, makes a new one of it, and keeps that in the format given, or the old one's if none is.
+    /// <summary>Reads the picture, makes a new one of it, and keeps that in the format given, or the old one's.</summary>
+    /// <remarks>
     /// <paramref name="share"/>, given the picture's size as seen, answers the least share of it the step needs, so a picture that
     /// will come out smaller is decoded smaller where its format allows.
-    /// </summary>
+    /// </remarks>
     public static async ValueTask<string> TransformAsync(UINodeRunContext context, string? address, Func<SKBitmap, SKBitmap> transform, Func<SKSizeI, double>? share, SKEncodedImageFormat? format, int quality, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -89,10 +88,13 @@ internal static class ImageWork
     }
 
     /// <summary>
-    /// The picture decoded — at the least size <paramref name="share"/> allows where the format decodes smaller — and turned the way
-    /// its file says it is seen, so a phone's photograph taken on its side stands up. A picture of more than
-    /// <paramref name="maxPixels"/> once decoded is refused before a pixel is allocated.
+    /// The picture decoded, at the least size <paramref name="share"/> allows where the format decodes smaller, and turned the way
+    /// its file says it is seen.
     /// </summary>
+    /// <remarks>
+    /// A phone's photograph taken on its side stands up. A picture of more than <paramref name="maxPixels"/> once decoded is
+    /// refused before a pixel is allocated.
+    /// </remarks>
     public static SKBitmap Decode(SKCodec codec, long maxPixels, Func<SKSizeI, double>? share = null)
     {
         ArgumentNullException.ThrowIfNull(codec);
@@ -125,9 +127,9 @@ internal static class ImageWork
     }
 
     /// <summary>
-    /// The size a picture is decoded at: its own, or the codec's nearest smaller scale that still gives the step twice the share it
-    /// asked for, so the step's own resampling has pixels to work from.
+    /// The size a picture is decoded at: its own, or the codec's nearest smaller scale that still gives the step twice its share.
     /// </summary>
+    /// <remarks>Twice, so the step's own resampling has pixels to work from.</remarks>
     private static SKSizeI DecodedSize(SKCodec codec, bool sideways, Func<SKSizeI, double>? share)
     {
         SKSizeI stored = codec.Info.Size;

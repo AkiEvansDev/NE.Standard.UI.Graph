@@ -20,10 +20,6 @@
     user-select: none;
 }
 
-    .ui-graph[data-ui-graph-read-only] .ui-graph__craft {
-        cursor: pointer;
-    }
-
 // A resource's self-said badge is centred over its circle, not on the rim like the graph's plain count badge — a longer
 // line of words (`×120 · 4 at once`) hung off one corner reads as belonging to whatever's beside the circle.
 .ui-graph[data-ui-graph-kind="production"] .ui-graph__bubble-badge {
@@ -64,84 +60,26 @@
 }
 
 .ui-graph .ui-graph__plan {
-    position: absolute;
+    .ui-graph-side-panel(var(--ui-graph-plan-width); ~".ui-graph__plan-body");
     top: @ui-space-2;
-    right: @ui-space-2;
-    z-index: 3;
     display: none;
-    flex-direction: column;
-    width: var(--ui-graph-plan-width);
-    max-width: calc(100% - 2 * @ui-space-2);
     max-height: calc(100% - 3 * @ui-space-2 - var(--ui-graph-corner-height) - var(--ui-graph-foot-height));
-    gap: 0;
-    border: var(--ui-border-width) solid var(--ui-color-border);
-    border-radius: var(--ui-radius-card);
-    background: var(--ui-color-surface);
-    color: var(--ui-color-on-surface);
-    font-size: var(--ui-text-caption-font-size);
-    cursor: default;
-    user-select: text;
-    .ui-elevation-1();
 }
 
     .ui-graph[data-ui-graph-mode="plan"] .ui-graph__plan {
         display: flex;
     }
 
-    // Folded, and the slide over: the body goes, and the framework's own rule has the panel as wide as its switch.
-    .ui-graph__plan[data-ui-collapsed]:not([data-ui-folding]) > .ui-graph__plan-body {
-        display: none;
-    }
-
-    // While it slides the body keeps the open panel's width, so its lines do not wrap again on every frame.
-    .ui-graph__plan[data-ui-folding] > .ui-graph__plan-body {
-        flex: 0 0 auto;
-        width: calc(var(--ui-graph-plan-width) - 2 * var(--ui-border-width));
-    }
-
 .ui-graph__plan-toggle {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 0.375rem;
-    margin: 0;
-    padding: @ui-space-2 @ui-space-3;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-weight: 600;
-    text-align: start;
-    white-space: nowrap;
-    cursor: pointer;
+    .ui-graph-side-toggle();
 }
-
-    // The keyboard's ring as well as the colour: a colour alone reads as the pointer passing, not as where the focus is.
-    .ui-graph__plan-toggle:focus-visible {
-        .ui-focus-ring();
-        color: var(--ui-color-primary);
-    }
 
 .ui-graph__plan-chevron {
-    .ui-glyph-host();
-    font-size: @ui-glyph-sm;
-    transform: rotate(90deg);
-    transition: transform @ui-motion-fast @ui-motion-ease;
+    .ui-graph-side-chevron(~".ui-graph__plan");
 }
 
-    .ui-graph__plan[data-ui-collapsed] .ui-graph__plan-chevron {
-        transform: none;
-    }
-
 .ui-graph__plan-body {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
-    gap: @ui-space-2;
-    min-height: 0;
-    padding: 0 @ui-space-3 @ui-space-3;
-    overflow: hidden auto;
+    .ui-graph-side-body();
 }
 
 .ui-graph__plan-caption {
@@ -192,11 +130,18 @@
 
 // A flex box, not an inline one: the words inside can only end in an ellipsis where the box itself is held to its column.
 .ui-graph__plan-name {
+    .ui-graph-bare-button();
     display: flex;
     align-items: center;
     gap: 0.375rem;
     min-width: 0;
-    cursor: pointer;
+    // A button is as wide as its words however wide its cell: held to the cell, the words are what ellipsise, not the cell's clip.
+    max-width: 100%;
+
+    // The name is what the keyboard stands on for its row: it takes the brand's colour, as the row does under the pointer.
+    &@{ui-keyboard-focus} {
+        color: var(--ui-color-primary);
+    }
 
     > span:last-child {
         min-width: 0;
@@ -263,6 +208,11 @@
 
     thead th {
         color: var(--ui-text-muted);
+    }
+
+    // The whole row is pressed, so the whole row says so, not its name alone.
+    tbody tr {
+        cursor: pointer;
     }
 
     tbody tr:hover > th {

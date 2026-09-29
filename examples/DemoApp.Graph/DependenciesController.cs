@@ -62,7 +62,7 @@ internal sealed partial class DependenciesController : UIControllerBase
     public partial string UsedModule { get; set; } = "storage";
 
     [RecursiveMember]
-    public partial string Status { get; set; } = "Drag a card, Ctrl+S to keep the layout; add a module to see it arrive beside what it uses.";
+    public partial UIPhrase? Status { get; set; } = new UIPhrase("planner.graph.status.start");
 
     /// <summary>The modules a new one may be built on, for the form's choice.</summary>
     public static IReadOnlyList<(string Id, string Title)> Choices { get; } =
@@ -82,13 +82,13 @@ internal sealed partial class DependenciesController : UIControllerBase
 
         if (title.Length == 0 || FindModule(id) is not null)
         {
-            Status = title.Length == 0 ? "Name the module first." : $"There is a module called {title} already.";
+            Status = title.Length == 0 ? new UIPhrase("planner.graph.status.no-name") : UIPhrase.Of("planner.graph.status.taken", ("module", title));
             return UICommandResult.Ok();
         }
 
         if (FindModule(UsedModule) is not UIGraphNode used)
         {
-            Status = "Choose the module it is built on.";
+            Status = new UIPhrase("planner.graph.status.no-base");
             return UICommandResult.Ok();
         }
 
@@ -97,7 +97,7 @@ internal sealed partial class DependenciesController : UIControllerBase
         Modules.Add(Module(id, title, "Added while the page runs", MaterialIcons.Extension, Pages));
         _added.Add(id);
 
-        Status = $"{title} is built on {used.Title}.";
+        Status = UIPhrase.Of("planner.graph.status.added", ("module", title), ("used", used.Title));
         return UICommandResult.Ok();
     }
 
@@ -116,7 +116,7 @@ internal sealed partial class DependenciesController : UIControllerBase
 
         if (last is null)
         {
-            Status = "Nothing was added.";
+            Status = new UIPhrase("planner.graph.status.nothing-added");
             return UICommandResult.Ok();
         }
 
@@ -130,7 +130,7 @@ internal sealed partial class DependenciesController : UIControllerBase
 
         _ = Modules.Remove(last);
 
-        Status = $"{last.Title} is gone.";
+        Status = UIPhrase.Of("planner.graph.status.removed", ("module", last.Title));
         return UICommandResult.Ok();
     }
 
@@ -146,21 +146,21 @@ internal sealed partial class DependenciesController : UIControllerBase
 
         if (draft.IsEmpty)
         {
-            Status = $"Kept the places of {Layout.Nodes.Length} modules at {at}.";
+            Status = UIPhrase.Of("planner.graph.status.kept", ("count", Layout.Nodes.Length), ("time", at));
             return;
         }
 
         draft.ApplyTo(Modules);
         Layout = Layout.WithoutDraft();
 
-        Status = $"Applied {draft.Nodes.Length} changed or added and {draft.Removed.Length} removed module{(draft.Removed.Length == 1 ? string.Empty : "s")} at {at}.";
+        Status = UIPhrase.Of("planner.graph.status.applied", ("changed", draft.Nodes.Length), ("count", draft.Removed.Length), ("time", at));
     }
 
     [UICommand]
     public void ModuleClicked(string node)
     {
         if (FindModule(node) is UIGraphNode module)
-            Status = $"{module.Title}: used by {module.Links.Count} module{(module.Links.Count == 1 ? string.Empty : "s")}.";
+            Status = UIPhrase.Of("planner.graph.status.used-by", ("module", module.Title), ("count", module.Links.Count));
     }
 
     /// <summary>The layout forgotten: every module goes back to where the layered layout puts it.</summary>
@@ -168,7 +168,7 @@ internal sealed partial class DependenciesController : UIControllerBase
     public UICommandResult ResetLayout()
     {
         Layout = UIGraphDocument.Empty;
-        Status = "The layout is the layered one again.";
+        Status = new UIPhrase("planner.graph.status.reset");
 
         return UICommandResult.Ok([new DiscardFormEffect(CanvasForm)]);
     }

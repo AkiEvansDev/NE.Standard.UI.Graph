@@ -13,7 +13,8 @@ import { craftNote, edgeFlow, formatFlow, planEntries, readPlan, resourceChip } 
 // The invariant culture's way, as the framework writes a number with no pack above it.
 const number = (value: number): string => String(Math.round(value * 1000) / 1000);
 
-const words = { text: (key: string) => (key === "ui.graph.per-hour" ? "/h" : key === "ui.graph.per-minute" ? "/min" : "{count} at once") };
+const text = (key: string): string => (key === "ui.graph.per-hour" ? "/h" : key === "ui.graph.per-minute" ? "/min" : "{count} at once");
+const words = { text, format: (key: string, values: Readonly<Record<string, string | number>>) => text(key).replace("{count}", String(values.count)) };
 
 const amount = (resource: string, value: number) => ({ resource, amount: value });
 const resource = (id: string) => ({ kind: "Resource", id });

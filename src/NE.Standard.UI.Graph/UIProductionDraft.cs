@@ -46,10 +46,12 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
         => craft + ">" + resource;
 
     /// <summary>
-    /// Applies the draft to an application's catalogue: removed entries go, changed ones take the viewer's state, added ones join,
-    /// and amounts of a removed resource are dropped from crafts — a craft that loses its last ingredient to it, or is left with
-    /// nothing, goes too, as the canvas takes it off. Only differing properties are written.
+    /// Applies the draft to an application's catalogue: removed entries go, changed ones take the viewer's state, added ones join.
     /// </summary>
+    /// <remarks>
+    /// Amounts of a removed resource are dropped from crafts — a craft that loses its last ingredient to it, or is left with
+    /// nothing, goes too, as the canvas takes it off. Only differing properties are written.
+    /// </remarks>
     public void ApplyTo(IList<UIProductionEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);

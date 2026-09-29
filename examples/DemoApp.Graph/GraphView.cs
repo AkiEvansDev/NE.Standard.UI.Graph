@@ -8,94 +8,101 @@ namespace DemoApp.Graph;
 /// </summary>
 internal sealed class GraphView : GraphDemoView, IUIViewDefinition
 {
+    // The canvas's least height, in rem; its row holds the same floor in pixels.
+    private const double CanvasHeight = 24;
+
     public static string ViewKey => "graph.graph";
 
     protected override string Route => GraphRoute;
 
-    public override string Title => "Graph";
+    public override string Title => "planner.page.graph";
+
+    // A short or narrow screen cannot hold the rows around the canvas and its floor: the page grows past the region and scrolls.
+    protected override UIResponsive<UILayoutLength>? PageHeight => null;
 
     protected override string Description
-        => "The modules of an application and what uses what: drag from a module's dot to link it, right-click a link to caption it, Ctrl+S to apply.";
+        => "planner.page.graph.description";
 
     protected override DemoPage CreatePage()
         => Page(new ContainerComponent()
             .SetHeight(UILayoutLength.Fill())
             .SetRow(1, UIGridUnit.Auto())
-            .AddRow(UIGridUnit.Star())
+            // The canvas takes what the page leaves and never less than its floor; where the rows and the floor do not fit, the page
+            // grows past the screen (PageHeight) and scrolls, every row at its own height.
+            .AddRow(UIGridUnit.Star(min: CanvasHeight * 16))
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
-            .AddChild(new StackPanelComponent()
-                .SetOrientation(UIOrientation.Horizontal)
-                .SetSpacing(16)
+            // Rows that wrap, each list kept with its caption: at a narrow width the switches and the button go under.
+            .AddChild(UILayout.Row(16,
+                    UILayout.Row(8,
+                        new TextComponent()
+                            .SetTitle("planner.graph.layers")
+                            .SetTitleType(UITextAppearance.Body)
+                            .SetVerticalAlignment(UIAlignment.Center),
+                        new SelectComponent()
+                            .SetOptions([
+                                new OptionItem { Id = nameof(UIGraphDirection.LeftToRight), Title = "planner.graph.left-to-right" },
+                                new OptionItem { Id = nameof(UIGraphDirection.TopToBottom), Title = "planner.graph.top-to-bottom" },
+                                new OptionItem { Id = nameof(UIGraphDirection.RightToLeft), Title = "planner.graph.right-to-left" },
+                                new OptionItem { Id = nameof(UIGraphDirection.BottomToTop), Title = "planner.graph.bottom-to-top" }
+                            ])
+                            .BindValue(nameof(DependenciesController.Direction))
+                            .SetWidth(UILayoutLength.Absolute(160))
+                            .SetVerticalAlignment(UIAlignment.Center)
+                    ),
+                    UILayout.Row(8,
+                        new TextComponent()
+                            .SetTitle("planner.graph.edges")
+                            .SetTitleType(UITextAppearance.Body)
+                            .SetVerticalAlignment(UIAlignment.Center),
+                        new SelectComponent()
+                            .SetOptions([
+                                new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "planner.graph.curved" },
+                                new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "planner.graph.straight" },
+                                new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "planner.graph.stepped" }
+                            ])
+                            .BindValue(nameof(DependenciesController.EdgeShape))
+                            .SetWidth(UILayoutLength.Absolute(160))
+                            .SetVerticalAlignment(UIAlignment.Center)
+                    ),
+                    UILayout.Row(8,
+                        new TextComponent()
+                            .SetTitle("planner.graph.nodes")
+                            .SetTitleType(UITextAppearance.Body)
+                            .SetVerticalAlignment(UIAlignment.Center),
+                        new SelectComponent()
+                            .SetOptions([
+                                new OptionItem { Id = nameof(UIGraphNodeShape.Card), Title = "planner.graph.cards" },
+                                new OptionItem { Id = nameof(UIGraphNodeShape.Icon), Title = "planner.graph.circles" }
+                            ])
+                            .BindValue(nameof(DependenciesController.NodeShape))
+                            .SetWidth(UILayoutLength.Absolute(120))
+                            .SetVerticalAlignment(UIAlignment.Center)
+                    ),
+                    new SwitchComponent()
+                        .SetTitle("planner.graph.edit-structure")
+                        .BindValue(nameof(DependenciesController.EditStructure))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new SwitchComponent()
+                        .SetTitle("planner.graph.read-only")
+                        .BindValue(nameof(DependenciesController.ReadOnly))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new ButtonComponent()
+                        .SetTitle("planner.graph.forget-layout")
+                        .SetType(UIButtonType.Outline)
+                        .OnClick(nameof(DependenciesController.ResetLayout))
+                        .SetVerticalAlignment(UIAlignment.Center)
+                )
                 .SetMargin(UIThickness.All(0, 0, 0, 12))
-                .AddChild(new TextComponent()
-                    .SetTitle("Layers")
-                    .SetTitleType(UITextAppearance.Body)
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SelectComponent()
-                    .SetOptions([
-                        new OptionItem { Id = nameof(UIGraphDirection.LeftToRight), Title = "Left to right" },
-                        new OptionItem { Id = nameof(UIGraphDirection.TopToBottom), Title = "Top to bottom" },
-                        new OptionItem { Id = nameof(UIGraphDirection.RightToLeft), Title = "Right to left" },
-                        new OptionItem { Id = nameof(UIGraphDirection.BottomToTop), Title = "Bottom to top" }
-                    ])
-                    .BindValue(nameof(DependenciesController.Direction))
-                    .SetWidth(UILayoutLength.Absolute(160))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new TextComponent()
-                    .SetTitle("Edges")
-                    .SetTitleType(UITextAppearance.Body)
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SelectComponent()
-                    .SetOptions([
-                        new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "Curved" },
-                        new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "Straight" },
-                        new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "Stepped" }
-                    ])
-                    .BindValue(nameof(DependenciesController.EdgeShape))
-                    .SetWidth(UILayoutLength.Absolute(160))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new TextComponent()
-                    .SetTitle("Nodes")
-                    .SetTitleType(UITextAppearance.Body)
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SelectComponent()
-                    .SetOptions([
-                        new OptionItem { Id = nameof(UIGraphNodeShape.Card), Title = "Cards" },
-                        new OptionItem { Id = nameof(UIGraphNodeShape.Icon), Title = "Circles" }
-                    ])
-                    .BindValue(nameof(DependenciesController.NodeShape))
-                    .SetWidth(UILayoutLength.Absolute(120))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SwitchComponent()
-                    .SetTitle("Edit structure")
-                    .BindValue(nameof(DependenciesController.EditStructure))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SwitchComponent()
-                    .SetTitle("Read only")
-                    .BindValue(nameof(DependenciesController.ReadOnly))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new ButtonComponent()
-                    .SetTitle("Forget the layout")
-                    .SetType(UIButtonType.Outline)
-                    .OnClick(nameof(DependenciesController.ResetLayout))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
                 .SetPlacement(1, 1, 24, 1)
             )
             .AddChild(new LayeredGraphComponent(DependenciesController.CanvasId)
                 .BindItems(nameof(DependenciesController.Modules))
-                .SetCanvasHeight(24)
+                .SetCanvasHeight(CanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetShowMinimap(true)
+                // Out past the default quarter: the modules side by side are wider than a phone's canvas at a quarter of their size.
+                .SetZoomRange(0.1, 2.5)
                 // The layout is the viewer's until a save sends it; the modules are the server's and arrive as they change.
                 .SetFormId(DependenciesController.CanvasForm)
                 .BindValue(nameof(DependenciesController.Layout), mode: UIBindingMode.OnSubmit)
@@ -104,53 +111,38 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                 .BindEdgeShape(nameof(DependenciesController.EdgeShape))
                 .BindIsReadOnly(nameof(DependenciesController.ReadOnly))
                 .BindEditStructure(nameof(DependenciesController.EditStructure))
-                .SetCommandIcon(UIGraphCommands.AddNode, DemoNodeIcons.AddNode)
-                .SetCommandIcon(UIGraphCommands.DeleteSelection, DemoNodeIcons.Delete)
-                .SetCommandIcon(UIGraphCommands.DeleteEdge, DemoNodeIcons.Delete)
-                .SetCommandIcon(UIGraphCommands.Caption, DemoNodeIcons.Rename)
-                .SetCommandIcon(UIGraphCommands.GroupSelection, DemoNodeIcons.Group)
-                .SetCommandIcon(UIGraphCommands.Arrange, DemoNodeIcons.Arrange)
-                .SetCommandIcon(UIGraphCommands.Fit, DemoNodeIcons.Fit)
-                .SetCommandIcon(UIGraphCommands.Save, DemoNodeIcons.Save)
-                .SetCommandIcon(UIGraphCommands.Pin, DemoNodeIcons.Pin)
-                .SetCommandIcon(UIGraphCommands.Rename, DemoNodeIcons.Rename)
-                .SetCommandIcon(UIGraphCommands.Color, DemoNodeIcons.Color)
                 .OnSave(nameof(DependenciesController.Save))
                 .OnNodeClick(nameof(DependenciesController.ModuleClicked))
                 .SetPlacement(1, 2, 24, 1)
             )
-            .AddChild(new StackPanelComponent()
-                .SetOrientation(UIOrientation.Horizontal)
-                .SetSpacing(12)
+            // Wraps as the toolbar does: at a narrow width the buttons go under the two fields.
+            .AddChild(UILayout.Row(12,
+                    new TextInputComponent()
+                        .SetTitle("planner.graph.module")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .BindValue(nameof(DependenciesController.NewModule))
+                        .SetWidth(UILayoutLength.Absolute(200))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new SelectComponent()
+                        .SetTitle("planner.graph.built-on")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetOptions(DependenciesController.Choices.Select(static choice => new OptionItem { Id = choice.Id, Title = choice.Title }))
+                        .BindValue(nameof(DependenciesController.UsedModule))
+                        .SetWidth(UILayoutLength.Absolute(220))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new ButtonComponent()
+                        .SetTitle("planner.graph.add-module")
+                        .SetIcon(DemoNodeIcons.AddNode)
+                        .SetType(UIButtonType.Primary)
+                        .OnClick(nameof(DependenciesController.AddModule))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new ButtonComponent()
+                        .SetTitle("planner.graph.remove-added")
+                        .SetType(UIButtonType.Outline)
+                        .OnClick(nameof(DependenciesController.RemoveAdded))
+                        .SetVerticalAlignment(UIAlignment.Center)
+                )
                 .SetMargin(UIThickness.All(0, 12, 0, 4))
-                .AddChild(new TextInputComponent()
-                    .SetTitle("Module")
-                    .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                    .BindValue(nameof(DependenciesController.NewModule))
-                    .SetWidth(UILayoutLength.Absolute(200))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SelectComponent()
-                    .SetTitle("Built on")
-                    .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                    .SetOptions(DependenciesController.Choices.Select(static choice => new OptionItem { Id = choice.Id, Title = choice.Title }))
-                    .BindValue(nameof(DependenciesController.UsedModule))
-                    .SetWidth(UILayoutLength.Absolute(220))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new ButtonComponent()
-                    .SetTitle("Add module")
-                    .SetIcon(DemoNodeIcons.AddNode)
-                    .SetType(UIButtonType.Primary)
-                    .OnClick(nameof(DependenciesController.AddModule))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new ButtonComponent()
-                    .SetTitle("Remove it")
-                    .SetType(UIButtonType.Outline)
-                    .OnClick(nameof(DependenciesController.RemoveAdded))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
                 .SetPlacement(1, 3, 24, 1)
             )
             .AddChild(new TextComponent()

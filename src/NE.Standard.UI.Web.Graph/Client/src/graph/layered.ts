@@ -441,11 +441,10 @@ function autoLayerGap(nodes: readonly LayeredNode[], down: boolean): number {
 }
 
 /**
- * Brandes and Köpf's placement along the order axis: each node is lined up with a median neighbour wherever the order allows, so
- * it stands in line with one of what it is joined to rather than half way between two, and a long edge's stops are one block
- * that runs straight. What lines up is where the edge meets either node, so an aligned edge runs straight even when it leaves one
- * node off its middle. Four alignments — to the layer before or after, taken from either end of a layer — are each packed tight,
- * and the narrowest is kept.
+ * Brandes and Köpf's placement along the order axis: each node lines up with a median neighbour where the order allows — in line
+ * with one of what it joins rather than half way between two — and a long edge's stops form one straight block. Alignment is by
+ * where the edge meets each node, so an edge leaving off a node's middle still runs straight. Four alignments (to the layer before
+ * or after, from either end) are packed tight, and the narrowest is kept.
  */
 function placeAcross(layers: readonly Slot[][], links: readonly Chain[], nodeGap: number): void {
     const slots = new Map(layers.flat().map(slot => [slot.id, slot]));
@@ -545,9 +544,8 @@ function driftOf(links: readonly Chain[], slots: Map<string, Slot>): Map<string,
 type Blocks = { readonly root: Map<string, string>; readonly shift: Map<string, number> };
 
 /**
- * Lines each node up with the median of its neighbours in the row before — the first of two medians, then the second — as long
- * as it stands past the last alignment of its row, so no two alignments cross; a node stands off the one it lines up with by the
- * drift of the link between them, so the link runs straight.
+ * Lines each node up with the median of its neighbours in the row before (the first of two, then the second) while it stands past
+ * its row's last alignment, so no two cross; it stands off that neighbour by the link's drift, so the link runs straight.
  */
 function align(rows: readonly Slot[][], adjacent: Map<string, string[]>, conflicts: Set<string>, drift: Map<string, number>, slots: Map<string, Slot>): Blocks {
     const root = new Map<string, string>();
@@ -591,9 +589,9 @@ function align(rows: readonly Slot[][], adjacent: Map<string, string[]>, conflic
 }
 
 /**
- * Packs the blocks as close to the rows' start as the order allows — the longest path over "stands after" — each node of a block at
- * the block's one coordinate plus its own shift, its line apart from the line of the node before it by what of each stands between
- * them and the gap. A reversed variant counts from the far end.
+ * Packs the blocks toward the rows' start as the order allows (the longest path over "stands after"): each node sits at its block's
+ * coordinate plus its own shift, apart from the node before by what of each stands between them plus the gap. Reversed counts from
+ * the far end.
  */
 function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, reversed: boolean): Map<string, number> {
     const { root } = blocks;
@@ -661,9 +659,8 @@ function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, rever
 }
 
 /**
- * The narrowest of the four alignments, the first of equals. Not their balance, the mean of each node's two middle places: where the
- * alignments line a node up with different neighbours, the mean stands it half way between them, which is what this placement is for
- * undoing.
+ * The narrowest of the four alignments, the first of equals — not their balance (each node's two middle places averaged), which
+ * stands a node lined up with different neighbours half way between them: what this placement exists to undo.
  */
 function narrowest(layers: readonly Slot[][], variants: readonly Map<string, number>[]): Map<string, number> {
     const all = layers.flat();

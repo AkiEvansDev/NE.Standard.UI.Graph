@@ -1,7 +1,7 @@
-// The path an edge takes between two ends, in the canvas's three edge shapes, plus a backward edge's arc and an arrow's head —
-// pure, so shapes are pinned by tests. Every path is worked out left-to-right; a vertical edge swaps x and y in and back out, so
-// one set of rules draws both axes.
+// The path an edge takes in the canvas's three shapes, a backward edge's arc and an arrow's head — pure, so tests pin them. Paths
+// are worked out left-to-right; a vertical edge swaps x and y in and out, so one set of rules draws both axes.
 
+import type { WheelPixels } from "ne-standard-ui";
 import type { Point } from "./canvas-model.ts";
 import { LeastRun } from "./lanes.ts";
 
@@ -16,11 +16,28 @@ export type Rect = { x: number; y: number; width: number; height: number };
 type Command = { readonly op: "M" | "L" | "C"; readonly points: readonly Point[] };
 
 export type EdgeDrawing = {
-    /** The SVG path of the edge. */
+    /** The SVG path of the edge: what the pointer answers and a label is placed along, never painted. */
     readonly path: string;
+    /**
+     * The same edge as the straight pieces it is painted with (`edgePieces`), or null where every step runs along an axis — a
+     * stepped edge — which the rasteriser draws crisp as a path, and whose corners pieces would only overlap at.
+     */
+    readonly pieces: readonly EdgePiece[] | null;
     /** The SVG path of the arrow's head at the end, when one was asked for. */
     readonly arrow: string | null;
 };
+
+/** One straight piece of a painted edge, and how far along the edge it starts — where a dashed edge's pattern picks up. */
+type EdgePiece = {
+    readonly x1: number;
+    readonly y1: number;
+    readonly x2: number;
+    readonly y2: number;
+    readonly along: number;
+};
+
+/** About how long a piece of a curved edge is, in canvas units: short enough that the pieces read as the curve. */
+const CurvePiece = 4;
 
 export type EdgeDrawingOptions = {
     readonly axis?: EdgeAxis;
@@ -66,11 +83,86 @@ export function drawEdge(shape: EdgeShape, from: Point, to: Point, points: reado
 
     const turned = commands.map(command => ({ op: command.op, points: command.points.map(back) }));
 
-    return { path: format(turned), arrow: options.arrow === true ? arrowHead(turned) : null };
+    return { path: format(turned), pieces: alongAxes(turned) ? null : edgePieces(turned), arrow: options.arrow === true ? arrowHead(turned) : null };
+}
+
+/** Whether every step of the path runs straight across or straight down, with no curve and no slant. */
+function alongAxes(commands: readonly Command[]): boolean {
+    let at: Point | null = null;
+
+    for (const command of commands) {
+        const to = command.points[command.points.length - 1];
+
+        if (command.op === "C" || (command.op === "L" && at !== null && at.x !== to.x && at.y !== to.y))
+            return false;
+
+        at = to;
+    }
+
+    return true;
 }
 
 function format(commands: readonly Command[]): string {
     return commands.map(command => `${command.op}${command.points.map(point => `${round(point.x)},${round(point.y)}`).join(" ")}`).join(" ");
+}
+
+/**
+ * The path as the straight pieces it is painted with: Chrome's GPU rasteriser draws a slanted or curved path as a staircase (four
+ * samples a pixel) but a lone line smoothly, as the charts' lines rely on (docs/DECISIONS.md). A curve is cut at even parameter
+ * steps, one per `CurvePiece` of its handles' length.
+ */
+function edgePieces(commands: readonly Command[]): EdgePiece[] {
+    const pieces: EdgePiece[] = [];
+    let at: Point | null = null;
+
+    for (const command of commands) {
+        if (command.op === "M") {
+            at = command.points[0];
+            continue;
+        }
+
+        const stops = command.op === "C" && at !== null ? curveStops(at, command.points) : [command.points[command.points.length - 1]];
+
+        for (const stop of stops) {
+            if (at !== null)
+                addPiece(pieces, at, stop);
+
+            at = stop;
+        }
+    }
+
+    return pieces;
+}
+
+/** The places a cubic from `start` through its two handles to its end is cut at: even steps of its parameter, the end last. */
+function curveStops(start: Point, [first, second, end]: readonly Point[]): Point[] {
+    const reach = Math.hypot(first.x - start.x, first.y - start.y) + Math.hypot(second.x - first.x, second.y - first.y) + Math.hypot(end.x - second.x, end.y - second.y);
+    const count = Math.max(1, Math.ceil(reach / CurvePiece));
+    const stops: Point[] = [];
+
+    for (let step = 1; step <= count; step++) {
+        const t = step / count;
+        const rest = 1 - t;
+        const a = rest * rest * rest;
+        const b = 3 * rest * rest * t;
+        const c = 3 * rest * t * t;
+        const d = t * t * t;
+
+        stops.push({ x: a * start.x + b * first.x + c * second.x + d * end.x, y: a * start.y + b * first.y + c * second.y + d * end.y });
+    }
+
+    return stops;
+}
+
+/** A piece from one place to the next, carrying how far along the edge it starts; none where the two are one place. */
+function addPiece(pieces: EdgePiece[], from: Point, to: Point): void {
+    if (from.x === to.x && from.y === to.y)
+        return;
+
+    const last = pieces.length === 0 ? null : pieces[pieces.length - 1];
+    const along = last === null ? 0 : last.along + Math.hypot(last.x2 - last.x1, last.y2 - last.y1);
+
+    pieces.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y, along });
 }
 
 function straightCommands(stops: readonly Point[]): Command[] {
@@ -204,39 +296,92 @@ export function contains(outer: Rect, inner: Rect): boolean {
     return inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height;
 }
 
-/** The zoom and pan that put `content` in the middle of a viewport of `width` by `height`, with room around it. */
-export function fitView(content: Rect, width: number, height: number, minZoom: number, maxZoom: number, padding = 48): { zoom: number; panX: number; panY: number } {
+/** How much of each side of the viewport a fit keeps clear, in the viewport's pixels. */
+type Insets = { readonly top: number; readonly right: number; readonly bottom: number; readonly left: number };
+
+type View = { zoom: number; panX: number; panY: number };
+
+const NoInsets: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
+/** The room a fit leaves around the sheet on every side. */
+const FitPadding = 48;
+
+/**
+ * The zoom and pan that put `content` in the middle of a viewport of `width` by `height`, with room around it — `padding` on every
+ * side, or more where `clear` asks for it.
+ */
+export function fitView(content: Rect, width: number, height: number, minZoom: number, maxZoom: number, padding = FitPadding, clear: Insets = NoInsets): View {
     if (content.width <= 0 || content.height <= 0 || width <= 0 || height <= 0)
         return { zoom: 1, panX: 0, panY: 0 };
 
-    const zoom = Math.min(maxZoom, Math.max(minZoom, Math.min((width - padding * 2) / content.width, (height - padding * 2) / content.height)));
+    const top = Math.max(padding, clear.top);
+    const left = Math.max(padding, clear.left);
+    const roomWidth = width - left - Math.max(padding, clear.right);
+    const roomHeight = height - top - Math.max(padding, clear.bottom);
+    const zoom = Math.min(maxZoom, Math.max(minZoom, Math.min(roomWidth / content.width, roomHeight / content.height)));
 
     return {
         zoom,
-        panX: width / 2 - (content.x + content.width / 2) * zoom,
-        panY: height / 2 - (content.y + content.height / 2) * zoom
+        panX: left + roomWidth / 2 - (content.x + content.width / 2) * zoom,
+        panY: top + roomHeight / 2 - (content.y + content.height / 2) * zoom
     };
 }
 
-/** How far one wheel line and one wheel page go, in pixels, for a wheel that counts in those rather than in pixels. */
-const WheelLine = 33;
-const WheelPage = 400;
-/** The pixels of a mouse's one notch, which zoom by a tenth; a turn is held to three notches, however far a flick throws it. */
-const WheelNotch = 100;
-const WheelMost = 300;
+/**
+ * A fit that keeps the sheet clear of the chrome along the viewport's top (boxes in its pixels): a box as wide as half the view is a
+ * band the sheet goes under; a corner's box is kept clear either beside it or under it, whichever leaves the larger zoom.
+ */
+export function fitClearOf(content: Rect, width: number, height: number, minZoom: number, maxZoom: number, chrome: readonly Rect[], gap = 8): View {
+    let band = 0;
+    let under = 0;
+    let left = 0;
+    let right = 0;
+
+    for (const box of chrome) {
+        // Over an open side panel's column, which the width already leaves out.
+        if (box.width <= 0 || box.height <= 0 || box.x >= width)
+            continue;
+
+        const bottom = box.y + box.height + gap;
+
+        under = Math.max(under, bottom);
+
+        if (box.width >= width / 2)
+            band = Math.max(band, bottom);
+        else if (box.x + box.width / 2 < width / 2)
+            left = Math.max(left, box.x + box.width + gap);
+        else
+            right = Math.max(right, width - box.x + gap);
+    }
+
+    const beside = fitView(content, width, height, minZoom, maxZoom, FitPadding, { top: band, right, bottom: 0, left });
+    const below = fitView(content, width, height, minZoom, maxZoom, FitPadding, { top: under, right: 0, bottom: 0, left: 0 });
+
+    return below.zoom > beside.zoom ? below : beside;
+}
+
+/** Whether any of `rects` (the sheet's coordinates) stands in a viewport of `width` by `height` at `view`. */
+export function showsAny(rects: readonly Rect[], view: View, width: number, height: number): boolean {
+    const seen = { x: -view.panX / view.zoom, y: -view.panY / view.zoom, width: width / view.zoom, height: height / view.zoom };
+
+    return rects.some(rect => intersects(rect, seen));
+}
+
+/** How far one wheel page goes, in pixels, for a wheel that counts in pages; the framework reads the rest (`context.wheel`). */
+export const WheelPagePixels = 400;
+/** A turn is held to three notches, however far a flick throws it. */
+const WheelMostNotches = 3;
 
 /**
- * How much one wheel event zooms: continuously by how far it turned, so a trackpad's many small steps and a mouse's one notch come
- * to the same zoom for the same distance; a turn that is mostly sideways — a swipe across, Shift and the wheel — zooms nothing.
+ * How much one wheel turn zooms: a tenth per notch (the framework's, in pixels), continuous in distance so a trackpad's small steps
+ * and a mouse's notch zoom alike; a mostly sideways turn (a swipe, Shift and the wheel) zooms nothing.
  */
-export function wheelZoom(deltaX: number, deltaY: number, deltaMode: number): number {
-    const scale = deltaMode === 1 ? WheelLine : deltaMode === 2 ? WheelPage : 1;
-    const pixels = deltaY * scale;
+export function wheelZoom(turn: WheelPixels, notch: number): number {
+    const most = notch * WheelMostNotches;
 
-    if (!Number.isFinite(pixels) || Math.abs(pixels) < 0.5 || Math.abs(deltaX) > Math.abs(deltaY))
+    if (!Number.isFinite(turn.y) || Math.abs(turn.y) < 0.5 || Math.abs(turn.x) > Math.abs(turn.y))
         return 1;
 
-    return Math.exp((-Math.max(-WheelMost, Math.min(WheelMost, pixels)) * Math.log(1.1)) / WheelNotch);
+    return Math.exp((-Math.max(-most, Math.min(most, turn.y)) * Math.log(1.1)) / notch);
 }
 
 /** A value rounded to the grid's step, or left alone when the canvas does not snap. */

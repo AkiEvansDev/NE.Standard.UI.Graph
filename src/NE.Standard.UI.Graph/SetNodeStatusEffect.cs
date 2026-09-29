@@ -1,13 +1,12 @@
 using System;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
+using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Sets one node's status on a canvas — the state its frame shows, and while it runs its progress line and what the run line says
-/// of it — without touching the document; how a running network reports.
-/// </summary>
+/// <summary>Sets one node's status on a canvas without touching the document — how a running network reports.</summary>
+/// <remarks>The status is the state its frame shows and, while it runs, its progress line and what the run line says of it.</remarks>
 public sealed class SetNodeStatusEffect : TargetedClientEffect
 {
     /// <summary>The kind this package's status effect travels under.</summary>
@@ -51,9 +50,9 @@ public sealed class SetNodeStatusEffect : TargetedClientEffect
     public double? Progress { get; set; }
 
     /// <summary>
-    /// Gets or sets what the run line says beside the node's name while it runs; unset, it says nothing more.
+    /// Gets or sets what the run line says beside the node's name, in the page's language; unset, it says nothing more.
     /// </summary>
-    public string? Message { get; set; }
+    public UIPhrase? Message { get; set; }
 
     /// <inheritdoc/>
     public override ClientEffect Resolve(IUIReferenceResolver resolver)
@@ -78,5 +77,5 @@ internal sealed class CompiledSetNodeStatusEffect(UIComponentAddress target, str
 
     public double? Progress { get; set; }
 
-    public string? Message { get; set; }
+    public UIPhrase? Message { get; set; }
 }

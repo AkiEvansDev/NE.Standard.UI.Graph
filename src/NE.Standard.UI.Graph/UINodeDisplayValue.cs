@@ -3,14 +3,19 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
+using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// What of a value a display pin is sent: a long text or a long list cut short with what was left out said at its end, and a value
-/// that cannot travel as JSON sent as its text. A display is read, not kept, and a whole file's text or a list of a million lines
-/// would cross the connection and stand in the page on every run.
+/// What of a value a display pin is sent: a long text or list cut short, saying what was left out — a phrase of
+/// <see cref="UIGraphWords.More"/> with its count, which the page writes in its own words — and a value JSON cannot carry sent as
+/// its text.
 /// </summary>
+/// <remarks>
+/// A display is read, not kept: a whole file's text or a list of a million lines would otherwise cross the connection and stand in
+/// the page on every run.
+/// </remarks>
 internal static class UINodeDisplayValue
 {
     /// <summary>The most entries of a list a display shows.</summary>
@@ -34,10 +39,20 @@ internal static class UINodeDisplayValue
             _ => Sendable(value)
         };
 
-    private static string ShortenText(string text)
-        => text.Length <= MostCharacters
-            ? text
-            : string.Concat(text.AsSpan(0, MostCharacters), "… ", (text.Length - MostCharacters).ToString("N0", CultureInfo.InvariantCulture), " more");
+    /// <summary>A text as it is, or its first characters and then what was left out, as two lines.</summary>
+    private static object ShortenText(string text)
+    {
+        if (text.Length <= MostCharacters)
+            return text;
+
+        List<object?> lines = [text[..MostCharacters], More(text.Length - MostCharacters)];
+
+        return lines;
+    }
+
+    /// <summary>What was left out, as a word the page fills and chooses the plural form of.</summary>
+    private static UIPhrase More(int count)
+        => UIPhrase.Of(UIGraphWords.More, ("count", count));
 
     private static bool IsScalar(object value)
         => value.GetType().IsPrimitive || value is decimal or Enum or DateTime or DateTimeOffset or DateOnly or TimeOnly or TimeSpan or Guid;
@@ -71,7 +86,7 @@ internal static class UINodeDisplayValue
         }
 
         if (left > 0)
-            shown.Add("… " + left.ToString("N0", CultureInfo.InvariantCulture) + " more");
+            shown.Add(More(left));
 
         return shown;
     }

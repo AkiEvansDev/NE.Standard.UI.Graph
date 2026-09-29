@@ -4,10 +4,10 @@ using System.Threading.Tasks;
 
 namespace NE.Standard.UI.Graph.Image;
 
-/// <summary>
-/// Where the picture kinds read the pictures that reach them and keep the ones they make: the application's own decision, a blob
-/// store or a folder or memory. All the canvas ever holds is the address this answers with.
-/// </summary>
+/// <summary>Where the picture kinds read the pictures that reach them and keep the ones they make.</summary>
+/// <remarks>
+/// The application's own decision — a blob store, a folder or memory; all the canvas ever holds is the address this answers with.
+/// </remarks>
 public interface IUINodeImageStore
 {
     /// <summary>

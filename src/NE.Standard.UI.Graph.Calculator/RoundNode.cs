@@ -3,10 +3,11 @@ using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph.Calculator;
 
-/// <summary>
-/// Rounds what reaches it to the digits asked for, a half away from zero — 2.5 to 3 — as a calculator does, not to the even
-/// neighbour. The value is a pin alone: there is no sense in rounding a number typed in beside it.
-/// </summary>
+/// <summary>Rounds what reaches it to the digits asked for, a half away from zero — 2.5 to 3 — as a calculator does.</summary>
+/// <remarks>
+/// Not to the even neighbour, as Math.Round's default would. The value is a pin alone: there is no sense in rounding a number typed
+/// in beside it.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = CalculatorNodes.Category + "/Maths", Title = "Round", Description = "Rounds what reaches it to the digits asked for.", Icon = UIGlyphs.RoundedCorner, Color = CalculatorNodes.NumberColor)]
 public sealed class RoundNode : IGraphNode
 {

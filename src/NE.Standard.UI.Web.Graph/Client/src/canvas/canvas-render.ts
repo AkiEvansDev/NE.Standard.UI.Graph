@@ -2,11 +2,11 @@
 // pulled; also the geometry the rest of the canvas reads a box or a part's middle off.
 
 import type { PluginEngineContext } from "ne-standard-ui";
-import type { Rect } from "./geometry.ts";
-import { drawEdge, edgePath, intersects, pathMiddle } from "./geometry.ts";
+import type { EdgeDrawing, Rect } from "./geometry.ts";
+import { drawEdge, intersects, pathMiddle } from "./geometry.ts";
 import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind } from "./canvas-kind.ts";
-import { EdgeMenuName, GroupMenuName, MenuUseAttribute, NodeMenuName } from "./canvas-menus.ts";
+import { EdgeMenuName, GroupMenuName, NodeMenuName } from "./canvas-menus.ts";
 import type { CanvasDocumentState } from "./canvas-document.ts";
 import type { CanvasSelection } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
@@ -46,6 +46,9 @@ export class CanvasRender {
     // Which item the pointer rests on, and the parts of every drawn edge by its key: what the focus marks, without drawing again.
     private focusItem: string | null = null;
     private readonly edgeParts = new Map<string, Element[]>();
+    // The last draw's painted pieces by edge key and source, reused while shape, colour and dashes stand: a drag redraws every edge
+    // each frame, and rebuilding an edge's lines is the cost.
+    private paintedEdges = new Map<string, PaintedEdge>();
 
     public constructor(context: PluginEngineContext, scene: HTMLElement, nodeLayer: HTMLElement, groupLayer: HTMLElement, edgeLayer: SVGSVGElement, labelLayer: HTMLElement, nodeElements: Map<string, HTMLElement>, documentState: CanvasDocumentState<CanvasDocument>, selection: CanvasSelection, settings: CanvasSettings, view: CanvasView, kind: () => CanvasKind) {
         this.context = context;
@@ -105,7 +108,7 @@ export class CanvasRender {
             if (this.selection.has(node.id))
                 element.setAttribute(SelectedAttribute, "");
 
-            element.setAttribute(MenuUseAttribute, NodeMenuName);
+            element.setAttribute(this.context.names.contextMenuUse, NodeMenuName);
             this.nodeLayer.append(element);
             this.nodeElements.set(node.id, element);
             drawn.add(node.id);
@@ -180,7 +183,7 @@ export class CanvasRender {
             const title = document.createElement("span");
 
             band.className = "ui-graph__group-band";
-            band.setAttribute(MenuUseAttribute, GroupMenuName);
+            band.setAttribute(this.context.names.contextMenuUse, GroupMenuName);
             title.className = "ui-graph__group-title";
             title.textContent = group.title ?? this.context.strings.text("ui.graph.group");
             band.append(title);
@@ -243,6 +246,7 @@ export class CanvasRender {
         // focused line blink during a drag's redraws.
         const focused = this.focusItem === null ? null : new Set(kind.related(this.focusItem).edges);
         const labels: DrawnLabel[] = [];
+        const painted = new Map<string, PaintedEdge>();
 
         for (const edge of kind.edges()) {
             const ends = kind.edgeEnds(edge);
@@ -272,11 +276,22 @@ export class CanvasRender {
                 path.setAttribute("data-ui-graph-conflict", "changed");
 
             if (edgeMenu)
-                path.setAttribute(MenuUseAttribute, EdgeMenuName);
+                path.setAttribute(this.context.names.contextMenuUse, EdgeMenuName);
 
             path.toggleAttribute(RelatedAttribute, related);
             this.edgeLayer.append(path);
             parts.push(path);
+
+            const lineClass = ends.back === true ? "ui-graph__edge-line ui-graph__edge-line--back" : "ui-graph__edge-line";
+            const paintedFrom = `${drawing.path}|${color}|${lineClass}`;
+            const kept = this.paintedEdges.get(edge.id);
+            const line = kept !== undefined && kept.from === paintedFrom ? kept.group : paintedEdge(drawing, color, lineClass);
+
+            painted.set(edge.id, { from: paintedFrom, group: line });
+            line.toggleAttribute(SelectedAttribute, this.selection.hasEdge(edge.id));
+            line.toggleAttribute(RelatedAttribute, related);
+            this.edgeLayer.append(line);
+            parts.push(line);
 
             if (drawing.arrow !== null) {
                 const arrow = document.createElementNS(SvgNamespace, "path");
@@ -309,6 +324,7 @@ export class CanvasRender {
             });
         }
 
+        this.paintedEdges = painted;
         this.placeLabels(labels);
 
         // The pointer may already rest on an item: what was marked before this draw is marked again on the parts it made.
@@ -323,7 +339,7 @@ export class CanvasRender {
         chip.setAttribute(EdgeAttribute, edgeId);
 
         if (edgeMenu)
-            chip.setAttribute(MenuUseAttribute, EdgeMenuName);
+            chip.setAttribute(this.context.names.contextMenuUse, EdgeMenuName);
 
         chip.textContent = label;
         chip.toggleAttribute(RelatedAttribute, related);
@@ -372,21 +388,14 @@ export class CanvasRender {
         return this.labelObstacles.some(rect => intersects(box, rect));
     }
 
-    /** A temporary edge while one is being pulled. */
+    /** A temporary edge while one is being pulled: painted only, since nothing answers the pointer on it. */
     public drawPending(from: Point, to: Point, color: string): void {
         this.clearPending();
-
-        const path = document.createElementNS(SvgNamespace, "path");
-
-        path.setAttribute("d", edgePath(this.settings.edgeShape, from, to));
-        path.setAttribute("class", "ui-graph__edge ui-graph__edge--pending");
-        path.style.setProperty("--ui-graph-pin-color", color);
-
-        this.edgeLayer.append(path);
+        this.edgeLayer.append(paintedEdge(drawEdge(this.settings.edgeShape, from, to), color, "ui-graph__edge-line ui-graph__edge-line--pending"));
     }
 
     public clearPending(): void {
-        this.edgeLayer.querySelector(".ui-graph__edge--pending")?.remove();
+        this.edgeLayer.querySelector(".ui-graph__edge-line--pending")?.remove();
     }
 
     /** Where the middle of a drawn part sits in canvas coordinates: measured off the page, since an item's height is what its contents make it. */
@@ -445,6 +454,50 @@ export class CanvasRender {
 
 /** A label drawn and waiting to be placed, with the edge it stands on. */
 type DrawnLabel = { readonly chip: HTMLElement; readonly path: SVGPathElement };
+
+/** An edge's painted pieces, and what they were painted from: its path, its colour and its class. */
+type PaintedEdge = { readonly from: string; readonly group: SVGGElement };
+
+/**
+ * An edge as painted, under one group carrying its class and colour: a `<line>` per straight piece, or the path itself where every
+ * step runs along an axis. Each piece's dash offset continues the one before, or every piece would start on a dash.
+ */
+function paintedEdge(drawing: EdgeDrawing, color: string, className: string): SVGGElement {
+    const group = document.createElementNS(SvgNamespace, "g");
+
+    group.setAttribute("class", className);
+    group.style.setProperty("--ui-graph-pin-color", color);
+
+    if (drawing.pieces === null) {
+        const path = document.createElementNS(SvgNamespace, "path");
+
+        path.setAttribute("d", drawing.path);
+        group.append(path);
+
+        return group;
+    }
+
+    for (const piece of drawing.pieces) {
+        const line = document.createElementNS(SvgNamespace, "line");
+
+        line.setAttribute("x1", coordinate(piece.x1));
+        line.setAttribute("y1", coordinate(piece.y1));
+        line.setAttribute("x2", coordinate(piece.x2));
+        line.setAttribute("y2", coordinate(piece.y2));
+
+        if (piece.along > 0)
+            line.setAttribute("stroke-dashoffset", coordinate(piece.along));
+
+        group.append(line);
+    }
+
+    return group;
+}
+
+/** A coordinate as the markup carries it: two decimals at most, as the edge's path writes its own. */
+function coordinate(value: number): string {
+    return String(Math.round(value * 100) / 100);
+}
 
 function boxOf(element: HTMLElement): string {
     return `${element.offsetWidth}x${element.offsetHeight}`;

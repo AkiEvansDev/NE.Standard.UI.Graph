@@ -2,6 +2,7 @@
 // it was finally stored as.
 
 import type { PluginEngineContext } from "ne-standard-ui";
+import { percentText } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import type { CanvasSettings } from "../canvas/canvas-settings.ts";
 import type { GraphDocument } from "./model.ts";
@@ -44,10 +45,10 @@ export class NodesImageUpload {
 
     private async uploadImage(nodeId: string, pinName: string, file: File): Promise<void> {
         // Looked up at every mark, since a redraw while the file is uploading replaces the node's elements; a mark on the old one would go unseen.
-        this.editorOf(nodeId, pinName)?.setAttribute(UploadAttribute, "0%");
+        this.markUpload(nodeId, pinName, 0);
 
         try {
-            const selection = await this.context.uploads.uploadAsync([file], percent => this.editorOf(nodeId, pinName)?.setAttribute(UploadAttribute, `${percent}%`));
+            const selection = await this.context.uploads.uploadAsync([file], percent => this.markUpload(nodeId, pinName, percent));
 
             this.announce(nodeId, pinName, selection.selectionId, file.name);
         }
@@ -64,6 +65,13 @@ export class NodesImageUpload {
             bubbles: true,
             detail: { keys: [nodeId, pinName, selectionId, fileName] }
         }));
+    }
+
+    /** The share of the file sent, on the pin's editor, in the page's word for a percent (`ui.graph.percent`). */
+    private markUpload(nodeId: string, pinName: string, percent: number): void {
+        const editor = this.editorOf(nodeId, pinName);
+
+        editor?.setAttribute(UploadAttribute, percentText(this.context, editor, percent));
     }
 
     private editorOf(nodeId: string, pinName: string): HTMLElement | null {

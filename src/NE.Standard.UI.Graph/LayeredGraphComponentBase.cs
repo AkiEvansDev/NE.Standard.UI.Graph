@@ -2,22 +2,23 @@ using System;
 using System.Collections.Generic;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Primitives.Annotations;
+using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// A canvas of the application's own items laid out in layers, with cycle-back edges drawn as backward edges; the base for the
-/// graph and production graph. The value is the document of item placement and the pending draft of changes.
-/// </summary>
-/// <remarks>Draws no item template: every change to an item arrives as the item replaced whole.</remarks>
+/// <summary>A canvas of the application's own items laid out in layers: the base for the graph and the production graph.</summary>
+/// <remarks>
+/// Cycle-back edges are drawn as backward edges. The value is the document of item placement and the pending draft of changes.
+/// Draws no item template: every change to an item arrives as the item replaced whole.
+/// </remarks>
 public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCanvasComponentBase<T, TDocument>, ILayeredGraphComponent, IItemValuesComponent
     where T : LayeredGraphComponentBase<T, TDocument>, IUIComponentDefinition
 {
     protected LayeredGraphComponentBase(string? id = null) : base(id)
     {
         // A conflict is answered on the item, or on the edge where a recipe's edges carry it — the only menus these entries show in.
-        PrependEntries(NodeMenu, Entry(UIGraphCommands.TakeServer, "Take the server's"), Entry(UIGraphCommands.KeepMine, "Keep mine"));
-        PrependEntries(EdgeMenu, Entry(UIGraphCommands.TakeServer, "Take the server's"), Entry(UIGraphCommands.KeepMine, "Keep mine"));
+        PrependEntries(NodeMenu, Entry(UIGraphCommands.TakeServer, UIGraphWords.TakeServer, UIGlyphs.Refresh), Entry(UIGraphCommands.KeepMine, UIGraphWords.KeepMine, UIGlyphs.Check));
+        PrependEntries(EdgeMenu, Entry(UIGraphCommands.TakeServer, UIGraphWords.TakeServer, UIGlyphs.Refresh), Entry(UIGraphCommands.KeepMine, UIGraphWords.KeepMine, UIGlyphs.Check));
 
         // A layered graph is read by its lines: the one under the pointer stands out, whole, unless the author takes that off.
         HighlightOnHover = true;
@@ -25,8 +26,9 @@ public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCan
 
     /// <summary>
     /// Gets or sets whether the viewer may edit items and links — add, rename, recolour, remove, draw and delete — beside moving
-    /// them. Changes go into the document's draft until saved.
+    /// them.
     /// </summary>
+    /// <remarks>Changes go into the document's draft until saved.</remarks>
     [UIComponentProperty(Contract = typeof(ILayeredGraphComponent), DefaultValue = false)]
     public bool? EditStructure { get; set; }
 

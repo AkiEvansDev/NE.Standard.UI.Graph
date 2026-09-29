@@ -1,6 +1,7 @@
 // The canvas's own attributes, read straight off the root — server-written only; every concern reads the same values rather
 // than caching its own copy.
 
+import { ReadOnlyClass } from "./canvas-dom.ts";
 import type { EdgeShape } from "./geometry.ts";
 
 export const EdgeShapeAttribute = "data-ui-graph-edge-shape";
@@ -9,7 +10,6 @@ export const SnapAttribute = "data-ui-graph-snap";
 const HighlightAttribute = "data-ui-graph-highlight";
 /** Whether every edit is saved as it is made; read at each edit. */
 const AutoSaveAttribute = "data-ui-graph-auto-save";
-export const ReadOnlyAttribute = "data-ui-graph-read-only";
 /** Which way a layered kind runs its layers; the core only redraws when it changes. */
 export const DirectionAttribute = "data-ui-graph-direction";
 /** How a kind draws an item that names no shape of its own; the core only redraws when it changes. */
@@ -29,7 +29,7 @@ export class CanvasSettings {
     }
 
     public get readOnly(): boolean {
-        return this.root.hasAttribute(ReadOnlyAttribute);
+        return this.root.classList.contains(ReadOnlyClass);
     }
 
     public get edgeShape(): EdgeShape {

@@ -10,6 +10,7 @@ import type { Plan, PlanCraft, PlanPeriod, PlanResource } from "./plan.ts";
 
 export type PlanWords = {
     text(key: string): string;
+    format(key: string, values: Readonly<Record<string, string | number>>): string;
 };
 
 /** A solved plan, indexed for the sheet. */
@@ -58,7 +59,7 @@ function statedAmount(resource: PlanResource): number {
 
 /** What a craft's runs come to: their time together for a plan made once, how many of the craft keep up for one counted over a period. */
 function formatEffort(craft: PlanCraft, words: PlanWords, number: NumberWriter): string {
-    return craft.workers === null ? formatTime(craft.time, number) : words.text("ui.graph.plan-at-once").replace("{count}", number(craft.workers));
+    return craft.workers === null ? formatTime(craft.time, number) : words.format("ui.graph.plan-at-once", { count: number(craft.workers) });
 }
 
 /** What a resource says on itself under a plan: how much the plan makes it (or brings it in, for a source), plus its maker's runs when that craft is drawn on its edges. */

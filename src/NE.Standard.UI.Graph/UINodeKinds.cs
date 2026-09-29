@@ -4,11 +4,7 @@ using System.Collections.Generic;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// The node kinds the package offers every application: a value of each standard type filled in on the node, a text made of any
-/// value and the kinds that join, split, replace, measure, search, recase, trim, slice, read as a number and match texts, the
-/// logic that picks, weighs, turns and compares values, the lists taken from, counted, walked one item a run, sorted, turned and
-/// thinned out, the dates moved, measured and taken apart, a view of whatever arrives, a note, a delay, a counter and the ranges that
-/// nest counters in one node, a random number, and the reroute every catalogue carries by itself; and apart from them, the file
+/// The node kinds every application may offer — values, text, logic, lists, dates and utilities — and, apart from them, the file
 /// kinds, which reach the server's disk.
 /// </summary>
 public static class UINodeKinds
@@ -89,10 +85,13 @@ public static class UINodeKinds
     ];
 
     /// <summary>
-    /// Gets the file kinds — the files of a folder one a run, a text read, a text written — for a catalogue that means to reach
-    /// the server's disk; they are not among <see cref="Common"/>, so an application takes them on purpose, and they reach nothing
-    /// until it opens the disk to them (<c>services.AddGraphFiles(...)</c>).
+    /// Gets the file kinds — the files of a folder one a run, a text read, a text written — for a catalogue that means to reach the
+    /// server's disk.
     /// </summary>
+    /// <remarks>
+    /// They are not among <see cref="Common"/>, so an application takes them on purpose, and they reach nothing until it opens the
+    /// disk to them (<c>services.AddGraphFiles(...)</c>).
+    /// </remarks>
     public static IReadOnlyList<Type> Files { get; } =
     [
         typeof(FilesInFolderNode),

@@ -307,10 +307,11 @@ public sealed class TrimNode : IGraphNode
         };
 }
 
-/// <summary>
-/// A part cut out of a text: from a place, so many characters long. A start below zero counts from the end; no length runs to the
-/// end; a start or a length past the text is held to it, so a slice is never an error — at worst it is empty.
-/// </summary>
+/// <summary>A part cut out of a text: from a place, so many characters long.</summary>
+/// <remarks>
+/// A start below zero counts from the end; no length runs to the end; a start or a length past the text is held to it, so a slice
+/// is never an error — at worst it is empty.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.TextCategory, Title = "Slice", Description = "Cuts a part out of a text, from a place.", Icon = UIGlyphs.Cut, Color = UINodeKinds.TextColor)]
 public sealed class SliceNode : IGraphNode
 {
@@ -345,9 +346,12 @@ public sealed class SliceNode : IGraphNode
 }
 
 /// <summary>
-/// A number read out of a text, as the invariant culture writes one — a point before the fraction, no separator between thousands,
-/// an exponent allowed — so a sheet reads the same on a server of any culture; <see cref="Valid"/> says whether the text was one.
+/// A number read out of a text as the invariant culture writes one, so a sheet reads the same on a server of any culture.
 /// </summary>
+/// <remarks>
+/// A point before the fraction, no separator between thousands, an exponent allowed; <see cref="Valid"/> says whether the text was
+/// one.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.TextCategory, Title = "To number", Description = "Reads a number out of a text.", Icon = UIGlyphs.Digits, Color = UINodeKinds.TextColor)]
 public sealed class ToNumberNode : IGraphNode
 {
@@ -375,11 +379,11 @@ public sealed class ToNumberNode : IGraphNode
     }
 }
 
-/// <summary>
-/// Whether a text matches a regular expression, the first match, and the groups it caught. A pattern that cannot be read fails the
-/// node saying why, and one that runs past a second on its text — a pattern that backtracks without end — fails it rather than
-/// holding the run.
-/// </summary>
+/// <summary>Whether a text matches a regular expression, the first match, and the groups it caught.</summary>
+/// <remarks>
+/// A pattern that cannot be read fails the node saying why, and one that runs past a second on its text — a pattern that backtracks
+/// without end — fails it rather than holding the run.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.TextCategory, Title = "Match", Description = "Whether a text matches a regular expression, and what it caught.", Icon = UIGlyphs.RegularExpression, Color = UINodeKinds.TextColor)]
 public sealed class MatchNode : IGraphNode
 {

@@ -5,10 +5,11 @@ using System.Text.Json.Serialization;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// What a node canvas holds: nodes, edges between their pins, and groups. One JSON object, committed whole by a save.
+/// What a node canvas holds: nodes, edges between their pins, groups, and the inputs set out as the sheet's parameters. One JSON
+/// object, committed whole by a save.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges = null, UIGraphGroup[]? groups = null, string? key = null)
+public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges = null, UIGraphGroup[]? groups = null, string? key = null, UINodeParameter[]? parameters = null)
 {
     /// <summary>
     /// Gets the empty document.
@@ -31,16 +32,51 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
     public UIGraphGroup[] Groups { get; } = groups ?? [];
 
     /// <summary>
-    /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given, so
-    /// a save names the document it was made from even when another has taken its place on the canvas since.
+    /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given.
     /// </summary>
+    /// <remarks>So a save names the document it was made from, even when another has taken its place on the canvas since.</remarks>
     public string? Key { get; } = key;
+
+    /// <summary>Gets the inputs the viewer set out as the sheet's parameters, in the order they were added.</summary>
+    /// <remarks>
+    /// Each is edited in the parameters panel as well as on its node (<c>NodesComponent.ShowParameters</c>). As it came off the
+    /// wire; read them through <see cref="UINodeCatalog.ParametersOf"/>, which passes over one whose node is gone, whose input is
+    /// wired or has no field.
+    /// </remarks>
+    public UINodeParameter[] Parameters { get; } = parameters ?? [];
 
     /// <summary>
     /// The same document under another key — how an application names the document it puts on the canvas.
     /// </summary>
     public UINodeDocument WithKey(string? key)
-        => new(Nodes, Edges, Groups, key);
+        => new(Nodes, Edges, Groups, key, Parameters);
+
+    /// <summary>
+    /// The same document with these inputs as its parameters — how an application sets a sheet's parameters out before the viewer
+    /// sees it.
+    /// </summary>
+    /// <remarks>An input of a node the document lacks, or one an edge feeds, is refused: a wired input's value is the wire's.</remarks>
+    public UINodeDocument WithParameters(params UINodeParameter[] parameters)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        foreach (UINodeParameter parameter in parameters)
+        {
+            ArgumentNullException.ThrowIfNull(parameter, nameof(parameters));
+
+            if (!Array.Exists(Nodes, node => string.Equals(node.Id, parameter.Node, StringComparison.Ordinal)))
+                throw new ArgumentException($"The document has no node '{parameter.Node}' for the parameter '{parameter.Pin}'.", nameof(parameters));
+
+            if (IsFed(parameter.Node, parameter.Pin))
+                throw new ArgumentException($"The input '{parameter.Pin}' of node '{parameter.Node}' is wired, so it cannot be a parameter.", nameof(parameters));
+        }
+
+        return new(Nodes, Edges, Groups, Key, parameters);
+    }
+
+    /// <summary>Whether an edge feeds one input of one node.</summary>
+    internal bool IsFed(string nodeId, string pinName)
+        => Array.Exists(Edges, edge => string.Equals(edge.ToNode, nodeId, StringComparison.Ordinal) && string.Equals(edge.ToPin, pinName, StringComparison.Ordinal));
 
     /// <summary>
     /// A copy of the document with one pin of one node set to a value — a node's state as a run left it, say; the document itself
@@ -62,8 +98,25 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
 
         nodes[at] = new UINode(node.Id, node.Type, node.X, node.Y, node.Title, node.Color, node.Pinned, node.Collapsed, values, node.Width, node.Height);
 
-        return new UINodeDocument(nodes, Edges, Groups, Key);
+        return new UINodeDocument(nodes, Edges, Groups, Key, Parameters);
     }
+}
+
+/// <summary>
+/// One input set out as a parameter of the sheet: the node's id and the name of its input pin.
+/// </summary>
+[method: JsonConstructor]
+public sealed class UINodeParameter(string node, string pin)
+{
+    /// <summary>
+    /// Gets the id of the node the input is on.
+    /// </summary>
+    public string Node { get; } = node;
+
+    /// <summary>
+    /// Gets the name of the input pin.
+    /// </summary>
+    public string Pin { get; } = pin;
 }
 
 /// <summary>

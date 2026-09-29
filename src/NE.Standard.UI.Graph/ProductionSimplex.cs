@@ -18,10 +18,12 @@ internal static class ProductionSimplex
     private const double Dust = 1e-12;
 
     /// <summary>
-    /// The x of the least cost under <c>sum(rows[i][j] * x[j]) >= atLeast[i]</c>, no <paramref name="atLeast"/> below zero, or nothing
-    /// when no x >= 0 reaches every row — or, <paramref name="unsettled"/> then, when the walk to the least found no end: a cost that
-    /// falls without bound, or a table that would not settle.
+    /// The x of the least cost under <c>sum(rows[i][j] * x[j]) >= atLeast[i]</c>, or nothing when no x >= 0 reaches every row.
     /// </summary>
+    /// <remarks>
+    /// No <paramref name="atLeast"/> is below zero. <paramref name="unsettled"/> says the nothing came from a walk to the least
+    /// that found no end: a cost that falls without bound, or a table that would not settle.
+    /// </remarks>
     public static double[]? Minimise(double[][] rows, double[] atLeast, double[] cost, double[] tieCost, out bool unsettled)
     {
         unsettled = false;

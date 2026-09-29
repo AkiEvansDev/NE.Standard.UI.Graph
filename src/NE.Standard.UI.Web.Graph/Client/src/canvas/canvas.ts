@@ -1,22 +1,24 @@
-// Every canvas on the page: the viewport, items, groups and edges, and the gestures that edit them; nothing reaches the server
-// until a save. `Canvas` coordinates the shared state and hands each concern (`CanvasView`, `CanvasDrag`, `CanvasSelection`,
-// `CanvasMenus`, `CanvasRender`, `CanvasDocumentState`) what it needs; a `CanvasKind` owns what an item looks like and can do.
+// Every canvas on the page — viewport, items, groups, edges and the gestures that edit them; nothing reaches the server until a save.
+// `Canvas` holds the state its concerns (`CanvasView`, `CanvasDrag`, …) share; a `CanvasKind` owns what an item looks like and does.
 
-import type { EffectContext, PluginEngineContext } from "ne-standard-ui";
+import type { ComponentStates, EffectContext, PluginEngineContext, WheelReading } from "ne-standard-ui";
 import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, KindDrag } from "./canvas-kind.ts";
-import { EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MinimapAttribute, NodeAttribute, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
+import { ChromeButtonSelector, CoreNames, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
 import { CanvasDocumentState } from "./canvas-document.ts";
 import { CanvasDrag } from "./canvas-drag.ts";
-import { CanvasMenus, CommandPrefix, MenuAttribute, MenuPanelAttribute } from "./canvas-menus.ts";
+import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
 import { CanvasRender } from "./canvas-render.ts";
 import { CanvasSelection, adds } from "./canvas-selection.ts";
-import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, ReadOnlyAttribute, SnapAttribute } from "./canvas-settings.ts";
+import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
-import { distanceToSegment, snap, wheelZoom } from "./geometry.ts";
+import { distanceToSegment, snap, WheelPagePixels, wheelZoom } from "./geometry.ts";
 
-// Raised by the framework on a context menu just before it opens, with the element pressed (context-menu-engine.ts).
-const MenuOpeningEvent = "ui-context-menu-opening";
+/** On the root while the sheet is panned: the hand holds it. */
+const PanningClass = "ui-graph--panning";
+
+/** A node's own pin and fold marks, which the canvas answers rather than the node. */
+const HeadMarkSelector = `[${PinToggleAttribute}], [${FoldAttribute}]`;
 
 /** The kind a document patched from the server arrives under, and the kind its value is read back by. */
 export const DocumentValueKind = "graph-document";
@@ -47,9 +49,29 @@ export class GraphEngine {
         context.observeComponents(context.root, "*", { childList: true }, () => this.prune());
 
         // The settings, which only the server writes: none of them is an attribute the engine itself touches.
-        context.observeComponents(context.root, RootSelector, { attributeFilter: [EdgeShapeAttribute, SnapAttribute, ReadOnlyAttribute, MinimapAttribute, DirectionAttribute, NodeShapeAttribute, EditStructureAttribute, ModeAttribute] }, roots => {
+        context.observeComponents(context.root, RootSelector, { attributeFilter: [EdgeShapeAttribute, SnapAttribute, MinimapAttribute, DirectionAttribute, NodeShapeAttribute, EditStructureAttribute, ModeAttribute] }, roots => {
             for (const root of roots)
                 this.canvases.get(root)?.draw();
+        });
+
+        // The read-only mark is the family's class on the root, which the engine toggles classes beside: only a change of it redraws.
+        context.observeComponents(context.root, RootSelector, { attributeFilter: ["class"], relevant: mutation => mutation.target instanceof Element && mutation.target.matches(RootSelector) }, roots => {
+            for (const root of roots)
+                this.canvases.get(root)?.readOnlyMoved();
+        });
+
+        // Disabled or loading, a canvas's parts are inert: a picker left open would stand modal over a page nothing in it answers.
+        context.observeComponents(context.root, RootSelector, { attributeFilter: ["aria-disabled", "aria-busy"] }, roots => {
+            for (const root of roots)
+                this.canvases.get(root)?.refuseEdits();
+        });
+
+        // What a canvas draws itself — a node's marks, a group's word, a kind's panel — is drawn again in the page's new words.
+        context.strings.onChange(() => {
+            for (const canvas of this.live) {
+                if (canvas.connected)
+                    canvas.wordsChanged();
+            }
         });
 
         // A document the server pushed replaces what is on the canvas; the viewer's own edit came through the engine already.
@@ -132,7 +154,11 @@ export type Drag =
 
 class Canvas {
     private readonly root: HTMLElement;
+    private readonly context: PluginEngineContext;
+    private readonly states: ComponentStates;
+    private readonly wheelReading: WheelReading;
     private readonly viewport: HTMLElement;
+    private readonly scene: HTMLElement;
     private readonly groupLayer: HTMLElement;
     private readonly nodeElements = new Map<string, HTMLElement>();
 
@@ -149,14 +175,22 @@ class Canvas {
     private drag: Drag | null = null;
     private pointerX = 0;
     private pointerY = 0;
+    // Whether the sheet was last drawn read-only, so a class the engine toggles on the root beside the mark redraws nothing.
+    private drawnReadOnly: boolean;
+    // The field a switch of the words waits on to be let go: the element, since one a redraw replaced never says it lost the focus.
+    private wordsWaitingOn: Element | null = null;
 
     public constructor(root: HTMLElement, context: PluginEngineContext, definition: CanvasKindDefinition<CanvasDocument>) {
         this.root = root;
+        this.context = context;
+        this.states = context.states;
+        this.wheelReading = context.wheel;
         this.definition = definition;
         this.viewport = root.querySelector<HTMLElement>(".ui-graph__viewport")!;
         this.groupLayer = root.querySelector<HTMLElement>(".ui-graph__groups")!;
+        this.scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
 
-        const scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
+        const scene = this.scene;
         const nodeLayer = root.querySelector<HTMLElement>(".ui-graph__nodes")!;
         const edgeLayer = root.querySelector<SVGSVGElement>(".ui-graph__edges")!;
         const labelLayer = root.querySelector<HTMLElement>(".ui-graph__labels")!;
@@ -178,13 +212,14 @@ class Canvas {
         };
 
         this.settings = new CanvasSettings(root);
+        this.drawnReadOnly = this.settings.readOnly;
         this.documentState = new CanvasDocumentState(root, valueElement, this.settings, value => definition.readDocument(value), {
             clearSelectionSets: () => this.selection.clearSets(),
             redraw: () => this.render.draw(),
             redrawEdges: () => this.render.drawEdges()
         }, context.values);
         this.selection = new CanvasSelection(root, this.nodeElements, this.groupLayer, host);
-        this.view = new CanvasView(root, this.settings, context.store, host);
+        this.view = new CanvasView(root, this.settings, context, host);
         this.dragging = new CanvasDrag(this.selection, host, this.settings);
         this.menus = new CanvasMenus(root, context, this.documentState, this.selection, this.view, this.settings, host, this.groupLayer);
         this.render = new CanvasRender(context, scene, nodeLayer, this.groupLayer, edgeLayer, labelLayer, this.nodeElements, this.documentState, this.selection, this.settings, this.view, () => this.kind);
@@ -215,8 +250,65 @@ class Canvas {
         this.render.draw();
     }
 
+    /** A setting the server moved: the sheet drawn again, and the menus' entries brought to it even while one stands open. */
     public draw(): void {
+        this.drawnReadOnly = this.settings.readOnly;
         this.render.draw();
+        this.menus.syncMenus();
+        this.refuseEdits();
+    }
+
+    /** The root's classes changed: drawn again only when the read-only mark came or went. */
+    public readOnlyMoved(): void {
+        if (this.settings.readOnly !== this.drawnReadOnly)
+            this.draw();
+    }
+
+    /** The page's words changed: the kind's own panels, the zoom's label, then the sheet are drawn again in them. */
+    public wordsChanged(): void {
+        this.kind.wordsChanged?.();
+        this.view.wordsChanged();
+        this.drawWords();
+    }
+
+    /**
+     * Redraws every item in the new words (each carries some: a pin's type, an empty value) once no field is being typed into — a
+     * redraw would take the caret.
+     */
+    private drawWords(): void {
+        const active = document.activeElement;
+
+        if (active === null || !this.scene.contains(active) || !this.kind.isEditor(active)) {
+            this.wordsWaitingOn = null;
+            this.render.draw();
+            return;
+        }
+
+        if (this.wordsWaitingOn === active)
+            return;
+
+        this.wordsWaitingOn = active;
+        // After the focus has landed: a Tab to the next field of the item waits on.
+        active.addEventListener("focusout", () => setTimeout(() => {
+            if (this.wordsWaitingOn !== active)
+                return;
+
+            this.wordsWaitingOn = null;
+            this.drawWords();
+        }), { once: true });
+    }
+
+    /** Lets go of what stood open for an edit once the canvas may not be edited: the picker, and a kind's gesture whose drop would edit. */
+    public refuseEdits(): void {
+        if (!this.settings.readOnly && !this.states.isInert(this.root))
+            return;
+
+        this.kind.escape();
+
+        if (this.drag?.kind === "kind") {
+            this.drag.cancel?.();
+            this.endDrag();
+        }
     }
 
     public get connected(): boolean {
@@ -229,9 +321,8 @@ class Canvas {
     }
 
     /**
-     * A document from the server. A drag of nodes, a group, a size or a bend goes on over it, since each finds what it moves by
-     * id, and its drop saves the move onto the new document; a kind's own gesture — a wire being pulled — holds the old sheet's
-     * parts, so it is let go first.
+     * Loads a document from the server. A drag of nodes, a group, a size or a bend carries on (it finds what it moves by id, and its
+     * drop saves onto the new document); a kind's own gesture, a wire being pulled, holds the old parts, so it is let go first.
      */
     public load(value: unknown): void {
         if (this.drag?.kind === "kind") {
@@ -243,28 +334,6 @@ class Canvas {
     }
 
     // --- editing, shared by the keys and the menus -----------------------------------------------------------------------------
-
-    /** A pinned item stays where it is: a drag of the selection around it, an arrange and a group's move all go past it. */
-    private togglePinned(nodeId: string | null | undefined): void {
-        const node = this.kind.items().find(candidate => candidate.id === nodeId);
-
-        if (node === undefined || this.settings.readOnly)
-            return;
-
-        node.pinned = node.pinned !== true;
-        this.documentState.edited();
-    }
-
-    /** Folded, an item is its head: the body goes and its parts gather on the head's edges, where their edges converge. */
-    private toggleCollapsed(nodeId: string | null | undefined): void {
-        const node = this.kind.items().find(candidate => candidate.id === nodeId);
-
-        if (node === undefined || this.settings.readOnly)
-            return;
-
-        node.collapsed = node.collapsed !== true;
-        this.documentState.edited();
-    }
 
     private copy(): void {
         if (this.selection.size > 0)
@@ -314,9 +383,13 @@ class Canvas {
         this.viewport.addEventListener("click", event => this.click(event));
 
         this.root.addEventListener("click", event => this.chrome(event));
-        // Before the framework shows the menu and gives its first shown entry the keyboard — for the keyboard's menu key, since a right
-        // press already marked the entries on its press.
-        this.root.addEventListener(MenuOpeningEvent, event => this.menus.prepareMenus(event instanceof CustomEvent ? (event.detail as { readonly target?: Element } | null)?.target ?? null : null));
+        this.root.addEventListener(CoreNames.menuOpeningEvent, event => this.menuOpening(event));
+    }
+
+    /** Marks the entries for the menu key before the menu shows (a right press marked them on its press); a disabled canvas opens none of the sheet's. */
+    private menuOpening(event: Event): void {
+        if (!this.states.isInert(this.root))
+            this.menus.prepareMenus(event instanceof CustomEvent ? (event.detail as { readonly target?: Element } | null)?.target ?? null : null);
     }
 
     private wheel(event: WheelEvent): void {
@@ -326,7 +399,7 @@ class Canvas {
 
         event.preventDefault();
 
-        const factor = wheelZoom(event.deltaX, event.deltaY, event.deltaMode);
+        const factor = wheelZoom(this.wheelReading.pixels(event, WheelPagePixels), this.wheelReading.notch);
 
         if (factor === 1)
             return;
@@ -381,17 +454,10 @@ class Canvas {
 
         // This runs on the press, not the click, because an item's press captures the pointer to the viewport — a click listener
         // here would never see the head's own controls.
-        const toggle = event.target.closest(`[${PinToggleAttribute}]`);
+        const mark = event.target.closest(HeadMarkSelector);
 
-        if (toggle !== null) {
-            this.togglePinned(toggle.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute));
-            return;
-        }
-
-        const fold = event.target.closest(`[${FoldAttribute}]`);
-
-        if (fold !== null) {
-            this.toggleCollapsed(fold.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute));
+        if (mark !== null) {
+            this.pressMark(mark, false);
             return;
         }
 
@@ -453,9 +519,46 @@ class Canvas {
         else {
             this.selection.clearSelection();
             this.drag = { kind: "pan", startX: at.x, startY: at.y, panX: this.view.panX, panY: this.view.panY };
+            this.root.classList.add(PanningClass);
         }
 
         this.viewport.setPointerCapture(event.pointerId);
+    }
+
+    /** A node's pin or fold mark pressed — by the pointer, or by the keyboard, whose focus goes on to the mark the node is drawn anew with. */
+    private pressMark(mark: Element, keyboard: boolean): void {
+        const nodeId = mark.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute);
+        const pins = mark.hasAttribute(PinToggleAttribute);
+
+        if (pins)
+            this.togglePinned(nodeId);
+        else
+            this.toggleCollapsed(nodeId);
+
+        if (keyboard && nodeId !== null && nodeId !== undefined)
+            this.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${pins ? PinToggleAttribute : FoldAttribute}]`)?.focus({ preventScroll: true });
+    }
+
+    /** A pinned item stays where it is: a drag of the selection around it, an arrange and a group's move all go past it. */
+    private togglePinned(nodeId: string | null | undefined): void {
+        const node = this.kind.items().find(candidate => candidate.id === nodeId);
+
+        if (node === undefined || this.settings.readOnly)
+            return;
+
+        node.pinned = node.pinned !== true;
+        this.documentState.edited();
+    }
+
+    /** Folded, an item is its head: the body goes and its parts gather on the head's edges, where their edges converge. */
+    private toggleCollapsed(nodeId: string | null | undefined): void {
+        const node = this.kind.items().find(candidate => candidate.id === nodeId);
+
+        if (node === undefined || this.settings.readOnly)
+            return;
+
+        node.collapsed = node.collapsed !== true;
+        this.documentState.edited();
     }
 
     private pointerMove(event: PointerEvent): void {
@@ -534,8 +637,8 @@ class Canvas {
     }
 
     /**
-     * The browser took the pointer away mid-drag — a touch that became a scroll, a window that lost focus: what the hand moved stays
-     * where it was let go and is recorded as a drop would be, and a kind's own drag puts back what it took out.
+     * The browser took the pointer mid-drag (a touch turned scroll, a window lost focus): what moved stays and is recorded as a
+     * drop, and a kind's own drag puts back what it took out.
      */
     private pointerCancel(): void {
         const drag = this.drag;
@@ -596,6 +699,7 @@ class Canvas {
         if (drag?.kind === "kind")
             drag.end();
 
+        this.root.classList.remove(PanningClass);
         this.selection.hideMarquee();
         this.render.clearPending();
     }
@@ -650,6 +754,16 @@ class Canvas {
     private click(event: MouseEvent): void {
         if (!(event.target instanceof Element))
             return;
+
+        // A head mark answered the pointer on its press; a click no pointer counted is the keyboard's Enter or Space. Neither is the node's.
+        const mark = event.target.closest(HeadMarkSelector);
+
+        if (mark !== null) {
+            if (event.detail === 0)
+                this.pressMark(mark, true);
+
+            return;
+        }
 
         const edge = event.target.closest<SVGElement>(`[${EdgeAttribute}]`);
 
@@ -710,6 +824,11 @@ class Canvas {
         if (typing)
             return;
 
+        // Keys act on the sheet from the sheet and the canvas's own buttons only — not a panel's contents (Backspace on a parameter's
+        // select), nor the corner menu's entries.
+        if (!this.onSheet(event.target) && !(event.target instanceof Element && event.target.matches(ChromeButtonSelector)))
+            return;
+
         if (event.key === "Delete" || event.key === "Backspace") {
             event.preventDefault();
             this.deleteSelection();
@@ -740,6 +859,11 @@ class Canvas {
         }
     }
 
+    /** The sheet itself or something drawn on it, rather than what stands over it. */
+    private onSheet(target: EventTarget | null): boolean {
+        return target === this.viewport || (target instanceof Node && this.scene.contains(target));
+    }
+
     /** Something standing over the sheet rather than on it: the corner menu, or one of the kind's own panels. */
     private isPanel(target: Element): boolean {
         return standsOver(target) || this.kind.isPanel(target);
@@ -754,7 +878,8 @@ class Canvas {
 
     /** A click anywhere in the canvas's chrome: the menu button, the zoom bar's buttons, the kind's own panels, and the menu entries. */
     private chrome(event: MouseEvent): void {
-        if (!(event.target instanceof Element))
+        // A disabled canvas's root stays hit-testable for its tooltip, and a disabled entry keeps its place: neither runs anything.
+        if (!(event.target instanceof Element) || this.states.isInert(event.target))
             return;
 
         // The framework's engine slides the corner menu; what its entries say is brought up to date as it goes.
@@ -781,8 +906,9 @@ class Canvas {
             return;
         }
 
-        const entry = event.target.closest<HTMLElement>("[data-ui-key]");
-        const key = entry?.getAttribute("data-ui-key") ?? "";
+        const names = this.context.names;
+        const entry = event.target.closest<HTMLElement>(`[${names.key}]`);
+        const key = entry?.getAttribute(names.key) ?? "";
 
         const panel = event.target.closest<HTMLElement>(`[${MenuPanelAttribute}]`);
 
@@ -790,10 +916,10 @@ class Canvas {
         if (panel !== null && entry !== null)
             this.menus.foldPanel();
 
-        if (key.length === 0 || (panel === null && event.target.closest(`[${MenuAttribute}]`) === null))
+        if (key.length === 0 || (panel === null && event.target.closest(`[${names.contextMenu}]`) === null))
             return;
 
-        const menuName = panel?.getAttribute(MenuPanelAttribute) ?? entry!.closest<HTMLElement>(`[${MenuAttribute}]`)?.getAttribute(MenuAttribute) ?? "";
+        const menuName = panel?.getAttribute(MenuPanelAttribute) ?? entry!.closest<HTMLElement>(`[${names.contextMenu}]`)?.getAttribute(names.contextMenu) ?? "";
 
         // The canvas's own entries are done here; one of the application's is told to it, with what the menu was opened on.
         if (key.startsWith(CommandPrefix))

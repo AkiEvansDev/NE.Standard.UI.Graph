@@ -1,7 +1,7 @@
 // The canvas's chrome menus: the corner button's own, and the node's and group's context menus the framework opens — what a right
 // press landed on, each entry's state, and the commands its key runs.
 
-import type { PluginEngineContext } from "ne-standard-ui";
+import type { ComponentStates, DomNames, PluginEngineContext } from "ne-standard-ui";
 import type { Rect } from "./geometry.ts";
 import { bounds } from "./geometry.ts";
 import type { CanvasDocument, CanvasGroup, CanvasItem } from "./canvas-model.ts";
@@ -11,26 +11,23 @@ import type { CanvasKind, MenuTarget } from "./canvas-kind.ts";
 import type { CanvasSelection } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
 import type { CanvasView } from "./canvas-view.ts";
-import { EdgeAttribute, FoldedControlAttribute, GroupAttribute, ItemTitleSelector, NodeAttribute } from "./canvas-dom.ts";
+import { CoreNames, EdgeAttribute, FoldedControlAttribute, GroupAttribute, ItemTitleSelector, MenuPanelAttribute, NodeAttribute } from "./canvas-dom.ts";
 
 const ColorsAttribute = "data-ui-graph-colors";
 // The framework's context menus, by the names the renderer gave the canvas's regions (UIGraphMenus): a part names the one it opens.
-export const MenuAttribute = "data-ui-context-menu";
-export const MenuUseAttribute = "data-ui-context-menu-use";
 export const NodeMenuName = "graph-node-menu";
 export const GroupMenuName = "graph-group-menu";
 export const EdgeMenuName = "graph-edge-menu";
-/** On the box the corner menu stands in, in the canvas's leading corner: the menu's name. */
-export const MenuPanelAttribute = "data-ui-graph-menu-panel";
-/** Either kind of menu a command's entry stands in: a context menu the framework opens, or the corner menu's panel. */
-const AnyMenuSelector = `[${MenuAttribute}], [${MenuPanelAttribute}]`;
-const CollapseToggleAttribute = "data-ui-collapse-toggle";
-const MenuEntryClass = "ui-menu-item";
-const CheckedClass = "ui-menu-item--checked";
 const SwatchAttribute = "data-ui-graph-swatch";
 const ColorCommandPrefix = "graph:color:";
 const DefaultColorCommand = "graph:color:default";
 const CommandPrefix = "graph:";
+
+/** Where a canvas's menus stand — under its root — and the framework's names they are marked with. */
+export type MenuScope = {
+    readonly root: ParentNode;
+    readonly context: { readonly names: DomNames; readonly states: ComponentStates };
+};
 
 /** What the menus reach on the coordinator: the kind, the item boxes and sizes a command needs, and the delete it shares with Delete. */
 export type MenusHost = {
@@ -52,6 +49,7 @@ export class CanvasMenus {
     private readonly groupLayer: HTMLElement;
     // The CSS colours of the menus' colour choices, in their order: an entry's key names its index.
     private readonly colors: string[];
+    private readonly scope: MenuScope;
 
     // What a right press last landed on, which a node's or a group's menu then acts on; null for the empty surface.
     private menuTarget: MenuTarget | null = null;
@@ -75,25 +73,33 @@ export class CanvasMenus {
         this.host = host;
         this.groupLayer = groupLayer;
         this.colors = readColors(root.getAttribute(ColorsAttribute));
+        this.scope = { root, context };
     }
 
     /** The corner menu's switch under a press, if the press is on it: the menu's entries are brought up to date as it slides open. */
     public panelToggleOf(target: Element): HTMLElement | null {
-        return target.closest(`[${MenuPanelAttribute}]`) === null ? null : target.closest<HTMLElement>(`[${CollapseToggleAttribute}]`);
+        return target.closest(`[${MenuPanelAttribute}]`) === null ? null : target.closest<HTMLElement>(`[${CoreNames.collapseToggle}]`);
     }
 
-    /** Folds the corner menu back after one of its commands runs, via the framework's own switch, so the fold animates as usual. */
+    /**
+     * Folds the corner menu after one of its commands runs, through the framework's switch so the fold animates; the switch takes the
+     * focus from the entry folding out of sight.
+     */
     public foldPanel(): void {
-        const menu = this.root.querySelector<HTMLElement>(`[${MenuPanelAttribute}] > .ui-menu`);
+        const menu = this.root.querySelector<HTMLElement>(`[${MenuPanelAttribute}] > .${CoreNames.menuClass}`);
+        const toggle = menu?.querySelector<HTMLElement>(`:scope > [${CoreNames.collapseToggle}]`) ?? null;
 
-        if (menu !== null && !menu.hasAttribute(FoldedControlAttribute))
-            menu.querySelector<HTMLElement>(`:scope > [${CollapseToggleAttribute}]`)?.click();
+        if (menu === null || toggle === null || menu.hasAttribute(FoldedControlAttribute))
+            return;
+
+        toggle.click();
+        toggle.focus({ preventScroll: true });
     }
 
     /** Records what a right press landed on before its menu shows, and selects it alone if not already chosen — a menu acts on the selection. */
     public prepareMenus(target: EventTarget | null): void {
         // A press inside a menu is the menu's, and says nothing about what a menu was opened on.
-        if (!(target instanceof Element) || target.closest(AnyMenuSelector) !== null)
+        if (!(target instanceof Element) || target.closest(anyMenuSelector(this.scope)) !== null)
             return;
 
         const node = target.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute) ?? null;
@@ -141,38 +147,39 @@ export class CanvasMenus {
         this.enableEntries("graph:delete-selection", editable && (this.selection.size > 0 || this.selection.edgeSize > 0));
 
         for (const name of [NodeMenuName, GroupMenuName]) {
-            const menu = this.root.querySelector<HTMLElement>(`[${MenuAttribute}="${name}"]`);
+            const menu = this.root.querySelector<HTMLElement>(`[${this.context.names.contextMenu}="${name}"]`);
             const item = this.menuItem(name);
 
             if (menu === null)
                 continue;
 
-            for (const entry of menuEntries(menu, "graph:pin")) {
-                setChecked(entry, item?.pinned === true);
-                setEnabled(entry, editable);
+            for (const entry of menuEntries({ root: menu, context: this.context }, "graph:pin")) {
+                setChecked(entry, item?.pinned === true, this.context.names);
+                this.context.states.setDisabled(entry, !editable);
             }
 
             // A node's name and colour are the kind's to allow; a group's are always the canvas's own.
             const named = editable && (name === GroupMenuName || this.host.kind().canEditItems());
 
-            for (const entry of menuEntries(menu, "graph:rename"))
-                setEnabled(entry, named);
+            for (const entry of menuEntries({ root: menu, context: this.context }, "graph:rename"))
+                this.context.states.setDisabled(entry, !named);
 
             this.syncColors(menu, item?.color ?? null, named);
         }
     }
 
     private enableEntries(key: string, enabled: boolean): void {
-        enableMenuEntries(this.root, key, enabled);
+        enableMenuEntries(this.scope, key, enabled);
     }
 
     /** The colour choices: each led by its swatch, the one the item wears checked, and its name at the colour entry's end. */
     private syncColors(menu: HTMLElement, color: string | null, editable: boolean): void {
+        const keyAttribute = this.context.names.key;
         let chosen = "";
 
-        for (const entry of menu.querySelectorAll<HTMLElement>(`[data-ui-key^="${ColorCommandPrefix}"]`)) {
-            const button = ownEntry(entry);
-            const key = entry.getAttribute("data-ui-key") ?? "";
+        for (const entry of menu.querySelectorAll<HTMLElement>(`[${keyAttribute}^="${ColorCommandPrefix}"]`)) {
+            const button = ownEntry(entry, this.context.names);
+            const key = entry.getAttribute(keyAttribute) ?? "";
             const paint = key === DefaultColorCommand ? null : this.colors[Number(key.slice(ColorCommandPrefix.length))] ?? null;
             const checked = paint === null ? color === null || color.length === 0 : paint === color;
 
@@ -181,16 +188,16 @@ export class CanvasMenus {
 
             button.setAttribute(SwatchAttribute, "");
             button.style.setProperty("--ui-graph-swatch", paint ?? "transparent");
-            setChecked(button, checked);
+            setChecked(button, checked, this.context.names);
 
             if (checked)
                 chosen = button.textContent?.trim() ?? "";
         }
 
-        for (const entry of menuEntries(menu, "graph:color")) {
-            setEnabled(entry, editable);
+        for (const entry of menuEntries({ root: menu, context: this.context }, "graph:color")) {
+            this.context.states.setDisabled(entry, !editable);
 
-            const value = entry.querySelector<HTMLElement>(".ui-menu-item__value");
+            const value = entry.querySelector<HTMLElement>(`.${CoreNames.menuItemValueClass}`);
 
             if (value !== null)
                 value.textContent = chosen;
@@ -340,7 +347,7 @@ export class CanvasMenus {
 
                 this.documentState.edited();
             },
-            done: () => this.view.viewportElement.focus({ preventScroll: true })
+            refocus: () => this.view.viewportElement.focus({ preventScroll: true })
         });
     }
 
@@ -370,7 +377,8 @@ export class CanvasMenus {
             y: frame.y - padding - 24,
             width: frame.width + padding * 2,
             height: frame.height + padding * 2 + 24,
-            title: this.context.strings.text("ui.graph.group"),
+            // No name of its own: the band says the page's word for a group, in whatever language the page is in when it is read.
+            title: null,
             color: null
         });
 
@@ -386,8 +394,8 @@ export class CanvasMenus {
         for (const [id, element] of this.host.nodeElements)
             sizes.set(id, { width: element.offsetWidth, height: element.offsetHeight });
 
-        // Taken as given, on the grid already: each kind grids its answer its own way — a layered sheet by the nodes' middles, which it
-        // remembers, a node canvas without bending the wires it laid level — and snapping every corner here would undo either.
+        // Taken as given: each kind grids its own answer (a layered sheet by the nodes' middles, a node canvas without bending the wires
+        // it laid level), and snapping every corner here would undo either.
         const placed = this.host.kind().arrange(sizes, this.selection.size > 1 ? new Set(this.selection.nodeIds) : undefined);
 
         for (const node of this.host.kind().items()) {
@@ -412,43 +420,48 @@ function readColors(value: string | null): string[] {
 }
 
 /** Opens one of the canvas's named menus at a page point, via a throwaway element the framework's menu engine positions and dismisses as any other. */
-export function openNamedMenu(root: HTMLElement, name: string, clientX: number, clientY: number): void {
+export function openNamedMenu(scope: MenuScope, name: string, clientX: number, clientY: number): void {
     const part = document.createElement("span");
 
-    part.setAttribute(MenuUseAttribute, name);
+    part.setAttribute(scope.context.names.contextMenuUse, name);
     part.hidden = true;
-    (root.querySelector(".ui-graph__viewport") ?? root).append(part);
+    (scope.root.querySelector(".ui-graph__viewport") ?? scope.root).append(part);
     part.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2, clientX, clientY }));
     part.remove();
 }
 
-/** Every entry of one command in a canvas's menus, enabled or disabled — what a kind's own entries are synced by. */
-export function enableMenuEntries(root: ParentNode, key: string, enabled: boolean): void {
-    for (const entry of menuEntries(root, key))
-        setEnabled(entry, enabled);
+/** Enables or disables one command's entries in a canvas's menus by the framework's mark: an entry is a menu item, not a component `properties.set` reaches. */
+export function enableMenuEntries(scope: MenuScope, key: string, enabled: boolean): void {
+    for (const entry of menuEntries(scope, key))
+        scope.context.states.setDisabled(entry, !enabled);
 }
 
 /** Every entry of one command in a canvas's menus, checked or not: a kind's own entry that says a state rather than does a thing. */
-export function checkMenuEntries(root: ParentNode, key: string, checked: boolean): void {
-    for (const entry of menuEntries(root, key))
-        setChecked(entry, checked);
+export function checkMenuEntries(scope: MenuScope, key: string, checked: boolean): void {
+    for (const entry of menuEntries(scope, key))
+        setChecked(entry, checked, scope.context.names);
 }
 
 /** Every entry of one command in a canvas's menus, shown or taken out of them: an entry that belongs to a state the item is rarely in. */
-export function showMenuEntries(root: ParentNode, key: string, shown: boolean): void {
-    for (const entry of menuEntries(root, key)) {
-        const wrapper = entry.closest<HTMLElement>("[data-ui-key]") ?? entry;
+export function showMenuEntries(scope: MenuScope, key: string, shown: boolean): void {
+    for (const entry of menuEntries(scope, key)) {
+        const wrapper = entry.closest<HTMLElement>(`[${scope.context.names.key}]`) ?? entry;
 
         wrapper.style.display = shown ? "" : "none";
     }
 }
 
+/** Either kind of menu a command's entry stands in: a context menu the framework opens, or the corner menu's panel. */
+function anyMenuSelector(scope: MenuScope): string {
+    return `[${scope.context.names.contextMenu}], [${MenuPanelAttribute}]`;
+}
+
 /** The entries of one command under a root: a menu writes the key on the entry's wrapper, and on a group's block of choices too. */
-function menuEntries(root: ParentNode, key: string): HTMLElement[] {
+function menuEntries(scope: MenuScope, key: string): HTMLElement[] {
     const entries: HTMLElement[] = [];
 
-    for (const keyed of root.querySelectorAll<HTMLElement>(`:is(${AnyMenuSelector}) [data-ui-key="${CSS.escape(key)}"]`)) {
-        const entry = ownEntry(keyed);
+    for (const keyed of scope.root.querySelectorAll<HTMLElement>(`:is(${anyMenuSelector(scope)}) [${scope.context.names.key}="${CSS.escape(key)}"]`)) {
+        const entry = ownEntry(keyed, scope.context.names);
 
         if (entry !== null)
             entries.push(entry);
@@ -457,21 +470,14 @@ function menuEntries(root: ParentNode, key: string): HTMLElement[] {
     return entries;
 }
 
-/** The entry a keyed wrapper stands for — its own child, never one of the choices a block of them nests. */
-function ownEntry(keyed: HTMLElement): HTMLElement | null {
-    return keyed.classList.contains(MenuEntryClass) ? keyed : keyed.querySelector<HTMLElement>(`:scope > .${MenuEntryClass}`);
-}
-
-/** An entry disabled as the framework disables a component — an entry is a link as often as a button, and a link has no `disabled`. */
-function setEnabled(entry: HTMLElement, enabled: boolean): void {
-    entry.classList.toggle("ui-disabled", !enabled);
-    entry.toggleAttribute("inert", !enabled);
-    entry.setAttribute("aria-disabled", String(!enabled));
+/** The entry a keyed wrapper stands for: its own child, never one of the choices a block of them nests. */
+function ownEntry(keyed: HTMLElement, names: DomNames): HTMLElement | null {
+    return keyed.classList.contains(names.menuItemClass) ? keyed : keyed.querySelector<HTMLElement>(`:scope > .${names.menuItemClass}`);
 }
 
 /** A check entry's state as the framework's own patch writes it: the class paints the mark, aria-checked says it. */
-function setChecked(entry: HTMLElement, checked: boolean): void {
-    entry.classList.toggle(CheckedClass, checked);
+function setChecked(entry: HTMLElement, checked: boolean, names: DomNames): void {
+    entry.classList.toggle(names.menuItemCheckedClass, checked);
     entry.setAttribute("aria-checked", String(checked));
 }
 

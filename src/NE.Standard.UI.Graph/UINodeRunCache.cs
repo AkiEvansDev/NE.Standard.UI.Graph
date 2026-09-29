@@ -6,10 +6,13 @@ using System.Threading;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// What each node of a sheet last came to, for a runner (<see cref="UINodeRunner.Cache"/>) to hand on again instead of running a
-/// node whose inputs are the ones it last ran on. One entry a node — its last run — so it grows no larger than the sheet; a node
-/// with state, or one marked <see cref="GraphNodeAttribute.AlwaysRuns"/>, is never kept.
+/// What each node of a sheet last came to, for a runner (<see cref="UINodeRunner.Cache"/>) to hand on rather than run the node
+/// again on the same inputs.
 /// </summary>
+/// <remarks>
+/// One entry a node — its last run — so it grows no larger than the sheet; a node with state, or one marked
+/// <see cref="GraphNodeAttribute.AlwaysRuns"/>, is never kept.
+/// </remarks>
 public sealed class UINodeRunCache
 {
     private readonly Lock _sync = new();

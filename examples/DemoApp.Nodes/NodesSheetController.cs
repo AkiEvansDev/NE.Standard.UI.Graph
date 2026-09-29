@@ -14,25 +14,29 @@ namespace DemoApp.Nodes;
 /// </summary>
 internal abstract partial class NodesSheetController : UIControllerBase
 {
-    public const string CanvasId = "sheet";
-
     /// <summary>The form the canvas's sheet is held in until it is saved.</summary>
     public const string CanvasForm = "sheet";
 
     // The whole of a run, from the package: the canvas's run panel saves under a run's reason, and SaveAsync hands the save here.
     private readonly UINodeRuns _runs;
     private readonly UINodeCatalog _catalog;
+    private readonly string _canvasId;
     private readonly Func<string, UINodeDocument> _startingSheet;
 
     // The page's own folder under the demo's out, so one viewer's thumbnails never overwrite another's.
     private readonly string _out = $"{DemoFolders.Out}/{Guid.NewGuid().ToString("N")[..8]}";
 
-    /// <summary>A page's sheet: its kinds, the sheet it opens with (handed the page's own folder to write into) and its first line.</summary>
-    protected NodesSheetController(UINodeCatalog catalog, Func<string, UINodeDocument> startingSheet, string status)
+    /// <summary>
+    /// A page's sheet: its canvas's id, its kinds, the sheet it opens with (handed the page's own folder to write into) and its first
+    /// line. The id is the page's own, since the browser keeps a canvas's view under it: one shared by three sheets opened each at
+    /// another's view.
+    /// </summary>
+    protected NodesSheetController(string canvasId, UINodeCatalog catalog, Func<string, UINodeDocument> startingSheet, UIPhrase status)
     {
+        _canvasId = canvasId;
         _catalog = catalog;
         _startingSheet = startingSheet;
-        _runs = new UINodeRuns(CanvasId, catalog, () => Sheet, sheet => Sheet = sheet);
+        _runs = new UINodeRuns(canvasId, catalog, () => Sheet, sheet => Sheet = sheet);
         Sheet = startingSheet(_out);
         Status = status;
     }
@@ -41,10 +45,10 @@ internal abstract partial class NodesSheetController : UIControllerBase
     public partial UINodeDocument Sheet { get; set; } = UINodeDocument.Empty;
 
     [RecursiveMember]
-    public partial string Status { get; set; } = string.Empty;
+    public partial UIPhrase? Status { get; set; }
 
     [RecursiveMember]
-    public partial string Answer { get; set; } = string.Empty;
+    public partial UIPhrase? Answer { get; set; }
 
     [RecursiveMember]
     public partial UIGraphEdgeShape EdgeShape { get; set; } = UIGraphEdgeShape.Orthogonal;
@@ -64,7 +68,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
     [UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background)]
     public async Task<UICommandResult> SaveAsync(string reason, CancellationToken cancellationToken)
     {
-        Status = $"Saved {Sheet.Nodes.Length} nodes and {Sheet.Edges.Length} connections at {DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)}.";
+        Status = UIPhrase.Of("nodes.status.saved", ("time", DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)), ("nodes", Sheet.Nodes.Length), ("edges", Sheet.Edges.Length));
 
         UINodeRunOutcome? outcome = await _runs.SavedAsync(Context.SendEffectsAsync, Context.Runtime.InvokeAsync, Context.Services, reason, cancellationToken).ConfigureAwait(false);
 
@@ -80,12 +84,12 @@ internal abstract partial class NodesSheetController : UIControllerBase
     {
         if (outcome.Stopped)
         {
-            Status = $"Stopped in run {outcome.Runs}. The counters and the folder stand where the runs before it left them.";
+            Status = UIPhrase.Of("nodes.status.stopped", ("run", outcome.Runs));
         }
         else if (outcome.Last is { } last)
         {
             Answer = AnswerOf(last);
-            Status = outcome.Runs > 1 ? $"{outcome.Runs} runs. {Describe(last)}" : Describe(last);
+            Status = outcome.Runs > 1 ? UIPhrase.Of("nodes.status.runs", ("runs", outcome.Runs), ("line", Describe(last))) : Describe(last);
         }
     }
 
@@ -103,7 +107,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
     {
         // Not while a run is under way: the canvas would queue the save behind the run's, and it would run again once Stop ended it.
         if (string.Equals(key, NodesSheetView.RunEntryKey, StringComparison.Ordinal))
-            return _runs.IsRunning ? UICommandResult.Ok() : UICommandResult.Ok([new SaveDocumentEffect(CanvasId, UIGraphArguments.RunReason)]);
+            return _runs.IsRunning ? UICommandResult.Ok() : UICommandResult.Ok([new SaveDocumentEffect(_canvasId, UIGraphArguments.RunReason)]);
 
         if (string.Equals(key, NodesSheetView.PositionEntryKey, StringComparison.Ordinal))
             NodeClicked(target);
@@ -118,9 +122,24 @@ internal abstract partial class NodesSheetController : UIControllerBase
         foreach (UINode candidate in Sheet.Nodes)
         {
             if (string.Equals(candidate.Id, node, StringComparison.Ordinal))
-                Status = $"{candidate.Title ?? candidate.Type} at {candidate.X:0}, {candidate.Y:0}.";
+                Status = UIPhrase.Of("nodes.status.position", ("node", NameOf(candidate)), ("x", candidate.X.ToString("0", CultureInfo.InvariantCulture)), ("y", candidate.Y.ToString("0", CultureInfo.InvariantCulture)));
         }
     }
+
+    /// <summary>What the viewer calls a node: its own title, else the kind's, as the catalogue titles it — content, shown as written.</summary>
+    private string NameOf(string nodeId)
+    {
+        foreach (UINode node in Sheet.Nodes)
+        {
+            if (string.Equals(node.Id, nodeId, StringComparison.Ordinal))
+                return NameOf(node);
+        }
+
+        return nodeId;
+    }
+
+    private string NameOf(UINode node)
+        => node.Title ?? (_catalog.TryGetType(node.Type, out UINodeType type) ? type.Title : node.Type);
 
     /// <summary>
     /// A picture chosen on a node has reached the server. Where it is kept is this application's own business — here, the picture
@@ -138,7 +157,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
 
         if (file is null)
         {
-            _ = await Context.Runtime.InvokeAsync(() => Status = "That upload carried no single picture.", cancellationToken).ConfigureAwait(false);
+            _ = await Context.Runtime.InvokeAsync(() => Status = new UIPhrase("nodes.status.no-picture"), cancellationToken).ConfigureAwait(false);
             return UICommandResult.Ok();
         }
 
@@ -153,45 +172,33 @@ internal abstract partial class NodesSheetController : UIControllerBase
             UINodeImageFile picture = new(bytes.ToArray(), file.ContentType ?? "application/octet-stream", file.FileName ?? fileName);
             var address = await Context.Services.GetRequiredService<IUINodeImageStore>().WriteAsync(picture, cancellationToken).ConfigureAwait(false);
 
-            var kept = $"Kept {file.FileName ?? fileName} ({bytes.Length / 1024} KB). Press Run.";
+            UIPhrase kept = UIPhrase.Of("nodes.status.kept", ("file", file.FileName ?? fileName), ("size", bytes.Length / 1024));
 
             // The address reaches the node, not the sheet: the document is the viewer's until a save. Run commits it first,
             // so nothing has to be saved by hand before the picture can be used.
             _ = await Context.Runtime.InvokeAsync(() => Status = kept, cancellationToken).ConfigureAwait(false);
 
             // One pin's value, not the whole document: a patch of the value would take the viewer's unsaved work with it.
-            return UICommandResult.Ok([new SetNodeValueEffect(CanvasId, node, pin, address)]);
+            return UICommandResult.Ok([new SetNodeValueEffect(_canvasId, node, pin, address)]);
         }
     }
 
     /// <summary>What the page reads off a run beside the sheet; nothing, unless the page has an answer to give.</summary>
-    protected virtual string AnswerOf(UINodeRunResult result)
-        => string.Empty;
+    protected virtual UIPhrase? AnswerOf(UINodeRunResult result)
+        => null;
 
-    /// <summary>What the run came to, in a line: how much ran, or which node stopped and how much it took with it.</summary>
-    private string Describe(UINodeRunResult result)
+    /// <summary>What the run came to, in a line: how much ran, or which node stopped — in the runner's words — and what it took with it.</summary>
+    private UIPhrase Describe(UINodeRunResult result)
     {
         if (result.Success)
-            return $"Ran {result.Outputs.Count} nodes.";
+            return UIPhrase.Of("nodes.status.ran", ("count", result.Outputs.Count));
 
         UINodeFailure first = result.Failures[0];
-        var skipped = result.Skipped.Count == 0 ? string.Empty : $" {result.Skipped.Count} below it were skipped.";
+        var node = NameOf(first.NodeId);
 
-        return $"{NameOf(first.NodeId)}: {first.Error}{skipped} Ran {result.Outputs.Count} of {Sheet.Nodes.Length} nodes.";
-    }
-
-    /// <summary>What the viewer calls a node: its own title, else the kind's, as the catalogue titles it.</summary>
-    private string NameOf(string nodeId)
-    {
-        foreach (UINode node in Sheet.Nodes)
-        {
-            if (!string.Equals(node.Id, nodeId, StringComparison.Ordinal))
-                continue;
-
-            return node.Title ?? (_catalog.TryGetType(node.Type, out UINodeType type) ? type.Title : node.Type);
-        }
-
-        return nodeId;
+        return result.Skipped.Count == 0
+            ? UIPhrase.Of("nodes.status.failed", ("node", node), ("error", first.Error), ("ran", result.Outputs.Count), ("total", Sheet.Nodes.Length))
+            : UIPhrase.Of("nodes.status.failed-skipped", ("node", node), ("error", first.Error), ("skipped", result.Skipped.Count), ("ran", result.Outputs.Count), ("total", Sheet.Nodes.Length));
     }
 
     /// <summary>Puts the sheet back to the one the page opened with.</summary>
@@ -203,8 +210,8 @@ internal abstract partial class NodesSheetController : UIControllerBase
         _runs.Cache.Clear();
 
         Sheet = _startingSheet(_out);
-        Answer = string.Empty;
-        Status = "The sheet is back to the one the page opened with.";
+        Answer = null;
+        Status = new UIPhrase("nodes.status.reset");
 
         // The canvas holds a viewer's unsaved work against a push of its value, so a sheet the application puts back says so itself.
         return UICommandResult.Ok([new DiscardFormEffect(CanvasForm)]);

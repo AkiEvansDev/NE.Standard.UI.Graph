@@ -6,7 +6,6 @@ using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
 using NE.Standard.UI.Web.Abstractions.Html;
 using NE.Standard.UI.Web.Abstractions.Rendering;
-using NE.Standard.UI.Web.Abstractions.Theming;
 using NE.Standard.UI.Web.Renderers.Foundation;
 
 namespace NE.Standard.UI.Web.Graph;
@@ -26,6 +25,9 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
     /// <summary>On the root of a canvas that shows its run panel.</summary>
     public const string RunPanelAttribute = "data-ui-graph-run-panel";
 
+    /// <summary>On the root of a canvas that sets its parameters out in a panel, and offers an input's menu entry for it.</summary>
+    public const string ParametersAttribute = "data-ui-graph-parameters";
+
     public override string ComponentTypeKey => NodesComponent.ComponentTypeKey;
 
     protected override string KindName => "nodes";
@@ -39,7 +41,11 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
         RenderFlagAttribute(context, root, NodesComponent.ShowRunProgressProperty, RunProgressAttribute);
         RenderFlagAttribute(context, root, NodesComponent.ShowRunPanelProperty, RunPanelAttribute);
+        RenderFlagAttribute(context, root, NodesComponent.ShowParametersProperty, ParametersAttribute);
         RenderCatalog(context, root);
+
+        // Beside the node, group and edge menus the canvas renders for every kind: a node canvas's pins have one of their own.
+        RenderContextMenuRegion(context, root, UIGraphMenus.Pin, UIGraphMenus.Pin);
     }
 
     /// <summary>The node kinds as one JSON attribute: the engine reads it once and builds the picker and every node from it.</summary>
@@ -50,10 +56,8 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         _ = root.Attribute(CatalogAttribute, JsonSerializer.Serialize(catalog?.Types ?? [], WireJson));
     }
 
-    /// <summary>
-    /// Framework components as templates the engine clones: one per editable pin plus the list buttons. Value, read-only and
-    /// enabled state (including a trailing button's) are the engine's to set on each clone.
-    /// </summary>
+    /// <summary>Framework components as templates the engine clones: one per editable pin plus the list buttons.</summary>
+    /// <remarks>Value, read-only and enabled state (a trailing button's too) are the engine's to set on each clone.</remarks>
     protected override void RenderKindTemplates(WebRenderContext context, IHtmlElementBuilder root)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -76,9 +80,9 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         => RenderPicker(context, root, GraphStrings.AddNode, GraphStrings.NoKinds);
 
     /// <summary>
-    /// The progress line along the canvas's top: two tracks (whole run, current node's steps), with the node's name and share
-    /// done. Persists between runs; empty here, filled by the engine.
+    /// The progress line along the canvas's top: two tracks (whole run, current node's steps), with the node's name and share done.
     /// </summary>
+    /// <remarks>Persists between runs; empty here, filled by the engine.</remarks>
     protected override void RenderViewportHead(WebRenderContext context, IHtmlElementBuilder viewport)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -89,7 +93,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             _ = run.Class($"{ClassName}__run");
             _ = run.Attribute("data-ui-graph-run");
             _ = run.Attribute("role", "progressbar");
-            _ = run.Attribute("aria-label", context.Translate(GraphStrings.RunProgress));
+            WebWords.Write(context, run, "aria-label", GraphStrings.RunProgress);
             _ = run.Attribute("aria-valuemin", "0");
             _ = run.Attribute("aria-valuemax", "100");
 
@@ -116,16 +120,40 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             _ = panel.Class($"{ClassName}__run-panel");
             _ = panel.Attribute(WebAttributes.NoContextMenu);
 
-            RenderBarButton(context, panel, "run-once", GraphStrings.Run, UIGlyphs.Play);
-            RenderBarButton(context, panel, "run-all", GraphStrings.RunAll, UIGlyphs.FastForward);
-            RenderBarButton(context, panel, "run-stop", GraphStrings.Stop, UIGlyphs.Stop);
+            RenderBarButton(context, panel, "data-ui-graph-run-once", GraphStrings.Run, UIGlyphs.Play);
+            RenderBarButton(context, panel, "data-ui-graph-run-all", GraphStrings.RunAll, UIGlyphs.FastForward);
+            RenderBarButton(context, panel, "data-ui-graph-run-stop", GraphStrings.Stop, UIGlyphs.Stop);
         });
+
+        RenderParametersPanel(context, viewport);
     }
+
+    /// <summary>The parameters panel under the run panel, a row per input set out as a parameter, which the engine writes.</summary>
+    /// <remarks>
+    /// Always in the markup, shown by the root's flag as the run panel is; folded until the viewer opens it, its gear alone, so the
+    /// sheet opens clear.
+    /// </remarks>
+    private void RenderParametersPanel(WebRenderContext context, IHtmlElementBuilder viewport)
+        => RenderSidePanel(context, viewport, "parameters", GraphStrings.Parameters, "data-ui-graph-parameters-panel", UIGlyphs.Settings, folded: true, body =>
+        {
+            _ = body.Element("div", list =>
+            {
+                _ = list.Class($"{ClassName}__parameters-list");
+                _ = list.Attribute("data-ui-graph-parameters-list");
+            });
+
+            _ = body.Element("p", empty =>
+            {
+                _ = empty.Class($"{ClassName}__parameters-empty");
+                WebWords.Write(context, empty, null, GraphStrings.ParametersEmpty);
+            });
+        });
 
     /// <summary>
     /// The log at the canvas's foot, folded to a strip until pressed: what nodes wrote and what stopped them, each line naming its
-    /// node. The strip carries a count; lines are the engine's to write.
+    /// node.
     /// </summary>
+    /// <remarks>The strip carries a count; lines are the engine's to write.</remarks>
     protected override void RenderViewportFoot(WebRenderContext context, IHtmlElementBuilder viewport)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -141,9 +169,10 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             {
                 _ = entries.Class($"{ClassName}__log-entries");
                 _ = entries.Attribute("role", "log");
-                _ = entries.Attribute("aria-label", context.Translate(GraphStrings.Log));
+                WebWords.Write(context, entries, "aria-label", GraphStrings.Log);
                 _ = entries.Attribute("data-ui-graph-log-entries");
-                _ = entries.Attribute("data-ui-graph-log-empty-word", context.Translate(GraphStrings.LogEmpty));
+                // Read by the stylesheet (content: attr()), so marked like any other word a switch writes again.
+                WebWords.Write(context, entries, "data-ui-graph-log-empty-word", GraphStrings.LogEmpty);
             });
 
             // Under the lines, so the strip stays where it was pressed and a second press folds the log again.
@@ -165,17 +194,14 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
                         IconValueRenderer.RenderIcon(mark, UIGlyphs.ChevronUp);
                     });
 
-                    _ = toggle.Element("span", word => _ = word.Text(context.Translate(GraphStrings.Log)));
+                    _ = toggle.Element("span", word => WebWords.Write(context, word, null, GraphStrings.Log));
 
                     // The framework's own count badge; the engine writes the count and the style of the worst line.
-                    _ = toggle.Element("span", count =>
+                    BadgeRenderer.RenderCountBadge(toggle, UIBadgeType.Surface, configure: count =>
                     {
-                        _ = count.Class("ui-badge");
-                        _ = count.Class(WebClassNames.BadgeStyle(UIBadgeType.Surface));
                         _ = count.Class($"{ClassName}__log-count");
                         _ = count.Attribute("data-ui-graph-log-count");
                         _ = count.Attribute("hidden");
-                        _ = count.Element("span", text => _ = text.Class("ui-badge__text"));
                     });
                 });
 
@@ -184,12 +210,10 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
                 _ = head.Element("button", clear =>
                 {
-                    var word = context.Translate(GraphStrings.ClearLog);
-
                     _ = clear.Class($"{ClassName}__log-clear");
                     _ = clear.Attribute("type", "button");
-                    _ = clear.Attribute("title", word);
-                    _ = clear.Attribute("aria-label", word);
+                    WebWords.Write(context, clear, WebAttributes.Tooltip, GraphStrings.ClearLog);
+                    WebWords.Write(context, clear, "aria-label", GraphStrings.ClearLog);
                     _ = clear.Attribute("data-ui-graph-log-clear");
                     IconValueRenderer.RenderIcon(clear, UIGlyphs.Delete);
                 });

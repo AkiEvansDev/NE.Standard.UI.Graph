@@ -11,14 +11,12 @@ using NE.Standard.UI.Primitives.Styling;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// A graph of resources and the crafts between them, laid out in layers. A resource is a node; a craft that alone makes one
-/// resource is drawn on its edges, and every other craft is a junction. Items is the bound collection of both; the value is the
-/// document of their placement and edits.
-/// </summary>
+/// <summary>A graph of resources and the crafts between them, laid out in layers.</summary>
 /// <remarks>
-/// Two uses distinguished by <see cref="Mode"/>: the constructor, editing the catalogue, and the plan, where the viewer sets
-/// target amounts and the graph draws the runs to reach them.
+/// A resource is a node; a craft that alone makes one resource is drawn on its edges, and every other craft is a junction. Items is
+/// the bound collection of both; the value is the document of their placement and edits. Two uses distinguished by
+/// <see cref="Mode"/>: the constructor, editing the catalogue, and the plan, where the viewer sets target amounts and the graph draws
+/// the runs to reach them.
 /// </remarks>
 public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponentBase<T, UIProductionDocument>, IBindableItemsComponent
     where T : ProductionGraphComponent<T>, IUIComponentDefinition
@@ -30,14 +28,14 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         // A resource is its icon, its name standing under it: a production graph is read by its shapes before its captions.
         NodeShape = UIGraphNodeShape.Icon;
 
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, "Add resource"), Separator());
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddResource, UIGlyphs.Add), Separator());
         // Target and Brought in are a plan's, and stand in the menu only of a graph that plans.
-        PrependEntries(NodeMenu, Entry(UIGraphCommands.CraftTime, "Time"), Entry(UIGraphCommands.Target, "Target"), Entry(UIGraphCommands.Bought, "Brought in", kind: UIMenuItemKind.Check));
+        PrependEntries(NodeMenu, Entry(UIGraphCommands.CraftTime, UIGraphWords.CraftTime, UIGlyphs.Hourglass), Entry(UIGraphCommands.Target, UIGraphWords.Target, UIGlyphs.Flag), Entry(UIGraphCommands.Bought, UIGraphWords.Bought, UIGlyphs.Download, kind: UIMenuItemKind.Check));
         // An edge that is a whole recipe carries the run: what it takes, what it gives and how long it lasts are all edited on it.
-        PrependEntries(EdgeMenu, Entry(UIGraphCommands.Amount, "Takes"), Entry(UIGraphCommands.Output, "Gives"), Entry(UIGraphCommands.CraftTime, "Time"));
+        PrependEntries(EdgeMenu, Entry(UIGraphCommands.Amount, UIGraphWords.Takes, UIGlyphs.Numbers), Entry(UIGraphCommands.Output, UIGraphWords.Gives, UIGlyphs.PlusOne), Entry(UIGraphCommands.CraftTime, UIGraphWords.CraftTime, UIGlyphs.Hourglass));
 
         // A recipe drawn as its edges has no junction to drop a second ingredient on: a link dropped on what it makes asks which was meant.
-        LinkMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.LinkIngredient, "Add as an ingredient"), Entry(UIGraphCommands.LinkRecipe, "New recipe")]);
+        LinkMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.LinkIngredient, UIGraphWords.LinkIngredient, UIGlyphs.Link), Entry(UIGraphCommands.LinkRecipe, UIGraphWords.LinkRecipe, UIGlyphs.NoteAdd)]);
         SetCanvasRegion(UIGraphMenus.Link, LinkMenu);
 
         // The plan panel's controls are the core's own fields, carried as regions: the engine reads and writes their values.
@@ -117,8 +115,6 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
 /// </summary>
 public sealed class ProductionGraphComponent(string? id = null) : ProductionGraphComponent<ProductionGraphComponent>(id), IUIComponentDefinition
 {
-    /// <summary>
-    /// Gets the component type key used to identify this component in the compiled graph.
-    /// </summary>
+    /// <inheritdoc/>
     public static string ComponentTypeKey => "graph.canvas.production";
 }

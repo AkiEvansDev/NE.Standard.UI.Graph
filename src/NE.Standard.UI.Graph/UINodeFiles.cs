@@ -7,11 +7,13 @@ using System.Threading.Tasks;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// The disk as the file kinds reach it: a node names a file or folder by its path on the server, absolute or relative to
-/// <see cref="BasePath"/>. What may be read or written is the application's to decide, through <see cref="Allow"/>; with none
-/// given, everything the process may touch. Registered by <c>services.AddGraphFiles(...)</c>; unregistered, the file kinds reach
-/// nothing: a canvas is a page anyone viewing it drives, so the disk is opened to it on purpose or not at all.
+/// The disk as the file kinds reach it: a path on the server, absolute or relative to <see cref="BasePath"/>, and what may be read
+/// or written (<see cref="Allow"/>).
 /// </summary>
+/// <remarks>
+/// With no <see cref="Allow"/>, everything the process may touch. Registered by <c>services.AddGraphFiles(...)</c>; unregistered,
+/// the file kinds reach nothing: a canvas is a page anyone viewing it drives, so the disk is opened to it on purpose or not at all.
+/// </remarks>
 public sealed class UINodeFiles
 {
     private static readonly UINodeFiles Closed = new() { IsClosed = true };
@@ -58,9 +60,9 @@ public sealed class UINodeFiles
     }
 
     /// <summary>
-    /// The files in a folder a node names that match a pattern — <c>*.png</c>, or several as <c>*.png;*.jpg</c> — named the way the
-    /// folder was, in name order; hidden files and links left out.
+    /// The files in a folder a node names that match a pattern — <c>*.png</c>, or several as <c>*.png;*.jpg</c> — in name order.
     /// </summary>
+    /// <remarks>Named the way the folder was; hidden files and links left out.</remarks>
     public IReadOnlyList<string> List(string folder, string pattern, bool recursive)
     {
         var full = Resolve(folder);
@@ -105,10 +107,10 @@ public sealed class UINodeFiles
             : throw new InvalidOperationException($"There is no file '{path}'.");
     }
 
-    /// <summary>
-    /// Writes a file into a folder a node names, making the folder if it is not there, and answers the file's path, named the way
-    /// the folder was; a file already there is replaced only if <paramref name="overwrite"/> says so.
-    /// </summary>
+    /// <summary>Writes a file into a folder a node names and answers the file's path, named the way the folder was.</summary>
+    /// <remarks>
+    /// Makes the folder if it is not there; a file already there is replaced only if <paramref name="overwrite"/> says so.
+    /// </remarks>
     public async Task<string> WriteAsync(string folder, string name, ReadOnlyMemory<byte> bytes, bool overwrite, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(folder);

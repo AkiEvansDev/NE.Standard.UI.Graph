@@ -1,6 +1,5 @@
-// The production graph's catalogue off the wire (resources and crafts, one collection told apart by kind), the document (where
-// the viewer put them, the draft, and the plan request), and the fact the layout sees a bipartite graph: resource edges into
-// crafts, craft edges out to resources.
+// The production graph's catalogue off the wire (resources and crafts in one collection, told apart by kind), its document (places,
+// draft, plan request), and the bipartite graph the layout sees: resource edges into crafts, craft edges out to resources.
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
 import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
@@ -296,9 +295,9 @@ export function overlayDraft(server: readonly ProductionEntry[], draft: Producti
 }
 
 /**
- * A craft with the amounts of removed resources dropped, or nothing when it names none of them. It goes when it lost its last
- * ingredient or was left with nothing at all — as `UIProductionDraft.ApplyTo` holds on the server — since taking nothing it would
- * make its products from nothing, and one drawn on its edges would have none left to be drawn on.
+ * A craft with removed resources' amounts dropped, or nothing when it names none. It goes when left with no ingredient or nothing at
+ * all (as `UIProductionDraft.ApplyTo` holds): taking nothing it would make its products from nothing, and one drawn on its edges
+ * would have none to be drawn on.
  */
 export function withoutResources(craft: { readonly ingredients: readonly CraftAmount[]; readonly products: readonly CraftAmount[] }, removed: ReadonlySet<string>): { readonly ingredients: CraftAmount[]; readonly products: CraftAmount[]; readonly goes: boolean } | null {
     const ingredients = craft.ingredients.filter(amount => !removed.has(amount.resource));

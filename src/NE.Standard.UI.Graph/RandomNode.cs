@@ -21,11 +21,12 @@ public enum UIRandomMode
     Decrement = 3,
 }
 
-/// <summary>
-/// A number drawn at random between two ends, from a seed the sheet keeps: the same seed draws the same number, on any machine and
-/// runtime, so a run can be made again, and the mode says what the seed becomes for the next run — the same, another drawn at
-/// random, one more or one less. Neighbouring seeds draw numbers with nothing to do with each other.
-/// </summary>
+/// <summary>A number drawn at random between two ends, from a seed the sheet keeps.</summary>
+/// <remarks>
+/// The same seed draws the same number, on any machine and runtime, so a run can be made again, and the mode says what the seed
+/// becomes for the next run — the same, another drawn at random, one more or one less. Neighbouring seeds draw numbers with nothing
+/// to do with each other.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Random", Description = "A number drawn at random, from a seed the sheet keeps.", Icon = UIGlyphs.Dice, Color = "var(--ui-color-series-3)")]
 public sealed class RandomNode : IGraphNode
 {
@@ -79,10 +80,11 @@ public sealed class RandomNode : IGraphNode
         };
     }
 
-    /// <summary>
-    /// A number in [0, 1) mixed out of the seed (SplitMix64): a fixed algorithm rather than a seeded <see cref="Random"/>, whose
-    /// numbers for seeds side by side fall into a pattern and are not promised to stay the same from one .NET to the next.
-    /// </summary>
+    /// <summary>A number in [0, 1) mixed out of the seed (SplitMix64).</summary>
+    /// <remarks>
+    /// A fixed algorithm rather than a seeded <see cref="Random"/>, whose numbers for seeds side by side fall into a pattern and
+    /// are not promised to stay the same from one .NET to the next.
+    /// </remarks>
     private static double Draw(int seed)
     {
         var mixed = unchecked((uint)seed + 0x9E3779B97F4A7C15UL);

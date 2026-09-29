@@ -57,10 +57,11 @@ public sealed class ResizeImageNode : IGraphNodeAsync
     public async ValueTask ExecuteAsync(UINodeRunContext context, CancellationToken cancellationToken = default)
         => Result = await ImageWork.TransformAsync(context, Image, Resize, Share, null, ImageWork.DefaultQuality, cancellationToken).ConfigureAwait(false);
 
-    /// <summary>
-    /// How much of a picture of that size the resize draws from: the side that meets the size asked for decides, the smaller share
-    /// for Contain (the other side comes out shorter) and the larger for Cover and Stretch (the other side is cut or squeezed).
-    /// </summary>
+    /// <summary>How much of a picture of that size the resize draws from.</summary>
+    /// <remarks>
+    /// The side that meets the size asked for decides: the smaller share for Contain (the other side comes out shorter), the larger
+    /// for Cover and Stretch (the other side is cut or squeezed).
+    /// </remarks>
     private double Share(SKSizeI seen)
     {
         var across = Math.Clamp(Width, 1, MaxSide) / (double)Math.Max(1, seen.Width);

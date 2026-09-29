@@ -11,10 +11,10 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
 
     protected override string Route => BuildsRoute;
 
-    public override string Title => "Builds";
+    public override string Title => "planner.page.builds";
 
     protected override string Description
-        => "What to make, and what it takes: a build's targets are named in the plan's panel, made once or every minute or hour, and the calculation says what is brought in, what runs and how often.";
+        => "planner.page.builds.description";
 
     protected override DemoPage CreatePage()
         => App(new ContainerComponent()
@@ -40,15 +40,19 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                 .SetRenamable(true)
                 .SetTabMenuEntries(UITabMenuEntries.Rename | UITabMenuEntries.Pin | UITabMenuEntries.Delete)
                 .OnItemRemove(nameof(BuildsController.AskDelete))
+                // Held by the top, as the buttons are: the view's box is its strip plus the selected page's rule and air, so centring it
+                // would set the captions above the buttons' middle.
+                .SetVerticalAlignment(UIAlignment.Start)
                 .SetPlacement(1, 1, 16, 1)
             )
+            // Small, so each button is the strip's own height and its middle is the captions' middle, with no offset to keep in step.
             .AddChild(UILayout.Row(4,
-                    UIButtons.Ghost("New build", MaterialIcons.Outlined(PlannerIcons.Add)).OnClick(nameof(BuildsController.AddBuild)),
-                    UIButtons.Ghost("Import", MaterialIcons.Outlined(PlannerIcons.Import)).OnClick(nameof(BuildsController.OpenImport)),
-                    UIButtons.Ghost("Export", MaterialIcons.Outlined(PlannerIcons.Export)).OnClick(nameof(BuildsController.ExportAsync))
+                    UIButtons.Ghost("planner.builds.new", MaterialIcons.Outlined(PlannerIcons.Add)).SetSize(UIButtonSize.Small).OnClick(nameof(BuildsController.AddBuild)),
+                    UIButtons.Ghost("planner.import", MaterialIcons.Outlined(PlannerIcons.Import)).SetSize(UIButtonSize.Small).OnClick(nameof(BuildsController.OpenImport)),
+                    UIButtons.Ghost("planner.export", MaterialIcons.Outlined(PlannerIcons.Export)).SetSize(UIButtonSize.Small).OnClick(nameof(BuildsController.ExportAsync))
                 )
                 .SetHorizontalAlignment(UIAlignment.End)
-                .SetVerticalAlignment(UIAlignment.Center)
+                .SetVerticalAlignment(UIAlignment.Start)
                 .SetPlacement(17, 1, 8, 1)
             );
 
@@ -62,11 +66,11 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                 new TextComponent()
                     .SetIcon(MaterialIcons.Outlined(PlannerIcons.Resource))
                     .SetIconColor(UIThemeColor.Muted)
-                    .SetTitle("The catalogue is empty")
-                    .SetDescription("A goal is a resource, and there are none yet: add them, with their recipes, first.")
+                    .SetTitle("planner.builds.empty")
+                    .SetDescription("planner.builds.empty.description")
                     .SetVerticalAlignment(UIAlignment.Center),
                 new LinkComponent()
-                    .SetTitle("Open the resources")
+                    .SetTitle("planner.builds.open-resources")
                     .SetUrl(ResourcesRoute)
                     .SetVerticalAlignment(UIAlignment.Center)
                 )
@@ -84,12 +88,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
             .SetFormId(BuildsController.PlanForm)
             .BindValue(nameof(BuildsController.Plan), mode: UIBindingMode.OnSubmit)
             .OnSave(nameof(BuildsController.SaveGoals))
-            .SetHeight(UILayoutLength.Fill())
-            .SetCommandIcon(UIGraphCommands.Arrange, PlannerIcons.Arrange)
-            .SetCommandIcon(UIGraphCommands.Fit, PlannerIcons.Fit)
-            .SetCommandIcon(UIGraphCommands.GroupSelection, PlannerIcons.Group)
-            .SetCommandIcon(UIGraphCommands.Pin, PlannerIcons.Pin)
-            .SetCommandIcon(UIGraphCommands.Target, PlannerIcons.Goal);
+            .SetHeight(UILayoutLength.Fill());
 
     protected override IReadOnlyList<UIDialog> CreateDialogs()
         =>
@@ -98,10 +97,10 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
             {
                 Key = BuildsController.DeleteDialogKey,
                 Content = UILayout.Stack(12,
-                    UIText.Title("Delete the build?").BindDescription(nameof(BuildsController.DeleteQuestion)),
+                    UIText.Title("planner.build.delete.title").BindDescription(nameof(BuildsController.DeleteQuestion)),
                     UIButtons.Pair(
-                        UIButtons.Ghost("Keep it").OnClick(nameof(BuildsController.CloseDialog)),
-                        UIButtons.Danger("Delete").OnClick(nameof(BuildsController.Delete))
+                        UIButtons.Ghost("planner.keep-it").OnClick(nameof(BuildsController.CloseDialog)),
+                        UIButtons.Danger("planner.delete").OnClick(nameof(BuildsController.Delete))
                     )
                 )
                 .SetMinWidth(UILayoutLength.Absolute(360))
@@ -110,21 +109,21 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
             {
                 Key = BuildsController.ImportDialogKey,
                 Content = UILayout.Stack(16,
-                    UIText.Title("Import builds", "A builds file the planner exported; its goals find their resources by id."),
+                    UIText.Title("planner.builds.import.title", "planner.builds.import.description"),
                     new FileInputComponent()
-                        .SetPlaceholder("Pick or drop a .json file")
+                        .SetPlaceholder("planner.builds.import.file")
                         .SetAccept(PlannerFiles.BuildsAccept)
                         .BindSelectionId(nameof(BuildsController.ImportSelection)),
                     new RadioGroupComponent()
                         .SetOptions(
                         [
-                            new OptionItem { Id = BuildsController.MergeImport, Title = "Merge", Description = "A build of the file replaces the one of its id; the rest stay." },
-                            new OptionItem { Id = BuildsController.ReplaceImport, Title = "Replace", Description = "The file's builds in place of these." }
+                            new OptionItem { Id = BuildsController.MergeImport, Title = "planner.import.merge", Description = "planner.builds.import.merge" },
+                            new OptionItem { Id = BuildsController.ReplaceImport, Title = "planner.import.replace", Description = "planner.builds.import.replace" }
                         ])
                         .BindValue(nameof(BuildsController.ImportMode)),
                     UIButtons.Pair(
-                        UIButtons.Ghost("Cancel").OnClick(nameof(BuildsController.CloseDialog)),
-                        UIButtons.Primary("Import").OnClick(nameof(BuildsController.ImportAsync))
+                        UIButtons.Ghost("planner.cancel").OnClick(nameof(BuildsController.CloseDialog)),
+                        UIButtons.Primary("planner.import").OnClick(nameof(BuildsController.ImportAsync))
                     )
                 )
                 .SetMinWidth(UILayoutLength.Absolute(420))

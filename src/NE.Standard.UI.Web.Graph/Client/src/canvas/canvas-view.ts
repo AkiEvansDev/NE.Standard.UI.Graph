@@ -1,12 +1,12 @@
 // The viewport: pan, zoom, fit, and the corner minimap. Every coordinate a pointer gesture needs — canvas point, viewport point —
 // is read off here.
 
-import type { ClientStore } from "ne-standard-ui";
+import type { ClientStore, PluginEngineContext } from "ne-standard-ui";
 import type { Rect } from "./geometry.ts";
-import { bounds, fitView } from "./geometry.ts";
+import { bounds, fitClearOf, showsAny } from "./geometry.ts";
 import type { CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
-import { FoldedControlAttribute, MinimapAttribute } from "./canvas-dom.ts";
+import { FoldedControlAttribute, MinimapAttribute, percentText, SideAttribute, TopChromeSelector } from "./canvas-dom.ts";
 
 /** What the view reaches on the coordinator: the items and groups on the sheet, and the boxes it measures them by. */
 export type CanvasViewHost = {
@@ -18,8 +18,6 @@ export type CanvasViewHost = {
     nodeExtent(id: string): Rect | null;
 };
 
-/** On a panel of the kind's that takes a column of the viewport's trailing side while it is open — a folding control of the framework's. */
-const SideAttribute = "data-ui-graph-side";
 const GridSelector = ".ui-graph__grid";
 /** How long the view rests before it is kept: a pan or a zoom writes it once it stops, not on every frame of it. */
 const KeepDelay = 250;
@@ -30,6 +28,7 @@ type MinimapPlacement = { readonly scale: number; readonly offsetX: number; read
 export class CanvasView {
     private readonly root: HTMLElement;
     private readonly settings: CanvasSettings;
+    private readonly context: PluginEngineContext;
     private readonly store: ClientStore;
     private readonly host: CanvasViewHost;
 
@@ -46,14 +45,17 @@ export class CanvasView {
     private minimapPlace: MinimapPlacement | null = null;
 
     private zoomValue = 1;
+    // The share the zoom's label last said: a pan writes nothing, and a language switch forgets it so the label is written again.
+    private zoomShare = Number.NaN;
     private panXValue = 0;
     private panYValue = 0;
     private keepTimer: ReturnType<typeof setTimeout> | undefined;
 
-    public constructor(root: HTMLElement, settings: CanvasSettings, store: ClientStore, host: CanvasViewHost) {
+    public constructor(root: HTMLElement, settings: CanvasSettings, context: PluginEngineContext, host: CanvasViewHost) {
         this.root = root;
         this.settings = settings;
-        this.store = store;
+        this.context = context;
+        this.store = context.store;
         this.host = host;
         this.viewport = root.querySelector<HTMLElement>(".ui-graph__viewport")!;
         this.scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
@@ -99,13 +101,28 @@ export class CanvasView {
         this.grid?.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`);
         this.grid?.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`);
 
-        if (this.zoomLabel !== null)
-            this.zoomLabel.textContent = `${Math.round(this.zoomValue * 100)}%`;
-
+        this.drawZoom();
         this.placeMinimapView();
 
         clearTimeout(this.keepTimer);
         this.keepTimer = setTimeout(() => this.keepView(), KeepDelay);
+    }
+
+    /** The zoom's label, written only when the share it says moved. */
+    private drawZoom(): void {
+        const share = Math.round(this.zoomValue * 100);
+
+        if (this.zoomLabel === null || share === this.zoomShare)
+            return;
+
+        this.zoomShare = share;
+        this.zoomLabel.textContent = percentText(this.context, this.zoomLabel, share);
+    }
+
+    /** The page's words changed: the zoom's label is written again in them. */
+    public wordsChanged(): void {
+        this.zoomShare = Number.NaN;
+        this.drawZoom();
     }
 
     /** The view into the browser's store, and the grid's place for the boot script to paint before the engine starts. */
@@ -121,19 +138,43 @@ export class CanvasView {
         });
     }
 
+    /**
+     * Whether the present view shows any of the sheet's nodes. A view kept from before the sheet changed under it — its nodes placed
+     * anew, or another sheet under the same name — can show none of them, and is let go for a fit.
+     */
+    public showsAnyItem(): boolean {
+        const rects = this.host.items().flatMap(item => this.host.nodeRect(item.id) ?? []);
+
+        return showsAny(rects, { zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue }, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight);
+    }
+
     public fit(): void {
         const content = this.contentBounds(true);
 
         if (content === null)
             return;
 
+        const width = this.viewport.clientWidth - this.sideWidth();
         // Never past its own size: a sheet of three nodes blown up to fill the view reads as a mistake, not as the whole of it.
-        const view = fitView(content, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight, this.settings.minZoom, Math.min(1, this.settings.maxZoom));
+        const view = fitClearOf(content, width, this.viewport.clientHeight, this.settings.minZoom, Math.min(1, this.settings.maxZoom), this.topChrome());
 
         this.zoomValue = view.zoom;
         this.panXValue = view.panX;
         this.panYValue = view.panY;
         this.applyView();
+    }
+
+    /** The boxes of the chrome over the sheet's top edge, in the viewport's own pixels; a hidden part measures as nothing and is passed over. */
+    private topChrome(): Rect[] {
+        const origin = this.viewport.getBoundingClientRect();
+        const left = origin.left + this.viewport.clientLeft;
+        const top = origin.top + this.viewport.clientTop;
+
+        return Array.from(this.viewport.querySelectorAll<HTMLElement>(TopChromeSelector), part => {
+            const box = part.getBoundingClientRect();
+
+            return { x: box.left - left, y: box.top - top, width: box.width, height: box.height };
+        });
     }
 
     /** How much of the viewport's trailing side an open side panel (e.g. a production graph's plan) covers; Fit and centering keep to what's left. */
@@ -176,12 +217,14 @@ export class CanvasView {
         this.applyView();
     }
 
-    /** A line's node, or a menu's, chosen and brought to the middle of what the run line and the log leave of the view. */
+    /**
+     * A line's node, or a menu's, brought to the middle of what the run line and the log leave of the view; the focus stays where
+     * the press left it — a panel's name keeps its keys off the sheet.
+     */
     public centerOnRect(rect: Rect, topOffset: number, bottomOffset: number): void {
         this.panXValue = (this.viewport.clientWidth - this.sideWidth()) / 2 - (rect.x + rect.width / 2) * this.zoomValue;
         this.panYValue = topOffset + (this.viewport.clientHeight - topOffset - bottomOffset) / 2 - (rect.y + rect.height / 2) * this.zoomValue;
         this.applyView();
-        this.viewport.focus({ preventScroll: true });
     }
 
     /** Everything the sheet holds, as one rectangle: what Fit fits — with what the nodes wear outside their boxes — and what the map is drawn against. */

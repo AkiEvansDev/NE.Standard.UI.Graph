@@ -247,7 +247,7 @@ export class ProductionEditing {
             // recipe, answered via one of the menu's two commands (dismissed, the link is dropped).
             if (recipe !== null) {
                 this.asked = { from, to, craft: recipe };
-                openNamedMenu(this.services.root, LinkMenuName, at.clientX, at.clientY);
+                openNamedMenu(this.services, LinkMenuName, at.clientX, at.clientY);
                 return;
             }
 

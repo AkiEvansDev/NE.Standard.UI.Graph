@@ -1,6 +1,6 @@
-// The run panel in the canvas's top corner: Run and Run all save the sheet under a run's reason, which the application's save
-// command hands to `UINodeRuns` on the server; Stop raises `run-stop` while a run is on. The server says when a run begins and when
-// it ends (`SetRunningEffect`), so a Run all's many runs read as one.
+// The run panel in the canvas's top corner: Run and Run all save the sheet under a run's reason, which the save command hands to
+// `UINodeRuns`; Stop raises `run-stop` during a run. The server marks a run's start and end (`SetRunningEffect`), so a Run all's many
+// runs read as one.
 
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import type { GraphDocument } from "./model.ts";
@@ -54,6 +54,7 @@ export class NodesRunPanel {
     }
 
     private start(reason: string): void {
+        // The buttons refuse the press while held (the framework's disabled mark); this holds for a caller that clicks them anyway.
         if (this.asked || this.running)
             return;
 
@@ -62,17 +63,20 @@ export class NodesRunPanel {
         this.services.documentState.requestSave(reason);
     }
 
+    /** Each button held or free the framework's way — marked, never `disabled` — so the one the keyboard pressed keeps the focus. */
     private draw(): void {
         const busy = this.asked || this.running;
 
+        const states = this.services.context.states;
+
         if (this.once !== null)
-            this.once.disabled = busy;
+            states.setDisabled(this.once, busy);
 
         if (this.all !== null)
-            this.all.disabled = busy;
+            states.setDisabled(this.all, busy);
 
         if (this.stop !== null)
-            this.stop.disabled = !this.running;
+            states.setDisabled(this.stop, !this.running);
 
         this.services.root.classList.toggle(RunningClass, busy);
     }

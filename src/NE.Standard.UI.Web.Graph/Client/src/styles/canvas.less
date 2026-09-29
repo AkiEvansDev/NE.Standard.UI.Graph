@@ -33,6 +33,9 @@
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
     background: var(--ui-color-background);
+    // An opaque ground of its own: what stands on the sheet reads the page's inks, not those of a filled card the canvas is in.
+    --ui-faint-base: initial;
+    --ui-ground: var(--ui-color-background);
     outline: none;
     touch-action: none;
     // A drag on the canvas moves nodes and draws bands; only an editor's own text is selectable.
@@ -51,8 +54,14 @@
         cursor: crosshair;
     }
 
-    // Opt-in only, and inset rather than the theme's ring: the canvas takes keyboard focus on every press, so an outer ring would flash on every background click.
-    .ui-graph[data-ui-graph-focus-ring] > .ui-graph__viewport:focus-visible {
+    // While the sheet is panned the hand holds it, over whatever the pointer crosses.
+    .ui-graph--panning .ui-graph__viewport,
+    .ui-graph--panning .ui-graph__viewport * {
+        cursor: grabbing;
+    }
+
+    // Opt-in only, inset rather than the theme's ring, and the keyboard's alone: the canvas takes the focus on every press.
+    .ui-graph[data-ui-graph-focus-ring] > .ui-graph__viewport@{ui-keyboard-focus} {
         box-shadow: inset 0 0 0 var(--ui-focus-ring-width, 0) var(--ui-color-focus-ring);
     }
 
@@ -91,27 +100,44 @@
     pointer-events: none;
 }
 
+// An edge is its unpainted path, which the pointer answers and a label is placed along, and its line painted under one group — as
+// straight pieces where it curves or slants (geometry.ts's edgePieces), since Chrome antialiases such a stroked path as a staircase.
+// The path reaches wider than the line so a wire is no two-pixel aim; the nodes stand over the edge layer, so it never takes their press.
 .ui-graph__edge {
     fill: none;
-    stroke: var(--ui-graph-pin-color);
-    stroke-width: 2;
-    stroke-linecap: round;
+    stroke: transparent;
+    stroke-width: 10;
     pointer-events: stroke;
     cursor: pointer;
 }
 
-    .ui-graph__edge[data-ui-graph-selected] {
+// The pieces end flat: with a translucent colour, overlapping ends would show as brighter dots, and a curve's pieces lie so nearly
+// in line that flat ends leave no visible gap. The pieces never answer the pointer; the path under them does.
+.ui-graph__edge-line {
+    fill: none;
+    stroke: var(--ui-graph-pin-color);
+    stroke-width: 2;
+    stroke-linecap: butt;
+    pointer-events: none;
+
+    > path {
+        stroke-linecap: round;
+    }
+}
+
+    // The line answers the pointer on its path, which is the element before it: as thick as a chosen one, so it reads as pressable.
+    .ui-graph__edge:hover + .ui-graph__edge-line,
+    .ui-graph__edge-line[data-ui-graph-selected] {
         stroke-width: 3;
         filter: drop-shadow(0 0 3px var(--ui-graph-pin-color));
     }
 
-    .ui-graph__edge--pending {
+    .ui-graph__edge-line--pending {
         stroke-dasharray: 6 4;
-        pointer-events: none;
     }
 
     // An edge running against the layers is the one a cycle was broken at: dashed, so the part fed back reads as fed back.
-    .ui-graph__edge--back {
+    .ui-graph__edge-line--back {
         stroke-dasharray: 7 5;
     }
 
@@ -120,19 +146,25 @@
     pointer-events: none;
 }
 
-// While the pointer rests on an item, it and what the kind relates to it stay as they are; everything else dims, so the item's
-// surroundings read at a glance.
-.ui-graph--edge-focus .ui-graph__node {
-    opacity: 0.35;
+// While the pointer rests on an item, it and what the kind relates to it stay; everything else dims, so its surroundings read at a
+// glance. The fade sits on the parts rather than the dimmed state, so it fades back out as it came in; a redrawn part starts none.
+.ui-graph__node,
+.ui-graph__edge-line,
+.ui-graph__edge-arrow,
+.ui-graph__edge-label,
+.ui-graph__reroute {
     transition: opacity @ui-motion-fast @ui-motion-ease;
 }
 
-.ui-graph--edge-focus .ui-graph__edge,
+.ui-graph--edge-focus .ui-graph__node {
+    opacity: 0.35;
+}
+
+.ui-graph--edge-focus .ui-graph__edge-line,
 .ui-graph--edge-focus .ui-graph__edge-arrow,
 .ui-graph--edge-focus .ui-graph__edge-label,
 .ui-graph--edge-focus .ui-graph__reroute {
     opacity: 0.18;
-    transition: opacity @ui-motion-fast @ui-motion-ease;
 }
 
 .ui-graph--edge-focus [data-ui-graph-related] {
@@ -190,7 +222,7 @@
         box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
     }
 
-// Positioned, so the rename field can lie over the title; a pinned frame is not dragged, and its band stops saying it can be.
+// Positioned, so the rename field can lie over the title.
 .ui-graph__group-band {
     position: relative;
     display: flex;
@@ -204,9 +236,18 @@
     user-select: none;
 }
 
-    .ui-graph__group[data-ui-graph-pinned] > .ui-graph__group-band {
-        cursor: default;
-    }
+// What a drag will not move stops saying it will: every part of a read-only sheet, and a pinned item or frame. A press there still
+// chooses, so the hand says that; a reroute point on a wire chooses nothing — pressed on a read-only sheet, it pans.
+.ui-graph.ui-readonly :is(.ui-graph__node-head, .ui-graph__node--compact, .ui-graph__card, .ui-graph__bubble, .ui-graph__craft, .ui-graph__group-band),
+.ui-graph__node[data-ui-graph-pinned]:is(.ui-graph__node--compact, .ui-graph__card, .ui-graph__bubble, .ui-graph__craft),
+.ui-graph__node[data-ui-graph-pinned] > .ui-graph__node-head,
+.ui-graph__group[data-ui-graph-pinned] > .ui-graph__group-band {
+    cursor: pointer;
+}
+
+.ui-graph.ui-readonly .ui-graph__reroute {
+    cursor: inherit;
+}
 
 .ui-graph__group-title {
     min-width: 0;
@@ -260,6 +301,7 @@
     flex-direction: column;
     align-items: flex-end;
     gap: @ui-space-1;
+    // In step with what it stands on — a log opening under it moves at the same pace.
     transition: bottom @ui-motion-fast @ui-motion-ease;
 }
 
@@ -343,6 +385,18 @@
         display: none;
     }
 
+    // Folded, the switch is the whole block — the frame's padding taken into it, the block no bigger — so the wash under the pointer
+    // reaches the frame rather than stopping short of it.
+    .ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding]) {
+        padding: 0;
+
+        > .ui-collapsible__toggle {
+            width: calc(1.75rem + 2 * @ui-space-1);
+            height: calc(1.75rem + 2 * @ui-space-1);
+            border-radius: calc(var(--ui-radius-card) - var(--ui-border-width));
+        }
+    }
+
 .ui-graph__bar {
     display: flex;
     align-items: center;
@@ -392,4 +446,93 @@
 // The bar's three are the framework's own small ghost buttons.
 .ui-graph__bar-button > .ui-icon {
     font-size: @ui-glyph-md;
+}
+
+// --- a button that is only what it holds -------------------------------------------------------------------------------------
+
+// The browser's own frame, ground, type, margin and padding taken off a button, which answers the pointer with its hand; each use
+// adds what it is — a head mark, a picker's entry, a panel's switch, a log line's node.
+.ui-graph-bare-button() {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+// --- a panel over the sheet's trailing side ----------------------------------------------------------------------------------
+// The production graph's plan and the node canvas's parameters: a card over the trailing side, folded to its switch by the
+// framework's collapsible (`ui-collapsible`), its body scrolling under the switch. A kind places (`top`), sizes and shows it.
+
+.ui-graph-side-panel(@width; @body) {
+    position: absolute;
+    right: @ui-space-2;
+    z-index: 3;
+    flex-direction: column;
+    width: @width;
+    max-width: calc(100% - 2 * @ui-space-2);
+    gap: 0;
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-card);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-on-surface);
+    font-size: var(--ui-text-caption-font-size);
+    cursor: default;
+    user-select: text;
+    .ui-elevation-1();
+
+    // Folded, and the slide over: the body goes, and the framework's own rule has the panel as wide as its switch.
+    &[data-ui-collapsed]:not([data-ui-folding]) > @{body} {
+        display: none;
+    }
+
+    // While it slides the body keeps the open panel's width, so its lines do not wrap again on every frame.
+    &[data-ui-folding] > @{body} {
+        flex: 0 0 auto;
+        width: calc(@width - 2 * var(--ui-border-width));
+    }
+}
+
+.ui-graph-side-toggle() {
+    .ui-graph-bare-button();
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.375rem;
+    padding: @ui-space-2 @ui-space-3;
+    border-radius: 0;
+    font-weight: 600;
+    white-space: nowrap;
+
+    // The keyboard's focus takes the brand's colour; the ring is the framework's own (reset.less).
+    &@{ui-keyboard-focus} {
+        color: var(--ui-color-primary);
+    }
+}
+
+// The switch's chevron points down while the panel is open, and along the switch once folded.
+.ui-graph-side-chevron(@panel) {
+    .ui-glyph-host();
+    font-size: @ui-glyph-sm;
+    transform: rotate(90deg);
+    transition: transform @ui-motion-fast @ui-motion-ease;
+
+    @{panel}[data-ui-collapsed] & {
+        transform: none;
+    }
+}
+
+.ui-graph-side-body() {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: @ui-space-2;
+    min-height: 0;
+    padding: 0 @ui-space-3 @ui-space-3;
+    overflow: hidden auto;
+    // A holder of the keyboard, as a dialog's surface is: it takes the focus back from a field, and wears no ring for it.
+    outline: none;
 }

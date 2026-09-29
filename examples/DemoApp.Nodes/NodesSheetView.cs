@@ -10,6 +10,12 @@ internal abstract class NodesSheetView : NodesDemoView
     public const string RunEntryKey = "run";
     public const string PositionEntryKey = "show-position";
 
+    // The canvas's least height, in rem; its row holds the same floor in pixels.
+    private const double CanvasHeight = 24;
+
+    /// <summary>The page's canvas, by the id its controller addresses it with.</summary>
+    protected abstract string CanvasId { get; }
+
     /// <summary>The kinds the page's canvas offers and draws a sheet with.</summary>
     protected abstract UINodeCatalog Kinds { get; }
 
@@ -17,51 +23,53 @@ internal abstract class NodesSheetView : NodesDemoView
         => Page(new ContainerComponent()
             .SetHeight(UILayoutLength.Fill())
             .SetRow(1, UIGridUnit.Auto())
-            .AddRow(UIGridUnit.Star())
+            // The canvas takes what the page leaves and never less than its floor; where the rows and the floor do not fit, the page
+            // grows past the screen (NodesDemoView.CreateContent) and scrolls, every row at its own height.
+            .AddRow(UIGridUnit.Star(min: CanvasHeight * 16))
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             // Every control in the row is one line tall and centred on the same line: a caption above a field would raise that
-            // field's middle above its neighbours', so the select wears its caption beside it, as the switches do.
-            .AddChild(new StackPanelComponent()
-                .SetOrientation(UIOrientation.Horizontal)
-                .SetSpacing(16)
+            // field's middle above its neighbours', so the select wears its caption beside it, as the switches do. The row wraps, the
+            // list kept with its caption, so a narrow page takes the switches and the button under it.
+            .AddChild(UILayout.Row(16,
+                    UILayout.Row(8,
+                        UIText.Body("nodes.edges").SetVerticalAlignment(UIAlignment.Center),
+                        new SelectComponent()
+                            .SetOptions([
+                                new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "nodes.edges.curved" },
+                                new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "nodes.edges.straight" },
+                                new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "nodes.edges.stepped" }
+                            ])
+                            .BindValue(nameof(NodesSheetController.EdgeShape))
+                            .SetWidth(UILayoutLength.Absolute(160))
+                            .SetVerticalAlignment(UIAlignment.Center)
+                    ),
+                    new SwitchComponent()
+                        .SetTitle("nodes.snap")
+                        .BindValue(nameof(NodesSheetController.SnapToGrid))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new SwitchComponent()
+                        .SetTitle("nodes.read-only")
+                        .BindValue(nameof(NodesSheetController.ReadOnly))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new ButtonComponent()
+                        .SetTitle("nodes.reset")
+                        .SetType(UIButtonType.Outline)
+                        .OnClick(nameof(NodesSheetController.Reset))
+                        .SetVerticalAlignment(UIAlignment.Center)
+                )
                 .SetMargin(UIThickness.All(0, 0, 0, 12))
-                .AddChild(UIText.Body("Edges").SetVerticalAlignment(UIAlignment.Center))
-                .AddChild(new SelectComponent()
-                    .SetOptions([
-                        new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "Curved" },
-                        new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "Straight" },
-                        new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "Stepped" }
-                    ])
-                    .BindValue(nameof(NodesSheetController.EdgeShape))
-                    .SetWidth(UILayoutLength.Absolute(160))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SwitchComponent()
-                    .SetTitle("Snap to grid")
-                    .BindValue(nameof(NodesSheetController.SnapToGrid))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new SwitchComponent()
-                    .SetTitle("Read only")
-                    .BindValue(nameof(NodesSheetController.ReadOnly))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
-                .AddChild(new ButtonComponent()
-                    .SetTitle("Reset")
-                    .SetType(UIButtonType.Outline)
-                    .OnClick(nameof(NodesSheetController.Reset))
-                    .SetVerticalAlignment(UIAlignment.Center)
-                )
                 .SetPlacement(1, 1, 24, 1)
             )
-            .AddChild(new NodesComponent(NodesSheetController.CanvasId)
+            .AddChild(new NodesComponent(CanvasId)
                 .SetCatalog(Kinds)
-                .SetCanvasHeight(24)
+                .SetCanvasHeight(CanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetShowMinimap(true)
                 // Run, Run all and Stop in the canvas's top corner; the save command hands a run's save to the package's UINodeRuns.
                 .SetShowRunPanel(true)
+                // Under the run panel: the inputs set out from a pin's menu, edited there as well as on their nodes.
+                .SetShowParameters(true)
                 .OnStop(nameof(NodesSheetController.Stop))
                 // Held in the browser until a save sends it: the sheet is the viewer's until then.
                 .SetFormId(NodesSheetController.CanvasForm)
@@ -69,21 +77,9 @@ internal abstract class NodesSheetView : NodesDemoView
                 .BindEdgeShape(nameof(NodesSheetController.EdgeShape))
                 .BindSnapToGrid(nameof(NodesSheetController.SnapToGrid))
                 .BindIsReadOnly(nameof(NodesSheetController.ReadOnly))
-                .SetCommandIcon(UIGraphCommands.AddNode, NodesIcons.AddNode)
-                .SetCommandIcon(UIGraphCommands.DeleteSelection, NodesIcons.Delete)
-                .SetCommandIcon(UIGraphCommands.GroupSelection, NodesIcons.Group)
-                .SetCommandIcon(UIGraphCommands.Arrange, NodesIcons.Arrange)
-                .SetCommandIcon(UIGraphCommands.Fit, NodesIcons.Fit)
-                .SetCommandIcon(UIGraphCommands.Save, NodesIcons.Save)
-                .SetCommandIcon(UIGraphCommands.Pin, NodesIcons.Pin)
-                .SetCommandIcon(UIGraphCommands.Rename, NodesIcons.Rename)
-                .SetCommandIcon(UIGraphCommands.Color, NodesIcons.Color)
-                .SetCommandIcon(UIGraphCommands.DeleteEdge, NodesIcons.Delete)
-                .SetCommandIcon(UIGraphCommands.AddReroute, NodesIcons.Reroute)
-                .SetCommandIcon(UIGraphCommands.ResetState, NodesIcons.Reset)
-                .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "Run the sheet", Icon = NodesIcons.Run })
+                .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "nodes.run-sheet", Icon = NodesIcons.Run })
                 // An entry of the page's own in a node's menu, under the canvas's: the command hears which node.
-                .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "[test] Show node position", Icon = NodesIcons.Position })
+                .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "nodes.show-position", Icon = NodesIcons.Position })
                 .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"), UIGraphArguments.Target("target"))
                 .OnSave(nameof(NodesSheetController.SaveAsync), UIGraphArguments.Reason("reason"))
                 .OnImageUpload(nameof(NodesSheetController.ImageUploadedAsync))

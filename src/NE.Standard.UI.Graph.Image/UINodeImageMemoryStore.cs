@@ -11,13 +11,14 @@ using NE.Standard.UI.Shell.Files;
 namespace NE.Standard.UI.Graph.Image;
 
 /// <summary>
-/// An image store in memory, which also serves what it keeps through the framework's content endpoint: enough for a demo or a
-/// tool whose pictures need not outlive the process. A picture is kept under the hash of what it is, so the same file written
-/// twice — a file loaded again, a node run again on it — is one picture at one address, and the nodes below it are handed on
-/// from <see cref="UINodeRunCache"/> rather than run. With no <see cref="MaxBytes"/> it keeps every picture until the process
-/// ends; a run of all over a folder keeps each picture it made. An application that keeps its pictures elsewhere, or for longer,
-/// implements <see cref="IUINodeImageStore"/> on its own store instead.
+/// An in-memory picture store that also serves what it keeps — for a demo or a tool whose pictures need not outlive the process.
 /// </summary>
+/// <remarks>
+/// Kept by the hash of what it is, so the same file written twice is one picture at one address, and <see cref="UINodeRunCache"/>
+/// hands the nodes below it on rather than running them. With no <see cref="MaxBytes"/> it keeps every picture until the process
+/// ends — for a run of all over a folder, each one it made. An application keeping its pictures elsewhere, or for longer,
+/// implements <see cref="IUINodeImageStore"/> on its own store.
+/// </remarks>
 public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvider
 {
     private readonly Lock _sync = new();
@@ -38,13 +39,12 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
     }
 
     /// <summary>
-    /// Gets the most bytes the store keeps; past it, the pictures used longest ago are let go, and their addresses answer nothing.
-    /// Unset, it keeps every picture.
+    /// Gets the most bytes the store keeps, past which the pictures used longest ago are let go; unset, it keeps every picture.
     /// </summary>
     /// <remarks>
-    /// A runner's <see cref="UINodeRunCache"/> hands on a node's last outputs without asking the store, so a picture let go under
-    /// the cap can still be handed on by address: the kind below it fails on a picture the store no longer holds, and the failure
-    /// makes the next run make everything above it afresh. Where the cap is tight, run without a cache.
+    /// A runner's <see cref="UINodeRunCache"/> hands on a node's last outputs without asking the store, so a picture let go can
+    /// still be handed on by address; the kind below it fails on it, and the next run makes everything above it afresh. Where the
+    /// cap is tight, run without a cache.
     /// </remarks>
     public long? MaxBytes { get; init; }
 
@@ -113,10 +113,11 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
         return ValueTask.FromResult(_addresses.AddressOf(key));
     }
 
-    /// <summary>
-    /// The key a picture is kept under: the hash of its bytes, its type and its name, since a save takes the name the picture came
-    /// with, so two files alike but for their names are two pictures.
-    /// </summary>
+    /// <summary>The key a picture is kept under: the hash of its bytes, its type and its name.</summary>
+    /// <remarks>
+    /// The name counts because a save takes the name the picture came with, so two files alike but for their names are two
+    /// pictures.
+    /// </remarks>
     private static string KeyOf(UINodeImageFile file)
     {
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

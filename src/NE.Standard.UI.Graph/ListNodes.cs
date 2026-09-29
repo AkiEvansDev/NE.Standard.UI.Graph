@@ -6,10 +6,8 @@ using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// One item of a list, by its place: 0 the first, and below zero counted from the end, -1 the last. A place past either end finds
-/// nothing, which <see cref="Found"/> says, rather than failing the run.
-/// </summary>
+/// <summary>One item of a list, by its place: 0 the first, and below zero counted from the end, -1 the last.</summary>
+/// <remarks>A place past either end finds nothing, which <see cref="Found"/> says, rather than failing the run.</remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Item at", Description = "One item of a list, by its place.", Icon = UIGlyphs.ListNumbered, Color = UINodeKinds.AnyColor)]
 public sealed class ItemAtNode : IGraphNode
 {
@@ -65,11 +63,12 @@ public sealed class ListCountNode : IGraphNode
         => Count = List.Length;
 }
 
-/// <summary>
-/// The items of a list, one a run, in order. Where it stands in the list is kept in the document and shown on the node, and its reset
-/// puts it back to the first; after the last it starts over, or it ends a run of all. Its <see cref="Wrapped"/> wired into a counter's
-/// or another list's <see cref="Advance"/> makes a loop inside a loop, as counters do.
-/// </summary>
+/// <summary>The items of a list, one a run, in order.</summary>
+/// <remarks>
+/// Where it stands in the list is kept in the document and shown on the node, and its reset puts it back to the first; after the
+/// last it starts over, or it ends a run of all. Its <see cref="Wrapped"/> wired into a counter's or another list's
+/// <see cref="Advance"/> makes a loop inside a loop, as counters do.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "For each", Description = "Hands out a list's items, one a run.", Icon = UIGlyphs.Repeat, Color = UINodeKinds.AnyColor)]
 public sealed class ForEachNode : IGraphNode, IGraphNodeSequence
 {
@@ -147,12 +146,12 @@ public sealed class ForEachNode : IGraphNode, IGraphNodeSequence
     }
 }
 
-/// <summary>
-/// A list put in order, least first unless asked otherwise: numbers by their value, whole or not; texts character by character, as
-/// every text kind compares them, a capital and a small letter as one if asked; dates by the clock they read. Items of different
-/// kinds stand apart, in that order — yes-or-noes before numbers, numbers before dates, dates before texts — and items that come out
-/// the same keep the order they had.
-/// </summary>
+/// <summary>A list put in order, least first unless asked otherwise.</summary>
+/// <remarks>
+/// Numbers by their value, whole or not; texts character by character, as every text kind compares them, a capital and a small
+/// letter as one if asked; dates by the clock they read. Items of different kinds stand apart, in that order — yes-or-noes before
+/// numbers, numbers before dates, dates before texts — and items that come out the same keep the order they had.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Sort", Description = "Puts a list's items in order.", Icon = UIGlyphs.Sorted, Color = UINodeKinds.AnyColor)]
 public sealed class SortNode : IGraphNode
 {

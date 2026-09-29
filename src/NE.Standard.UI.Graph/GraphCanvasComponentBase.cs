@@ -6,14 +6,13 @@ using NE.Standard.UI.Components.BuiltIns.Models;
 using NE.Standard.UI.Components.BuiltIns.Navigation;
 using NE.Standard.UI.Components.Foundation.Inputs;
 using NE.Standard.UI.Primitives.Annotations;
+using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// The base for a canvas component whose value is the whole document, committed by a save. Provides the view settings, menus and
-/// colour choices every kind of canvas shares — item drawing is the kind's own.
-/// </summary>
+/// <summary>The base for a canvas component whose value is the whole document, committed by a save.</summary>
+/// <remarks>Provides the view settings, menus and colour choices every kind of canvas shares; item drawing is the kind's own.</remarks>
 public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent
     where T : GraphCanvasComponentBase<T, TDocument>, IUIComponentDefinition
 {
@@ -21,44 +20,43 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     // names its own with SetColorChoices.
     private static readonly UIGraphColorChoice[] DefaultColorChoices =
     [
-        new("Blue", "var(--ui-color-series-1)"),
-        new("Amber", "var(--ui-color-series-2)"),
-        new("Green", "var(--ui-color-series-3)"),
-        new("Rose", "var(--ui-color-series-4)"),
-        new("Purple", "var(--ui-color-series-5)"),
-        new("Cyan", "var(--ui-color-series-6)"),
-        new("Bronze", "var(--ui-color-series-7)"),
-        new("Fern", "var(--ui-color-series-8)")
+        new(UIGraphWords.Blue, "var(--ui-color-series-1)"),
+        new(UIGraphWords.Amber, "var(--ui-color-series-2)"),
+        new(UIGraphWords.Green, "var(--ui-color-series-3)"),
+        new(UIGraphWords.Rose, "var(--ui-color-series-4)"),
+        new(UIGraphWords.Purple, "var(--ui-color-series-5)"),
+        new(UIGraphWords.Cyan, "var(--ui-color-series-6)"),
+        new(UIGraphWords.Bronze, "var(--ui-color-series-7)"),
+        new(UIGraphWords.Fern, "var(--ui-color-series-8)")
     ];
 
-    // Every entry the package put in any of its menus, so SetCommandIcon dresses a command wherever it stands.
+    // Every entry the package put in any of its menus, so SetCommandIcon replaces a command's glyph wherever it stands.
     private readonly List<MenuItem> _builtIn = [];
     private readonly Dictionary<string, IVisualComponent> _regions;
 
     protected GraphCanvasComponentBase(string? id = null) : base(id)
     {
-        // Icons come from an application's registered pack — SetCommandIcon assigns them; none are built in.
-        // The corner menu: folds to its switch, opens over the sheet.
+        // Every built-in entry wears one of the framework's own glyphs, so no icon pack is needed; SetCommandIcon replaces one.
         Menu = new MenuComponent()
             .SetShowCollapseToggle(true)
             .SetExpanded(false)
             .SetMinWidth(UILayoutLength.Absolute(220))
             .AddItems(
             [
-                Entry(UIGraphCommands.Arrange, "Arrange"),
-                Entry(UIGraphCommands.Fit, "Fit to content"),
+                Entry(UIGraphCommands.Arrange, UIGraphWords.Arrange, UIGlyphs.Sort),
+                Entry(UIGraphCommands.Fit, UIGraphWords.Fit, UIGlyphs.Fit),
                 Separator(),
-                Entry(UIGraphCommands.Save, "Save", "Ctrl+S")
+                Entry(UIGraphCommands.Save, UIGraphWords.Save, UIGlyphs.Save, "Ctrl+S")
             ]);
 
         // What a right press on the empty surface offers is editing the sheet: a run or a save is the corner menu's.
         CanvasMenu = new MenuComponent().AddItems(
         [
-            Entry(UIGraphCommands.GroupSelection, "Group selection"),
-            Entry(UIGraphCommands.DeleteSelection, "Delete selection"),
+            Entry(UIGraphCommands.GroupSelection, UIGraphWords.GroupSelection, UIGlyphs.AspectRatio),
+            Entry(UIGraphCommands.DeleteSelection, UIGraphWords.DeleteSelection, UIGlyphs.Delete),
             Separator(),
-            Entry(UIGraphCommands.Arrange, "Arrange"),
-            Entry(UIGraphCommands.Fit, "Fit to content")
+            Entry(UIGraphCommands.Arrange, UIGraphWords.Arrange, UIGlyphs.Sort),
+            Entry(UIGraphCommands.Fit, UIGraphWords.Fit, UIGlyphs.Fit)
         ]);
 
         ColorChoices = DefaultColorChoices;
@@ -66,7 +64,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         GroupMenu = new MenuComponent().AddItems(ItemEntries());
 
         // Delete is every edge's; what else an edge's menu offers is the kind's, put ahead of it.
-        EdgeMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.DeleteEdge, "Delete")]);
+        EdgeMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.DeleteEdge, UIGraphWords.DeleteEdge, UIGlyphs.Delete)]);
 
         _regions = new Dictionary<string, IVisualComponent>(StringComparer.Ordinal)
         {
@@ -83,14 +81,14 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// <summary>What an item's menu and a group's menu both hold — built once for each, since an entry stands in one menu only.</summary>
     private MenuItem[] ItemEntries()
     {
-        MenuItem color = Entry(UIGraphCommands.Color, "Color", kind: UIMenuItemKind.Select);
+        MenuItem color = Entry(UIGraphCommands.Color, UIGraphWords.Color, UIGlyphs.Colorize, kind: UIMenuItemKind.Select);
 
         FillColorChoices(color);
 
         return
         [
-            Entry(UIGraphCommands.Pin, "Pinned", kind: UIMenuItemKind.Check),
-            Entry(UIGraphCommands.Rename, "Rename"),
+            Entry(UIGraphCommands.Pin, UIGraphWords.Pinned, UIGlyphs.Pin, kind: UIMenuItemKind.Check),
+            Entry(UIGraphCommands.Rename, UIGraphWords.Rename, UIGlyphs.Edit),
             color
         ];
     }
@@ -99,7 +97,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     private void FillColorChoices(MenuItem color)
     {
         color.Items.Clear();
-        color.Items.Add(new MenuItem { Id = UIGraphCommands.DefaultColor, Title = "Default", Kind = UIMenuItemKind.Check });
+        color.Items.Add(new MenuItem { Id = UIGraphCommands.DefaultColor, Title = UIGraphWords.DefaultColor, Kind = UIMenuItemKind.Check });
 
         UIGraphColorChoice[] choices = ColorChoices ?? [];
 
@@ -198,9 +196,10 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public bool? HighlightOnHover { get; set; }
 
     /// <summary>
-    /// Gets or sets whether every edit is saved as it is made — the save event raised with <see cref="UIGraphArguments.AutoSaveReason"/>
-    /// — for a page whose document is the application's at once rather than the viewer's until Ctrl+S. Off by default.
+    /// Gets or sets whether every edit is saved as it is made, the save event raised with
+    /// <see cref="UIGraphArguments.AutoSaveReason"/>.
     /// </summary>
+    /// <remarks>For a page whose document is the application's at once rather than the viewer's until Ctrl+S. Off by default.</remarks>
     [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = false)]
     public bool? AutoSave { get; set; }
 
@@ -284,9 +283,10 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     }
 
     /// <summary>
-    /// Dresses the canvas's own entries of one command with an icon, in every menu that has it — see <see cref="UIGraphCommands"/>
-    /// for the keys.
+    /// Replaces the framework glyph of the canvas's own entries of one command with an application's icon, in every menu that has
+    /// it.
     /// </summary>
+    /// <remarks>See <see cref="UIGraphCommands"/> for the keys.</remarks>
     public T SetCommandIcon(string command, string icon)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
@@ -409,10 +409,10 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
             _ = _regions.Remove(name);
     }
 
-    /// <summary>One of the canvas's own menu entries, remembered so SetCommandIcon can dress it.</summary>
-    protected MenuItem Entry(string key, string title, string? shortcut = null, UIMenuItemKind kind = UIMenuItemKind.Item)
+    /// <summary>One of the canvas's own menu entries, in one of the framework's glyphs; remembered so SetCommandIcon can replace it.</summary>
+    protected MenuItem Entry(string key, string title, string icon, string? shortcut = null, UIMenuItemKind kind = UIMenuItemKind.Item)
     {
-        MenuItem entry = new() { Id = key, Title = title, Shortcut = shortcut, Kind = kind };
+        MenuItem entry = new() { Id = key, Title = title, Icon = icon, Shortcut = shortcut, Kind = kind };
 
         _builtIn.Add(entry);
         return entry;

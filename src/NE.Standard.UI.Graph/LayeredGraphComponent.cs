@@ -2,13 +2,14 @@ using System.Collections.Generic;
 using NE.Standard.UI.Abstractions.Binding;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Primitives.Annotations;
+using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// A graph of the application's nodes and their links, laid out in layers, with cycle-back edges drawn as backward edges. Items is
-/// a bound collection; a node the viewer has not placed is positioned by the layout.
+/// A graph of the application's nodes and their links, laid out in layers, with cycle-back edges drawn as backward edges.
 /// </summary>
+/// <remarks>Items is a bound collection; a node the viewer has not placed is positioned by the layout.</remarks>
 public abstract partial class LayeredGraphComponent<T> : LayeredGraphComponentBase<T, UIGraphDocument>, IBindableItemsComponent
     where T : LayeredGraphComponent<T>, IUIComponentDefinition
 {
@@ -17,8 +18,8 @@ public abstract partial class LayeredGraphComponent<T> : LayeredGraphComponentBa
     protected LayeredGraphComponent(string? id = null) : base(id)
     {
         // Add node is the structure's, so it is offered — and enabled only while the graph lets its structure be edited.
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, "Add node"), Separator());
-        PrependEntries(EdgeMenu, Entry(UIGraphCommands.Caption, "Caption"));
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add), Separator());
+        PrependEntries(EdgeMenu, Entry(UIGraphCommands.Caption, UIGraphWords.Caption, UIGlyphs.TextFields));
     }
 
     /// <summary>
@@ -45,8 +46,6 @@ public abstract partial class LayeredGraphComponent<T> : LayeredGraphComponentBa
 /// </summary>
 public sealed class LayeredGraphComponent(string? id = null) : LayeredGraphComponent<LayeredGraphComponent>(id), IUIComponentDefinition
 {
-    /// <summary>
-    /// Gets the component type key used to identify this component in the compiled graph.
-    /// </summary>
+    /// <inheritdoc/>
     public static string ComponentTypeKey => "graph.canvas.layered";
 }

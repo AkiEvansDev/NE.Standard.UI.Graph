@@ -1,6 +1,6 @@
-// The production graph as a kind of canvas: resources as nodes, crafts as junctions (or, for a sole maker, collapsed onto its
-// edges), edges per ingredient/product labelled with amounts, laid out in layers. Put to planning, the same sheet draws the plan
-// instead — crafts that run, totals in place of run numbers, targets marked — with the panel beside it (`plan-panel.ts`).
+// The production graph as a kind of canvas: resources as nodes, crafts as junctions (a sole maker collapsed onto its edges), edges
+// per ingredient or product labelled with amounts, laid out in layers. Planning, the same sheet draws the plan — running crafts,
+// totals for run numbers, targets marked — beside its panel (`plan-panel.ts`).
 
 import { chainOf } from "../graph/chain.ts";
 import type { CollectionChange } from "ne-standard-ui";
@@ -267,6 +267,10 @@ export class ProductionKind implements CanvasKind {
         return card;
     }
 
+    public wordsChanged(): void {
+        this.panel.wordsChanged();
+    }
+
     public itemsDrawn(): void {
         this.sheet.itemsDrawn();
     }
@@ -404,6 +408,7 @@ export class ProductionKind implements CanvasKind {
         for (const link of recipe)
             this.services.selection.toggleEdge(link.id, true);
 
+        // The keyboard stays where it was — on the row's name, a button — as a log line's or a parameter's name keeps it.
         this.services.view.centerOnRect(rect, 0, 0);
         this.services.draw();
     }
@@ -552,24 +557,24 @@ export class ProductionKind implements CanvasKind {
         const conflict = editable && this.conflictOf(target) !== null;
 
         // A conflict's two answers stand in the menu only of an entry that has one.
-        showMenuEntries(this.services.root, "graph:take-server", conflict);
-        showMenuEntries(this.services.root, "graph:keep-mine", conflict);
+        showMenuEntries(this.services, "graph:take-server", conflict);
+        showMenuEntries(this.services, "graph:keep-mine", conflict);
         const craft = target?.kind === "node" && this.entryById.get(target.id)?.kind === "craft";
         const recipe = target?.kind === "edge" && this.linkById.get(target.id)?.role === "recipe";
 
         for (const key of [AddCommand, AmountCommand, DeleteEdgeCommand])
-            enableMenuEntries(this.services.root, key, allowed);
+            enableMenuEntries(this.services, key, allowed);
 
         const planned = this.planning && target?.kind === "node" && this.resource(target.id) !== undefined;
         const made = planned && this.isMade(target.id);
 
         // A plan's own entries stand only in the menu of a graph that plans: a target on any resource, Brought in on one something makes.
-        showMenuEntries(this.services.root, TargetCommand, planned);
-        showMenuEntries(this.services.root, BoughtCommand, made);
-        enableMenuEntries(this.services.root, TargetCommand, editable && planned);
-        enableMenuEntries(this.services.root, BoughtCommand, editable && made);
-        checkMenuEntries(this.services.root, BoughtCommand, made && (this.document.plan.bought ?? []).includes(target.id));
-        enableMenuEntries(this.services.root, OutputCommand, allowed && recipe);
-        enableMenuEntries(this.services.root, TimeCommand, allowed && (craft || recipe));
+        showMenuEntries(this.services, TargetCommand, planned);
+        showMenuEntries(this.services, BoughtCommand, made);
+        enableMenuEntries(this.services, TargetCommand, editable && planned);
+        enableMenuEntries(this.services, BoughtCommand, editable && made);
+        checkMenuEntries(this.services, BoughtCommand, made && (this.document.plan.bought ?? []).includes(target.id));
+        enableMenuEntries(this.services, OutputCommand, allowed && recipe);
+        enableMenuEntries(this.services, TimeCommand, allowed && (craft || recipe));
     }
 }

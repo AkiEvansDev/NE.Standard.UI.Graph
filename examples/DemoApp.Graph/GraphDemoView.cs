@@ -6,8 +6,8 @@ using System.Text;
 namespace DemoApp.Graph;
 
 /// <summary>
-/// What every page of the demo wears: the title band with the theme switcher, the sidebar naming the pages, and the page filling
-/// what is left. The planner's pages first — an application on the production graph — then the layered graph's page; the node
+/// What every page of the demo wears: the title band with the language and theme switchers, the sidebar naming the pages, and the
+/// page filling what is left. The planner's pages first — an application on the production graph — then the layered graph's page; the node
 /// canvas is a demo of its own, DemoApp.Nodes.
 /// </summary>
 public abstract class GraphDemoView : UIViewBase
@@ -30,11 +30,11 @@ public abstract class GraphDemoView : UIViewBase
     // A route of null is a heading over the pages below it.
     private static readonly (string? Route, string Label)[] Pages =
     [
-        (null, "Planner"),
-        (ResourcesRoute, "Resources"),
-        (BuildsRoute, "Builds"),
-        (null, "Components"),
-        (GraphRoute, "Graph")
+        (null, "planner.nav.planner"),
+        (ResourcesRoute, "planner.page.resources"),
+        (BuildsRoute, "planner.page.builds"),
+        (null, "planner.nav.components"),
+        (GraphRoute, "planner.page.graph")
     ];
 
     /// <summary>The title band and the sidebar stand, the sidebar from the top of the page; the content scrolls by itself.</summary>
@@ -45,8 +45,9 @@ public abstract class GraphDemoView : UIViewBase
     protected abstract string Description { get; }
 
     /// <summary>
-    /// The page band from the preset, with a sample page's source behind a button before the theme switcher; the switcher is on every
-    /// page, since the theme is the framework's state. The planner's pages are an application, not a sample, and show no source.
+    /// The page band from the preset, with a sample page's source behind a button before the language and theme switchers; the
+    /// switchers are on every page, since both are the framework's state. The planner's pages are an application, not a sample, and
+    /// show no source.
     /// </summary>
     /// <remarks>The page is asked for twice, here for its source and in the content for itself: a component has one owner, so the two
     /// cannot share one build.</remarks>
@@ -57,8 +58,8 @@ public abstract class GraphDemoView : UIViewBase
             .SetDarkIcon(MaterialIcons.Outlined(DarkIcon));
 
         return CreatePage().Code is { } code
-            ? UIPage.Header(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), theme)
-            : UIPage.Header(Title, Description, theme);
+            ? UIPage.Header(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), new LanguageSwitcherComponent(), theme)
+            : UIPage.Header(Title, Description, new LanguageSwitcherComponent(), theme);
     }
 
     /// <summary>
@@ -78,7 +79,7 @@ public abstract class GraphDemoView : UIViewBase
                 .SetType(UIButtonType.Ghost)
                 .SetSize(UIButtonSize.Small)
                 .SetIcon(MaterialIcons.Outlined(CodeIcon))
-                .SetTooltip("Code")
+                .SetTooltip("planner.code")
             )
             .SetContent(new ContainerComponent()
                 .SetWidth(UILayoutLength.Absolute(640))
@@ -98,7 +99,7 @@ public abstract class GraphDemoView : UIViewBase
                     .SetType(UIButtonType.Ghost)
                     .SetSize(UIButtonSize.Small)
                     .SetIcon(MaterialIcons.Outlined(CopyIcon))
-                    .SetTooltip("Copy")
+                    .SetTooltip("planner.copy")
                     .SetHorizontalAlignment(UIAlignment.End)
                     .SetVerticalAlignment(UIAlignment.Start)
                     // Clear of the text's vertical scrollbar, which runs down the same edge once the source is longer than the box.
@@ -218,11 +219,22 @@ public abstract class GraphDemoView : UIViewBase
             );
     }
 
-    /// <summary>The content fills the region it scrolls in, so a canvas takes the whole height.</summary>
+    /// <summary>
+    /// The page's height where it keeps to the region and scrolls its own panes, as an application whose panes each fill the page
+    /// does; where none (Auto, or null), the page grows past the region when it is taller, and the region scrolls it.
+    /// </summary>
+    protected virtual UIResponsive<UILayoutLength>? PageHeight => UILayoutLength.Fill();
+
+    /// <summary>
+    /// The content fills at least the region it scrolls in, so a canvas takes the whole height; kept to it where the page says
+    /// (<see cref="PageHeight"/>), else grown past it by a page taller than the region, which then scrolls rather than squeezing the
+    /// page's rows.
+    /// </summary>
     protected override IVisualComponent CreateContent()
         => new ContainerComponent()
             .SetPadding(UIThickness.All(24, 4, 24, 24))
-            .SetHeight(UILayoutLength.Fill())
+            .SetHeight(PageHeight)
+            .SetMinHeight(UILayoutLength.Fill())
             .AddChild(CreatePage().Content);
 
     /// <summary>The page's own content, filling the container it is given, with its source when it is a sample.</summary>

@@ -70,7 +70,7 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
     // One node's status, addressed by the canvas and the node's id: state, progress and a message, never a patch of the document.
     api.registerEffect({
         kind: StatusEffectKind,
-        handler: context => withNodes(context, (kind, nodeId, effect) => kind.setStatus(nodeId, effect.state ?? "Idle", typeof effect.progress === "number" ? effect.progress : null, typeof effect.message === "string" ? effect.message : null))
+        handler: context => withNodes(context, (kind, nodeId, effect) => kind.setStatus(nodeId, effect.state ?? "Idle", typeof effect.progress === "number" ? effect.progress : null, effect.message ?? null))
     });
 
     // What a display pin shows, and what a picture pin was finally stored as: both addressed the same way the status is.
@@ -87,7 +87,7 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
     // A line of a run's log, addressed by the canvas and the node it came from; a click on it takes the view to that node.
     api.registerEffect({
         kind: LogEffectKind,
-        handler: context => withNodes(context, (kind, nodeId, effect) => kind.addLog(nodeId, String(effect.level ?? "Info"), String(effect.message ?? "")))
+        handler: context => withNodes(context, (kind, nodeId, effect) => kind.addLog(nodeId, String(effect.level ?? "Info"), effect.message ?? null))
     });
 
     // How far a run has come: none through begins it (and clears the log), all through ends it.

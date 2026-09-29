@@ -30,6 +30,8 @@ export type Pin = {
     readonly multiple?: boolean;
     /** The line the pin says about itself when the pointer rests on it. */
     readonly description?: string | null;
+    /** How a person reads the pin's type when it is an enum or an application's class: the catalogue's name for it. */
+    readonly typeTitle?: string | null;
     /** The input pin this one is shown beside; unset, the pin is always drawn. */
     readonly visibleWhen?: string | null;
     /** The values of `visibleWhen`'s pin that show this one; empty, any value but an empty one. */
@@ -78,11 +80,19 @@ export type DocumentEdge = CanvasEdge & {
     toPin: string;
 };
 
+/** An input set out as a parameter of the sheet: the node it is on and the pin's name. `UINodeParameter` on the server. */
+export type DocumentParameter = {
+    readonly node: string;
+    readonly pin: string;
+};
+
 export type GraphDocument = {
     nodes: DocumentNode[];
     edges: DocumentEdge[];
     groups: CanvasGroup[];
     key: string | null;
+    /** The inputs set out in the parameters panel, in the order they were added. */
+    parameters: DocumentParameter[];
 };
 
 export const AnyType = "any";
@@ -92,7 +102,7 @@ const TextType = "text";
 const ImageType = "image";
 
 export function emptyDocument(): GraphDocument {
-    return { nodes: [], edges: [], groups: [], key: null };
+    return { nodes: [], edges: [], groups: [], key: null, parameters: [] };
 }
 
 /** A document as it came off the wire, with every part present and every number a number. */
@@ -106,7 +116,8 @@ export function readDocument(value: unknown): GraphDocument {
         nodes: (source.nodes ?? []).map(readNode),
         edges: (source.edges ?? []).map(readEdge),
         groups: (source.groups ?? []).map(readGroup),
-        key: readDocumentKey(source)
+        key: readDocumentKey(source),
+        parameters: (source.parameters ?? []).map(parameter => ({ node: String(parameter.node), pin: String(parameter.pin) }))
     };
 }
 
@@ -172,6 +183,70 @@ export function createNode(type: NodeType, x: number, y: number): DocumentNode {
     return { id: newId("n"), type: type.key, x, y, title: null, color: null, pinned: false, values };
 }
 
+/** Whether a kind's input can be a parameter of the sheet: one with a field of its own — not a picture, a list, a display or a hidden state. */
+function canBeParameter(pin: Pin): boolean {
+    return pin.hidden !== true && pin.editor !== "None" && pin.editor !== "Image" && pin.editor !== "List" && pin.editor !== "Display";
+}
+
+/**
+ * Whether an input may be a sheet parameter: one of a node on the sheet, with a field of its own, fed by no edge (a wired input's
+ * value is the wire's) and shown by its node — the server's `UINodeCatalog.CanBeParameter` rule.
+ */
+export function isParameterAllowed(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pinName: string): boolean {
+    const node = document.nodes.find(candidate => candidate.id === nodeId);
+    const type = node === undefined ? undefined : types.get(node.type);
+    const pin = findPin(type, pinName, false);
+
+    return node !== undefined && type !== undefined && pin !== undefined && canBeParameter(pin) && edgeInto(document, nodeId, pinName) === undefined && isPinVisible(pin, node, type);
+}
+
+/** Takes one input out of the sheet's parameters; whether it was one. */
+export function dropParameter(document: GraphDocument, nodeId: string, pinName: string): boolean {
+    const kept = document.parameters.filter(parameter => parameter.node !== nodeId || parameter.pin !== pinName);
+    const dropped = kept.length !== document.parameters.length;
+
+    document.parameters = kept;
+
+    return dropped;
+}
+
+/** Whether a pin has anything to reset: an edge on it, or — an input with a value of its own — a value other than its kind's default. */
+export function canResetPin(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pinName: string, direction: "in" | "out"): boolean {
+    const node = document.nodes.find(candidate => candidate.id === nodeId);
+    const pin = findPin(node === undefined ? undefined : types.get(node.type), pinName, direction === "out");
+
+    if (node === undefined || pin === undefined)
+        return false;
+
+    if (document.edges.some(edge => isEdgeOn(edge, nodeId, pinName, direction)))
+        return true;
+
+    return direction === "in" && holdsValue(pin) && JSON.stringify(node.values[pinName] ?? pin.defaultValue ?? null) !== JSON.stringify(pin.defaultValue ?? null);
+}
+
+/** A pin back to where a new node's stands: every edge on it let go and, for an input with a value of its own, the kind's default. */
+export function resetPin(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pinName: string, direction: "in" | "out"): void {
+    const node = document.nodes.find(candidate => candidate.id === nodeId);
+    const pin = findPin(node === undefined ? undefined : types.get(node.type), pinName, direction === "out");
+
+    if (node === undefined || pin === undefined)
+        return;
+
+    document.edges = document.edges.filter(edge => !isEdgeOn(edge, nodeId, pinName, direction));
+
+    if (direction === "in" && holdsValue(pin))
+        node.values[pinName] = pin.defaultValue ?? null;
+}
+
+function isEdgeOn(edge: DocumentEdge, nodeId: string, pinName: string, direction: "in" | "out"): boolean {
+    return direction === "in" ? edge.toNode === nodeId && edge.toPin === pinName : edge.fromNode === nodeId && edge.fromPin === pinName;
+}
+
+/** Whether an input keeps a value in the document: every one with an editor, save a display, which shows what a run fed it. */
+function holdsValue(pin: Pin): boolean {
+    return pin.editor !== "None" && pin.editor !== "Display";
+}
+
 /** The input pin an edge already feeds, if any: an input takes one edge, so a new one replaces it. */
 export function edgeInto(document: GraphDocument, nodeId: string, pinName: string): DocumentEdge | undefined {
     return document.edges.find(edge => edge.toNode === nodeId && edge.toPin === pinName);
@@ -183,8 +258,8 @@ export function edgesInto(document: GraphDocument, nodeId: string, pinName: stri
 }
 
 /**
- * Whether a pin is drawn: one shown beside another appears only while that one holds a named value (or any non-empty value) — the
- * value its field shows, the kind's default where the node holds none. A hidden pin is still saved and fed — this decides drawing only.
+ * Whether a pin is drawn: one shown beside another appears only while that one holds a named (or any non-empty) value — its field's,
+ * or the kind's default. A hidden pin is still saved and fed.
  */
 export function isPinVisible(pin: Pin, node: { readonly values: Record<string, unknown> }, type: NodeType): boolean {
     if (pin.hidden === true)

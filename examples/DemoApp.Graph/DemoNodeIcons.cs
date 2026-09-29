@@ -7,27 +7,11 @@ namespace DemoApp.Graph;
 public static class DemoNodeIcons
 {
     public const string AddNode = MaterialIcons.Add;
-    public const string Delete = MaterialIcons.Delete;
-    public const string Group = MaterialIcons.SelectAll;
-    public const string Arrange = MaterialIcons.Sort;
-    public const string Fit = MaterialIcons.FitScreen;
-    public const string Save = MaterialIcons.Save;
-    public const string Pin = MaterialIcons.Keep;
-    public const string Rename = MaterialIcons.Edit;
-    public const string Color = MaterialIcons.Palette;
 
-    /// <summary>The canvas's commands and the modules' glyphs.</summary>
+    /// <summary>The page's add button and the modules' glyphs; the canvas's built-in entries wear the framework's own.</summary>
     public static readonly string[] All =
     [
         AddNode,
-        Delete,
-        Group,
-        Arrange,
-        Fit,
-        Save,
-        Pin,
-        Rename,
-        Color,
         MaterialIcons.DataObject,
         MaterialIcons.Storage,
         MaterialIcons.Schema,

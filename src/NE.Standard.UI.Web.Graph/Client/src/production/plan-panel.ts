@@ -1,7 +1,9 @@
 // The plan panel over the sheet's trailing side: the request (targets, period, objective) in the core's own fields, and the
 // answer in three tables (brought in, resource balance, craft runs). Markup and fields are the renderer's; rows are written here.
 
+import { cloneTemplate, CoreNames } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
+import { SidePanelFold } from "../canvas/side-panel.ts";
 import type { Craft, ProductionDocument, Resource } from "./model.ts";
 import { broughtIn } from "./plan.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
@@ -11,9 +13,6 @@ import { formatTime, numberWriter } from "./craft-view.ts";
 import type { NumberWriter } from "./craft-view.ts";
 
 const PanelSelector = "[data-ui-graph-plan]";
-// The framework's own fold: its engine slides the panel and writes the attribute, as it does for the corner menu.
-const ToggleSelector = "[data-ui-collapse-toggle]";
-const CollapsedAttribute = "data-ui-collapsed";
 const TargetsSelector = "[data-ui-graph-plan-targets]";
 const AddSelector = "[data-ui-graph-plan-add]";
 const RemoveAttribute = "data-ui-graph-plan-remove";
@@ -21,6 +20,8 @@ const MessageSelector = "[data-ui-graph-plan-message]";
 const TotalsSelector = "[data-ui-graph-plan-totals]";
 const RateAttribute = "data-ui-graph-plan-rate";
 const StoreKey = "plan";
+// Why a plan asked for came to nothing, in the words the panel says it by.
+const FailureWords = { infeasible: "ui.graph.plan-infeasible", unsettled: "ui.graph.plan-unsettled" } as const;
 
 export type PlanPanelHost = {
     request(): PlanRequest;
@@ -45,7 +46,12 @@ export class PlanPanel {
     private readonly panel: HTMLElement | null;
     private readonly period: HTMLElement | null;
     private readonly objective: HTMLElement | null;
+    private readonly fold: SidePanelFold;
     private drawnKey = "";
+    // What the target rows were last drawn for (which targets, names, whether changeable) and each row's amount field by resource: an
+    // amount alone is written into its field, so the field or button the keyboard is on stays.
+    private targetsKey = "";
+    private readonly amounts = new Map<string, HTMLElement>();
 
     public constructor(services: CanvasServices<ProductionDocument>, host: PlanPanelHost) {
         this.services = services;
@@ -57,12 +63,7 @@ export class PlanPanel {
 
         this.period?.addEventListener("change", () => this.choose());
         this.objective?.addEventListener("change", () => this.choose());
-
-        // The panel is no component of its own, so the fold is kept under the canvas's name rather than by the framework's engine.
-        if (this.panel !== null && services.context.store.read(services.root, StoreKey) === "folded") {
-            this.panel.setAttribute(CollapsedAttribute, "");
-            this.panel.querySelector(ToggleSelector)?.setAttribute("aria-expanded", "false");
-        }
+        this.fold = new SidePanelFold(services.context.store, services.root, this.panel, StoreKey);
     }
 
     /** The core's component inside one of the panel's boxes: the region's own root. */
@@ -92,11 +93,8 @@ export class PlanPanel {
         if (this.panel === null || !this.panel.contains(target))
             return false;
 
-        // The framework's engine has folded it already, on the way down to the button; what is left is to remember it.
-        if (target.closest(ToggleSelector) !== null) {
-            this.services.context.store.write(this.services.root, StoreKey, this.panel.hasAttribute(CollapsedAttribute) ? "folded" : null);
+        if (this.fold.press(target))
             return true;
-        }
 
         if (!this.services.settings.readOnly && this.edit(target))
             return true;
@@ -117,18 +115,38 @@ export class PlanPanel {
             return true;
         }
 
-        const removed = target.closest<HTMLElement>(`[${RemoveAttribute}]`)?.getAttribute(RemoveAttribute);
+        const button = target.closest<HTMLElement>(`[${RemoveAttribute}]`);
+        const removed = button?.getAttribute(RemoveAttribute);
 
-        if (removed === null || removed === undefined)
+        if (button === null || removed === null || removed === undefined)
             return false;
 
         const request = this.host.request();
+        const at = request.targets.findIndex(entry => entry.resource === removed);
+        const focused = button.contains(document.activeElement);
 
         this.host.change({ ...request, targets: request.targets.filter(entry => entry.resource !== removed) });
+
+        if (focused)
+            this.focusAfterRemoval(at);
+
         return true;
     }
 
-    /** The panel as the request and the plan stand now; drawn again only when either changed, so a field being typed into is not replaced under the caret. */
+    /** The focus a removed target's button held goes to the next target's remove, else to the panel's switch, rather than to the page. */
+    private focusAfterRemoval(at: number): void {
+        const list = this.panel?.querySelector<HTMLElement>(TargetsSelector);
+
+        if (this.panel === null || (list?.contains(document.activeElement) ?? false))
+            return;
+
+        const next = list?.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? this.panel.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`);
+        const control = next === null || next.matches("button") ? next : next.querySelector<HTMLElement>("button");
+
+        control?.focus({ preventScroll: true });
+    }
+
+    /** The panel as the request and the plan stand now, when either changed; the targets' rows only when which targets there are did. */
     public draw(key: string): void {
         if (this.panel === null || key === this.drawnKey)
             return;
@@ -166,58 +184,92 @@ export class PlanPanel {
         this.drawTables(reading);
     }
 
+    /** The page's words changed: the panel is drawn afresh, its target rows too, for the request and plan it last showed. */
+    public wordsChanged(): void {
+        const key = this.drawnKey;
+
+        this.drawnKey = "";
+        this.targetsKey = "";
+        this.draw(key);
+    }
+
+    /**
+     * The targets' rows, drawn again only when which targets there are, their names or whether they may be changed moved; otherwise
+     * each amount is written into its field in place, unless the viewer is in it.
+     */
     private drawTargets(request: PlanRequest, readOnly: boolean): void {
         const list = this.panel!.querySelector<HTMLElement>(TargetsSelector);
 
         if (list === null)
             return;
 
-        list.replaceChildren();
-
-        for (const target of request.targets) {
+        const key = JSON.stringify([readOnly, request.targets.map(target => {
             const resource = this.host.resource(target.resource);
-            const row = document.createElement("div");
-            const name = this.nameOf(target.resource, resource?.title ?? target.resource, resource?.image ?? resource?.icon ?? null);
-            const amount = this.clone("graph-plan-amount");
-            const remove = this.clone("graph-plan-remove");
 
-            row.className = "ui-graph__plan-target";
-            row.append(name);
+            return [target.resource, resource?.title, resource?.image ?? resource?.icon];
+        })]);
 
-            if (amount !== null) {
-                this.services.context.properties.set(amount, "Value", target.amount);
-                this.services.context.properties.set(amount, "IsReadOnly", readOnly);
-                amount.addEventListener("change", () => this.setAmount(target.resource, this.services.context.values.read(amount)));
-                row.append(amount);
-            }
+        if (key === this.targetsKey) {
+            for (const target of request.targets)
+                this.showAmount(target.resource, target.amount);
 
-            if (remove !== null) {
-                remove.setAttribute(RemoveAttribute, target.resource);
-                this.services.context.properties.set(remove, "Enabled", !readOnly);
-                row.append(remove);
-            }
-
-            list.append(row);
+            return;
         }
+
+        this.targetsKey = key;
+        this.amounts.clear();
+        list.replaceChildren(...request.targets.map(target => this.targetRow(target.resource, target.amount, readOnly)));
     }
 
-    /** A fresh copy of a framework component the canvas carries a template of. */
-    private clone(region: string): HTMLElement | null {
-        const template = this.services.root.querySelector<HTMLTemplateElement>(`template[data-ui-graph-editor="${CSS.escape(region)}"]`);
-        const copy = template?.content.firstElementChild?.cloneNode(true);
+    /** Writes an amount into its target's field, unless the viewer is typing into it. */
+    private showAmount(resource: string, value: number): void {
+        const field = this.amounts.get(resource);
 
-        return copy instanceof HTMLElement ? copy : null;
+        if (field !== undefined && !field.contains(document.activeElement))
+            this.services.context.properties.set(field, "Value", value);
+    }
+
+    /** One target: its name, the core's number field over its amount, and the button that takes it off. */
+    private targetRow(id: string, value: number, readOnly: boolean): HTMLElement {
+        const resource = this.host.resource(id);
+        const row = document.createElement("div");
+        const name = this.nameOf(id, resource?.title ?? id, resource?.image ?? resource?.icon ?? null);
+        const amount = cloneTemplate(this.services.root, "graph-plan-amount");
+        const remove = cloneTemplate(this.services.root, "graph-plan-remove");
+        const properties = this.services.context.properties;
+
+        row.className = "ui-graph__plan-target";
+        row.append(name);
+
+        if (amount !== null) {
+            properties.set(amount, "Value", value);
+            properties.set(amount, "IsReadOnly", readOnly);
+            amount.addEventListener("change", () => this.setAmount(id, amount, this.services.context.values.read(amount)));
+            this.amounts.set(id, amount);
+            row.append(amount);
+        }
+
+        if (remove !== null) {
+            remove.setAttribute(RemoveAttribute, id);
+            properties.set(remove, "Enabled", !readOnly);
+            row.append(remove);
+        }
+
+        return row;
     }
 
     /** An amount typed over a target: a number above zero is the new target, anything else leaves the old one standing. */
-    private setAmount(resource: string, value: unknown): void {
+    private setAmount(resource: string, field: HTMLElement, value: unknown): void {
         const amount = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
         const request = this.host.request();
 
         if (!Number.isFinite(amount) || amount <= 0) {
             // The field is put back to what the plan still says.
-            this.drawnKey = "";
-            this.services.draw();
+            const standing = request.targets.find(entry => entry.resource === resource);
+
+            if (standing !== undefined)
+                this.services.context.properties.set(field, "Value", standing.amount);
+
             return;
         }
 
@@ -234,7 +286,7 @@ export class PlanPanel {
             const failure = request.targets.length > 0 ? this.host.failure() : null;
 
             message.toggleAttribute("data-ui-graph-plan-failed", failure !== null);
-            message.textContent = reading !== null ? "" : words.text(failure === null ? "ui.graph.plan-empty" : `ui.graph.plan-${failure}`);
+            message.textContent = reading !== null ? "" : words.text(failure === null ? "ui.graph.plan-empty" : FailureWords[failure]);
         }
 
         if (totals === null)
@@ -243,10 +295,11 @@ export class PlanPanel {
         totals.hidden = reading === null;
 
         if (reading !== null) {
-            totals.textContent = words.text("ui.graph.plan-totals")
-                .replace("{time}", formatTime(reading.plan.time, this.number))
-                .replace("{raw}", this.number(reading.plan.raw))
-                .replace("{cost}", this.number(reading.plan.cost));
+            totals.textContent = words.format("ui.graph.plan-totals", {
+                time: formatTime(reading.plan.time, this.number),
+                raw: this.number(reading.plan.raw),
+                cost: this.number(reading.plan.cost)
+            });
         }
     }
 
@@ -275,7 +328,7 @@ export class PlanPanel {
             const made = craft?.products[0] === undefined ? undefined : this.host.resource(craft.products[0].resource);
             const name = this.nameOf(entry.craft, craft?.title ?? words.text("ui.graph.recipe"), craft?.icon ?? made?.image ?? made?.icon ?? null);
 
-            crafts.push(row(entry.craft, name, this.number(entry.runs), formatTime(entry.time, this.number), entry.workers === null ? "—" : String(entry.workers)));
+            crafts.push(row(entry.craft, name, this.number(entry.runs), formatTime(entry.time, this.number), entry.workers === null ? "—" : this.number(entry.workers)));
         }
 
         this.fill("raw", raw);
@@ -294,15 +347,16 @@ export class PlanPanel {
         body.replaceChildren(...rows);
     }
 
-    /** An item named as the sheet names it: its picture or its icon, and its title. */
+    /** An item named as the sheet names it — its picture or its icon, and its title — as a button, so a row is reached by the keyboard too. */
     private nameOf(id: string, title: string, icon: string | null): HTMLElement {
-        const name = document.createElement("span");
+        const name = document.createElement("button");
         const text = document.createElement("span");
 
+        name.type = "button";
         name.className = "ui-graph__plan-name";
         name.setAttribute("data-ui-graph-plan-item", id);
-        // A name too long for its column ends in an ellipsis; the whole of it is what the pointer reads.
-        name.title = title;
+        // A name too long for its column ends in an ellipsis; the whole of it is what the pointer reads, in the page's tooltip.
+        name.setAttribute(this.services.context.names.tooltip, title);
 
         if (icon !== null) {
             const box = document.createElement("span");

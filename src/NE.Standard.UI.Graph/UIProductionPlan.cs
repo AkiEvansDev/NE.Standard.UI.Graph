@@ -9,10 +9,8 @@ namespace NE.Standard.UI.Graph;
 /// </summary>
 public enum UIProductionPeriod
 {
-    /// <summary>
-    /// Made once: the amounts are totals, so are the runs and their time, and every craft runs a whole number of times — unless rounding
-    /// them up to whole runs never settles, and the plan keeps the fractional runs it solved.
-    /// </summary>
+    /// <summary>Made once: the amounts are totals, so are the runs and their time, and every craft runs a whole number of times.</summary>
+    /// <remarks>Unless rounding them up to whole runs never settles; then the plan keeps the fractional runs it solved.</remarks>
     Once,
 
     /// <summary>Every minute of a line that keeps running.</summary>
@@ -44,8 +42,8 @@ public sealed record UIProductionTarget(string Resource, double Amount);
 
 /// <summary>
 /// What the viewer asked a production graph to plan: amounts to reach, the period they're counted over, and what to make least.
-/// Part of the graph's document, saved like the layout.
 /// </summary>
+/// <remarks>Part of the graph's document, saved like the layout.</remarks>
 [method: JsonConstructor]
 public sealed class UIProductionPlanRequest(UIProductionTarget[]? targets = null, UIProductionPeriod period = UIProductionPeriod.Once, UIProductionObjective objective = UIProductionObjective.LeastRaw, string[]? bought = null)
 {

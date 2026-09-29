@@ -91,10 +91,11 @@ public sealed class YesNoNode : IGraphNode
         => Result = Value;
 }
 
-/// <summary>
-/// A picture chosen on the node; nothing feeds it. The canvas uploads the file and the application answers its address
-/// (<c>OnImageUpload</c>), so a run of a sheet with nothing chosen stops here.
-/// </summary>
+/// <summary>A picture chosen on the node; nothing feeds it.</summary>
+/// <remarks>
+/// The canvas uploads the file and the application answers its address (<c>OnImageUpload</c>), so a run of a sheet with nothing
+/// chosen stops here.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Image", Description = "A picture chosen on the node.", Icon = UIGlyphs.Image, Color = "var(--ui-color-series-1)", MinWidth = 15)]
 public sealed class ImageNode : IGraphNode
 {

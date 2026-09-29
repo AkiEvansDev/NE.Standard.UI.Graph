@@ -6,9 +6,11 @@ namespace NE.Standard.UI.Graph;
 
 /// <summary>
 /// Writes one pin's value into the document without replacing the rest — for example, the address an upload's server decided on.
-/// Counts as an edit: undoable, and sent to the server with the next save — unless it is <see cref="Committed"/>.
 /// </summary>
-/// <remarks>Patching <c>Value</c> instead would push the whole document, discarding unsaved work and undo history.</remarks>
+/// <remarks>
+/// Counts as an edit: undoable, and sent to the server with the next save — unless it is <see cref="Committed"/>. Patching
+/// <c>Value</c> instead would push the whole document, discarding unsaved work and undo history.
+/// </remarks>
 public sealed class SetNodeValueEffect : TargetedClientEffect
 {
     /// <summary>The kind this package's value effect travels under.</summary>

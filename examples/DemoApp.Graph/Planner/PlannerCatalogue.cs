@@ -14,46 +14,46 @@ public static class PlannerCatalogue
     /// <summary>The glyph a new resource wears until another is picked.</summary>
     public const string DefaultIcon = MaterialIcons.Category;
 
-    /// <summary>The glyphs a resource can wear, each with the word the picker shows beside it; the host registers every one.</summary>
+    /// <summary>The glyphs a resource can wear, each with the key of the word the picker shows beside it; the host registers every one.</summary>
     public static readonly (string Glyph, string Title)[] Icons =
     [
-        (MaterialIcons.Category, "Shapes"),
-        (MaterialIcons.Landscape, "Ore"),
-        (MaterialIcons.WaterDrop, "Liquid"),
-        (MaterialIcons.OilBarrel, "Barrel"),
-        (MaterialIcons.Propane, "Gas"),
-        (MaterialIcons.Grain, "Powder"),
-        (MaterialIcons.BlurOn, "Dust"),
-        (MaterialIcons.Hexagon, "Ingot"),
-        (MaterialIcons.Diamond, "Crystal"),
-        (MaterialIcons.Layers, "Plates"),
-        (MaterialIcons.Settings, "Gear"),
-        (MaterialIcons.Hardware, "Tool"),
-        (MaterialIcons.Cable, "Cable"),
-        (MaterialIcons.Memory, "Chip"),
-        (MaterialIcons.BatteryChargingFull, "Battery"),
-        (MaterialIcons.Science, "Solution"),
-        (MaterialIcons.Liquor, "Bottle"),
-        (MaterialIcons.Whatshot, "Fuel"),
-        (MaterialIcons.Egg, "Seed"),
-        (MaterialIcons.Grass, "Plant"),
-        (MaterialIcons.LocalFlorist, "Flower"),
-        (MaterialIcons.Medication, "Capsule"),
-        (MaterialIcons.Inventory2, "Crate"),
-        (MaterialIcons.RocketLaunch, "Product")
+        (MaterialIcons.Category, "planner.icon.shapes"),
+        (MaterialIcons.Landscape, "planner.icon.ore"),
+        (MaterialIcons.WaterDrop, "planner.icon.liquid"),
+        (MaterialIcons.OilBarrel, "planner.icon.barrel"),
+        (MaterialIcons.Propane, "planner.icon.gas"),
+        (MaterialIcons.Grain, "planner.icon.powder"),
+        (MaterialIcons.BlurOn, "planner.icon.dust"),
+        (MaterialIcons.Hexagon, "planner.icon.ingot"),
+        (MaterialIcons.Diamond, "planner.icon.crystal"),
+        (MaterialIcons.Layers, "planner.icon.plates"),
+        (MaterialIcons.Settings, "planner.icon.gear"),
+        (MaterialIcons.Hardware, "planner.icon.tool"),
+        (MaterialIcons.Cable, "planner.icon.cable"),
+        (MaterialIcons.Memory, "planner.icon.chip"),
+        (MaterialIcons.BatteryChargingFull, "planner.icon.battery"),
+        (MaterialIcons.Science, "planner.icon.solution"),
+        (MaterialIcons.Liquor, "planner.icon.bottle"),
+        (MaterialIcons.Whatshot, "planner.icon.fuel"),
+        (MaterialIcons.Egg, "planner.icon.seed"),
+        (MaterialIcons.Grass, "planner.icon.plant"),
+        (MaterialIcons.LocalFlorist, "planner.icon.flower"),
+        (MaterialIcons.Medication, "planner.icon.capsule"),
+        (MaterialIcons.Inventory2, "planner.icon.crate"),
+        (MaterialIcons.RocketLaunch, "planner.icon.product")
     ];
 
-    /// <summary>The theme's series under the names the canvas's own colour menu gives them; none is the canvas's default.</summary>
+    /// <summary>The theme's series under the canvas's own colour menu's words for them; none is the canvas's default.</summary>
     public static readonly (string Color, string Title)[] Colors =
     [
-        ("var(--ui-color-series-1)", "Blue"),
-        ("var(--ui-color-series-2)", "Amber"),
-        ("var(--ui-color-series-3)", "Green"),
-        ("var(--ui-color-series-4)", "Rose"),
-        ("var(--ui-color-series-5)", "Purple"),
-        ("var(--ui-color-series-6)", "Cyan"),
-        ("var(--ui-color-series-7)", "Bronze"),
-        ("var(--ui-color-series-8)", "Fern")
+        ("var(--ui-color-series-1)", UIGraphWords.Blue),
+        ("var(--ui-color-series-2)", UIGraphWords.Amber),
+        ("var(--ui-color-series-3)", UIGraphWords.Green),
+        ("var(--ui-color-series-4)", UIGraphWords.Rose),
+        ("var(--ui-color-series-5)", UIGraphWords.Purple),
+        ("var(--ui-color-series-6)", UIGraphWords.Cyan),
+        ("var(--ui-color-series-7)", UIGraphWords.Bronze),
+        ("var(--ui-color-series-8)", UIGraphWords.Fern)
     ];
 
     public static OptionItem[] IconOptions()

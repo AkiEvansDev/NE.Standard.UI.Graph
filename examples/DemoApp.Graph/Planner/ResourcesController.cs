@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using NE.Standard.UI.Primitives.Recursive;
 
 namespace DemoApp.Graph.Planner;
 
@@ -24,6 +25,9 @@ internal sealed partial class ResourcesController : UIControllerBase
     private const double MaxSeconds = 3600;
 
     private IReadOnlyList<ResourceRecord> _resources = [];
+
+    // The resource the form holds: a chosen key that differs from it is the viewer's pick in the list.
+    private string? _openId;
 
     private PlannerStore Store => Context.Services.GetRequiredService<PlannerStore>();
 
@@ -73,7 +77,7 @@ internal sealed partial class ResourcesController : UIControllerBase
     public RecursiveCollection<UIProductionEntry> Preview { get; } = [];
 
     [RecursiveMember]
-    public partial string RecipeNote { get; set; } = string.Empty;
+    public partial UIPhrase? RecipeNote { get; set; }
 
     [RecursiveMember]
     public partial UIVisibility EmptyVisibility { get; set; } = UIVisibility.Visible;
@@ -82,7 +86,7 @@ internal sealed partial class ResourcesController : UIControllerBase
     public partial UIVisibility EditorVisibility { get; set; } = UIVisibility.Collapsed;
 
     [RecursiveMember]
-    public partial string DeleteQuestion { get; set; } = string.Empty;
+    public partial UIPhrase? DeleteQuestion { get; set; }
 
     /// <summary>The picker's upload, which the import reads the file back by.</summary>
     [RecursiveMember]
@@ -108,19 +112,19 @@ internal sealed partial class ResourcesController : UIControllerBase
             return;
         }
 
+        _openId = null;
         SelectedKey = null;
         EmptyVisibility = UIVisibility.Visible;
         EditorVisibility = UIVisibility.Collapsed;
         Preview.Clear();
     }
 
-    /// <summary>A resource pressed in the list opens in the form.</summary>
-    [UICommand]
-    public void Open(string id)
+    private void Open(string id)
     {
         if (Find(id) is not ResourceRecord resource)
             return;
 
+        _openId = resource.Id;
         SelectedKey = resource.Id;
         Name = resource.Name;
         Icon = resource.Icon;
@@ -145,6 +149,22 @@ internal sealed partial class ResourcesController : UIControllerBase
     {
         Picture = Pictures.AddressOf(resource);
         PictureVisibility = Picture is null ? UIVisibility.Collapsed : UIVisibility.Visible;
+    }
+
+    /// <summary>
+    /// The resource chosen in the list opens in the form, whether a press or the arrows chose it: the choice reaches the controller as
+    /// the list's bound key, where an item click would be the pointer's alone.
+    /// </summary>
+    protected override void OnNotify(RecursiveChange change)
+    {
+        base.OnNotify(change);
+
+        ArgumentNullException.ThrowIfNull(change);
+
+        RecursivePath path = change.Path;
+
+        if (path.Count == 1 && path[0].Kind == PathSegmentKind.Property && path[0].Property == nameof(SelectedKey) && SelectedKey is { } id && id != _openId)
+            Open(id);
     }
 
     /// <summary>A new resource, named so it can be found, and open to be set up.</summary>
@@ -223,7 +243,7 @@ internal sealed partial class ResourcesController : UIControllerBase
         PictureSelection = null;
 
         if (content is not null && content.Length > PlannerPictures.MaxBytes)
-            (content, error) = (null, "A picture is at most 2 MB: it is an icon.");
+            (content, error) = (null, "planner.picture.too-large");
 
         var type = content is null ? null : PlannerPictures.Sniff(content);
 
@@ -232,7 +252,7 @@ internal sealed partial class ResourcesController : UIControllerBase
             if (Selected() is ResourceRecord unchanged)
                 ShowPicture(unchanged);
 
-            return Refuse(error ?? "That is not a PNG, JPEG, GIF or WebP picture.");
+            return Refuse(error ?? "planner.picture.not-picture");
         }
 
         Store.SetPicture(id, new PictureRecord(content, type));
@@ -335,19 +355,17 @@ internal sealed partial class ResourcesController : UIControllerBase
             }
         }
 
+        // The resource's name is content, an argument as written.
         DeleteQuestion = (recipes, goals) switch
         {
-            (0, 0) => $"Nothing takes {resource.Name} or asks for it.",
-            (_, 0) => $"{Count(recipes, "recipe")} take {resource.Name}, and lose it as an ingredient.",
-            (0, _) => $"{Count(goals, "goal")} ask for {resource.Name}, and go with it.",
-            _ => $"{Count(recipes, "recipe")} take {resource.Name} and lose it as an ingredient; {Count(goals, "goal")} ask for it, and go with it."
+            (0, 0) => UIPhrase.Of("planner.resource.delete.unused", ("name", resource.Name)),
+            (_, 0) => UIPhrase.Of("planner.resource.delete.recipes", ("count", recipes), ("name", resource.Name)),
+            (0, _) => UIPhrase.Of("planner.resource.delete.goals", ("count", goals), ("name", resource.Name)),
+            _ => UIPhrase.Of("planner.resource.delete.both", ("recipes", UIPhrase.Of("planner.count.recipes", ("count", recipes))), ("goals", UIPhrase.Of("planner.count.goals", ("count", goals))), ("name", resource.Name))
         };
 
         return UICommandResult.Ok([new OpenDialogEffect(DeleteDialogKey)]);
     }
-
-    private static string Count(int count, string noun)
-        => count == 1 ? $"One {noun}" : string.Create(CultureInfo.InvariantCulture, $"{count} {noun}s");
 
     [UICommand]
     public UICommandResult Delete()
@@ -418,13 +436,15 @@ internal sealed partial class ResourcesController : UIControllerBase
         else
             OpenFirst();
 
-        var taken = string.Create(CultureInfo.InvariantCulture, $"{Count(resources.Count, "resource")} taken in");
+        // A toast is written once, in the language the page shows as it opens.
+        UIPhrase taken = UIPhrase.Of(replace ? "planner.resources.imported.replace" : "planner.resources.imported.merge", ("count", resources.Count));
 
-        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(replace ? taken + ", in place of the catalogue." : taken + ", merged by id.", UIColorStyle.Success)]);
+        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(Context.Translate(taken), UIColorStyle.Success)]);
     }
 
-    private static UICommandResult Refuse(string? reason)
-        => UICommandResult.Ok([new ShowNotificationEffect(reason ?? "Nothing was read.", UIColorStyle.Danger)]);
+    /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
+    private UICommandResult Refuse(string? reason)
+        => UICommandResult.Ok([new ShowNotificationEffect(Context.Translate(new UIPhrase(reason ?? "planner.file.nothing-read")), UIColorStyle.Danger)]);
 
     /// <summary>The catalogue read again, and the list rewritten in place: a row keeps its key, so the selection and the scroll stay.</summary>
     private void Reload()
@@ -465,7 +485,7 @@ internal sealed partial class ResourcesController : UIControllerBase
         return -1;
     }
 
-    /// <summary>What the list says under a name: brought in, or what a run takes and gives.</summary>
+    /// <summary>What the list says under a name: brought in (a key of the demo's words), or the names a run takes, as written.</summary>
     private string Describe(ResourceRecord resource)
     {
         List<string> names = [];
@@ -476,7 +496,7 @@ internal sealed partial class ResourcesController : UIControllerBase
                 names.Add(taken.Name);
         }
 
-        return names.Count == 0 ? "Brought in" : string.Join(", ", names);
+        return names.Count == 0 ? "planner.resource.brought-in" : string.Join(", ", names);
     }
 
     /// <summary>Every resource but the one open, by name: a recipe cannot take what it makes.</summary>
@@ -550,12 +570,9 @@ internal sealed partial class ResourcesController : UIControllerBase
 
         var seconds = resource.Seconds.ToString("0.##", CultureInfo.InvariantCulture);
 
-        RecipeNote = madeFrom.Count switch
-        {
-            1 => $"Nothing makes {resource.Name}: it is brought in. Add an ingredient to give it a recipe.",
-            2 => string.Create(CultureInfo.InvariantCulture, $"A run gives {resource.Output} {resource.Name} in {seconds} s, out of one other resource."),
-            _ => string.Create(CultureInfo.InvariantCulture, $"A run gives {resource.Output} {resource.Name} in {seconds} s, out of {madeFrom.Count - 1} other resources all the way down.")
-        };
+        RecipeNote = madeFrom.Count == 1
+            ? UIPhrase.Of("planner.recipe.note.brought-in", ("name", resource.Name))
+            : UIPhrase.Of("planner.recipe.note.made", ("output", resource.Output), ("name", resource.Name), ("seconds", seconds), ("count", madeFrom.Count - 1));
     }
 
     private ResourceRecord? Selected()

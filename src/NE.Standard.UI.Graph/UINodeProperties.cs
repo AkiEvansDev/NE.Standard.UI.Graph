@@ -48,10 +48,8 @@ internal static class UINodeProperties
         return [.. own];
     }
 
-    /// <summary>
-    /// Sets <paramref name="value"/> on <paramref name="property"/>, coerced to its declared type; nothing is written if the value
-    /// can't be coerced or a non-nullable value type can't hold it.
-    /// </summary>
+    /// <summary>Sets <paramref name="value"/> on <paramref name="property"/>, coerced to its declared type.</summary>
+    /// <remarks>Nothing is written if the value can't be coerced or a non-nullable value type can't hold it.</remarks>
     public static void Set(PropertyInfo property, object instance, object? value)
     {
         if (value is null)
@@ -74,9 +72,10 @@ internal static class UINodeProperties
     }
 
     /// <summary>
-    /// Builds the collection a property declares from several values, each coerced to the element type; a value that fails
-    /// coercion becomes the element's default rather than being dropped. Null if the type isn't buildable.
+    /// Builds the collection a property declares from several values, each coerced to the element type; null if the type isn't
+    /// buildable.
     /// </summary>
+    /// <remarks>A value that fails coercion becomes the element's default rather than being dropped.</remarks>
     public static object? Collect(Type collectionType, IEnumerable values)
     {
         Type underlying = Nullable.GetUnderlyingType(collectionType) ?? collectionType;

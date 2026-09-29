@@ -228,8 +228,8 @@ function snapBox(element: HTMLElement, gridSize: number): void {
 }
 
 /**
- * The same for many nodes at once: every box is read before any is written, so the page is laid out once for all of them. A folded
- * node keeps its head's own height, its place and width on the grid still: grown to the next step, the head's line stood off centre.
+ * The same for many nodes, every box read before any is written so the page lays out once. A folded node keeps its head's own
+ * height (grown to the next step, the head's line would stand off centre), its place and width still on the grid.
  */
 export function snapBoxes(elements: Iterable<HTMLElement>, gridSize: number): void {
     if (gridSize <= 0)

@@ -62,11 +62,11 @@ public sealed class NoteNode
     public string Text { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// A point a wire is led through: whatever reaches it goes on unchanged, to as many inputs as are wired to it, and it wears the
-/// name and the colour of the output that feeds it. Every catalogue carries it, out of the picker: the canvas's menu puts one down
-/// and a wire's menu puts one on the wire.
-/// </summary>
+/// <summary>A point a wire is led through: whatever reaches it goes on unchanged, to as many inputs as are wired to it.</summary>
+/// <remarks>
+/// It wears the name and the colour of the output that feeds it. Every catalogue carries it, out of the picker: the canvas's menu
+/// puts one down and a wire's menu puts one on the wire.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Reroute", Description = "Leads a wire through a point of its own.", Color = UINodeKinds.AnyColor, Compact = true, Resizable = false, Hidden = true)]
 public sealed class RerouteNode : IGraphNode
 {
@@ -86,10 +86,10 @@ public sealed class RerouteNode : IGraphNode
         => Result = Value;
 }
 
-/// <summary>
-/// Holds the run for a while, saying how far along it is, then passes on whatever reached it: a node that takes long enough to
-/// watch, for a sheet that waits on something outside it or a run slowed down to be followed.
-/// </summary>
+/// <summary>Holds the run for a while, saying how far along it is, then passes on whatever reached it.</summary>
+/// <remarks>
+/// A node that takes long enough to watch, for a sheet that waits on something outside it or a run slowed down to be followed.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Delay", Description = "Waits, reporting as it goes, and passes its value on.", Icon = UIGlyphs.Hourglass, Color = UINodeKinds.AnyColor, ShowProgress = true, AlwaysRuns = true)]
 public sealed class DelayNode : IGraphNodeAsync
 {
@@ -128,7 +128,7 @@ public sealed class DelayNode : IGraphNodeAsync
             for (var taken = 1; taken <= Steps; taken++)
             {
                 await Task.Delay(step, cancellationToken).ConfigureAwait(false);
-                await context.ReportAsync(null, taken / (double)Steps).ConfigureAwait(false);
+                await context.ReportAsync((string?)null, taken / (double)Steps).ConfigureAwait(false);
             }
         }
 
@@ -136,12 +136,12 @@ public sealed class DelayNode : IGraphNodeAsync
     }
 }
 
-/// <summary>
-/// A count that moves on by its step each run, from its start towards its end. The value the next run hands out is kept in the
-/// document and shown on the node, so the next run goes on from there and its reset puts it back to the start; at the end it starts
-/// over, or it ends a run of all. One counter's <see cref="Wrapped"/> wired into another's <see cref="Advance"/> makes a loop inside a loop: every value
-/// of the inner one for each value of the outer.
-/// </summary>
+/// <summary>A count that moves by its step each run, from its start towards its end, then starts over or ends a run of all.</summary>
+/// <remarks>
+/// The value the next run hands out is kept in the document and shown on the node, and its reset puts it back to the start. One
+/// counter's <see cref="Wrapped"/> wired into another's <see cref="Advance"/> makes a loop inside a loop: every value of the inner
+/// one for each value of the outer.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Counter", Description = "Counts one step further each run.", Icon = UIGlyphs.PlusOne, Color = "var(--ui-color-series-3)")]
 public sealed class CounterNode : IGraphNode, IGraphNodeSequence
 {

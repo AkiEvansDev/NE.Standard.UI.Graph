@@ -3,10 +3,11 @@ using System.Globalization;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// The menu entries the canvas answers itself. An entry whose key starts with <see cref="Prefix"/> never reaches the server:
-/// the canvas's engine catches the click and does the work in the browser.
-/// </summary>
+/// <summary>The menu entries the canvas answers itself.</summary>
+/// <remarks>
+/// An entry whose key starts with <see cref="Prefix"/> never reaches the server: the canvas's engine catches the click and does the
+/// work in the browser.
+/// </remarks>
 public static class UIGraphCommands
 {
     /// <summary>What a built-in entry's key starts with.</summary>
@@ -83,6 +84,15 @@ public static class UIGraphCommands
     /// <summary>Puts every state value of the node the menu was opened on back to its default — a counter to its start.</summary>
     public const string ResetState = Prefix + "reset-state";
 
+    /// <summary>Sets the input the pin's menu was opened on out as a parameter of the sheet (<c>NodesComponent.ShowParameters</c>).</summary>
+    public const string AddParameter = Prefix + "add-parameter";
+
+    /// <summary>Takes the input the pin's menu was opened on back out of the sheet's parameters.</summary>
+    public const string RemoveParameter = Prefix + "remove-parameter";
+
+    /// <summary>Lets go every wire of the pin the menu was opened on and, on an input, puts its value back to the kind's default.</summary>
+    public const string ResetPin = Prefix + "reset-pin";
+
     /// <summary>The entry whose choices are the colours a node or a group may wear.</summary>
     public const string Color = Prefix + "color";
 
@@ -113,6 +123,9 @@ public static class UIGraphMenus
 
     /// <summary>The menu the right button opens on a group's band.</summary>
     public const string Group = "graph-group-menu";
+
+    /// <summary>The menu the right button opens on a pin's row of a node canvas, over the node's own.</summary>
+    public const string Pin = "graph-pin-menu";
 
     /// <summary>The menu the right button opens on an edge, where a canvas has one.</summary>
     public const string Edge = "graph-edge-menu";
@@ -187,10 +200,107 @@ public static class UIGraphRegions
 }
 
 /// <summary>
-/// The keys of the words the canvas's own controls carry, translated as the framework's are; the web package lists their English.
+/// The keys of the words the canvas's own controls and menu entries carry, translated as the framework's are; the web package lists
+/// their English.
 /// </summary>
 public static class UIGraphWords
 {
+    /// <summary>The menus' entry that lays the sheet out.</summary>
+    public const string Arrange = "ui.graph.arrange";
+
+    /// <summary>The menus' entry and the zoom bar's button that bring everything into view.</summary>
+    public const string Fit = "ui.graph.fit";
+
+    /// <summary>The corner menu's entry that commits the sheet.</summary>
+    public const string Save = "ui.graph.save";
+
+    /// <summary>The sheet's menu entry that frames the chosen items.</summary>
+    public const string GroupSelection = "ui.graph.group-selection";
+
+    /// <summary>The sheet's menu entry that takes out what is chosen.</summary>
+    public const string DeleteSelection = "ui.graph.delete-selection";
+
+    /// <summary>An edge's menu entry that takes it out.</summary>
+    public const string DeleteEdge = "ui.graph.delete-edge";
+
+    /// <summary>An item's or a frame's menu entry that pins it, checked while it is.</summary>
+    public const string Pinned = "ui.graph.pinned";
+
+    /// <summary>An item's or a frame's menu entry that names it.</summary>
+    public const string Rename = "ui.graph.rename";
+
+    /// <summary>An item's or a frame's menu entry whose choices are the colours it may wear.</summary>
+    public const string Color = "ui.graph.color";
+
+    /// <summary>The colour choice that takes an item's own colour away.</summary>
+    public const string DefaultColor = "ui.graph.default-color";
+
+    /// <summary>The sheet's menu entry that adds a node, and the node picker's title.</summary>
+    public const string AddNode = "ui.graph.add-node";
+
+    /// <summary>The node picker's search field.</summary>
+    public const string SearchKinds = "ui.graph.search-kinds";
+
+    /// <summary>The node canvas's entry that puts a reroute on an edge or the sheet.</summary>
+    public const string AddReroute = "ui.graph.add-reroute";
+
+    /// <summary>A node's menu entry that puts its state back to where it starts.</summary>
+    public const string ResetNodeState = "ui.graph.reset-node-state";
+
+    /// <summary>A layered graph's edge entry that opens a field over its caption.</summary>
+    public const string Caption = "ui.graph.caption";
+
+    /// <summary>The entry that lets the viewer's change of an item go for the application's.</summary>
+    public const string TakeServer = "ui.graph.take-server";
+
+    /// <summary>The entry that keeps the viewer's change of an item over the application's.</summary>
+    public const string KeepMine = "ui.graph.keep-mine";
+
+    /// <summary>A production graph's sheet entry that adds a resource.</summary>
+    public const string AddResource = "ui.graph.add-resource";
+
+    /// <summary>A production graph's entry that opens a field over how long a run lasts.</summary>
+    public const string CraftTime = "ui.graph.craft-time";
+
+    /// <summary>A plan's entry that brings a resource in rather than making it, checked while it does.</summary>
+    public const string Bought = "ui.graph.bought";
+
+    /// <summary>A recipe edge's entry that opens a field over the amount it takes.</summary>
+    public const string Takes = "ui.graph.takes";
+
+    /// <summary>A recipe edge's entry that opens a field over what one run gives.</summary>
+    public const string Gives = "ui.graph.gives";
+
+    /// <summary>The dropped link's answer that joins the recipe that already makes the resource.</summary>
+    public const string LinkIngredient = "ui.graph.link-ingredient";
+
+    /// <summary>The dropped link's answer that makes a recipe of its own.</summary>
+    public const string LinkRecipe = "ui.graph.link-recipe";
+
+    /// <summary>The first of the default colour choices, the theme's first series.</summary>
+    public const string Blue = "ui.graph.color-blue";
+
+    /// <summary>The theme's second series, as a colour choice.</summary>
+    public const string Amber = "ui.graph.color-amber";
+
+    /// <summary>The theme's third series, as a colour choice.</summary>
+    public const string Green = "ui.graph.color-green";
+
+    /// <summary>The theme's fourth series, as a colour choice.</summary>
+    public const string Rose = "ui.graph.color-rose";
+
+    /// <summary>The theme's fifth series, as a colour choice.</summary>
+    public const string Purple = "ui.graph.color-purple";
+
+    /// <summary>The theme's sixth series, as a colour choice.</summary>
+    public const string Cyan = "ui.graph.color-cyan";
+
+    /// <summary>The theme's seventh series, as a colour choice.</summary>
+    public const string Bronze = "ui.graph.color-bronze";
+
+    /// <summary>The theme's eighth series, as a colour choice.</summary>
+    public const string Fern = "ui.graph.color-fern";
+
     /// <summary>A list row's or a plan target's remove button.</summary>
     public const string Remove = "ui.graph.remove";
 
@@ -202,6 +312,15 @@ public static class UIGraphWords
 
     /// <summary>A picture field's choose-a-file button.</summary>
     public const string ChooseFile = "ui.graph.choose-file";
+
+    /// <summary>A pin's menu entry that sets its input out as a parameter of the sheet.</summary>
+    public const string AddParameter = "ui.graph.add-parameter";
+
+    /// <summary>A pin's menu entry that takes its input back out of the sheet's parameters.</summary>
+    public const string RemoveParameter = "ui.graph.remove-parameter";
+
+    /// <summary>A pin's menu entry that lets its wires go and puts its value back.</summary>
+    public const string ResetPin = "ui.graph.reset-pin";
 
     /// <summary>The plan panel's add-a-target button.</summary>
     public const string AddTarget = "ui.graph.add-target";
@@ -235,6 +354,21 @@ public static class UIGraphWords
 
     /// <summary>The objective of the least cost.</summary>
     public const string LeastCost = "ui.graph.plan-least-cost";
+
+    /// <summary>What a display pin's value was cut short by, with its <c>count</c>: "… 1234 more".</summary>
+    public const string More = "ui.graph.more";
+
+    /// <summary>The run's failure of a node an input it needs was not given, with the input's <c>pin</c> title.</summary>
+    public const string RunRequired = "ui.graph.run-required";
+
+    /// <summary>The run's line on the node a Stop cut short.</summary>
+    public const string RunStopped = "ui.graph.run-stopped";
+
+    /// <summary>The run's failure of a node that waits for itself.</summary>
+    public const string RunCycle = "ui.graph.run-cycle";
+
+    /// <summary>A folder's line on the file a run takes: its <c>index</c> of the <c>total</c>, and the file's <c>name</c>.</summary>
+    public const string FileProgress = "ui.graph.file-progress";
 }
 
 /// <summary>
@@ -248,9 +382,8 @@ public sealed record UIGraphColorChoice(string Title, string Color);
 public static class GraphEvents
 {
     /// <summary>
-    /// Raised after the document commits, from Ctrl+S, the menu's Save, an edit saved as it is made
-    /// (<see cref="IGraphCanvasComponent.AutoSave"/>), the run panel's Run and Run all, or a <see cref="SaveDocumentEffect"/>. Its
-    /// key is the save's reason (<see cref="UIGraphArguments.Reason"/>) — empty for the viewer's own.
+    /// Raised after the document commits; its key is the save's reason (<see cref="UIGraphArguments.Reason"/>), empty for the
+    /// viewer's own.
     /// </summary>
     public const string Save = "save";
 
@@ -259,14 +392,16 @@ public static class GraphEvents
 
     /// <summary>
     /// A click on an application's own menu entry, naming the entry, the target kind (<see cref="UIGraphMenuTargets"/>) and its id
-    /// via <see cref="UIGraphArguments"/>. The canvas's own entries never raise it.
+    /// via <see cref="UIGraphArguments"/>.
     /// </summary>
+    /// <remarks>The canvas's own entries never raise it.</remarks>
     public const string MenuEntry = "menu-entry";
 
     /// <summary>
-    /// A file chosen on a picture pin is uploaded, naming the node, pin, selection and file name via <see cref="UIGraphArguments"/>.
-    /// The pin shows nothing until the application replies with the stored address.
+    /// A file chosen on a picture pin is uploaded, naming the node, pin, selection and file name via
+    /// <see cref="UIGraphArguments"/>.
     /// </summary>
+    /// <remarks>The pin shows nothing until the application replies with the stored address.</remarks>
     public const string ImageUpload = "image-upload";
 
     /// <summary>The run panel's Stop, while a run is on: the command ends it (<see cref="UINodeRuns.Stop"/>).</summary>

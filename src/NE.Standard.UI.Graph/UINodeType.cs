@@ -131,7 +131,7 @@ public sealed class UINodePin
     /// Creates a pin.
     /// </summary>
     [JsonConstructor]
-    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false)
+    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false, string? typeTitle = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(type);
@@ -160,6 +160,7 @@ public sealed class UINodePin
         Format = format;
         State = state;
         Hidden = hidden;
+        TypeTitle = typeTitle;
     }
 
     /// <summary>
@@ -242,10 +243,8 @@ public sealed class UINodePin
     /// </summary>
     public bool Required { get; }
 
-    /// <summary>
-    /// Gets whether the pin takes several connections at once, gathered into the collection the property declares; its
-    /// <see cref="Type"/> is then the element's, since one edge carries one element.
-    /// </summary>
+    /// <summary>Gets whether the pin takes several connections at once, gathered into the collection the property declares.</summary>
+    /// <remarks>Its <see cref="Type"/> is then the element's, since one edge carries one element.</remarks>
     public bool Multiple { get; }
 
     /// <summary>
@@ -282,4 +281,11 @@ public sealed class UINodePin
     /// Gets whether the value is drawn nowhere on the node — a state the node keeps for itself, which the node's menu resets.
     /// </summary>
     public bool Hidden { get; }
+
+    /// <summary>
+    /// Gets how a person reads the pin's type when it is the application's own — an enum's or a class's name, a list's element's —
+    /// humanized.
+    /// </summary>
+    /// <remarks>Unset for a built-in type, which the canvas names in the page's words.</remarks>
+    public string? TypeTitle { get; }
 }

@@ -1,12 +1,8 @@
 using System;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Graph;
-using NE.Standard.UI.Primitives.Constants;
-using NE.Standard.UI.Primitives.Styling;
 using NE.Standard.UI.Web.Abstractions.Html;
 using NE.Standard.UI.Web.Abstractions.Rendering;
-using NE.Standard.UI.Web.Abstractions.Theming;
-using NE.Standard.UI.Web.Renderers.Foundation;
 
 namespace NE.Standard.UI.Web.Graph;
 
@@ -38,74 +34,36 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
     }
 
     /// <summary>
-    /// The plan panel on the sheet's trailing side, open until folded, the fold remembered per canvas: targets, period and objective
-    /// fields, and tables the engine fills from the solved plan. Always in the markup; the stylesheet shows it only for a planning
-    /// graph.
+    /// The plan panel on the sheet's trailing side: targets, period and objective fields, and tables the engine fills from the
+    /// solved plan.
     /// </summary>
-    /// <remarks>
-    /// Uses the framework's collapsible shape so <c>collapsible-engine.ts</c> slides it like the corner menu; the package only
-    /// remembers the fold.
-    /// </remarks>
+    /// <remarks>Always in the markup; the stylesheet shows it only for a planning graph.</remarks>
     protected override void RenderViewportFoot(WebRenderContext context, IHtmlElementBuilder viewport)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(viewport);
 
-        _ = viewport.Element("aside", plan =>
+        RenderSidePanel(context, viewport, "plan", GraphStrings.Plan, "data-ui-graph-plan", null, folded: false, body =>
         {
-            _ = plan.Class($"{ClassName}__plan");
-            // A panel over the sheet, not the sheet: a right press on it opens none of the canvas's menus.
-            _ = plan.Attribute(WebAttributes.NoContextMenu);
-            _ = plan.Class(CollapsibleChromeRenderer.RootClassName);
-            _ = plan.Class(WebClassNames.Side(UISide.Right));
-            _ = plan.Attribute("data-ui-graph-plan");
-            // A panel over the viewport's trailing side, which Fit keeps clear of while it is open.
-            _ = plan.Attribute("data-ui-graph-side");
-            _ = plan.Attribute("aria-label", context.Translate(GraphStrings.Plan));
+            RenderPlanRequest(context, body);
 
-            _ = plan.Element("button", toggle =>
+            _ = body.Element("p", message =>
             {
-                _ = toggle.Class($"{ClassName}__plan-toggle");
-                _ = toggle.Attribute("type", "button");
-                _ = toggle.Attribute("aria-expanded", "true");
-                _ = toggle.Attribute(WebAttributes.CollapseToggle);
-
-                _ = toggle.Element("span", mark =>
-                {
-                    _ = mark.Class($"{ClassName}__plan-chevron");
-                    _ = mark.Attribute("aria-hidden", "true");
-                    IconValueRenderer.RenderIcon(mark, UIGlyphs.ChevronRight);
-                });
-
-                _ = toggle.Element("span", word => _ = word.Text(context.Translate(GraphStrings.Plan)));
+                _ = message.Class($"{ClassName}__plan-message");
+                _ = message.Attribute("data-ui-graph-plan-message");
+                _ = message.Attribute("aria-live", "polite");
             });
 
-            _ = plan.Element("div", body =>
+            _ = body.Element("p", totals =>
             {
-                _ = body.Class($"{ClassName}__plan-body");
-                _ = body.Class(CollapsibleChromeRenderer.ContentClassName);
-                _ = body.Attribute("data-ui-graph-plan-body");
-
-                RenderPlanRequest(context, body);
-
-                _ = body.Element("p", message =>
-                {
-                    _ = message.Class($"{ClassName}__plan-message");
-                    _ = message.Attribute("data-ui-graph-plan-message");
-                    _ = message.Attribute("aria-live", "polite");
-                });
-
-                _ = body.Element("p", totals =>
-                {
-                    _ = totals.Class($"{ClassName}__plan-totals");
-                    _ = totals.Attribute("data-ui-graph-plan-totals");
-                    _ = totals.Attribute("hidden");
-                });
-
-                RenderPlanTable(context, body, "raw", GraphStrings.PlanBroughtIn, [GraphStrings.PlanResource, GraphStrings.PlanAmount]);
-                RenderPlanTable(context, body, "resources", GraphStrings.PlanResources, [GraphStrings.PlanResource, GraphStrings.PlanMade, GraphStrings.PlanTaken, GraphStrings.PlanLeft]);
-                RenderPlanTable(context, body, "crafts", GraphStrings.PlanCrafts, [GraphStrings.Recipe, GraphStrings.PlanRuns, GraphStrings.PlanTime, GraphStrings.PlanWorkers]);
+                _ = totals.Class($"{ClassName}__plan-totals");
+                _ = totals.Attribute("data-ui-graph-plan-totals");
+                _ = totals.Attribute("hidden");
             });
+
+            RenderPlanTable(context, body, "raw", GraphStrings.PlanBroughtIn, [GraphStrings.PlanResource, GraphStrings.PlanAmount]);
+            RenderPlanTable(context, body, "resources", GraphStrings.PlanResources, [GraphStrings.PlanResource, GraphStrings.PlanMade, GraphStrings.PlanTaken, GraphStrings.PlanLeft]);
+            RenderPlanTable(context, body, "crafts", GraphStrings.PlanCrafts, [GraphStrings.Recipe, GraphStrings.PlanRuns, GraphStrings.PlanTime, GraphStrings.PlanWorkers]);
         });
     }
 
@@ -115,7 +73,7 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
         _ = body.Element("div", caption =>
         {
             _ = caption.Class($"{ClassName}__plan-caption");
-            _ = caption.Text(context.Translate(GraphStrings.PlanTargets));
+            WebWords.Write(context, caption, null, GraphStrings.PlanTargets);
         });
 
         _ = body.Element("div", targets =>
@@ -165,7 +123,7 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
             {
                 _ = caption.Class($"{ClassName}__plan-caption");
                 _ = caption.Attribute("data-ui-graph-plan-counted");
-                _ = caption.Text(context.Translate(captionKey));
+                WebWords.Write(context, caption, null, captionKey);
             });
 
             _ = section.Element("table", table =>
@@ -175,7 +133,7 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
                 _ = table.Element("thead", head => _ = head.Element("tr", row =>
                 {
                     foreach (var key in heads)
-                        _ = row.Element("th", cell => _ = cell.Text(context.Translate(key)));
+                        _ = row.Element("th", cell => WebWords.Write(context, cell, null, key));
                 }));
 
                 _ = table.Element("tbody", rows => _ = rows.Attribute("data-ui-graph-plan-rows", name));

@@ -4,10 +4,8 @@ using NE.Standard.UI.Abstractions.Effects;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Says a run of the sheet has begun or ended — one run, or every run of a run of all: the run panel holds its Run buttons and
-/// offers Stop while one is on. <see cref="UINodeRuns"/> sends both.
-/// </summary>
+/// <summary>Says a run of the sheet has begun or ended — one run, or every run of a run of all.</summary>
+/// <remarks>The run panel holds its Run buttons and offers Stop while one is on. <see cref="UINodeRuns"/> sends both.</remarks>
 public sealed class SetRunningEffect(UIComponentReference target, bool running) : TargetedClientEffect(target)
 {
     /// <summary>The kind this package's run state travels under.</summary>

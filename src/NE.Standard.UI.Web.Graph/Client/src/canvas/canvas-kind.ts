@@ -82,6 +82,8 @@ export type CanvasKind = {
     renderItem(item: CanvasItem): HTMLElement;
     /** Every item has just been drawn afresh: what the kind paints over a drawn item — a state, a display — goes on again. */
     itemsDrawn(drawn: ReadonlySet<string>): void;
+    /** The page's words changed, just before the sheet is drawn again: a panel the kind draws itself forgets what it last drew. */
+    wordsChanged?(): void;
     /** The colour an item wears on the map. */
     itemColor(item: CanvasItem): string;
     /** Where an edge starts and ends and how it is drawn, or nothing while either end is not drawn. */

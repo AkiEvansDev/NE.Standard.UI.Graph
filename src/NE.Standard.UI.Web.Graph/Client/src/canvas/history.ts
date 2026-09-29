@@ -72,6 +72,11 @@ export class DocumentHistory<TDocument> {
         this.saved = rewrite(this.saved, change);
     }
 
+    /** The present step, read afresh, when a document strayed from it — what a refused edit puts back; null when it did not stray. */
+    public revert(document: TDocument): TDocument | null {
+        return JSON.stringify(document) === this.present ? null : this.read(JSON.parse(this.present));
+    }
+
     /** Replaces the whole history — a document the server pushed is a new beginning, not a step. */
     public reset(document: TDocument, saved: boolean): void {
         this.past.length = 0;

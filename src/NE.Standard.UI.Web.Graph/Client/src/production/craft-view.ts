@@ -1,9 +1,8 @@
-// A craft's pill: its name and run length, with ingredients entering and products leaving. Only a craft with several products or a
-// shared product is drawn here — a craft that alone makes one resource collapses onto its edges instead, and that resource states
-// what the run gives. Resources use the graph's own card; amounts are the edge's label.
+// A craft's pill: its name and run length, ingredients entering and products leaving. Only a craft with several or shared products
+// is drawn so; one that alone makes a resource collapses onto its edges. Resources use the graph's card; amounts are edge labels.
 
 import type { NumberFormatting, Tooltips } from "ne-standard-ui";
-import { ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { hoverTooltip, ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "../graph/draft.ts";
 import { EntryAttribute, HandleAttribute } from "../graph/link-drag.ts";
@@ -74,8 +73,7 @@ export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftV
 
     const words = craft.tooltip ?? describe(craft, options.resource, options.number);
 
-    root.addEventListener("pointerenter", () => options.tooltips.show(root, words));
-    root.addEventListener("pointerleave", () => options.tooltips.hide());
+    hoverTooltip(root, words, options.tooltips);
 
     return root;
 }
@@ -103,8 +101,8 @@ export function formatOutput(amount: number, unit: string | null, seconds: numbe
 }
 
 /**
- * A number the viewer typed, a leading × dropped; null unless it's a positive number. A comma is the decimal point where the page's
- * culture writes one so and a thousands mark where it does not; a point is always the decimal point, as the server writes one.
+ * A number the viewer typed, a leading × dropped; null unless positive. A comma is the decimal point where the page's culture writes
+ * one so, else a thousands mark; a point is always the decimal point, as the server writes it.
  */
 export function parsePositive(value: string, decimalSeparator: string): number | null {
     const bare = value.trim().replace("×", "").trim();

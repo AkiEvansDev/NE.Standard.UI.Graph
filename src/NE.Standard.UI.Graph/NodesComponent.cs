@@ -6,6 +6,7 @@ using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Components.BuiltIns.Actions;
 using NE.Standard.UI.Components.BuiltIns.Inputs;
 using NE.Standard.UI.Components.BuiltIns.Models;
+using NE.Standard.UI.Components.BuiltIns.Navigation;
 using NE.Standard.UI.Primitives.Annotations;
 using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
@@ -22,16 +23,26 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     protected NodesComponent(string? id = null) : base(id)
     {
         // A reroute is a shape of the sheet, not a kind to look for: its own entry, not a line of the picker.
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, "Add node"), Entry(UIGraphCommands.AddReroute, "Add reroute"), Separator());
-        PrependEntries(EdgeMenu, Entry(UIGraphCommands.AddReroute, "Add reroute"));
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add), Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route), Separator());
+        PrependEntries(EdgeMenu, Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route));
         // Shown only on a node whose kind keeps a state; a hidden state has no reset button of its own.
-        _ = NodeMenu.AddItems([Entry(UIGraphCommands.ResetState, "Reset")]);
+        _ = NodeMenu.AddItems([Entry(UIGraphCommands.ResetState, UIGraphWords.ResetNodeState, UIGlyphs.Restart)]);
+
+        // A pin's row opens its own menu over the node's; the engine shows and enables each entry for the pin as it opens.
+        MenuComponent pinMenu = new MenuComponent().AddItems(
+        [
+            Entry(UIGraphCommands.AddParameter, UIGraphWords.AddParameter, UIGlyphs.Add),
+            Entry(UIGraphCommands.RemoveParameter, UIGraphWords.RemoveParameter, UIGlyphs.Remove),
+            Entry(UIGraphCommands.ResetPin, UIGraphWords.ResetPin, UIGlyphs.Restart)
+        ]);
+
+        SetCanvasRegion(UIGraphMenus.Pin, pinMenu);
 
         // The core's own field, not an input of the package's: the page's appearance, its clear button and its focus ring.
         PickerSearch = new TextInputComponent()
             .SetType(UITextInputType.Search)
             .SetPrefixIcon(UIGlyphs.Search)
-            .SetPlaceholder("Search kinds")
+            .SetPlaceholder(UIGraphWords.SearchKinds)
             .SetShowClearButton();
 
         SetCanvasRegion(UIGraphRegions.PickerSearch, PickerSearch);
@@ -52,20 +63,34 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     [UIComponentProperty(IsBindable = false, GenerateSetter = false, DefaultValue = null)]
     public UINodeCatalog? Catalog { get; private set; }
 
-    /// <summary>
-    /// Gets or sets whether a run's progress is drawn as a line along the canvas's top. Needs <see cref="SetRunProgressEffect"/>s
-    /// pushed by the runner; draws nothing without them.
-    /// </summary>
+    /// <summary>Gets or sets whether a run's progress is drawn as a line along the canvas's top.</summary>
+    /// <remarks>
+    /// Needs <see cref="SetRunProgressEffect"/>s pushed by the runner, and shows from the first run on; its room along the top stays
+    /// clear before it, so the corner's chrome and a fit do not move when it appears.
+    /// </remarks>
     [UIComponentProperty(DefaultValue = true)]
     public bool? ShowRunProgress { get; set; }
 
     /// <summary>
-    /// Gets or sets whether the canvas carries a run panel in its top corner: Run and Run all save the sheet with a run's reason
-    /// (<see cref="UIGraphArguments.RunReason"/>, <see cref="UIGraphArguments.RunAllReason"/>) for the save command to hand to
-    /// <see cref="UINodeRuns"/>, and Stop raises <see cref="GraphEvents.RunStop"/> while a run is on.
+    /// Gets or sets whether the canvas carries Run, Run all and Stop in its top corner.
     /// </summary>
+    /// <remarks>
+    /// Run and Run all save under a run's reason (<see cref="UIGraphArguments.RunReason"/>) for <see cref="UINodeRuns"/>; Stop
+    /// raises <see cref="GraphEvents.RunStop"/>.
+    /// </remarks>
     [UIComponentProperty(DefaultValue = false)]
     public bool? ShowRunPanel { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the canvas carries a parameters panel under its run panel, where the inputs set out from their rows'
+    /// menus are edited as well as on their nodes.
+    /// </summary>
+    /// <remarks>
+    /// The set is the sheet's own, <see cref="UINodeDocument.Parameters"/>, saved with it. Only an input with a field of its own
+    /// that no wire feeds can be one; wiring it takes it out.
+    /// </remarks>
+    [UIComponentProperty(DefaultValue = false)]
+    public bool? ShowParameters { get; set; }
 
     /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
     public T SetCatalog(params Type[] nodeTypes)
@@ -99,6 +124,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     }
 
     // A field that fits one line keeps its caption inside the box; one too tall for a line has the node draw the caption above it.
+    // The pin's caption, unit and choices are the catalogue's text, the application's own like a node's name: shown as written.
     private static IVisualComponent? CreateEditor(UINodePin pin)
         => pin.Editor switch
         {
@@ -108,12 +134,12 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
             UINodeEditor.Number => NumberEditor(pin),
             UINodeEditor.Boolean => new CheckboxComponent().SetSize(UIInputSize.Small),
             UINodeEditor.Choice => ChoiceEditor(pin),
-            UINodeEditor.Date => new DateInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title),
-            UINodeEditor.Time => new TimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title),
-            UINodeEditor.DateTime => new DateTimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title),
+            UINodeEditor.Date => new DateInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
+            UINodeEditor.Time => new TimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
+            UINodeEditor.DateTime => new DateTimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
             // Large draws the framework's picture field showing the whole image; small shows the address with a file-choose button.
             UINodeEditor.Image when pin.Large => new ImageInputComponent().SetShape(UIImageInputShape.Picture).SetFit(UIImageFit.Contain),
-            UINodeEditor.Image => Limited(new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).SetTrailingAction(GlyphButton(UIGlyphs.MoreHorizontal, UIGraphWords.ChooseFile)), pin),
+            UINodeEditor.Image => Limited(new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetTrailingAction(GlyphButton(UIGlyphs.MoreHorizontal, UIGraphWords.ChooseFile)), pin),
             UINodeEditor.List => ListRowEditor(pin),
             _ => null
         };
@@ -143,19 +169,19 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     // What the value is measured in stands inside the field after the value, where it cannot drift from the number it belongs to.
     private static TextInputComponent TextEditor(UINodePin pin)
     {
-        TextInputComponent field = new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title);
+        TextInputComponent field = new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty);
 
-        return string.IsNullOrWhiteSpace(pin.Unit) ? field : field.SetSuffixText(pin.Unit);
+        return string.IsNullOrWhiteSpace(pin.Unit) ? field : field.SetSuffixText(pin.Unit).AsContent(IAffixTextInputComponent.SuffixTextProperty);
     }
 
     private static NumberInputComponent NumberEditor(UINodePin pin)
-        => Ranged(new NumberInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title), pin);
+        => Ranged(new NumberInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty), pin);
 
     // The pin's unit inside the field, and the range and step the pin's attributes give it.
     private static NumberInputComponent Ranged(NumberInputComponent field, UINodePin pin)
     {
         if (!string.IsNullOrWhiteSpace(pin.Unit))
-            _ = field.SetSuffixText(pin.Unit);
+            _ = field.SetSuffixText(pin.Unit).AsContent(IAffixTextInputComponent.SuffixTextProperty);
 
         if (pin.Min is double min)
             _ = field.SetMin((decimal)min);
@@ -170,14 +196,14 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     }
 
     private static SelectComponent ChoiceEditor(UINodePin pin)
-        => new SelectComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).SetOptions(Options(pin));
+        => new SelectComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetOptions(Options(pin));
 
     private static List<OptionItem> Options(UINodePin pin)
     {
         List<OptionItem> options = new(pin.Choices.Length);
 
         foreach (UIChoice choice in pin.Choices)
-            options.Add(new OptionItem { Id = choice.Value, Title = choice.Caption });
+            options.Add(new OptionItem { Id = choice.Value, Title = choice.Caption, IsContent = true });
 
         return options;
     }
@@ -195,8 +221,6 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 /// </summary>
 public sealed class NodesComponent(string? id = null) : NodesComponent<NodesComponent>(id), IUIComponentDefinition
 {
-    /// <summary>
-    /// Gets the component type key used to identify this component in the compiled graph.
-    /// </summary>
+    /// <inheritdoc/>
     public static string ComponentTypeKey => "graph.canvas.nodes";
 }

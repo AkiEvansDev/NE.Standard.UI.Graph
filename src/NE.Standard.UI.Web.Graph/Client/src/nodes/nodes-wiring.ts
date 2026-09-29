@@ -1,17 +1,16 @@
 // Pins joined and pulled apart: starting a connection, showing which pins would take it, and finishing it on a drop — on a pin,
 // or on the empty sheet, where the host offers a node to take it. Edits the document only; the canvas redraws.
 
-import { markAimed } from "../canvas/aim.ts";
+import { beginConnecting, endConnecting, markAimed } from "../canvas/aim.ts";
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
-import { NodeAttribute } from "../canvas/canvas-dom.ts";
+import { DropAttribute, NodeAttribute } from "../canvas/canvas-dom.ts";
 import { newId } from "../canvas/canvas-model.ts";
 import type { Point } from "../canvas/canvas-model.ts";
-import { AnyType, canConnect, edgesInto, findPin, resolveOutputType } from "./model.ts";
+import { AnyType, canConnect, dropParameter, edgesInto, findPin, resolveOutputType } from "./model.ts";
 import type { DocumentEdge, GraphDocument, NodeType, Pin } from "./model.ts";
 import { PinAttribute, PinDirectionAttribute, PinTypeAttribute } from "./node-view.ts";
 import type { LooseWire } from "./nodes-picker-binding.ts";
 
-const DropAttribute = "data-ui-graph-drop";
 const RowSelector = ".ui-graph__row";
 const AimClass = "ui-graph__pin--aimed";
 
@@ -97,7 +96,7 @@ export class NodesWiring {
 
     /** Dims every pin (and its row) that wouldn't take the pulled connection, so the viewer aims at what's left rather than at whatever's under the pointer. */
     private offerDropTargets(fromNode: string, fromType: string): void {
-        this.services.root.classList.add("ui-graph--connecting");
+        beginConnecting(this.services.root);
 
         for (const pin of this.services.nodeLayer.querySelectorAll<HTMLElement>(`[${PinAttribute}]`)) {
             const takes = pin.getAttribute(PinDirectionAttribute) === "in"
@@ -124,12 +123,7 @@ export class NodesWiring {
     }
 
     private clearDropTargets(): void {
-        this.services.root.classList.remove("ui-graph--connecting");
-
-        for (const marked of this.services.nodeLayer.querySelectorAll<HTMLElement>(`[${DropAttribute}]`)) {
-            marked.removeAttribute(DropAttribute);
-            marked.classList.remove(AimClass);
-        }
+        endConnecting(this.services.root, this.services.nodeLayer, marked => marked.classList.remove(AimClass));
     }
 
     private trackConnect(connection: Connection, scene: Point, event: PointerEvent): void {
@@ -205,6 +199,9 @@ export class NodesWiring {
         }
 
         this.document.edges.push({ id: newId("e"), fromNode: connection.fromNode, fromPin: connection.fromPin, toNode, toPin, points: [] });
+        // A wired input's value is the wire's, so it is a parameter of the sheet no more: dropped in the same step, which an undo
+        // brings back with the wire.
+        dropParameter(this.document, toNode, toPin);
 
         this.services.documentState.edited();
     }

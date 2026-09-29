@@ -1,5 +1,7 @@
-// The attribute and selector names the renderer and canvas meet on, so a press can tell what it landed on. Concerns import these
-// rather than repeating the literal strings.
+// The names the renderer and the canvas meet on, and the framework's that the plugin surface's `names` lacks, spelled once here
+// (GraphClientNamesSyncTests holds both sides).
+
+import type { DomNames, PluginEngineContext, Tooltips } from "ne-standard-ui";
 
 export const RootSelector = ".ui-graph";
 /** On the root: which kind of canvas the renderer wrote, and so which kind the engine draws it with. */
@@ -19,9 +21,69 @@ export const PinToggleAttribute = "data-ui-graph-pin-toggle";
 export const FoldAttribute = "data-ui-graph-fold";
 /** On a folded item's root element. */
 export const CollapsedAttribute = "data-ui-graph-collapsed";
-/** On a folding control of the framework's — the corner menu, a side panel — while it stands folded; not an item's own fold. */
-export const FoldedControlAttribute = "data-ui-collapsed";
 /** On the root: whether the corner map is drawn. */
 export const MinimapAttribute = "data-ui-graph-minimap";
 /** What a rename field is laid over: an item's title, which a kind draws under this class. */
 export const ItemTitleSelector = ".ui-graph__node-title";
+/** On a template a part of the canvas is cloned from — a node's editor, a plan's amount: the region's name. */
+const EditorTemplateAttribute = "data-ui-graph-editor";
+/** On the root while a connection is pulled across the sheet — a wire from a pin, a link from a node's handle. */
+export const ConnectingClass = "ui-graph--connecting";
+/** On a part while a connection is pulled: `yes` for one it would land on, `no` for one that would refuse it. */
+export const DropAttribute = "data-ui-graph-drop";
+/** On the box the corner menu stands in, in the canvas's leading corner: the menu's name. */
+export const MenuPanelAttribute = "data-ui-graph-menu-panel";
+/** On a panel of the kind's that takes a column of the viewport's trailing side while it is open — a folding control of the framework's. */
+export const SideAttribute = "data-ui-graph-side";
+
+/** The framework's names the canvas reads that the plugin surface's `names` does not carry. */
+export const CoreNames = {
+    menuOpeningEvent: "ui-context-menu-opening",
+    collapsed: "data-ui-collapsed",
+    collapseToggle: "data-ui-collapse-toggle",
+    menuClass: "ui-menu",
+    menuItemValueClass: "ui-menu-item__value",
+    pictureSelectionClass: "ui-image-input__selection",
+    pictureTextClass: "ui-image-input__text",
+    textInputActionClass: "ui-text-input__action",
+    badgeClass: "ui-badge",
+    badgeTextClass: "ui-badge__text",
+    badgeText: "data-ui-badge-text",
+    badgeDangerClass: "ui-badge-style--danger",
+    badgeWarningClass: "ui-badge-style--warning",
+    badgeSurfaceClass: "ui-badge-style--surface"
+} as const;
+
+/** On a folding control of the framework's — the corner menu, a side panel — while it stands folded; not an item's own fold. */
+export const FoldedControlAttribute = CoreNames.collapsed;
+
+/**
+ * What stands over the sheet's top edge — the corner menu, a folded side panel, a node canvas's run line and run panel — and a fit
+ * keeps the sheet clear of; an open side panel takes its column instead.
+ */
+export const TopChromeSelector = `[${MenuPanelAttribute}], [${SideAttribute}][${FoldedControlAttribute}], [data-ui-graph-run], .ui-graph__run-panel`;
+
+/** The canvas's own buttons over the sheet — the zoom bar, the run panel, the corner's and side panels' switches, the log's strip. */
+export const ChromeButtonSelector = `.ui-graph__bar-button, [${MenuPanelAttribute}] > * > [${CoreNames.collapseToggle}], [${SideAttribute}] > [${CoreNames.collapseToggle}], .ui-graph__log-head > button`;
+
+/** The family's read-only mark on the root (`RenderIsReadOnlyMark`), typed by the contract's name for it. */
+export const ReadOnlyClass: DomNames["readOnlyClass"] = "ui-readonly";
+
+/** A fresh copy of the framework component the renderer wrote as a template of the region (`RenderTemplate`); null when it wrote none. */
+export function cloneTemplate(root: ParentNode, region: string): HTMLElement | null {
+    const template = root.querySelector<HTMLTemplateElement>(`template[${EditorTemplateAttribute}="${CSS.escape(region)}"]`);
+    const copy = template?.content.firstElementChild?.cloneNode(true);
+
+    return copy instanceof HTMLElement ? copy : null;
+}
+
+/** A share of a hundred as the page writes one: the number in the page's culture, in its word for a percent (`ui.graph.percent`). */
+export function percentText(context: Pick<PluginEngineContext, "strings" | "numbers">, element: Element, share: number): string {
+    return context.strings.format("ui.graph.percent", { value: context.numbers.format(share, null, context.numbers.readCulture(element)) });
+}
+
+/** Words that follow a pointer passing over a part of the sheet — a pin, a card, a craft: the page's tooltip, after a hover's wait. */
+export function hoverTooltip(element: HTMLElement, words: string, tooltips: Tooltips): void {
+    element.addEventListener("pointerenter", () => tooltips.show(element, words, { delay: true }));
+    element.addEventListener("pointerleave", () => tooltips.hide());
+}

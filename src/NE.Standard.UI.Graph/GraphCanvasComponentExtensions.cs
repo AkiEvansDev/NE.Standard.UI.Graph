@@ -28,8 +28,9 @@ public static class GraphCanvasComponentExtensions
 
     /// <summary>
     /// Runs <paramref name="command"/> when an entry the application put into any of the canvas's menus is clicked; the entry's id
-    /// is the command's key. The canvas's own entries never reach it.
+    /// is the command's key.
     /// </summary>
+    /// <remarks>The canvas's own entries never reach it.</remarks>
     public static T OnMenuEntry<T>(this T canvas, string command, string argumentName = "key")
         where T : VisualComponentBase<T>, IGraphCanvasComponent, IUIComponentDefinition
     {
@@ -38,9 +39,10 @@ public static class GraphCanvasComponentExtensions
     }
 
     /// <summary>
-    /// The same, naming what the command takes: <see cref="UIGraphArguments.Entry"/>, and — for an entry of an item's, a group's or an
-    /// edge's menu — <see cref="UIGraphArguments.TargetKind"/> and <see cref="UIGraphArguments.Target"/>.
+    /// The same, naming what the command takes: <see cref="UIGraphArguments.Entry"/>, <see cref="UIGraphArguments.TargetKind"/> and
+    /// <see cref="UIGraphArguments.Target"/>.
     /// </summary>
+    /// <remarks>The target is named for an entry of an item's, a group's or an edge's menu.</remarks>
     public static T OnMenuEntry<T>(this T canvas, string command, params KeyValuePair<string, UIActionArgument>[] arguments)
         where T : VisualComponentBase<T>, IGraphCanvasComponent, IUIComponentDefinition
     {

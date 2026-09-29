@@ -9,9 +9,11 @@ public enum UIProductionMode
     Constructor,
 
     /// <summary>
-    /// A plan over the catalogue: the viewer names target amounts, the graph draws the crafts and resources involved with their
-    /// totals, and a panel summarizes what's brought in, made, taken and left over. Not edited here; with no reachable target, the
-    /// sheet is empty.
+    /// A plan over the catalogue: the viewer names target amounts, and the graph draws the crafts and resources that reach them.
     /// </summary>
+    /// <remarks>
+    /// A panel sums up what is brought in, made, taken and left over. Nothing is edited here; with no reachable target, the sheet
+    /// is empty.
+    /// </remarks>
     Plan
 }

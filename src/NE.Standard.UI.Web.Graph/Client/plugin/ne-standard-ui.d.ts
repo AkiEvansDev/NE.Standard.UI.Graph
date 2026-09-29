@@ -1,16 +1,10 @@
-// The framework's client as a package sees it: `window.NEStandardUI` and what its registrations hand a package back. This file is
-// the contract. It lives with the framework's client (Client/plugin/), a package keeps a byte-for-byte copy beside its own client
-// and includes it in its tsconfig, and PluginApiSyncTests refuses a copy that differs. On the framework's side,
-// src/runtime/plugin-api-check.ts holds the runtime's real types to these shapes, so the declaration cannot promise what the
-// runtime does not do. Only what a package is meant to reach is declared; the rest of the runtime is not a contract.
+// The plugin contract: `window.NEStandardUI` and what its registrations hand a package back. A package keeps a byte-for-byte copy
+// in its tsconfig (PluginApiSyncTests refuses one that differs), and src/runtime/plugin-api-check.ts holds the runtime to these
+// shapes, so this cannot promise what the runtime does not do. Only what a package is meant to reach is declared.
 
 declare module "ne-standard-ui" {
-    /**
-     * This contract's version, which `GlobalApi.contractVersion` carries at run time. It moves when a shape here changes in a way
-     * a package compiled against the old one would break on; a package checks it before it registers anything, so a stale copy
-     * fails loudly instead of half-working.
-     */
-    export type ContractVersion = 1;
+    /** The contract's version, moved by a breaking change: a package checks `GlobalApi.contractVersion` first, so a stale copy fails loudly. */
+    export type ContractVersion = 2;
 
     /** One DOM operation of a bound property, as the compiled metadata carries it; a package's own kind arrives by its name. */
     export type DomOperation = {
@@ -83,10 +77,7 @@ declare module "ne-standard-ui" {
         readonly moves: readonly CollectionChangeMove[];
     };
 
-    /**
-     * A sink by the kind a renderer wrote in `data-ui-collection-sink` on a component's root: that component's bound collection
-     * reaches the handler as values, and no items host draws it as rows.
-     */
+    /** A sink for the kind a root's `data-ui-collection-sink` names: its bound collection reaches the handler as values, not rows. */
     export type CollectionSinkRegistration = {
         readonly kind: string;
         readonly handler: (change: CollectionChange) => void;
@@ -142,20 +133,14 @@ declare module "ne-standard-ui" {
         readonly submitsForm?: boolean;
         /** The keys the command carries, named by the engine in place of the `data-ui-key` chain above the target; null keeps the chain. */
         dynamicParameters?(context: EventDispatchContext<TEvent>): readonly unknown[] | null;
-        /**
-         * Told what became of the command this event raised, for a package that sends a value and has to know it landed. Told
-         * whatever happens — a command that was never sent, one that failed, and a connection that dropped under it.
-         */
+        /** Told what became of the command this event raised, whatever happened — never sent, failed, or cut by a dropped connection. */
         completed?(context: EventCompletionContext<TEvent>): void;
         attach?(context: EventAttachContext): void;
     };
 
     /** The rendered components by id, as the page holds them. */
     export type DomRegistry = {
-        /**
-         * The element's own id, or one out of the page's single run of generated ids — what an `aria-` attribute a package
-         * writes points at, and the one counter, so a package's id cannot collide with the framework's own.
-         */
+        /** The element's id, or one from the page's single run of ids, so a package's `aria-` target never collides with the framework's. */
         ensureId(element: Element, prefix: string): string;
         findComponent(componentId: number, dynamicParameters: readonly unknown[]): Element | null;
         findAllComponents(componentId: number, dynamicParameters: readonly unknown[]): Element[];
@@ -177,11 +162,17 @@ declare module "ne-standard-ui" {
         addValueChangeHandler(handler: (change: PropertyValueChange) => void): () => void;
     };
 
-    /** The page's words, resolved for its language on the server — a package's `IUIStringsSource` among them. */
+    /** The page's words in its language — a package's `IUIStringsSource` among them — which a language switch replaces in place. */
     export type ClientStrings = {
         text(key: string): string;
-        /** The word with its `{name}` placeholders filled. */
-        format(key: string, values: Readonly<Record<string, string | number>>): string;
+        /** The word with its `{name}` placeholders filled: a numeric `count` picks the plural, a `{ text }` resolves as `resolveText`. */
+        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string }>>): string;
+        /** An author's text as shown: looked up as a plain value (under key prefixes only a prefixed one), else itself; `WebWords.WriteText`. */
+        resolveText(text: string): string;
+        /** Writes a word on an attribute, or the text where `attribute` is null, marked with its key so a language switch rewrites it. */
+        write(element: Element, attribute: string | null, key: string, args?: Readonly<Record<string, unknown>> | null): void;
+        /** Hears every change of the words after the framework rewrote its own, for words `write` did not mark; answers the stop. */
+        onChange(handler: () => void): () => void;
     };
 
     export type SubtreeObserverInit = {
@@ -200,7 +191,7 @@ declare module "ne-standard-ui" {
         handler: (components: Iterable<HTMLElement>) => void
     ) => MutationObserver | null;
 
-    /** Calls back whenever an element's box changes, through whatever the page has for it; returns what stops it. The first size is the caller's to read. */
+    /** Calls back whenever an element's box changes; returns what stops it. The first size is the caller's to read. */
     export type ObserveSize = (element: Element, handler: (element: Element) => void) => () => void;
 
     /** The page's dialogs by key — a view's declared ones and the ones a component registered with `AddDialog`. */
@@ -251,7 +242,7 @@ declare module "ne-standard-ui" {
         readonly percentNegativePattern: number;
     };
 
-    /** Numbers as the server formats them: the pack off the nearest element carrying one, and a value by a standard format (`N`, `F`, `C`, `P`, `D`, with an optional precision). */
+    /** Numbers as the server formats them: the nearest culture pack, and a value by a standard format (`N`, `F`, `C`, `P`, `D`). */
     export type NumberFormatting = {
         readCulture(element: Element): NumberCulturePack;
         /** A format outside the subset throws; no format is the value as it is, in the culture's separator and sign. */
@@ -270,7 +261,7 @@ declare module "ne-standard-ui" {
         readonly pmDesignator: string;
     };
 
-    /** A moment as the wire writes it, field by field: the wall clock, with no zone, since the server writes a value by its own clock. */
+    /** A moment as the wire writes it: the wall clock with no zone, since the server writes a value by its own clock. */
     export type WrittenMoment = {
         readonly year: number;
         /** One-based, as written. */
@@ -282,80 +273,58 @@ declare module "ne-standard-ui" {
         readonly millisecond: number;
     };
 
-    /**
-     * Dates as the server formats them: the pack off the nearest element carrying one, a value by the shared token subset (`yyyy`,
-     * `MM`, `dd`, `HH`, `mm`, …), and the wire's own text read back — never `new Date(text)`, which turns a bare text by the reader's zone.
-     */
+    /** Dates as the server formats them, and wire text read back — never by `new Date(text)`, which shifts it by the reader's zone. */
     export type TemporalFormatting = {
         readCulture(element: Element): TemporalCulturePack;
         /** No format is the invariant round-trip form; a token outside the subset is written as it is. */
         format(value: Date, format: string | null | undefined, culture: TemporalCulturePack): string;
-        /**
-         * The wall clock a text is written with — `yyyy-MM-dd`, with `T` or a space and a clock after it, a zone tolerated and
-         * ignored — or null for text that names no moment, a field out of its range included.
-         */
+        /** The wall clock of a `yyyy-MM-dd[T| ]clock` text, a zone ignored; null for text naming no moment, a field out of range included. */
         parse(text: string): WrittenMoment | null;
         /** The moment as a local date whose own fields read the written clock, which `format` writes back as the same text. */
         toDate(moment: WrittenMoment): Date;
     };
 
-    /**
-     * Icons as a package draws them on elements it builds itself: `apply` writes an icon value on an element the way a renderer
-     * writes it — the `ui-icon` box, a glyph's class (a pack's name or the framework's own `ne-` marks) or the picture behind it,
-     * and the mark that says a glyph is there. A package composes no icon class of its own.
-     */
+    /** Icons on a package's own elements, written as a renderer writes them; a package composes no icon class of its own. */
     export type Icons = {
+        /** The `ui-icon` box, the glyph's class or the picture's (its form and its `--ui-icon-url`), and the icon mark; a value naming nothing writes no mark, and clears one. */
         apply(element: Element, value: unknown): void;
     };
 
     /** Badges a package counts on itself — a filter count, a log count — on a badge a renderer drew. */
     export type Badges = {
-        /** Writes the count as the badge's text, and the fit the renderer would have written: round while it is up to two characters. */
+        /** Writes the count and the renderer's fit: round while it is up to two characters. */
         writeCount(badge: Element, count: number): void;
     };
 
-    /**
-     * A value read as the framework reads it: off the kind an element names in `data-ui-value-kind`, off what the element is, or —
-     * given a component's root — off the element the component keeps its value on (`data-ui-value-holder`), which for a composed
-     * control is not the first field in its markup. A package hosting the framework's fields — a grid's filters, a cell's editor —
-     * reads them here rather than by their input shapes.
-     */
+    /** Values as the framework reads and writes them: a root reads off its `data-ui-value-holder`, not a composed control's first field. */
     export type ValueReading = {
         read(element: Element): unknown;
-        /**
-         * Holds an element's value as the reader's until it is sent — by its `change`, or by its form's submit — so a value the
-         * server pushes meanwhile is neither written into it nor told to a value-change handler; a package's own editor calls it
-         * once it has unsaved work.
-         */
+        /** Holds an editor's unsaved value until its `change` or form submit sends it: a push meanwhile neither lands nor is told. */
         hold(element: Element): void;
         /** Lets a held value go, and puts the server's latest value back into the element: the unsaved work is gone. */
         release(element: Element): void;
+        /** Writes a value into a bound element as its binding writes a push, a `rows.renderVariant` part included; false where none writes. */
+        write(element: Element, value: unknown): boolean;
     };
 
-    /**
-     * A core component's property set from a package's client the way a push sets it — the component's own operations, its engine
-     * hearing the change — where the package's renderer exposed it (`RenderRegion(context, html, region, exposed)`). The element is
-     * the component's root or inside it; false, with a warning, for a property nobody exposed.
-     */
+    /** Sets a core component's property the package's renderer exposed (`RenderRegion`) as a push does; false, warned, for one not exposed. */
     export type PropertyWriting = {
         set(element: Element, propertyName: string, value: unknown): boolean;
     };
 
-    /**
-     * The windowed items hosts as a package reaches them. A host carrying `data-ui-window-paged` is read by a pager, never by its
-     * scroll: `requestOffsetAsync` replaces its window with the one starting at `offset`, `data-ui-window-size` rows of it.
-     */
+    /** Windowed hosts: a `data-ui-window-paged` one follows a pager, not its scroll, and loads the window starting at `offset`. */
     export type ItemWindows = {
         requestOffsetAsync(host: Element, offset: number): Promise<void>;
     };
 
-    /**
-     * The page's one tooltip as a package reaches it: a component that draws its own picture has no element per thing it can
-     * speak about, so it says the words itself and names what they stand against. Shown at once, with no hover's wait, and
-     * closed by `hide` or by the reader pointing somewhere else.
-     */
+    export type TooltipShowOptions = {
+        /** Waits as a hover does, for words following a passing pointer (a crosshair); unset, at once. A shown target's words change in place. */
+        readonly delay?: boolean;
+    };
+
+    /** The page's one tooltip, for a picture with no element per thing: words against a target, closed by `hide` or pointing elsewhere. */
     export type Tooltips = {
-        show(target: Element, words: string): void;
+        show(target: Element, words: string, options?: TooltipShowOptions): void;
         hide(): void;
     };
 
@@ -364,21 +333,20 @@ declare module "ne-standard-ui" {
         readonly container: HTMLElement;
         /** The title the field covers, hidden while the field is open. */
         readonly title: HTMLElement;
+        /** Dressed by the package's stylesheet with `.ui-inline-rename-field()`. */
         readonly className: string;
         /** The text the field starts with; a commit that leaves it unchanged is not a change. */
         readonly value: string;
         readonly commit: (value: string) => void;
         /** Whether an emptied field commits as an empty name, for a title that falls back to one of its own; unset, it is refused. */
         readonly allowEmpty?: boolean;
-        /** Runs after the field closes, committed or not — where the focus goes back to. */
+        /** Runs after the field closes, committed or not. */
         readonly done?: () => void;
+        /** Gives the focus back after Enter or Escape only: after a commit by leaving, it would take the focus from what was clicked. */
+        readonly refocus?: () => void;
     };
 
-    /**
-     * The framework's rename field as a package reaches it — the one a tab's caption and a tree node's title open: laid over the
-     * title in the title's own type, even under a scale, committed by Enter or by leaving it and dropped by Escape. A package's
-     * stylesheet dresses its class with `.ui-inline-rename-field()`. False when one is already open in the container.
-     */
+    /** The framework's rename field over a title: committed by Enter or leaving, dropped by Escape; false when one is open in the container. */
     export type InlineRenames = {
         open(options: InlineRenameOptions): boolean;
     };
@@ -390,7 +358,8 @@ declare module "ne-standard-ui" {
         | "left-start" | "left" | "left-end"
         | "right-start" | "right" | "right-end";
 
-    export type PopupDismissReason = "outside" | "escape" | "blur";
+    /** Why the framework closed a popup; `focus`: the keyboard left popup and owner; `owner`: it turned disabled, loading, read-only or left. */
+    export type PopupDismissReason = "outside" | "escape" | "blur" | "focus" | "owner";
 
     export type PopupOptions = {
         readonly placement: PopupPlacement;
@@ -400,9 +369,11 @@ declare module "ne-standard-ui" {
         readonly minAnchorWidth?: boolean;
         /** Aligns the popup along the cross axis to this element instead of the anchor. */
         readonly crossAnchor?: Element;
-        /** The popup draws an arrow at the anchor, so it may be shifted along the cross axis to let the arrow reach a small anchor's centre. */
+        /** The popup draws an arrow, so it may shift along the cross axis for the arrow to reach a small anchor's centre. */
         readonly arrow?: boolean;
-        /** Told when the framework itself closes the popup — an outside press or Escape; a caller's own `close()` does not raise it. */
+        /** The component whose state decides whether the popup stays; unset, the anchor — or the popup itself for a non-HTML anchor. */
+        readonly owner?: HTMLElement;
+        /** Told when the framework itself closes the popup, and why; a caller's own `close()` does not raise it. */
         readonly onDismiss: (reason: PopupDismissReason) => void;
     };
 
@@ -414,14 +385,18 @@ declare module "ne-standard-ui" {
         close(): void;
     };
 
-    /**
-     * A non-modal floating panel for a package, placed and dismissed the framework's own way — outside press by `composedPath()`,
-     * Escape to the newest popup among every popup open on the page, whoever opened it. The popup is the package's element, already
-     * on the page (it is `position: fixed`, so any parent will do) and dressed with `.ui-popup-surface()`; opening places it, and
-     * closing leaves it where it stands. Not for a modal chooser; that is a native `<dialog>`, which a package draws itself.
-     */
+    /** A package's non-modal panel, closed as the framework's popups are (the anchor counts as inside); a modal chooser is a `<dialog>`. */
     export type Popups = {
+        /**
+         * Places the package's element (on the page, `position: fixed`, dressed with `.ui-popup-surface()`); closing leaves it in place.
+         * One per owner: a second replaces the first without its `onDismiss`. An owner that cannot keep it gets `onDismiss("owner")`.
+         */
         open(anchor: Element, popup: HTMLElement, options: PopupOptions): PopupHandle;
+        /**
+         * Where the focus goes back as a package's surface closes or goes: the opener, the nearest focusable around it, else its
+         * component's root, made focusable for that one return — never the body; null where nothing of the opener is left.
+         */
+        focusReturn(opener: HTMLElement | null): HTMLElement | null;
     };
 
     export type RovingAxis = "vertical" | "horizontal" | "both";
@@ -436,74 +411,168 @@ declare module "ne-standard-ui" {
         readonly loop?: boolean;
     };
 
-    /**
-     * Arrowing among a package's own entries the way the framework's menus and lists arrow: the arrows of the axis step, Home and
-     * End go to the edges, an entry that is hidden or disabled is skipped, and an unknown current enters at the near end. `target`
-     * answers the entry the key moves to, or null for a key that is not a move, leaving what to do with it to the caller.
-     */
+    /** Arrowing among a package's entries as the framework's lists do: the axis's arrows, Home and End; hidden or disabled ones skipped. */
     export type RovingFocus = {
+        /** The entry the key moves to (an unknown current enters at the near end); null for a key that is no move. */
         target(request: RovingRequest): HTMLElement | null;
         /** Leaves exactly one entry in the tab order. */
         applyTabIndex(items: readonly HTMLElement[], active: HTMLElement | null): void;
     };
 
-    /**
-     * A table's columns as a package reaches them. A column is hidden by the viewer's word or, without one, by the tier the author
-     * named; `setColumnHidden` writes the viewer's word (null takes it back), kept in the browser beside the widths. The table's
-     * root carries `data-ui-table-hidden` — the hidden indices — while any column is hidden, which a chooser may watch.
-     */
+    /** A table's columns: hidden by the viewer's word, else the author's tier; the root carries `data-ui-table-hidden` while any is. */
     export type TableColumns = {
         isColumnHidden(table: Element, key: string): boolean;
+        /** Writes the viewer's word, kept in the browser beside the widths; null takes it back. */
         setColumnHidden(table: Element, key: string, hidden: boolean | null): void;
         /** Every column's key in the order they stand in now, the viewer's own where the viewer has moved one. */
         columnOrder(table: Element): string[];
     };
 
-    /**
-     * The rows of an items host as a package reaches them — a row the server painted and a row the client built alike. `renderVariant`
-     * draws one of the component's variant templates against that row's own item, bindings and all, for a part a row does not carry
-     * until it is wanted: a grid's cell editor, drawn when the cell opens rather than once per row.
-     */
+    /** An items host's rows, whether the server painted them or the client built them. */
     export type ItemRows = {
         /** The item the row stands for, or undefined when the element is not a row. */
         itemOf(row: Element): unknown;
-        /**
-         * The items a virtualized host holds whole, in the order its rules left them and without the ones they hid — the model the
-         * rows in the page are drawn from, for a reading over all of them (a total) that the rows in the page cannot give. Null for
-         * a host that keeps every row in the page, whose rows are the reading, and for a windowed one, whose source answers.
-         */
+        /** A virtualized host's items as its rules order and filter them, for a total; null where the page's rows or a window's source answer. */
         itemsOf(host: Element): readonly unknown[] | null;
-        /**
-         * The value at a dotted property path of an item, read as every binding reads one — by the CLR name a template carries, its
-         * camel-cased wire form, or any case at all; undefined where a step is missing. A package reads its rows' values here rather
-         * than by a key rule of its own.
-         */
+        /** An item's value at a dotted path, read as a binding reads it (CLR name, camel case, any case); undefined at a missing step. */
         readPath(item: unknown, path: string): unknown;
+        /** Draws a variant template against the row's item, for a part drawn only when wanted (a cell editor); `values.write` sets it. */
         renderVariant(row: Element, componentId: number, variantKey: string): Element | null;
+        /** Whether the row keyboard answers a key here: the host or its rows, not its chrome; a row's own control is the caller's call. */
+        isKeyTarget(target: Element): boolean;
     };
 
-    /**
-     * The one way a file leaves the browser, as a package reaches it: the framework's own multipart POST, answering with the
-     * selection id a controller reads the file back by (`IUIUploadService.GetSelectionAsync`). Post to the endpoint yourself and
-     * the path and the answer's shape become a second copy of a framework contract, which will drift from the first.
-     */
+    /** The one way a file leaves the browser, answering the id `IUIUploadService.GetSelectionAsync` reads; a POST of your own would drift. */
     export type FileUploads = {
         uploadAsync(files: Iterable<File>, onProgress?: (percent: number) => void): Promise<{ readonly selectionId: string }>;
     };
 
-    /**
-     * The chosen rows of an items host as a package reaches them. The host owns the list — `SelectedKey`/`SelectedKeys` and the
-     * binding behind them — and these only ask it to change: what a package adds is the gesture, a grid's checkbox column being the
-     * first. `data-ui-no-row-select` on the host keeps the plain row click from choosing, for a host whose rows are chosen that way.
-     */
+    /** Asks an items host, which owns the list, to change its chosen rows; `data-ui-no-row-select` keeps a plain row click from choosing. */
     export type ItemSelection = {
         isSelected(row: Element): boolean;
         /** Adds the row to the chosen ones or takes it out, leaving the rest alone. */
         toggle(row: Element): void;
-        /** Takes or clears every row named, in one write; the rows not named keep whatever they were. A row a filter hides is not taken. */
+        /** Takes or clears every row named in one write, the rest left alone; a row a filter hides is not taken. */
         setSelected(root: Element, rows: Iterable<Element>, selected: boolean): void;
         /** The same by key, for rows a virtualized host has not drawn: every key named is taken or cleared in one write. */
         setSelectedKeys(root: Element, keys: Iterable<string>, selected: boolean): void;
+    };
+
+    /** The predicate every refusal reads: a disabled or loading root stays focusable while its inside is inert, so a root's engine asks here. */
+    export type ComponentStates = {
+        /** Itself natively or `aria-` disabled, or inside a disabled, loading or inert component. */
+        isInert(element: Element): boolean;
+        /** Under a read-only input, by the nearest root's mark so a nested component answers for itself; focusable, changing nothing. */
+        isReadOnly(element: Element): boolean;
+        /**
+         * Turns a package's control off: the disabled mark and `aria-disabled`, never native `disabled`, which drops the focus.
+         * A row's checkbox is marked on its input, or the whole row would read as disabled.
+         */
+        setDisabled(element: Element, disabled: boolean): void;
+    };
+
+    /** A field's severity as the framework's validation weighs it: an error refuses the value, a warning and a note only speak. */
+    export type ValidationSeverity = "error" | "warning" | "info";
+
+    /** A mark's words: a key filled from `args`, or an author's `{ text }` read as `strings.resolveText` reads it. */
+    export type ValidationWords = { readonly key: string; readonly args?: Readonly<Record<string, unknown>> | null } | { readonly text: string };
+
+    /** A package's field marked through the framework's validation engine, weighed with its other messages; it gates no submit. */
+    export type FieldValidation = {
+        /** Marks a field's root, rendered or drawn in the framework's classes; a null severity takes the package's mark off. */
+        mark(field: Element, severity: ValidationSeverity | null, words?: ValidationWords | null): void;
+    };
+
+    /** How far a wheel event turned on each axis, in pixels, signed as its deltas are. */
+    export type WheelPixels = {
+        readonly x: number;
+        readonly y: number;
+    };
+
+    /** The wheel in pixels: a mouse notch is `notch`, a line a third of it; a package scales pixels itself and counts no events. */
+    export type WheelReading = {
+        readonly notch: 100;
+        /** The event's turn in pixels; a page counts `pagePixels`, a line unless the caller says. */
+        pixels(event: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode">, pagePixels?: number): WheelPixels;
+    };
+
+    /** Names the framework writes and a package reads, spelled once so a rename reaches the package. */
+    export type DomNames = {
+        /** A component's root. */
+        readonly componentId: "data-ui-id";
+        /** An item's row, carrying its key. */
+        readonly key: "data-ui-key";
+        /** A chosen row. */
+        readonly selected: "data-ui-selected";
+        /** The chosen key, on a host that chooses one (an items host's root, a tab strip's). */
+        readonly selectedKey: "data-ui-selected-key";
+        /** The chosen keys as JSON, on a host that chooses many (an items host's rows, drawn or not). */
+        readonly selectedKeys: "data-ui-selected-keys";
+        /** On an item's row: the item refuses to be chosen (`CanSelect = false`). */
+        readonly unselectable: "data-ui-unselectable";
+        /** The row the keyboard is on in a host with rows. */
+        readonly rowFocus: "data-ui-row-focus";
+        /** The element an items host draws its rows into. */
+        readonly itemsHost: "data-ui-items-host";
+        /** The one element a composed control keeps its value on. */
+        readonly valueHolder: "data-ui-value-holder";
+        /** The binding a value is written through, on the element carrying the value. */
+        readonly bindValue: "data-ui-bind-value";
+        /** A part of a row whose double click is its own, not the row's open. */
+        readonly noRowOpen: "data-ui-no-row-open";
+        /** An element no event crosses outward: a component above it never takes an event raised inside it. */
+        readonly eventBoundary: "data-ui-event-boundary";
+        /** A focusable layer a package draws (a canvas, a panel over it) that takes the keyboard back from a field in it on Enter or Escape. */
+        readonly focusHolder: "data-ui-focus-holder";
+        /** A component's tooltip words, and where they show. */
+        readonly tooltip: "data-ui-tooltip";
+        readonly tooltipPlacement: "data-ui-tooltip-placement";
+        /** A context menu's host, and a part naming which of its owner's menus a right press there opens. */
+        readonly contextMenu: "data-ui-context-menu";
+        readonly contextMenuUse: "data-ui-context-menu-use";
+        /** A component's root while disabled, loading, or read-only. */
+        readonly disabledClass: "ui-disabled";
+        readonly loadingClass: "ui-loading";
+        readonly readOnlyClass: "ui-readonly";
+        /** A row a filter keeps out of view. */
+        readonly hiddenClass: "ui-hidden";
+        /** A button's root, drawn by the framework or by a package in its classes. */
+        readonly buttonClass: "ui-button";
+        /** The root of a select, a multi-select or a search. */
+        readonly selectClass: "ui-select";
+        /** A text input's root. */
+        readonly textInputClass: "ui-text-input";
+        /** On a field whose value was refused (a validation error). */
+        readonly invalidClass: "ui-invalid";
+        /** A rendered line's number in its source (a Markdown block), which a scroll group follows. */
+        readonly sourceLine: "data-ui-source-line";
+        /** What a popup a field opened is to a screen reader: a key landing in one is the popup's. */
+        readonly popupSelector: "[role='listbox'], [role='menu'], [role='dialog']";
+        /** The control that opens a select's, a multi-select's or a search's list: a button in the first two, the field's row in a search. */
+        readonly listTriggerSelector: ".ui-select__trigger";
+        /** A table's row, its scrolling box, its header row and a column's resizer. */
+        readonly tableRowClass: "ui-table__row";
+        readonly tableScrollClass: "ui-table__scroll";
+        readonly tableHeaderClass: "ui-table__header";
+        readonly tableResizerClass: "ui-table__resizer";
+        /** On a table's root: the indices of the columns hidden now. */
+        readonly tableHidden: "data-ui-table-hidden";
+        /** On an items host: how it holds its rows (all of them, virtualized, windowed). */
+        readonly hostMode: "data-ui-host-mode";
+        /** A windowed host's window: where it starts, the source's total, its size, whether more follow, and the totals as JSON. */
+        readonly windowOffset: "data-ui-window-offset";
+        readonly windowTotal: "data-ui-window-total";
+        readonly windowSize: "data-ui-window-size";
+        readonly windowMoreAfter: "data-ui-window-more-after";
+        readonly windowAggregates: "data-ui-window-aggregates";
+        /** A host's query, as JSON, on the element carrying it, and that element's value kind. */
+        readonly itemsQuery: "data-ui-items-query";
+        readonly valueKind: "data-ui-value-kind";
+        readonly itemsQueryKind: "items-query";
+        /** A menu's entry, what kind it is (`check`, `header`, …), and a check entry turned on. */
+        readonly menuItemClass: "ui-menu-item";
+        readonly menuItemKind: "data-ui-menu-item-kind";
+        readonly menuItemCheckedClass: "ui-menu-item--checked";
     };
 
     /** What a package's engine starts from: the page's root and the services a built-in engine gets. */
@@ -531,14 +600,17 @@ declare module "ne-standard-ui" {
         readonly selection: ItemSelection;
         readonly popups: Popups;
         readonly roving: RovingFocus;
+        readonly states: ComponentStates;
+        readonly validation: FieldValidation;
+        readonly wheel: WheelReading;
+        readonly names: DomNames;
     };
 
     export type PluginEngine = (context: PluginEngineContext) => unknown;
 
     /**
-     * What `window.NEStandardUI` holds; read it off the window with this type, since the framework's own declaration of the
-     * property carries more than the contract. Every method works before the runtime exists — a registration made then waits for
-     * it — so a package module may load before or after the framework's.
+     * What `window.NEStandardUI` holds, read with this type (the framework's own declaration carries more); a registration made
+     * before the runtime exists waits for it, so a package may load first.
      */
     export type GlobalApi = {
         /** The version of this contract the framework's client implements. */

@@ -1,0 +1,93 @@
+// Forced colours drop every shadow and paint grounds and edges in the reader's system colours, so a state drawn only as a ring, a
+// wash or a pseudo-element's fill vanishes: each is given a system colour of its own here, as the framework's preferences.less does
+// for its own parts — which a package's rules cannot join. Imported last, so it outranks what it answers.
+
+@media (forced-colors: active) {
+    // A chosen node or frame: an outline in the selection colour, where the ring was a shadow.
+    .ui-graph__node[data-ui-graph-selected],
+    .ui-graph__group[data-ui-graph-selected] {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+    }
+
+    // The picker's chosen category, as a chosen option is drawn; its current entry, the one Enter takes, dashed as an open list's is.
+    .ui-graph__picker-category[aria-selected="true"] {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+    }
+
+    .ui-graph__picker-entry[aria-selected="true"] {
+        outline: 2px dashed CanvasText;
+        outline-offset: -2px;
+    }
+
+    // The arrows' category, whose wash the mode drops: dashed, as a menu's keyboard entry is; the chosen one keeps its own mark.
+    .ui-graph__picker-category@{ui-keyboard-focus}:not([aria-selected="true"]) {
+        outline: 2px dashed Highlight;
+        outline-offset: -2px;
+    }
+
+    // A pin's fill — wired, or under the pointer — in the text's colour, which the forced ground would otherwise paint over; the one
+    // a pulled wire would land on in the selection colour.
+    .ui-graph__pin::before {
+        forced-color-adjust: none;
+        background: CanvasText;
+    }
+
+    .ui-graph--connecting .ui-graph__pin--aimed::before {
+        background: Highlight;
+    }
+
+    // A node's run, which its edge's colour alone said: the running one outlined dashed in the selection colour, a failed one in a
+    // double edge of the text's colour.
+    .ui-graph__node[data-ui-graph-state="running"] {
+        outline: 2px dashed Highlight;
+        outline-offset: 2px;
+    }
+
+    .ui-graph__node[data-ui-graph-state="error"] {
+        border: 3px double CanvasText;
+    }
+
+    // The run line's tracks and a node's progress are grounds the mode paints over: kept, in the selection colour, and a failed
+    // run's in the text's.
+    .ui-graph__run-track,
+    .ui-graph__node-progress > i {
+        forced-color-adjust: none;
+        background: Highlight;
+    }
+
+    .ui-graph__run[data-ui-graph-run-state="failed"] > .ui-graph__run-track {
+        background: CanvasText;
+    }
+
+    // A log line's level, whose tint is gone: its leading edge in the text's colour, dashed for a warning, broad for an error.
+    .ui-graph__log-entry[data-ui-graph-log-level="warning"] {
+        border-inline-start: 2px dashed CanvasText;
+    }
+
+    .ui-graph__log-entry[data-ui-graph-log-level="error"] {
+        border-inline-start: 4px solid CanvasText;
+    }
+
+    // The resize corner's two rules are gradients, which the mode drops: kept, in the text's colour, the selection's under the pointer.
+    .ui-graph__node-resize::after {
+        forced-color-adjust: none;
+        background:
+            linear-gradient(135deg, transparent 35%, CanvasText 35%, CanvasText 55%, transparent 55%),
+            linear-gradient(135deg, transparent 70%, CanvasText 70%, CanvasText 90%, transparent 90%);
+    }
+
+    .ui-graph__node-resize:hover::after {
+        background:
+            linear-gradient(135deg, transparent 35%, Highlight 35%, Highlight 55%, transparent 55%),
+            linear-gradient(135deg, transparent 70%, Highlight 70%, Highlight 90%, transparent 90%);
+    }
+
+    // What a pulled wire or link would land on: an outline where the halo was a shadow.
+    .ui-graph--connecting .ui-graph__pin[data-ui-graph-drop="yes"],
+    .ui-graph--connecting .ui-graph__node[data-ui-graph-drop="yes"] {
+        outline: 2px solid Highlight;
+        outline-offset: 2px;
+    }
+}

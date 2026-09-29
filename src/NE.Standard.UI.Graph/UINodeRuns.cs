@@ -6,12 +6,7 @@ using NE.Standard.UI.Abstractions.Effects;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// The whole of running a node canvas's sheet from a controller. The run panel (<c>SetShowRunPanel(true)</c>) saves the sheet
-/// with a run's reason; the controller's save command hands the save here, and the sheet is run once, or again and again until its
-/// sequences run out — every node's state, display and log line and the run's progress pushed to the canvas as they happen, and
-/// what the runs left of the nodes' state written back onto the sheet. The panel's Stop ends a run under way.
-/// </summary>
+/// <summary>Runs a node canvas's sheet from a controller: the run panel's Run, Run all and Stop.</summary>
 /// <example>
 /// <code>
 /// private readonly UINodeRuns _runs;
@@ -47,8 +42,8 @@ public sealed class UINodeRuns
     private CancellationTokenSource? _running;
 
     /// <summary>
-    /// Runs the sheet the controller holds for the canvas named <paramref name="canvasId"/>, reading it through
-    /// <paramref name="sheet"/> and writing what the runs left of its nodes' state through <paramref name="keep"/>.
+    /// Runs the sheet the controller holds for <paramref name="canvasId"/>, read through <paramref name="sheet"/> and its nodes'
+    /// state written back through <paramref name="keep"/>.
     /// </summary>
     public UINodeRuns(string canvasId, UINodeCatalog catalog, Func<UINodeDocument> sheet, Action<UINodeDocument> keep)
     {
@@ -69,9 +64,9 @@ public sealed class UINodeRuns
     public int MaxRuns { get; init; } = 500;
 
     /// <summary>
-    /// Gets what the sheet's nodes last came to: a node run again on the inputs it last ran on is handed on from here rather than
-    /// run. <see cref="UINodeRunCache.Clear"/> makes the next run run every node.
+    /// Gets what the sheet's nodes last came to, so a node run again on the inputs it last ran on is handed on rather than run.
     /// </summary>
+    /// <remarks><see cref="UINodeRunCache.Clear"/> makes the next run run every node.</remarks>
     public UINodeRunCache Cache { get; } = new();
 
     /// <summary>
@@ -87,14 +82,15 @@ public sealed class UINodeRuns
     }
 
     /// <summary>
-    /// Handles a save of the canvas: one made with <see cref="UIGraphArguments.RunReason"/> runs the sheet once, one made with
-    /// <see cref="UIGraphArguments.RunAllReason"/> runs it until its sequences run out, and any other answers null — a save and no
-    /// more, as does a run asked for while one is under way. The sheet has landed on the controller's property by the time a save
-    /// command runs, so it is the one the viewer sees. What the run says goes to the canvas through <paramref name="send"/> as it
-    /// happens — a controller's <c>Context.SendEffectsAsync</c> — and its nodes reach <paramref name="services"/>. What the runs
-    /// leave of the nodes' state is written onto the sheet inside <paramref name="invoke"/> — a controller's
-    /// <c>Context.Runtime.InvokeAsync</c> — so a save the viewer makes meanwhile is neither lost to it nor half read.
+    /// Runs the sheet for a save made with <see cref="UIGraphArguments.RunReason"/> once, and with
+    /// <see cref="UIGraphArguments.RunAllReason"/> until its sequences run out; any other save answers null.
     /// </summary>
+    /// <remarks>
+    /// So does a run asked for while one is under way. What the run says goes to the canvas through <paramref name="send"/> as it
+    /// happens (a controller's <c>Context.SendEffectsAsync</c>). The state the runs leave is written onto the sheet inside
+    /// <paramref name="invoke"/> (a controller's <c>Context.Runtime.InvokeAsync</c>), so a save the viewer makes meanwhile is
+    /// neither lost nor half read.
+    /// </remarks>
     public async Task<UINodeRunOutcome?> SavedAsync(Func<IReadOnlyList<ClientEffect>, CancellationToken, Task> send, Func<Action, CancellationToken, Task> invoke, IServiceProvider? services, string? reason, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(send);
@@ -143,9 +139,8 @@ public sealed class UINodeRuns
                 runs = before + 1;
                 return ValueTask.CompletedTask;
             },
-            // Onto the sheet as it stands now, not the one the run began with: what the viewer saved meanwhile stays. Read and written
-            // in the runtime's turn, so a save landing at that moment is not overwritten by the sheet read before it. The server's
-            // already, so the canvas takes it as saved rather than as an edit to undo.
+            // Onto the sheet as it stands, read and written in the runtime's turn, so nothing the viewer saved meanwhile is
+            // overwritten; committed, since the server has it already, so the canvas takes it as saved rather than as an edit to undo.
             OnState = async (nodeId, pinName, value) =>
             {
                 await invoke(() => _keep(_sheet().WithValue(nodeId, pinName, value)), cancellationToken).ConfigureAwait(false);

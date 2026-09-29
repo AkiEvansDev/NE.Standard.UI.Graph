@@ -1,8 +1,9 @@
-// The node canvas as a kind of canvas: typed nodes and pins, edges between them, and what a run paints over them. Concerns:
-// `NodesWiring`, `NodesLog`, `NodesPickerBinding` and `NodesImageUpload` handle wiring, run status/log, the picker and picture uploads.
+// The node canvas as a kind of canvas: typed nodes and pins, the edges between them, and what a run paints over them. Its concerns:
+// `NodesWiring`, `NodesLog` (run status and log), `NodesPickerBinding`, `NodesImageUpload`, `NodesParameters`.
 
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { snapBoxes } from "../canvas/canvas-drag.ts";
+import { cloneTemplate, CoreNames, NodeAttribute } from "../canvas/canvas-dom.ts";
 import { enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
 import { newId, readJson } from "../canvas/canvas-model.ts";
@@ -10,24 +11,31 @@ import { snap } from "../canvas/geometry.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
-import { AnyType, createNode, duplicate, edgeInto, findPin, readDocument, resolveOutputType, slice } from "./model.ts";
+import { AnyType, canResetPin, createNode, duplicate, edgeInto, findPin, readDocument, resetPin, resolveOutputType, slice } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
+import { NodesParameters } from "./nodes-parameters.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
 import { NodesRunPanel } from "./nodes-run-panel.ts";
 import { NodesImageUpload } from "./nodes-upload.ts";
 import { NodesWiring } from "./nodes-wiring.ts";
-import { HeadAttribute, PinAttribute, PinDirectionAttribute, renderNode, ValueAttribute } from "./node-view.ts";
+import { HeadAttribute, PinAttribute, PinDirectionAttribute, PinMenuAttribute, PinMenuDirectionAttribute, PinMenuName, readPinValue, renderNode, ValueAttribute } from "./node-view.ts";
 
 // A node's editor — the framework's own component, its open list among it — whose pointer, wheel and keys are its own.
 const EditorSelector = ".ui-graph__editor";
-// The panels a node canvas stands over its sheet: the log, the run line and the run panel.
-const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel";
+// The panels a node canvas stands over its sheet: the log, the run line, the run panel and the parameters panel.
+const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel, [data-ui-graph-parameters-panel]";
 const CatalogAttribute = "data-ui-graph-catalog";
 // The kind every catalogue carries (`RerouteNode` on the server), which a wire's menu puts on the wire.
 const RerouteKey = "graph.reroute";
 // Half a reroute's box at its least, so the one a menu puts down is centred on where the menu was opened.
 const RerouteHalfWidth = 30;
 const RerouteHalfHeight = 12;
+const AddParameterCommand = "graph:add-parameter";
+const RemoveParameterCommand = "graph:remove-parameter";
+const ResetPinCommand = "graph:reset-pin";
+
+/** The pin a pin's menu was opened on. */
+type PinTarget = { readonly node: string; readonly pin: string; readonly direction: "in" | "out" };
 
 export const NodesKindDefinition: CanvasKindDefinition<GraphDocument> = {
     name: "nodes",
@@ -38,6 +46,8 @@ export const NodesKindDefinition: CanvasKindDefinition<GraphDocument> = {
 export class NodesKind implements CanvasKind {
     private readonly services: CanvasServices<GraphDocument>;
     private readonly types = new Map<string, NodeType>();
+    // How a person reads an enum's or an application's class's pin type, by its id, as the catalogue names it.
+    private readonly typeTitles = new Map<string, string>();
     private readonly seriesColors: number;
     private readonly wiring: NodesWiring;
     // Where every wire ends and turns, by its id; read with the first wire of a draw and let go with the next draw.
@@ -46,17 +56,31 @@ export class NodesKind implements CanvasKind {
     private readonly pickerBinding: NodesPickerBinding;
     private readonly upload: NodesImageUpload;
     private readonly runPanel: NodesRunPanel;
+    private readonly parameters: NodesParameters;
+    // Whether the viewer had a view of this canvas kept before it was first drawn: the first draw keeps it rather than fitting.
+    private readonly viewKept: boolean;
+    private drawnOnce = false;
 
     private clipboard: { nodes: DocumentNode[]; edges: DocumentEdge[] } | null = null;
+    // What the pin menu was last opened on; its entries act on it.
+    private pinTarget: PinTarget | null = null;
 
     public constructor(services: CanvasServices<GraphDocument>) {
         const catalog = readCatalog(services.root.getAttribute(CatalogAttribute));
 
         this.services = services;
         this.seriesColors = readSeriesColorCount(services.root);
+        // Read before the first draw: the core writes the view to the store as it draws.
+        this.viewKept = services.context.store.readJson(services.root, "view") !== null;
 
-        for (const type of catalog)
+        for (const type of catalog) {
             this.types.set(type.key, type);
+
+            for (const pin of [...type.inputs, ...type.outputs]) {
+                if (pin.typeTitle !== null && pin.typeTitle !== undefined)
+                    this.typeTitles.set(elementType(pin.type), pin.typeTitle);
+            }
+        }
 
         this.pickerBinding = new NodesPickerBinding(services, catalog);
         this.wiring = new NodesWiring(services, {
@@ -67,9 +91,18 @@ export class NodesKind implements CanvasKind {
         this.log = new NodesLog(services, this.types);
         this.upload = new NodesImageUpload(services);
         this.runPanel = new NodesRunPanel(services);
+        this.parameters = new NodesParameters(services, {
+            types: this.types,
+            setValue: (nodeId, pinName, value) => this.setValue(nodeId, pinName, value, true),
+            readValue: (pin, field) => readPinValue(pin, services.context.values.read(field)),
+            show: nodeId => this.log.goToNode(nodeId),
+            cloneEditor: region => cloneTemplate(services.root, region)
+        });
 
         this.log.setLogOpen(services.context.store.read(services.root, "log") === "open");
         this.log.drawRun();
+
+        services.root.addEventListener(CoreNames.menuOpeningEvent, event => this.pinMenuOpening(event));
     }
 
     private get document(): GraphDocument {
@@ -95,6 +128,9 @@ export class NodesKind implements CanvasKind {
 
         return renderNode(node, this.types.get(node.type), {
             words: context.strings,
+            names: context.names,
+            states: context.states,
+            typeTitles: this.typeTitles,
             icons: context.icons,
             readOnly: this.services.settings.readOnly,
             pinColor: type => this.pinColor(type),
@@ -108,18 +144,16 @@ export class NodesKind implements CanvasKind {
             onImageUploaded: (nodeId, pinName, selectionId, fileName) => this.upload.announce(nodeId, pinName, selectionId, fileName),
             tooltips: context.tooltips,
             number: (value, format) => this.log.formatNumber(value, format),
-            cloneEditor: region => this.cloneEditor(region),
+            date: (value, format) => this.log.formatDate(value, format),
+            temporal: context.temporal,
+            cloneEditor: region => cloneTemplate(this.services.root, region),
             setProperty: (component, propertyName, value) => context.properties.set(component, propertyName, value),
             readValue: component => context.values.read(component)
         });
     }
 
-    /** A fresh copy of a framework component the canvas carries a template of: a node's editor, drawn anew with the node. */
-    private cloneEditor(region: string): HTMLElement | null {
-        const template = this.services.root.querySelector<HTMLTemplateElement>(`template[data-ui-graph-editor="${CSS.escape(region)}"]`);
-        const copy = template?.content.firstElementChild?.cloneNode(true);
-
-        return copy instanceof HTMLElement ? copy : null;
+    public wordsChanged(): void {
+        this.log.wordsChanged();
     }
 
     public itemsDrawn(drawn: ReadonlySet<string>): void {
@@ -129,6 +163,45 @@ export class NodesKind implements CanvasKind {
         // width, a folded head.
         if (this.services.settings.snapping)
             snapBoxes(this.services.nodeElements.values(), this.services.settings.gridSize);
+
+        this.parameters.draw();
+        this.fitFirstDraw();
+    }
+
+    /**
+     * A sheet the viewer has no kept view of opens whole, as Arrange leaves one and as the layered sheet opens; a returning viewer's
+     * kept view stands while it shows some of the sheet. A canvas drawn while hidden fits once it is shown.
+     */
+    private fitFirstDraw(): void {
+        if (this.drawnOnce)
+            return;
+
+        this.drawnOnce = true;
+
+        if (this.document.nodes.length === 0)
+            return;
+
+        const root = this.services.root;
+
+        if (root.offsetWidth > 0) {
+            this.fitUnlessKept();
+            return;
+        }
+
+        const watch = new ResizeObserver(() => {
+            if (root.offsetWidth === 0)
+                return;
+
+            watch.disconnect();
+            this.fitUnlessKept();
+        });
+
+        watch.observe(root);
+    }
+
+    private fitUnlessKept(): void {
+        if (!this.viewKept || !this.services.view.showsAnyItem())
+            this.services.view.fit();
     }
 
     public itemColor(item: CanvasItem): string {
@@ -210,7 +283,10 @@ export class NodesKind implements CanvasKind {
         return through !== undefined ? this.feedTitle(edge.fromNode, through.name, seen) : findPin(type, edge.fromPin, true)?.title ?? null;
     }
 
-    /** The colour a pin type wears: a theme series picked by the type's name, cycled the way `ThemeColorRenderer.SeriesColorCss` cycles it server-side; the universal pin wears neutral instead. */
+    /**
+     * The colour a pin type wears: a theme series picked by the type's name, cycled by the series count the theme had when the canvas
+     * was drawn; the universal pin wears neutral instead.
+     */
     private pinColor(type: string): string {
         if (type === AnyType)
             return "var(--ui-text-muted)";
@@ -223,14 +299,22 @@ export class NodesKind implements CanvasKind {
 
     // --- values ------------------------------------------------------------------------------------------------------------------
 
-    /** One value on a node, from an editor the viewer typed into: a pin shown beside this one redraws only when it may have changed. */
-    private setValue(nodeId: string, pinName: string, value: unknown): void {
+    /** One value typed into a node's field or the parameters panel's; the other is updated in place. */
+    private setValue(nodeId: string, pinName: string, value: unknown, fromPanel = false): void {
         const node = this.document.nodes.find(candidate => candidate.id === nodeId);
 
         if (node === undefined)
             return;
 
         node.values[pinName] = value;
+
+        if (fromPanel) {
+            this.services.documentState.edited(!this.showCommitted(nodeId, pinName, value));
+            return;
+        }
+
+        this.parameters.showValue(nodeId, pinName, value);
+        // The nodes redraw only when a pin shown beside this one depends on it.
         this.services.documentState.edited(this.types.get(node.type)?.inputs.some(pin => pin.visibleWhen === pinName) === true);
     }
 
@@ -253,6 +337,7 @@ export class NodesKind implements CanvasKind {
             // In place when the pin's own field shows it and nothing hangs on it: a run writes state after every run of a Run all.
             const inPlace = this.showCommitted(nodeId, pinName, value);
 
+            this.parameters.showValue(nodeId, pinName, value);
             this.services.documentState.committed(document => write(document), !inPlace);
             return;
         }
@@ -278,7 +363,7 @@ export class NodesKind implements CanvasKind {
     // --- the run's channel -------------------------------------------------------------------------------------------------------
 
     /** The status effect: a node's state, progress and message. */
-    public setStatus(nodeId: string, state: string, progress: number | null, message: string | null): void {
+    public setStatus(nodeId: string, state: string, progress: number | null, message: unknown): void {
         this.log.setStatus(nodeId, state, progress, message);
     }
 
@@ -288,7 +373,7 @@ export class NodesKind implements CanvasKind {
     }
 
     /** The log effect: one line from one node, appended to the canvas's log. */
-    public addLog(nodeId: string, level: string, message: string): void {
+    public addLog(nodeId: string, level: string, message: unknown): void {
         this.log.addLog(nodeId, level, message);
     }
 
@@ -298,8 +383,8 @@ export class NodesKind implements CanvasKind {
     }
 
     /**
-     * The running effect: a run of the sheet has begun or ended. Begun, the save it was asked with has landed — the server runs what
-     * it took — though the command answers only at the run's end, so the canvas counts it saved now and its other saves go on.
+     * The running effect: a run began or ended. Begun, the save it was asked with has landed (the server runs what it took) though
+     * the command answers only at the run's end, so the canvas counts it saved and its other saves go on.
      */
     public setRunning(running: boolean): void {
         if (running)
@@ -335,6 +420,9 @@ export class NodesKind implements CanvasKind {
     }
 
     public chrome(target: Element): boolean {
+        if (this.parameters.press(target))
+            return true;
+
         if (target.closest("[data-ui-graph-log-toggle]") !== null) {
             this.log.setLogOpen(!this.log.isLogOpen(), true);
             return true;
@@ -391,6 +479,7 @@ export class NodesKind implements CanvasKind {
 
         document.nodes = document.nodes.filter(node => !itemIds.has(node.id));
         document.edges = document.edges.filter(edge => !edgeIds.has(edge.id) && !itemIds.has(edge.fromNode) && !itemIds.has(edge.toNode));
+        this.parameters.forget(itemIds);
     }
 
     public arrange(sizes: ReadonlyMap<string, { width: number; height: number }>, only: ReadonlySet<string> | undefined): Map<string, Point> {
@@ -427,7 +516,9 @@ export class NodesKind implements CanvasKind {
     public runCommand(key: string, target: MenuTarget | null): boolean {
         switch (key) {
             case "graph:add-node":
-                this.pickerBinding.open();
+                if (!this.services.settings.readOnly)
+                    this.pickerBinding.open();
+
                 return true;
 
             case "graph:add-reroute":
@@ -440,6 +531,17 @@ export class NodesKind implements CanvasKind {
                 if (target?.kind === "node")
                     this.resetState(target.id);
 
+                return true;
+
+            case AddParameterCommand:
+            case RemoveParameterCommand:
+                if (this.pinTarget !== null)
+                    this.parameters.toggle(this.pinTarget.node, this.pinTarget.pin);
+
+                return true;
+
+            case ResetPinCommand:
+                this.resetPin();
                 return true;
 
             case "graph:delete-edge":
@@ -485,10 +587,65 @@ export class NodesKind implements CanvasKind {
 
     public syncMenus(editable: boolean, target: MenuTarget | null): void {
         for (const key of ["graph:add-node", "graph:add-reroute", "graph:delete-edge", "graph:reset-state"])
-            enableMenuEntries(this.services.root, key, editable);
+            enableMenuEntries(this.services, key, editable);
 
         // Reset stands only in the menu of a node whose kind keeps a state.
-        showMenuEntries(this.services.root, "graph:reset-state", target?.kind === "node" && this.statePins(target.id).length > 0);
+        showMenuEntries(this.services, "graph:reset-state", target?.kind === "node" && this.statePins(target.id).length > 0);
+        this.syncPinMenu();
+    }
+
+    /** A pin's menu about to open: the pin it was opened on is remembered, and the entries set for it. */
+    private pinMenuOpening(event: Event): void {
+        const menuAttribute = this.services.context.names.contextMenu;
+        const menu = event.target instanceof Element ? event.target.closest(`[${menuAttribute}]`) : null;
+        const pressed = event instanceof CustomEvent ? (event.detail as { readonly target?: Element } | null)?.target ?? null : null;
+
+        // A disabled canvas's root still takes the pointer, but opens nothing of the sheet's.
+        if (menu?.getAttribute(menuAttribute) !== PinMenuName || !(pressed instanceof Element) || this.services.context.states.isInert(this.services.root))
+            return;
+
+        const part = pressed.closest<HTMLElement>(`[${PinMenuAttribute}]`);
+        const node = part?.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute) ?? null;
+
+        this.pinTarget = part === null || node === null ? null : {
+            node,
+            pin: part.getAttribute(PinMenuAttribute) ?? "",
+            direction: part.getAttribute(PinMenuDirectionAttribute) === "out" ? "out" : "in"
+        };
+
+        this.syncPinMenu();
+    }
+
+    /**
+     * The pin menu's entries for the pin it was opened on: Add or Remove only for an input that may be a parameter, Reset for any pin,
+     * enabled only while it has something to reset. Nothing is enabled on a read-only canvas.
+     */
+    private syncPinMenu(): void {
+        const scope = this.services;
+        const target = this.pinTarget;
+        const editable = !this.services.settings.readOnly;
+        const allowed = target !== null && target.direction === "in" && this.parameters.allows(target.node, target.pin);
+        const chosen = allowed && this.parameters.has(target.node, target.pin);
+
+        showMenuEntries(scope, AddParameterCommand, allowed && !chosen);
+        showMenuEntries(scope, RemoveParameterCommand, chosen);
+        enableMenuEntries(scope, AddParameterCommand, editable);
+        enableMenuEntries(scope, RemoveParameterCommand, editable);
+        enableMenuEntries(scope, ResetPinCommand, editable && target !== null && canResetPin(this.document, this.types, target.node, target.pin, target.direction));
+    }
+
+    /**
+     * The pin the menu was opened on, back to where a new node's stands: its wires let go and, for an input, the kind's default put
+     * in — one edit of the viewer's, undone in one step.
+     */
+    private resetPin(): void {
+        const target = this.pinTarget;
+
+        if (this.services.settings.readOnly || target === null || !canResetPin(this.document, this.types, target.node, target.pin, target.direction))
+            return;
+
+        resetPin(this.document, this.types, target.node, target.pin, target.direction);
+        this.services.documentState.edited();
     }
 
     /** Every state value of the node back to its kind's default, as one edit of the viewer's. */
@@ -532,4 +689,9 @@ function hash(value: string): number {
         result = (result * 31 + value.charCodeAt(index)) >>> 0;
 
     return result;
+}
+
+/** The type a list's pin holds at its innermost: the element's, which is what the catalogue names. */
+function elementType(type: string): string {
+    return type.startsWith("array:") ? elementType(type.slice("array:".length)) : type;
 }

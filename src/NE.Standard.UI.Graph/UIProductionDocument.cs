@@ -3,10 +3,13 @@ using System.Text.Json.Serialization;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// The production graph's document: the layout from <see cref="UIGraphDocumentBase"/>, the draft of catalogue changes, and, in
-/// <see cref="UIProductionMode.Plan"/>, the requested plan. Resources and crafts are the bound collection's, not the document's;
-/// edge ids follow <see cref="UIProductionDraft.IngredientEdge"/>/<see cref="UIProductionDraft.ProductEdge"/>.
+/// The production graph's document: the layout from <see cref="UIGraphDocumentBase"/>, the draft of catalogue changes and, in
+/// <see cref="UIProductionMode.Plan"/>, the requested plan.
 /// </summary>
+/// <remarks>
+/// Resources and crafts are the bound collection's, not the document's; edge ids follow
+/// <see cref="UIProductionDraft.IngredientEdge"/>/<see cref="UIProductionDraft.ProductEdge"/>.
+/// </remarks>
 [method: JsonConstructor]
 public sealed class UIProductionDocument(UIGraphPlacement[]? nodes = null, UIGraphRoute[]? edges = null, UIGraphGroup[]? groups = null, UIProductionDraft? draft = null, UIProductionPlanRequest? plan = null, string? key = null)
     : UIGraphDocumentBase(nodes, edges, groups, key)

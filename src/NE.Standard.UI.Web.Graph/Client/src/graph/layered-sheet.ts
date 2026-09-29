@@ -18,8 +18,8 @@ export type LayeredSheetHost = {
     /** Every node's key, in the order the layout breaks its ties by. */
     nodeIds(): readonly string[];
     /**
-     * What a node takes on the sheet beyond its own box (e.g. a caption's room), as wide as the widest node's extra (`widest`), so a
-     * layer's circles still align and its chips clear the gap — and where in that room its edges meet it, when not at the middle.
+     * The room a node takes beyond its box (a caption's), as wide as the `widest` node's extra so a layer's circles align and its
+     * chips clear the gap — and where in it the edges meet the node, when not at the middle.
      */
     nodeBox?(width: number, height: number, widest: number): { width: number; height: number; anchor?: Point };
     links(): readonly LayeredEdge[];
@@ -248,8 +248,9 @@ export class LayeredSheet {
         this.pending.clear();
         this.services.draw();
 
-        // A freshly laid-out sheet is shown whole (Fit), except the first time a returning viewer opens it — their kept view stands.
-        if ((everything || this.turned) && (this.placedOnce || !this.viewKept))
+        // A freshly laid-out sheet is shown whole (Fit), except the first time a returning viewer opens it — their kept view stands
+        // while it shows some of the sheet.
+        if ((everything || this.turned) && (this.placedOnce || !this.viewKept || !this.services.view.showsAnyItem()))
             this.services.view.fit();
 
         this.placedOnce = true;
@@ -401,8 +402,8 @@ export class LayeredSheet {
     }
 
     /**
-     * Sets the edges of one side of a card apart, in the order of where their other ends lie, so that none leaves or enters on
-     * top of another; a side with one edge keeps it at its middle, and a node that does not spread its ends keeps all of them there.
+     * Spreads the edges on one side of a card in the order their other ends lie, so none overlaps another; a lone edge, or every
+     * edge of a node that doesn't spread its ends, stays at the middle.
      */
     private assignShifts(): Map<string, EndShift> {
         const shifts = new Map<string, EndShift>();

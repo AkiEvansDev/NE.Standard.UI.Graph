@@ -1,6 +1,5 @@
-// The wiring between the canvas and its node picker: owns and opens the dialog, and drops the chosen kind as a node
-// wherever the pointer last stood — or where a pulled wire was let go, wired to the new node's first input that takes it; the
-// native `<dialog>` itself is `canvas/picker.ts`'s own.
+// The canvas's side of its node picker (the dialog is `canvas/picker.ts`'s): opens it and drops the chosen kind as a node where the
+// pointer last stood — or where a pulled wire was let go, wired to the new node's first input that takes it.
 
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { newId } from "../canvas/canvas-model.ts";

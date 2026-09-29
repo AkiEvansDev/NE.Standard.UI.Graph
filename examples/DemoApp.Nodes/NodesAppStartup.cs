@@ -21,6 +21,12 @@ public sealed class NodesAppStartup : UIStartupBase
     {
         ArgumentNullException.ThrowIfNull(application);
 
+        _ = application.AddLocalizationSource(NodesDemoWords.Build());
+
+        // Only a string starting "nodes." is a key: every other string on a translatable property — a node's name, the sheet's
+        // values — is content, so the missing-word report in Development names only words the demo has not translated.
+        _ = application.ConfigureLocalization(options => options.KeyPrefixes.Add(NodesDemoWords.KeyPrefix));
+
         _ = application.Route<CommonNodesView, CommonNodesController>(NodesDemoView.NodesRoute);
         _ = application.Route<CalculatorNodesView, CalculatorNodesController>(NodesDemoView.CalculatorRoute);
         _ = application.Route<ImageNodesView, ImageNodesController>(NodesDemoView.ImageRoute);

@@ -4,10 +4,8 @@ using NE.Standard.UI.Abstractions.Binding;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Shared overlay-by-key plumbing for both drafts: removing keys, finding an entry by key, comparing value lists. Each draft's own
-/// <c>ApplyTo</c> covers what differs between a node and a craft.
-/// </summary>
+/// <summary>The overlay-by-key plumbing both drafts share: removing keys, finding an entry by key, comparing value lists.</summary>
+/// <remarks>Each draft's own <c>ApplyTo</c> covers what differs between a node and a craft.</remarks>
 internal static class UIGraphDraftSupport
 {
     /// <summary>Takes every entry whose key the draft removed out of the list, from the end so the indexes hold.</summary>

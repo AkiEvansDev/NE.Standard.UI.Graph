@@ -2,11 +2,12 @@
 // run line. One channel, since the run line reads both the log's failures and the running node.
 
 import type { PluginEngineContext } from "ne-standard-ui";
+import { CoreNames, percentText } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { renderDisplayValue } from "./display.ts";
 import { findPin } from "./model.ts";
-import type { GraphDocument, NodeType, Pin } from "./model.ts";
-import { DisplayAttribute, NodeStateAttribute, ValueAttribute } from "./node-view.ts";
+import type { GraphDocument, NodeType } from "./model.ts";
+import { DisplayAttribute, displayOptions, NodeStateAttribute, ValueAttribute } from "./node-view.ts";
 
 /** On a log line's node name: the node the line came from, which a press takes the view to. */
 export const LogNodeAttribute = "data-ui-graph-log-node";
@@ -14,10 +15,18 @@ const LogOpenAttribute = "data-ui-graph-log-open";
 const RunStateAttribute = "data-ui-graph-run-state";
 // Enough to read back through a long run, few enough that a node writing in a loop cannot swell the page.
 const LogLimit = 500;
+// `GraphStrings.RunLine` on the server: a node's name and what it said, on the run line.
+const RunLineKey = "ui.graph.run-line";
 
-type NodeStatus = { readonly state: string; readonly progress: number | null; readonly message: string | null };
+/**
+ * What a run says, as the server's `UIPhrase` travels: a word with its arguments (`{ key, args }`), a node's own text (`{ text }`),
+ * or nothing.
+ */
+type Said = unknown;
 
-type LogEntry = { readonly nodeId: string; readonly level: string; readonly message: string; readonly at: Date };
+type NodeStatus = { readonly state: string; readonly progress: number | null; readonly message: Said };
+
+type LogEntry = { readonly nodeId: string; readonly level: string; readonly message: Said; readonly at: Date };
 
 export class NodesLog {
     private readonly root: HTMLElement;
@@ -86,10 +95,10 @@ export class NodesLog {
     }
 
     /** A node's state, progress and message; idle with nothing to say clears the line, and a redraw writes it again. */
-    public setStatus(nodeId: string, state: string, progress: number | null, message: string | null): void {
+    public setStatus(nodeId: string, state: string, progress: number | null, message: Said): void {
         const status: NodeStatus = { state: state.toLowerCase(), progress, message };
 
-        if (status.state === "idle" && progress === null && message === null)
+        if (status.state === "idle" && progress === null && this.said(message).length === 0)
             this.statuses.delete(nodeId);
         else
             this.statuses.set(nodeId, status);
@@ -143,18 +152,15 @@ export class NodesLog {
 
     private applyDisplay(nodeId: string, pinName: string, value: unknown): void {
         const box = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${DisplayAttribute}][${ValueAttribute}="${CSS.escape(pinName)}"]`);
-        const format = this.inputPin(nodeId, pinName)?.format;
-
-        box?.replaceChildren(renderDisplayValue(value, {
-            empty: this.context.strings.text("ui.graph.no-value"),
-            number: number => this.formatNumber(number, format)
-        }));
-    }
-
-    private inputPin(nodeId: string, pinName: string): Pin | undefined {
         const node = this.services.documentState.document.nodes.find(candidate => candidate.id === nodeId);
+        const pin = findPin(node === undefined ? undefined : this.types.get(node.type), pinName, false);
 
-        return findPin(node === undefined ? undefined : this.types.get(node.type), pinName, false);
+        box?.replaceChildren(renderDisplayValue(value, displayOptions(pin, {
+            words: this.context.strings,
+            number: (number, format) => this.formatNumber(number, format),
+            date: (date, format) => this.formatDate(date, format),
+            temporal: this.context.temporal
+        })));
     }
 
     /** A number as the page writes one: the pin's own format against the culture the page carries. */
@@ -162,17 +168,24 @@ export class NodesLog {
         return this.context.numbers.format(value, format ?? null, this.context.numbers.readCulture(this.root));
     }
 
+    /** A moment as the page writes one, against the culture the page carries. */
+    public formatDate(value: Date, format: string | null): string {
+        return this.context.temporal.format(value, format, this.context.temporal.readCulture(this.root));
+    }
+
     // --- the log -------------------------------------------------------------------------------------------------------------
 
     /** One line from one node, at the log's foot; the oldest goes once there are more than the log keeps. */
-    public addLog(nodeId: string, level: string, message: string): void {
+    public addLog(nodeId: string, level: string, message: Said): void {
         const entry: LogEntry = { nodeId, level: level.toLowerCase(), message, at: new Date() };
 
         this.log.push(entry);
 
         if (this.log.length > LogLimit) {
+            const oldest = this.logEntries?.firstElementChild ?? null;
+
             this.log.shift();
-            this.logEntries?.firstElementChild?.remove();
+            this.removeLines(oldest === null ? [] : [oldest], oldest?.nextElementSibling ?? null);
         }
 
         if (this.logEntries !== null) {
@@ -214,11 +227,31 @@ export class NodesLog {
         node.textContent = this.nodeName(entry.nodeId);
 
         message.className = "ui-graph__log-message";
-        message.textContent = entry.message;
+
+        // A word is written marked, so a language switch writes the line again; a node's own text stays as it was said.
+        const said = entry.message as { readonly key?: unknown; readonly args?: Readonly<Record<string, unknown>> } | null;
+
+        if (typeof said?.key === "string")
+            this.context.strings.write(message, null, said.key, said.args ?? null);
+        else
+            message.textContent = this.said(entry.message);
 
         line.append(time, node, message);
 
         return line;
+    }
+
+    /** What a run said, in the page's words: a word filled from its arguments, or a node's own text as written — content, never a key. */
+    private said(message: Said): string {
+        if (typeof message === "string")
+            return message;
+
+        const phrase = message as { readonly key?: unknown; readonly args?: Readonly<Record<string, string | number | { readonly text: string }>>; readonly text?: unknown } | null;
+
+        if (typeof phrase?.key === "string")
+            return this.context.strings.format(phrase.key, phrase.args ?? {});
+
+        return typeof phrase?.text === "string" ? phrase.text : "";
     }
 
     /** What the viewer calls a node: its own title, else its kind's, else — for a node since deleted — its id. */
@@ -238,15 +271,31 @@ export class NodesLog {
 
         this.logCount.hidden = this.log.length === 0;
         this.context.badges.writeCount(this.logCount, this.log.length);
-        this.logCount.classList.toggle("ui-badge-style--danger", errors > 0);
-        this.logCount.classList.toggle("ui-badge-style--warning", errors === 0 && warnings > 0);
-        this.logCount.classList.toggle("ui-badge-style--surface", errors === 0 && warnings === 0);
+        this.logCount.classList.toggle(CoreNames.badgeDangerClass, errors > 0);
+        this.logCount.classList.toggle(CoreNames.badgeWarningClass, errors === 0 && warnings > 0);
+        this.logCount.classList.toggle(CoreNames.badgeSurfaceClass, errors === 0 && warnings === 0);
+    }
+
+    /** The page's words changed: the run line's share is written again in them. */
+    public wordsChanged(): void {
+        this.drawRun();
     }
 
     public clearLog(): void {
         this.log.length = 0;
-        this.logEntries?.replaceChildren();
+        this.removeLines([...this.logEntries?.children ?? []], null);
         this.drawLogCount();
+    }
+
+    /** Lines leaving the log: a keyboard standing on one of them goes to the line after them, else to the log's switch. */
+    private removeLines(lines: readonly Element[], next: Element | null): void {
+        const held = lines.some(line => line.contains(document.activeElement));
+
+        for (const line of lines)
+            line.remove();
+
+        if (held)
+            (next?.querySelector<HTMLElement>(`[${LogNodeAttribute}]`) ?? this.logToggle)?.focus({ preventScroll: true });
     }
 
     /** Opens or folds the log; a viewer's own choice is kept in the browser beside the view, so the log opens as they left it. */
@@ -331,15 +380,15 @@ export class NodesLog {
             this.runLabel.textContent = this.runLabelText(status);
 
         if (this.runShare !== null)
-            this.runShare.textContent = this.runStarted ? `${share}%` : "";
+            this.runShare.textContent = this.runStarted ? percentText(this.context, this.runShare, share) : "";
     }
 
     /** The running node and what it last said; between nodes and after the run, the first failure, since that is what stopped it. */
     private runLabelText(status: NodeStatus | undefined): string {
         if (this.runningNode !== null) {
-            const said = status?.message ?? "";
+            const said = this.said(status?.message);
 
-            return said.length > 0 ? `${this.nodeName(this.runningNode)} · ${said}` : this.nodeName(this.runningNode);
+            return said.length > 0 ? this.joined(this.runningNode, said) : this.nodeName(this.runningNode);
         }
 
         // Stopped, the line the stop left in the log — the node it cut short — rather than a failure from before it.
@@ -347,6 +396,11 @@ export class NodesLog {
             ? [...this.log].reverse().find(entry => entry.level === "warning")
             : this.log.find(entry => entry.level === "error");
 
-        return said === undefined ? "" : `${this.nodeName(said.nodeId)} · ${said.message}`;
+        return said === undefined ? "" : this.joined(said.nodeId, this.said(said.message));
+    }
+
+    /** A node's name and what it said, joined the way the page's language joins them (`ui.graph.run-line`). */
+    private joined(nodeId: string, said: string): string {
+        return this.context.strings.format(RunLineKey, { node: this.nodeName(nodeId), message: said });
     }
 }

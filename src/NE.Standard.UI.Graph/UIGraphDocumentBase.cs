@@ -1,9 +1,7 @@
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// What every layered graph's document holds: node placement, edge bend points, and groups. The draft of node changes is each
-/// document's own, since its shape is kind-specific.
-/// </summary>
+/// <summary>What every layered graph's document holds: node placement, edge bend points, and groups.</summary>
+/// <remarks>The draft of node changes is each document's own, since its shape is kind-specific.</remarks>
 public abstract class UIGraphDocumentBase(UIGraphPlacement[]? nodes, UIGraphRoute[]? edges, UIGraphGroup[]? groups, string? key)
 {
     /// <summary>
@@ -22,8 +20,8 @@ public abstract class UIGraphDocumentBase(UIGraphPlacement[]? nodes, UIGraphRout
     public UIGraphGroup[] Groups { get; } = groups ?? [];
 
     /// <summary>
-    /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given, so
-    /// a save names the document it was made from even when another has taken its place on the canvas since.
+    /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given.
     /// </summary>
+    /// <remarks>So a save names the document it was made from, even when another has taken its place on the canvas since.</remarks>
     public string? Key { get; } = key;
 }

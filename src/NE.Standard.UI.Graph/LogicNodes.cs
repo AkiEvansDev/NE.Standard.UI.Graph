@@ -103,11 +103,12 @@ public sealed class NotNode : IGraphNode
         => Result = !Value;
 }
 
-/// <summary>
-/// Whether two values of any type are the same: numbers as numbers, whole or not (2 is 2.0); texts character by character, a capital
-/// and a small letter as one if asked; dates by the clock they read, a day at its midnight; lists item by item. Values of different
-/// kinds — a number and a text that reads as it — are not the same.
-/// </summary>
+/// <summary>Whether two values of any type are the same.</summary>
+/// <remarks>
+/// Numbers as numbers, whole or not (2 is 2.0); texts character by character, a capital and a small letter as one if asked; dates
+/// by the clock they read, a day at its midnight; lists item by item. Values of different kinds — a number and a text that reads as
+/// it — are not the same.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.LogicCategory, Title = "Equals", Description = "Whether two values of any type are the same.", Icon = UIGlyphs.Equal, Color = UINodeKinds.LogicColor)]
 public sealed class EqualsNode : IGraphNode
 {

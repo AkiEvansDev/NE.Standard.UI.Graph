@@ -3,11 +3,11 @@ using System.Collections.Generic;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Plans a production graph: how many runs of which craft reach the requested amounts. The canvas solves the same live in the
-/// browser; this is the server-side port for a controller-driven plan.
-/// </summary>
-/// <remarks>Rates are steady-state: no queues, no schedule.</remarks>
+/// <summary>Plans a production graph: how many runs of which craft reach the requested amounts.</summary>
+/// <remarks>
+/// The canvas solves the same live in the browser; this is the server-side port for a controller-driven plan. Rates are
+/// steady-state: no queues, no schedule.
+/// </remarks>
 public static class UIProductionPlanner
 {
     private const double Eps = 1e-9;

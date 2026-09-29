@@ -157,3 +157,11 @@ test("a committed change to a node a step does not hold leaves that step as it w
     assert.deepEqual(history.undo(), readDocument(withNode(1)));
     assert.equal(history.dirty, false);
 });
+
+test("a document that strayed from the present step is put back to it, and one that did not is left alone", () => {
+    const history = new DocumentHistory(withNode(1), readDocument);
+
+    assert.equal(history.revert(withNode(1)), null);
+    assert.equal(history.revert(withNode(3))?.nodes.length, 1);
+    assert.equal(history.canUndo, false);
+});

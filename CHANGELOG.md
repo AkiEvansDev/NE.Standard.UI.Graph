@@ -4,6 +4,201 @@ One section per release of this slice, headed `## X.Y.Z` and named by the tag �
 workflow cuts the matching section out to become the body of the GitHub release, and a tag with no section
 fails the release before anything is published.
 
+## 1.3.0
+
+- **Needs the framework's plugin contract 2.** The package reads what a component's state is, the wheel and the framework's
+  names through the framework (`context.states`, `context.wheel`), and draws the picker with the framework dialog's own entrance
+  and the list entries' own hover; against an older framework it refuses to start, saying so.
+- **The canvas's words switch in place with the page.** Its chrome words are marked (the picker's title, categories and
+  empty line, the canvas's, menu's and map's names, the bar's and the run panel's buttons, the side panels' switches, the log's
+  strip, its empty line and its clear, the unsaved and saving words, the plan's captions and table heads); what the canvas draws
+  itself — a node's marks, a group's word, the parameters and the plan panel — is drawn again when the page's words change. The
+  plan's totals and a craft's "at once" are filled through `strings.format` rather than a hand-spliced slot.
+- **A read-only canvas takes no step back or forward.** Ctrl+Z and Ctrl+Y changed the sheet, marked it unsaved and held its value
+  against the server's; the document's history now refuses both while read-only, for any caller, and keeps them for when the canvas
+  may be edited again.
+- **A read-only canvas no longer promises what it refuses.** A pin grows, fills and shows the crosshair only where a press pulls a
+  wire — an output, or an input a wire feeds — on a sheet that may be edited, so an input nothing feeds no longer promises one
+  either. A node's head, a reroute node, a frame's band and a layered graph's card, circle and craft lose the move cursor while the
+  canvas is read-only, and so does a pinned item or frame on any canvas; a press there still chooses, so the hand says that. A
+  reroute point on a wire, which a read-only press pans past, shows the sheet's own hand. One rule in `canvas.less` holds it all.
+- **The menus follow a read-only switch while they stand open**, the corner menu's Arrange and Save among them, both ways;
+  *Add node* on the node canvas is refused by the kind as well as by its entry. A disabled entry is disabled the way the
+  framework's `Enabled` disables a component — its mark and `aria-disabled`, what is inside it inert — so it keeps its place for
+  the pointer and a screen reader.
+- **A disabled or loading canvas answers nothing but its tooltip**, now that the framework leaves such a component's root live:
+  every listener on the canvas's root asks the framework first, and the picker, if it stood open, closes — as it does when the
+  canvas turns read-only.
+- **A node's fold and pin marks answer Enter and Space** as they answer a press, and keep the focus; neither raises the node's
+  click any more.
+- **The plan panel keeps the keyboard where it was.** An amount typed and taken with Enter or Tab rebuilt every target's row,
+  dropping the focus to the page; the rows are drawn again only when which targets there are changes, and an amount is written
+  into its field in place.
+- **The picker has one current entry.** The pointer moving over an entry makes it the current one, as a list of choices does, and
+  an entry has no wash of its own under the pointer, so an entry a resting pointer stands on no longer stays lit beside the one
+  the arrows moved to; the chosen category keeps its ground under the pointer, and a press shows through on both. The picker
+  enters and leaves as the framework's dialogs do — the panel rising, the veil fading in, both fading out — and a category's
+  chevron turns as it folds, the rail kept in place rather than drawn anew. Escape in its search closes it (the framework's
+  field keys took the first one to leave the field, dropping the focus while the dialog stayed); a right press in it opens no
+  canvas menu under the veil; Home and End move the search's caret, only the arrows walking the list; an entry is no Tab stop,
+  the arrows naming it from the search; and a press on a category gives the focus back to the search, and a press on an entry or
+  on the list's or the rail's empty room leaves it there, so typing goes on. The categories are a
+  tree (`role="tree"`, each a `treeitem` with its level) and one Tab stop: Up and Down, Home and End walk them, Right unfolds or
+  steps in, Left folds or steps out, Enter or Space chooses and leaves the keyboard there; the arrows' category washes as a menu's
+  keyboard entry does (`.ui-entry-keyboard()`, dashed in forced colours) rather than wearing the page's ring. Tab goes round the panel (search,
+  categories) and never out of the modal. Opened from the sheet's menu (*Add node*, by the pointer or the keyboard), the picker
+  keeps the focus in its search, and closing it — Escape, a choice — hands the keyboard to the sheet where what opened it is gone.
+- **Forced colours**: a chosen node and frame, the picker's chosen category and current entry, a pin's fill, what a pulled wire
+  or link would land on, a running and a failed node, the run line's tracks, a node's progress, a log line's level and a node's
+  resize corner are drawn in system colours; each was a shadow, a wash, a gradient or a colour forced colours paint over.
+- **The canvas's read-only mark is the family's**: `ui-readonly` on the root, written by `RenderIsReadOnlyMark`, which the
+  engine and `states.isReadOnly` read as every read-only control's. **Breaking** for a stylesheet keyed on
+  `[data-ui-graph-read-only]` and for code reading `GraphCanvasRendererBase.ReadOnlyAttribute`, which is gone.
+- **Nothing is `disabled` natively any more.** Run, Run all and Stop, and a node's fold and pin marks on a read-only sheet, are
+  disabled the framework's way — its mark and `aria-disabled`, the press refused — so the button the keyboard pressed keeps the
+  focus and a read-only node's marks stay readable. A wired input's field is read-only as the family draws one, still readable,
+  rather than `inert`. An edit that reaches a read-only sheet some other way — a wire dropped as the canvas turned read-only, a
+  value the server sent unsaved — is put back, and a wire being pulled is let go when the canvas turns read-only.
+- **Keys pressed in a panel are the panel's.** Backspace on a parameter's select, or Delete after pressing a parameter's or a log
+  line's node name, deleted the chosen nodes; the sheet's keys act now from the sheet and from the canvas's own buttons — the
+  zoom bar, the run panel, the corner's and the side panels' switches, the log's strip — so Delete or Ctrl+Z after pressing Fit
+  still reach the sheet, but never from what a panel holds: a field, a parameter's or a log line's name, a corner menu's entry.
+  Pressing a name brings its node into view without taking the keyboard from the name. Ctrl+S still saves from anywhere in the
+  canvas. A side panel's body holds the keyboard for its fields, as a dialog's surface does (the framework's
+  `data-ui-focus-holder` mark; the body is a `document` inside the viewport's application region, so a screen reader reads the
+  panel's fields and names in browse mode, and unnamed, the aside around it carrying the panel's word once): Enter or Escape in a parameter's or a plan's field hands the keyboard to the panel,
+  so the next Backspace deletes nothing.
+- **The keyboard keeps its place.** After Run, after a corner-menu command (the menu's switch takes the focus as the menu
+  folds), after a parameter's or a plan target's cross (the next row's cross, else the panel's switch), after Enter or Escape in
+  a node's field (the sheet takes it back — the framework's field keys hand the keyboard to the canvas around the field) or a
+  panel's (the panel takes it), across a redraw of the parameters' rows (the same part of the same row), and when the log line it
+  stood on goes (the oldest past the log's limit, every line as a run begins): the next line's name, else the log's switch. A
+  switch of the page's language while a node's field is typed into draws the nodes again once the field is let go, not under
+  the caret.
+- **The canvas's own words speak the page's language; the catalogue stays as written.** A pin's tooltip names its type in the
+  page's words (`ui.graph.type-*` in `ui.graph.pin-type`'s `{name} ({type})`), an enum or a class of the application's own by
+  its name read as words (`UINodePin.TypeTitle`, new); the picker's search is the word `ui.graph.search-kinds` (it was English
+  text); the zoom and the run's share are the page's number in `ui.graph.percent`; a plan's workers are the page's number; a new
+  group has no name of its own, so its band says the page's word for a group in whatever language the page is in. A node
+  catalogue's text — a kind's title, category and description, a pin's caption, unit, choices and description — is the
+  application's content, like a name the viewer gives a node: shown as written in every language, never looked up and never
+  reported as a missing word, key prefixes or not; the node fields' captions, units and choices are marked content, so an
+  English caption that equals a key is not translated either. A display writes a boolean as ✓ or ✕ at any depth — a list or a
+  record inside a table's cell or a record's field is written entry by entry, where it was JSON, joined as the page's language
+  joins a list (`Intl.ListFormat`) and a record's field in the word `ui.graph.display-field` (`{key}: {value}`) — and a date
+  as the framework writes one, where a list or a record wrote `true` and the wire's text; what was cut from a long list or text
+  is the word `ui.graph.more` (`… {count} more`, a plural form per language) rather than English the server wrote.
+  **Breaking** for a reader of `SetNodeDisplayEffect.Value`: the cut marker is a `UIPhrase` of `UIGraphWords.More`, and a text
+  cut short is two entries — its first characters, then that phrase.
+- **One tooltip.** The bar's and the run panel's buttons, the side panels' switches, the log's clear, a node's fold and pin marks,
+  a parameter's name and a plan's names carry the framework's tooltip (`data-ui-tooltip`) rather than the browser's `title`, so
+  they switch language and look like every other; a pin's, a card's, a circle's and a craft's words wait as a hover does.
+- **A folded node's and a reroute's pins open their own pin's menu**, as a pin's row does.
+- **The keyboard's marks are the framework's**: the log's buttons, a log line's node, a parameter's name and the side panels'
+  switches take the framework's ring, and their colour under the keyboard's focus alone, never after a press; the opt-in
+  viewport ring (`ShowFocusRing`) is the keyboard's alone too.
+- **Motion.** The dimming around the item under the pointer fades back out as it faded in; the log opens at the pace the corner
+  standing on it rises, and, open, the parameters panel ends above the corner; a wire answers the pointer on a wider reach and
+  thickens under it; the sheet shows the closed hand while it is panned; a reachable pin's halo eases in with its growth.
+- **A plan table's row is pressed anywhere**, and says so anywhere with the hand, not over its name alone; its name is a button,
+  so the keyboard reaches a row too, and pressing it keeps the keyboard there, as a log line's name does.
+- **The runner's own messages are words.** "'{pin}' is required." (`UIGraphWords.RunRequired`, the input's title a plain
+  argument, shown as written), "Stopped." (`RunStopped`), the cycle's failure (`RunCycle`) and a folder's "{index} of {total}: {name}."
+  (`FileProgress`) are written in the page's language, and a log line written as a word is written again when the language
+  switches; a built-in kind's exception message ("Division by zero.") and a kind's own line stay content, as the catalogue does.
+  The run line joins a node's name and what it said with the word `ui.graph.run-line` (`{node} · {message}`), and a picture's
+  upload share is the page's number in `ui.graph.percent`. **Breaking**: `UINodeRunner.OnLog` and `OnStatus` hand a `UIPhrase`
+  (`OnStatus`'s nullable), `AddNodeLogEffect.Message` and `SetNodeStatusEffect.Message` are `UIPhrase`s, and
+  `UINodeFailure.Error` and `UINodeRunResult.Error` are `UIPhrase`s — a node's own text is `UIPhrase.Text`. A node logs a word by
+  `UINodeRunContext.Log(UIPhrase)` / `LogAsync(UIPhrase)` and reports its progress in one by `ReportAsync(UIPhrase?, double?)`; a
+  blank text line is not written. A kind's own text — a line, a progress message, an exception's message — is shown as written on
+  the log and the run line, never looked up as a key. **Breaking** at compile time for `ReportAsync(null, progress)`, which both
+  overloads take: name the type, `ReportAsync((string?)null, progress)`.
+- **A display's table keeps its cut-short marker out of its columns.** A list of more than 200 records drew two more columns,
+  `key` and `args`, with the raw phrase in its last row; the table is drawn from the records and the page's `… {count} more` is
+  its last row across every column.
+- **A wired input's field wears the family's read-only look alone**, no longer dimmed as though disabled: it is readable and
+  reached by the keyboard.
+- **`GraphCanvasRendererBase.RenderBarButton` takes the whole attribute** the engine finds the button by
+  (`"data-ui-graph-run-once"`), not a part it composed one from, so the names test holds it. **Breaking** for a kind's renderer
+  calling it.
+- **The built-in menu entries are titled by `UIGraphWords` keys**, their English in `GraphStrings`, as the pin menu's already
+  were, so an application translates them as it translates the framework's words. **Breaking** for an application that
+  translated them by their English text, or read the default `ColorChoices`' titles: those are keys now (`UIGraphWords.Blue` …).
+- **`GraphCanvasRendererBase.RenderSidePanel`** draws the trailing side panel once for the parameters and the plan, open or
+  folded as its `folded` says, and the engine keeps the viewer's departure from that fold the same way for either; the plan
+  body's unread `data-ui-graph-plan-body` is gone.
+- **The sheet's parameters, `NodesComponent.ShowParameters`.** *Add to parameters* in an input's menu sets the input out in a
+  panel under the run panel, in the same field its node draws and bound to the same value: an edit in either shows in the other.
+  The set is part of the document, `UINodeDocument.Parameters` (`UINodeParameter` names a node and an input pin), saved and
+  undone with the sheet. Only an input with a field of its own that no wire feeds can be one: wiring it takes it out in the same
+  step, and `UINodeCatalog.ParametersOf` / `CanBeParameter` are the rule on the server. `WithParameters` refuses a wired input and
+  one of a node the document lacks — the document has no catalogue to ask the rest of. An input its node hides for now
+  (`VisibleWhen`) leaves the panel, and the catalogue passes it over, until it shows again; the parameter stays in the document. A
+  parameter's name brings its node into view, and its cross takes it back. The panel arrives folded, its gear alone, the run
+  panel's size, until the viewer opens it; the fold is remembered for the canvas. **Breaking** for code that builds `UINodeDocument` by its positional constructor past the key: a fifth parameter,
+  `parameters`, follows it.
+- **A pin's own menu** (`UIGraphMenus.Pin`): a right press anywhere on a pin's row opens it over the node's. It carries the
+  parameter entries and *Reset*, which lets the pin's wires go and, on an input, puts the kind's default value back — one step to
+  undo, unavailable while there is nothing to reset.
+- **The canvas's built-in menu entries wear the framework's own glyphs** (`UIGlyphs`, the `ne-` face) — they shipped bare, and
+  an application needed an icon pack and a `SetCommandIcon` per entry to dress them. `SetCommandIcon` now replaces a glyph.
+- **The corner menu's folded switch fills its block**, so the wash under the pointer reaches the frame rather than stopping a
+  padding short of it; the block keeps its size.
+- **The plan panel and the parameters panel share one side panel** (`canvas.less`'s `.ui-graph-side-panel()` and its switch,
+  chevron and body), as the production graph's plan drew it.
+- **A curved or slanted edge is drawn smooth at 100% scale.** Chrome's GPU rasteriser antialiases a stroked SVG path at four
+  samples a pixel, so a curve read as a staircase. An edge is now its path, unpainted — what the pointer answers and a label is
+  placed along — and its line painted under a group `.ui-graph__edge-line`: straight `<line>` pieces about four canvas units
+  long where it curves or slants, and the path itself where every step runs along an axis (a stepped edge, which draws crisp).
+  A dashed edge's pattern runs on across the pieces. An edge whose shape, colour and dashes stand keeps its painted pieces from
+  one draw to the next, so a drag rebuilds only the edges that moved. **Breaking** for a stylesheet that painted
+  `.ui-graph__edge`: it is transparent now, and the stroke is on `.ui-graph__edge-line`.
+- **A node canvas the viewer has no kept view of opens fitted**, as the layered sheet opens and as Arrange leaves a sheet; a
+  returning viewer's kept view stands.
+- **Fit keeps the sheet clear of the canvas's chrome along its top.** The corner menu's switch, a folded side panel (the
+  parameters, the plan) and the node canvas's run line and run panel stood over the first nodes of a fitted sheet; Fit — the
+  zoom bar's, the menu's and a first draw's — now keeps clear of them, beside a corner's box or under it, whichever leaves the
+  larger zoom. An open side panel keeps taking its column as before.
+- **The run line shows once a run has begun.** It stood along the canvas's top from the first draw, empty, over the sheet; now it
+  is hidden until the first run and keeps the last run's end after it. Its room stays clear before, so the corner menu, the run
+  panel and the parameters panel do not move when Run shows it.
+- **A long name in the plan's tables ends in an ellipsis.** The name's button was as wide as its words and ran past its cell,
+  which clipped it mid-letter; it is held to the cell now, so its words ellipsise and the tooltip reads the whole.
+- **The demos' toolbars wrap.** The graph page's settings and its Module/Built on/Add/Remove row, and the node demo's settings,
+  are `UILayout.Row`s, each list kept beside its caption, so a narrow page takes the switches and buttons under rather than
+  cutting them off. The planner's *Add* beside Search has a column as wide as its words, and the builds' *New build*, *Import* and
+  *Export* are small ghosts held by the top with the tab strip, so their middles are the captions'.
+- **A side panel opens and folds without a jerk.** Folded to its switch it is a box, and only its width slid: its height snapped
+  to the open column on the first frame, and its body dropped its scrollbar while it slid and took it back at the end, every
+  line re-wrapping at once. The framework's fold now slides both sizes and holds the body at its open box.
+- **The node demo's sheets stand where Arrange puts them**, and the Common page is a small sheet of the common kinds: a text and
+  a number joined and shown, a counter walked by Run all, and a note.
+- **The planner demo speaks a second language.** `DemoApp.Graph` has a language switcher in its header and its words on keys
+  of its own prefix (`planner.`, `KeyPrefixes`) in English and zh-Hans: the pages' names and prose, every control, dialog and
+  empty state, a resource's glyph names (its colours are the canvas's own colour words), the status lines and notifications,
+  and a file's refusal. Its zh-Hans table is whole — the framework's, the code field's and every canvas word it registers —
+  held by `DemoWordsCoverageTests`. The planner's resources, recipes and builds and the graph page's modules are content,
+  shown as written.
+- **The demos at a phone's width and in the planner's forms.** The graph's and the node canvas's pages give the canvas's row the
+  canvas's own floor and grow past the screen where their rows and the floor do not fit, so a short or narrow screen scrolls,
+  every toolbar row at its own height, rather than squeezing the toolbar or laying the map, the zoom bar and the form under the
+  canvas over one another; the planner's resources stand their list, form and graph one above the other below a wide screen,
+  and a resource's *Icon* and *Colour* selects take their half of the row rather than a floor wider than it.
+- **The graph page fits on a phone.** Its canvas zooms out to a tenth (`SetZoomRange(0.1, 2.5)`), so a fit at 390 px shows every
+  module rather than stopping at the default quarter with the first and last cut at the canvas's edges.
+- **The canvas is a ground of its own.** A canvas in a component given a theme `Background` keeps the page's inks on its sheet,
+  its panels and its bar, rather than letting the framework's parts in it read the filled card's on-colour over the canvas's own
+  background.
+- **A kept view that shows none of the sheet is let go.** A node canvas and a layered sheet open at the viewer's kept pan and
+  zoom only while it shows some of the sheet (`CanvasView.showsAnyItem`); a view kept from before the sheet's nodes moved, or
+  kept under the same name by another sheet, opened on an empty stretch of canvas — the nodes somewhere above — and now opens
+  the sheet whole, as a first visit does. The node demo's three sheets each have a canvas of their own name, so each keeps its
+  own view.
+- **The planner's form follows the list's choice.** A resource chosen by the arrows opens as a pressed one does: the page
+  follows the list's bound `SelectedKey` (`OnNotify`, as the builds' strip does) rather than an item click, which is the
+  pointer's alone.
+
 ## 1.2.0
 
 - **Built on the framework's 1.2.0.** Nothing of this package's own changed; it moves with the framework.

@@ -6,8 +6,8 @@ using System.Text;
 namespace DemoApp.Nodes;
 
 /// <summary>
-/// What every page of the demo wears: the title band with the theme switcher, the sidebar naming the pages, and the page filling
-/// what is left.
+/// What every page of the demo wears: the title band with the language and theme switchers, the sidebar naming the pages, and the
+/// page filling what is left.
 /// </summary>
 public abstract class NodesDemoView : UIViewBase
 {
@@ -29,10 +29,10 @@ public abstract class NodesDemoView : UIViewBase
     // A route of null is a heading over the pages below it; a demo of one page has none, as a section of one page is that page.
     private static readonly (string? Route, string Label)[] Pages =
     [
-        (null, "Kinds"),
-        (NodesRoute, "Common"),
-        (CalculatorRoute, "Calculator"),
-        (ImageRoute, "Image")
+        (null, "nodes.nav.kinds"),
+        (NodesRoute, "nodes.page.common"),
+        (CalculatorRoute, "nodes.page.calculator"),
+        (ImageRoute, "nodes.page.image")
     ];
 
     /// <summary>The title band and the sidebar stand, the sidebar from the top of the page; the content scrolls by itself.</summary>
@@ -43,8 +43,8 @@ public abstract class NodesDemoView : UIViewBase
     protected abstract string Description { get; }
 
     /// <summary>
-    /// The page band from the preset, with a sample page's source behind a button before the theme switcher; the switcher is on every
-    /// page, since the theme is the framework's state.
+    /// The page band from the preset, with a sample page's source behind a button before the language and theme switchers; the
+    /// switchers are on every page, since both are the framework's state.
     /// </summary>
     /// <remarks>The page is asked for twice, here for its source and in the content for itself: a component has one owner, so the two
     /// cannot share one build.</remarks>
@@ -55,8 +55,8 @@ public abstract class NodesDemoView : UIViewBase
             .SetDarkIcon(MaterialIcons.Outlined(DarkIcon));
 
         return CreatePage().Code is { } code
-            ? UIPage.Header(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), theme)
-            : UIPage.Header(Title, Description, theme);
+            ? UIPage.Header(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), new LanguageSwitcherComponent(), theme)
+            : UIPage.Header(Title, Description, new LanguageSwitcherComponent(), theme);
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ public abstract class NodesDemoView : UIViewBase
                 .SetType(UIButtonType.Ghost)
                 .SetSize(UIButtonSize.Small)
                 .SetIcon(MaterialIcons.Outlined(CodeIcon))
-                .SetTooltip("Code")
+                .SetTooltip("nodes.code")
             )
             .SetContent(new ContainerComponent()
                 .SetWidth(UILayoutLength.Absolute(640))
@@ -96,7 +96,7 @@ public abstract class NodesDemoView : UIViewBase
                     .SetType(UIButtonType.Ghost)
                     .SetSize(UIButtonSize.Small)
                     .SetIcon(MaterialIcons.Outlined(CopyIcon))
-                    .SetTooltip("Copy")
+                    .SetTooltip("nodes.copy")
                     .SetHorizontalAlignment(UIAlignment.End)
                     .SetVerticalAlignment(UIAlignment.Start)
                     // Clear of the text's vertical scrollbar, which runs down the same edge once the source is longer than the box.
@@ -216,11 +216,15 @@ public abstract class NodesDemoView : UIViewBase
             );
     }
 
-    /// <summary>The content fills the region it scrolls in, so a canvas takes the whole height.</summary>
+    /// <summary>
+    /// The content fills at least the region it scrolls in, so a canvas takes the whole height; a page taller than the region — a
+    /// short or narrow screen, where the rows around a canvas wrap and the canvas keeps its floor — grows past it, and the region
+    /// scrolls rather than squeezing the rows.
+    /// </summary>
     protected override IVisualComponent CreateContent()
         => new ContainerComponent()
             .SetPadding(UIThickness.All(24, 4, 24, 24))
-            .SetHeight(UILayoutLength.Fill())
+            .SetMinHeight(UILayoutLength.Fill())
             .AddChild(CreatePage().Content);
 
     /// <summary>The page's own content, filling the container it is given, with its source when it is a sample.</summary>

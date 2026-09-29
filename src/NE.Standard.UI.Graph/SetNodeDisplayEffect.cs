@@ -4,10 +4,8 @@ using NE.Standard.UI.Abstractions.Effects;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Puts a value into one node's display pin (a number, text, picture address, list or table). Reaches the node without touching
-/// the document — a run result, not a saved value.
-/// </summary>
+/// <summary>Puts a value into one node's display pin (a number, text, picture address, list or table).</summary>
+/// <remarks>Reaches the node without touching the document — a run result, not a saved value.</remarks>
 public sealed class SetNodeDisplayEffect : TargetedClientEffect
 {
     /// <summary>The kind this package's display effect travels under.</summary>
@@ -45,10 +43,11 @@ public sealed class SetNodeDisplayEffect : TargetedClientEffect
     /// </summary>
     public string PinName { get; }
 
-    /// <summary>
-    /// Gets what the pin shows — a text past ten thousand characters or a list past two hundred entries cut short, what was left
-    /// out said at its end, and a value that cannot travel as JSON as its text; null clears it.
-    /// </summary>
+    /// <summary>Gets what the pin shows; null clears it.</summary>
+    /// <remarks>
+    /// A text past ten thousand characters or a list past two hundred entries comes cut short, what was left out said at its end; a
+    /// value that cannot travel as JSON comes as its text.
+    /// </remarks>
     public object? Value { get; }
 
     /// <inheritdoc/>

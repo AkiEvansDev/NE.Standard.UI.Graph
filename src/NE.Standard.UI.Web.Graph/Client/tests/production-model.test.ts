@@ -20,7 +20,7 @@ function craft(id: string, ingredients: [string, number][], products: [string, n
     }) as Craft;
 }
 
-// The owner's example: 10 X need 10 Y and 5 Z; 1 Y needs 5 X and 1 G.
+// A cycle: 10 X need 10 Y and 5 Z; 1 Y needs 5 X and 1 G.
 const catalogue: ProductionEntry[] = [
     resource("x"),
     resource("y"),

@@ -17,11 +17,12 @@ public enum UIDateUnit
     Years
 }
 
-/// <summary>
-/// A date moved on, or back, by an amount of minutes, hours, days, weeks, months or years. Months and years move by the calendar —
-/// the 31st of January and a month is the last day of February — and are added whole; a day without a time loses what an amount of
-/// hours adds past its midnight. The result is the type that came in: a day stays a day, a date and time a date and time.
-/// </summary>
+/// <summary>A date moved on, or back, by an amount of time.</summary>
+/// <remarks>
+/// Months and years move by the calendar — the 31st of January and a month is the last day of February — and are added whole; a day
+/// without a time loses what an amount of hours adds past its midnight. The result is the type that came in: a day stays a day, a
+/// date and time a date and time.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.DatesCategory, Title = "Add to date", Description = "Moves a date on, or back, by an amount of time.", Icon = UIGlyphs.CalendarAdd, Color = UINodeKinds.DateColor)]
 public sealed class AddToDateNode : IGraphNode
 {
@@ -88,10 +89,11 @@ public sealed class AddToDateNode : IGraphNode
     }
 }
 
-/// <summary>
-/// How far one date stands from another, in the unit asked for: months and years as the whole calendar months and years between them,
-/// the smaller units with their fraction. Below zero when <c>To</c> comes before <c>From</c>.
-/// </summary>
+/// <summary>How far one date stands from another, in the unit asked for.</summary>
+/// <remarks>
+/// Months and years as the whole calendar months and years between them, the smaller units with their fraction; below zero when
+/// <c>To</c> comes before <c>From</c>.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.DatesCategory, Title = "Date difference", Description = "How far one date stands from another.", Icon = UIGlyphs.DateRange, Color = UINodeKinds.DateColor)]
 public sealed class DateDifferenceNode : IGraphNode
 {
@@ -201,10 +203,8 @@ public sealed class DatePartsNode : IGraphNode
     }
 }
 
-/// <summary>
-/// The date types a pin of any type may carry, read as the clock reads them — a day at its midnight, a date and time with an offset by
-/// its own clock rather than moved to another zone — and written back as the type that came in.
-/// </summary>
+/// <summary>The date types a pin of any type may carry, read as the clock reads them and written back as the type that came in.</summary>
+/// <remarks>A day at its midnight; a date and time with an offset by its own clock rather than moved to another zone.</remarks>
 internal static class NodeDates
 {
     /// <summary>Whether a value is a date, and the clock reading it stands for.</summary>

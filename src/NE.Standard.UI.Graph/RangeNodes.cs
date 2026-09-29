@@ -3,11 +3,11 @@ using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Every point of a grid, one a run: X moves fastest, and Y moves on once X has been round — two counters nested, set up in one
-/// node. Where it stands in the grid is kept in the document and shown on the node, and its reset puts it back to the
-/// first; after the last it starts over, or it ends a run of all.
-/// </summary>
+/// <summary>Every point of a grid, one a run — two counters nested, set up in one node.</summary>
+/// <remarks>
+/// X moves fastest, and Y moves on once X has been round. Where it stands in the grid is kept in the document and shown on the
+/// node, and its reset puts it back to the first; after the last it starts over, or it ends a run of all.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Range XY", Description = "Every point of a grid, one a run.", Icon = UIGlyphs.PlusOne, Color = "var(--ui-color-series-3)")]
 public sealed class RangeXYNode : IGraphNode, IGraphNodeSequence
 {
@@ -74,11 +74,11 @@ public sealed class RangeXYNode : IGraphNode, IGraphNodeSequence
     }
 }
 
-/// <summary>
-/// Every point of a box, one a run: X moves fastest, then Y, then Z — three counters nested, set up in one node. Where it stands in the box
-/// is kept in the document and shown on the node, and its reset puts it back to the first; after the last it starts over, or it
-/// ends a run of all.
-/// </summary>
+/// <summary>Every point of a box, one a run — three counters nested, set up in one node.</summary>
+/// <remarks>
+/// X moves fastest, then Y, then Z. Where it stands in the box is kept in the document and shown on the node, and its reset puts it
+/// back to the first; after the last it starts over, or it ends a run of all.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Range XYZ", Description = "Every point of a box, one a run.", Icon = UIGlyphs.PlusOne, Color = "var(--ui-color-series-3)")]
 public sealed class RangeXYZNode : IGraphNode, IGraphNodeSequence
 {

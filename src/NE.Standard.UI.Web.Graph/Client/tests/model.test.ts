@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canConnect, createNode, duplicate, edgesInto, isPinVisible, readDocument, resolveOutputType, slice } from "../src/nodes/model.ts";
+import { canConnect, canResetPin, createNode, dropParameter, duplicate, edgesInto, isParameterAllowed, isPinVisible, readDocument, resetPin, resolveOutputType, slice } from "../src/nodes/model.ts";
 import type { GraphDocument, NodeType, Pin } from "../src/nodes/model.ts";
 
 const numberType: NodeType = {
@@ -57,7 +57,8 @@ test("an output that follows an input takes the type connected to it", () => {
         ],
         edges: [{ id: "e", fromNode: "a", fromPin: "Result", toNode: "b", toPin: "Input", points: [] }],
         groups: [],
-        key: null
+        key: null,
+        parameters: []
     };
 
     assert.equal(resolveOutputType(document, types, "b", "Output"), "number");
@@ -68,7 +69,8 @@ test("an output that follows an unconnected input falls back to that input's own
         nodes: [{ id: "b", type: "Pass", x: 0, y: 0, values: {} }],
         edges: [],
         groups: [],
-        key: null
+        key: null,
+        parameters: []
     };
 
     assert.equal(resolveOutputType(document, types, "b", "Output"), "any");
@@ -85,7 +87,8 @@ test("a chain of followed types that loops answers the universal type rather tha
             { id: "e2", fromNode: "b", fromPin: "Output", toNode: "a", toPin: "Input", points: [] }
         ],
         groups: [],
-        key: null
+        key: null,
+        parameters: []
     };
 
     assert.equal(resolveOutputType(document, types, "a", "Output"), "any");
@@ -103,7 +106,8 @@ test("a slice carries only the edges that run between two of its own nodes", () 
             { id: "e2", fromNode: "b", fromPin: "Output", toNode: "c", toPin: "Input", points: [] }
         ],
         groups: [],
-        key: null
+        key: null,
+        parameters: []
     };
 
     const cut = slice(document, new Set(["a", "b"]));
@@ -192,8 +196,128 @@ test("every edge feeding one pin is answered in the document's own order", () =>
             { id: "e3", fromNode: "c", fromPin: "Result", toNode: "sum", toPin: "Values", points: [] }
         ],
         groups: [],
-        key: null
+        key: null,
+        parameters: []
     };
 
     assert.deepEqual(edgesInto(document, "sum", "Values").map(edge => edge.id), ["e1", "e3"]);
+});
+
+// Every kind of input a parameter is judged by: a field, the kinds with no field of their own, and a hidden state.
+const fieldsType: NodeType = {
+    key: "Fields",
+    title: "Fields",
+    inputs: [
+        { name: "Amount", title: "Amount", type: "number", editor: "Number", defaultValue: 1 },
+        { name: "Picture", title: "Picture", type: "image", editor: "Image" },
+        { name: "Values", title: "Values", type: "array:number", editor: "List", defaultValue: [] },
+        { name: "Anything", title: "Anything", type: "any", editor: "None" },
+        { name: "Shown", title: "Shown", type: "any", editor: "Display" },
+        { name: "Kept", title: "Kept", type: "number", editor: "Number", defaultValue: 0, state: true, hidden: true }
+    ],
+    outputs: [{ name: "Result", title: "Result", type: "number", editor: "None" }]
+};
+
+const fieldTypes = new Map<string, NodeType>([[fieldsType.key, fieldsType]]);
+
+/** Two nodes of one kind, the second's result wired into the first's amount. */
+function fieldsSheet(): GraphDocument {
+    return {
+        nodes: [
+            { id: "a", type: "Fields", x: 0, y: 0, title: null, color: null, pinned: false, values: { Amount: 5 } },
+            { id: "b", type: "Fields", x: 200, y: 0, title: null, color: null, pinned: false, values: { Amount: 7, Values: [1, 2] } }
+        ],
+        edges: [{ id: "e", fromNode: "b", fromPin: "Result", toNode: "a", toPin: "Amount", points: [] }],
+        groups: [],
+        key: null,
+        parameters: [{ node: "b", pin: "Amount" }]
+    };
+}
+
+test("only an unwired input with a field of its own may be a parameter", () => {
+    const document = fieldsSheet();
+
+    assert.equal(isParameterAllowed(document, fieldTypes, "b", "Amount"), true);
+    assert.equal(isParameterAllowed(document, fieldTypes, "a", "Amount"), false);
+
+    for (const pin of ["Picture", "Values", "Anything", "Shown", "Kept", "Result", "Missing"])
+        assert.equal(isParameterAllowed(document, fieldTypes, "b", pin), false, pin);
+
+    assert.equal(isParameterAllowed(document, fieldTypes, "gone", "Amount"), false);
+});
+
+test("an input its node hides for now may not be a parameter, and may again once it shows", () => {
+    const divideType: NodeType = {
+        key: "Divide",
+        title: "Divide",
+        inputs: [
+            { name: "Operation", title: "Operation", type: "enum:Operation", editor: "Choice", defaultValue: "Add" },
+            { name: "ByZero", title: "By zero", type: "enum:ByZero", editor: "Choice", defaultValue: "Fail", visibleWhen: "Operation", visibleValues: ["Divide"] }
+        ],
+        outputs: []
+    };
+    const divideTypes = new Map<string, NodeType>([[divideType.key, divideType]]);
+    const document: GraphDocument = {
+        nodes: [{ id: "d", type: "Divide", x: 0, y: 0, title: null, color: null, pinned: false, values: {} }],
+        edges: [],
+        groups: [],
+        key: null,
+        parameters: [{ node: "d", pin: "ByZero" }]
+    };
+
+    assert.equal(isParameterAllowed(document, divideTypes, "d", "ByZero"), false);
+
+    document.nodes[0].values["Operation"] = "Divide";
+
+    assert.equal(isParameterAllowed(document, divideTypes, "d", "ByZero"), true);
+    assert.equal(document.parameters.length, 1);
+});
+
+test("a parameter dropped is gone from the sheet's list, and dropping one that is not there changes nothing", () => {
+    const document = fieldsSheet();
+
+    assert.equal(dropParameter(document, "a", "Amount"), false);
+    assert.equal(document.parameters.length, 1);
+    assert.equal(dropParameter(document, "b", "Amount"), true);
+    assert.deepEqual(document.parameters, []);
+});
+
+test("an input's reset lets its wire go and puts the kind's default back", () => {
+    const document = fieldsSheet();
+
+    assert.equal(canResetPin(document, fieldTypes, "a", "Amount", "in"), true);
+    resetPin(document, fieldTypes, "a", "Amount", "in");
+
+    assert.deepEqual(document.edges, []);
+    assert.equal(document.nodes[0].values["Amount"], 1);
+    assert.equal(canResetPin(document, fieldTypes, "a", "Amount", "in"), false);
+});
+
+test("an output's reset only lets its wires go, and the value of the node it fed stays", () => {
+    const document = fieldsSheet();
+
+    assert.equal(canResetPin(document, fieldTypes, "b", "Result", "out"), true);
+    resetPin(document, fieldTypes, "b", "Result", "out");
+
+    assert.deepEqual(document.edges, []);
+    assert.equal(document.nodes[1].values["Amount"], 7);
+    assert.equal(document.nodes[0].values["Amount"], 5);
+    assert.equal(canResetPin(document, fieldTypes, "b", "Result", "out"), false);
+});
+
+test("a pin with nothing to reset offers none: a default value, an absent one, a display or a pin-only input with no wire", () => {
+    const document = fieldsSheet();
+
+    document.edges = [];
+    document.nodes[0].values["Amount"] = 1;
+
+    assert.equal(canResetPin(document, fieldTypes, "a", "Amount", "in"), false);
+    assert.equal(canResetPin(document, fieldTypes, "a", "Picture", "in"), false);
+    assert.equal(canResetPin(document, fieldTypes, "a", "Shown", "in"), false);
+    assert.equal(canResetPin(document, fieldTypes, "a", "Anything", "in"), false);
+    assert.equal(canResetPin(document, fieldTypes, "b", "Values", "in"), true);
+
+    resetPin(document, fieldTypes, "b", "Values", "in");
+
+    assert.deepEqual(document.nodes[1].values["Values"], []);
 });

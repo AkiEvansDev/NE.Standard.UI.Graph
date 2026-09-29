@@ -34,8 +34,9 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 
     /// <summary>
     /// Applies the draft to an application's nodes: removed nodes go, changed ones take the viewer's state, added ones join, and
-    /// links to removed nodes are dropped. Only differing properties are written.
+    /// links to removed nodes are dropped.
     /// </summary>
+    /// <remarks>Only differing properties are written.</remarks>
     public void ApplyTo(IList<UIGraphNode> nodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);

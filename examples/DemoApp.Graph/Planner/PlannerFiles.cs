@@ -13,7 +13,8 @@ namespace DemoApp.Graph.Planner;
 /// <summary>
 /// The planner's two files, read back with everything checked — a file is the viewer's, so nothing in it is trusted to be in range, to
 /// name what exists or to be what it says. The catalogue is a zip as EndfieldGraph's is, <c>manifest.json</c> beside an
-/// <c>icons/</c> folder of the resources' pictures; the builds, which carry none, are one JSON file.
+/// <c>icons/</c> folder of the resources' pictures; the builds, which carry none, are one JSON file. A reason a file is refused is a
+/// key of the demo's words, shown in the page's language.
 /// </summary>
 public static class PlannerFiles
 {
@@ -115,10 +116,10 @@ public static class PlannerFiles
             ResourcesFile? file = archive.GetEntry(ManifestName) is { } manifest && ReadEntry(manifest, MaxManifestBytes) is { } json ? Read<ResourcesFile>(json) : null;
 
             if (file is null || file.Format != ResourcesFormat || file.Resources is null)
-                return (null, pictures, "That is not a planner's resources file.");
+                return (null, pictures, "planner.file.not-resources");
 
             if (file.Version > Version)
-                return (null, pictures, "The file was written by a newer planner.");
+                return (null, pictures, "planner.file.newer");
 
             List<ResourceRecord> resources = new(file.Resources.Length);
             HashSet<string> ids = new(StringComparer.Ordinal);
@@ -126,7 +127,7 @@ public static class PlannerFiles
             foreach (ResourceEntry? entry in file.Resources)
             {
                 if (entry is null || !IsId(entry.Id) || !ids.Add(entry.Id) || string.IsNullOrWhiteSpace(entry.Name))
-                    return (null, pictures, "A resource in the file has no id, a repeated one, or no name.");
+                    return (null, pictures, "planner.file.bad-resource");
 
                 // A glyph or a colour the planner does not offer falls back to its default rather than refusing the file.
                 var icon = Array.Exists(PlannerCatalogue.Icons, known => known.Glyph == entry.Icon) ? entry.Icon : PlannerCatalogue.DefaultIcon;
@@ -147,7 +148,7 @@ public static class PlannerFiles
         }
         catch (InvalidDataException)
         {
-            return (null, pictures, "That is not a planner's resources file.");
+            return (null, pictures, "planner.file.not-resources");
         }
     }
 
@@ -186,10 +187,10 @@ public static class PlannerFiles
         BuildsFile? file = Read<BuildsFile>(content);
 
         if (file is null || file.Format != BuildsFormat || file.Builds is null)
-            return (null, "That is not a planner's builds file.");
+            return (null, "planner.file.not-builds");
 
         if (file.Version > Version)
-            return (null, "The file was written by a newer planner.");
+            return (null, "planner.file.newer");
 
         List<BuildRecord> builds = new(file.Builds.Length);
         HashSet<string> ids = new(StringComparer.Ordinal);
@@ -197,7 +198,7 @@ public static class PlannerFiles
         foreach (BuildEntry? entry in file.Builds)
         {
             if (entry is null || !IsId(entry.Id) || !ids.Add(entry.Id) || string.IsNullOrWhiteSpace(entry.Name))
-                return (null, "A build in the file has no id, a repeated one, or no name.");
+                return (null, "planner.file.bad-build");
 
             // A file from before the plan's settings travelled counts a minute, as the page then did; one from before the pin, unpinned.
             string[] bought = [.. (entry.Bought ?? []).Where(IsId)];
@@ -217,12 +218,12 @@ public static class PlannerFiles
         ArgumentNullException.ThrowIfNull(context);
 
         if (string.IsNullOrWhiteSpace(selectionId))
-            return (null, "Pick a file first.");
+            return (null, "planner.file.none");
 
         UIUploadSelection selection = await context.Uploads.GetSelectionAsync(context.Handle, selectionId, cancellationToken).ConfigureAwait(false);
 
         if (selection.Files.Length == 0)
-            return (null, "Pick a file first.");
+            return (null, "planner.file.none");
 
         UIUploadedFile upload = await context.Uploads.OpenAsync(context.Handle, selection.Files[0].FileId, cancellationToken: cancellationToken).ConfigureAwait(false);
 

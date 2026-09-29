@@ -1,5 +1,6 @@
-// Lane assignment for stepped edges: edges crossing the same gap are bundled into lanes where they leave or enter at one point,
-// ordered to minimize crossings, rather than all turning on one line; edges with points of their own each take a lane. Coordinates are in the sheet's own axes: `along` the layers, `across` within a layer.
+// Lane assignment for stepped edges: edges crossing one gap are bundled into lanes where they share an end, ordered to minimize
+// crossings, rather than all turning on one line; an edge with points of its own takes a lane alone. Axes are the sheet's own:
+// `along` the layers, `across` within one.
 
 export type LanePoint = { readonly along: number; readonly across: number };
 
@@ -36,9 +37,9 @@ type Bundle = {
 };
 
 /**
- * Where each bent leg turns, along the layers, by the leg's id; a straight leg, or one too short to turn in, has no entry. A leg
- * turns half way along its own run; only legs whose uprights would come within a lane of each other are set apart, in lanes around
- * where they would have turned — so moving one node moves the turns of the wires near it, and no other.
+ * Where each bent leg turns along the layers, by leg id; a straight leg, or one too short to turn, has none. A leg turns half way
+ * along its run, and only legs whose uprights come within a lane of each other are set apart around there — so moving one node
+ * moves only the turns of the wires near it.
  */
 export function assignLanes(legs: readonly LaneLeg[], options: LaneOptions = {}): Map<string, number> {
     const spacing = options.spacing ?? LaneSpacing;

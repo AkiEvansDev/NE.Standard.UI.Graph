@@ -32,6 +32,12 @@ public sealed class GraphAppStartup : UIStartupBase
         // runtime kept for the window would show them as they were.
         _ = application.ConfigurePersistence(static persistence => persistence.Lifetime = UIRuntimeLifetime.PerPage);
 
+        _ = application.AddLocalizationSource(PlannerDemoWords.Build());
+
+        // Only a string starting "planner." is a key: every other string on a translatable property — a resource's, a build's or a
+        // module's name — is content, so the missing-word report in Development names only words the demo has not translated.
+        _ = application.ConfigureLocalization(options => options.KeyPrefixes.Add(PlannerDemoWords.KeyPrefix));
+
         _ = application.Route<ResourcesView, ResourcesController>(GraphDemoView.ResourcesRoute);
         _ = application.Route<BuildsView, BuildsController>(GraphDemoView.BuildsRoute);
         _ = application.Route<GraphView, DependenciesController>(GraphDemoView.GraphRoute);

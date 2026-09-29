@@ -60,7 +60,7 @@ test("a cycle is broken at exactly one edge, and the rest run forward", () => {
     }
 });
 
-test("the owner's feedback: 10 X need Y and Z, a Y needs X and G — the edge X takes back is the backward one", () => {
+test("10 X need Y and Z, a Y needs X and G — the edge X takes back is the backward one", () => {
     const result = layered(nodes("G", "Z", "Y", "X"), edges("Y>X", "Z>X", "X>Y", "G>Y"), { direction: "right" });
 
     assert.equal(result.backEdges.size, 1);
@@ -271,8 +271,8 @@ test("a node fed by two stands in line with one of them, not half way between", 
     assert.ok([result.positions.get("a")!.y, result.positions.get("b")!.y].includes(c), `${c} is in line with neither`);
 });
 
-// The planner's HC Valley Battery as the owner laid it out by hand: every node in line with one of what feeds it, and the long
-// edges running flat, so the chains read as rows.
+// A hand layout of the planner's HC Valley Battery: every node in line with one of what feeds it, and the long edges running flat,
+// so the chains read as rows.
 const battery = ["Ferrium Ore", "Ferrium", "Ferrium Powder", "Dense Ferrium Powder", "Steel", "Steel Part", "HC Valley Battery", "Sandleaf Powder", "Dense Originium Powder", "Originium Ore", "Originium Powder", "Sandleaf", "Sandleaf Seed"];
 const batteryLinks = [
     "Ferrium Ore>Ferrium", "Ferrium>Ferrium Powder", "Ferrium Powder>Dense Ferrium Powder", "Dense Ferrium Powder>Steel", "Steel>Steel Part",
@@ -294,7 +294,7 @@ test("the planner's battery lays out in rows: each merge in line with one input,
         assert.ok(route.every(point => point.y === y(from) + 45), `${id} runs ${route.map(point => point.y).join(", ")}`);
     }
 
-    // The long edge into Dense Ferrium Powder runs straight into it, as the owner's own layout has it.
+    // The long edge into Dense Ferrium Powder runs straight into it, as the hand layout has it.
     assert.equal(y("Dense Ferrium Powder"), y("Sandleaf Powder"));
     assert.equal(y("HC Valley Battery"), y("Dense Originium Powder"));
     assert.equal(overlaps(result, all), false);

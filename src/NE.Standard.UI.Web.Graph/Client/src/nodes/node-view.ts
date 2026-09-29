@@ -1,10 +1,11 @@
-// One node's DOM: head, pin-only inputs beside outputs, then a row per value with the editor its pin's type asks for. Every
-// editor is a framework component cloned from the canvas's template, given the value and read back on change; the node's own
-// marks (chevron, pin) are framework `ne-` glyphs, written as a renderer writes an icon value.
+// One node's DOM: head, pin-only inputs beside outputs, then a row per value with the editor its pin's type asks for — a framework
+// component cloned from the canvas's template. The node's own marks (chevron, pin) are framework `ne-` glyphs, written as a
+// renderer writes an icon value.
 
-import type { Icons, Tooltips } from "ne-standard-ui";
-import { CollapsedAttribute, FoldAttribute, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
-import { renderDisplayValue } from "./display.ts";
+import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormatting, Tooltips } from "ne-standard-ui";
+import { CollapsedAttribute, CoreNames, FoldAttribute, hoverTooltip, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
+import { joinList, MoreKey, renderDisplayValue } from "./display.ts";
+import type { DisplayOptions } from "./display.ts";
 import type { DocumentNode, NodeType, Pin } from "./model.ts";
 import { asText, isPinVisible } from "./model.ts";
 
@@ -16,16 +17,38 @@ export const HeadAttribute = "data-ui-graph-head";
 export const ValueAttribute = "data-ui-graph-value";
 export const DisplayAttribute = "data-ui-graph-display";
 export const UploadAttribute = "data-ui-graph-uploading";
+/** The menu the right button opens on a pin's row — `UIGraphMenus.Pin` on the server — over the node's own. */
+export const PinMenuName = "graph-pin-menu";
+/** On every part a right press opens a pin's menu from: the pin's name, and whether it is an input or an output. */
+export const PinMenuAttribute = "data-ui-graph-pin-menu";
+export const PinMenuDirectionAttribute = "data-ui-graph-pin-menu-dir";
 const MultipleAttribute = "data-ui-graph-pin-many";
 const OptionalAttribute = "data-ui-graph-pin-optional";
 
-type Words = {
-    text(key: string): string;
-    format(key: string, values: Readonly<Record<string, string | number>>): string;
+// The built-in pin types by the words a person reads them in; an enum's or an application's class's name comes with the catalogue.
+const TypeWords: Readonly<Record<string, string>> = {
+    any: "ui.graph.type-any",
+    array: "ui.graph.type-list",
+    text: "ui.graph.type-text",
+    number: "ui.graph.type-number",
+    boolean: "ui.graph.type-boolean",
+    image: "ui.graph.type-image",
+    date: "ui.graph.type-date",
+    time: "ui.graph.type-time",
+    datetime: "ui.graph.type-datetime"
 };
+const ArrayPrefix = "array:";
+const EnumPrefix = "enum:";
+// `GraphStrings.DisplayField` on the server: a record's field on a display's one line, its name and its value.
+const DisplayFieldKey = "ui.graph.display-field";
 
 export type NodeViewOptions = {
-    readonly words: Words;
+    /** The canvas's own words; the catalogue's text — kinds, pins — is the application's, shown as written. */
+    readonly words: ClientStrings;
+    readonly names: DomNames;
+    readonly states: ComponentStates;
+    /** How a person reads an enum's or an application's class's pin type, by its id: the catalogue's name for it. */
+    readonly typeTitles: ReadonlyMap<string, string>;
     readonly icons: Icons;
     readonly readOnly: boolean;
     /** The colour a pin of each type wears; a type the table does not name takes the canvas's default. */
@@ -44,6 +67,9 @@ export type NodeViewOptions = {
     readonly tooltips: Tooltips;
     /** A number as the page writes one: the pin's format against the page's own culture. */
     readonly number: (value: number, format: string | null | undefined) => string;
+    /** A moment as the page writes one, for a display's dates. */
+    readonly date: (value: Date, format: string | null) => string;
+    readonly temporal: TemporalFormatting;
     /** A fresh copy of the framework's component the canvas carries a template of under the region's name; null when it carries none. */
     readonly cloneEditor: (region: string) => HTMLElement | null;
     /** A property of such a copy, set the way a push sets it. */
@@ -55,9 +81,6 @@ export type NodeViewOptions = {
 // The names the canvas's templates are carried under: UIGraphRegions on the server.
 const EditorPrefix = "graph-editor:";
 const ListRemoveRegion = "graph-list-remove";
-// The parts of the framework's picture field the canvas reads: the input its selection lands on, and the file's name.
-const PictureSelectionClass = "ui-image-input__selection";
-const PictureTextClass = "ui-image-input__text";
 const ListAddRegion = "graph-list-add";
 const StateResetRegion = "graph-state-reset";
 // On a list's add button, for the row to stand it beside the list's caption.
@@ -166,19 +189,22 @@ function renderCompact(root: HTMLElement, node: DocumentNode, type: NodeType, op
 
     ports.className = "ui-graph__node-ports";
 
-    // Both ends in the colour of what passes through, the way in as much as the way out.
+    // Both ends in the colour of what passes through, the way in as much as the way out; each opens its own pin's menu.
     if (input !== undefined && output !== undefined)
-        ports.append(renderPin(node, input, options.outputType(node.id, output.name), "in", options));
+        ports.append(opensPinMenu(renderPin(node, input, options.outputType(node.id, output.name), "in", options), input, "in", options));
 
     if (output !== undefined)
-        ports.append(renderPin(node, output, options.outputType(node.id, output.name), "out", options));
+        ports.append(opensPinMenu(renderPin(node, output, options.outputType(node.id, output.name), "out", options), output, "out", options));
 
     root.append(name, ports);
 
     return root;
 }
 
-/** A folded node's pins, inside its head: the inputs at one edge and the outputs at the other, each side's stacked as one. */
+/**
+ * A folded node's pins, inside its head: the inputs at one edge and the outputs at the other, each side's stacked as one. With no
+ * rows to press, each mark opens its own pin's menu.
+ */
 function renderPorts(node: DocumentNode, type: NodeType | undefined, options: NodeViewOptions): HTMLElement {
     const ports = document.createElement("div");
 
@@ -189,11 +215,11 @@ function renderPorts(node: DocumentNode, type: NodeType | undefined, options: No
 
     for (const pin of type.inputs) {
         if (pin.hasPin !== false && isPinVisible(pin, node, type))
-            ports.append(renderPin(node, pin, pin.type, "in", options));
+            ports.append(opensPinMenu(renderPin(node, pin, pin.type, "in", options), pin, "in", options));
     }
 
     for (const pin of type.outputs)
-        ports.append(renderPin(node, pin, options.outputType(node.id, pin.name), "out", options));
+        ports.append(opensPinMenu(renderPin(node, pin, options.outputType(node.id, pin.name), "out", options), pin, "out", options));
 
     return ports;
 }
@@ -220,11 +246,8 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
     fold.type = "button";
     fold.className = "ui-graph__node-fold";
     fold.setAttribute(FoldAttribute, "");
-    fold.title = options.words.text(folded ? "ui.graph.expand" : "ui.graph.collapse");
-    fold.setAttribute("aria-label", fold.title);
+    headMark(fold, folded ? "ui.graph.expand" : "ui.graph.collapse", options);
     fold.setAttribute("aria-expanded", String(!folded));
-    // Still drawn read-only, as the node's state: only no longer a control the canvas would answer.
-    fold.disabled = options.readOnly;
     fold.append(glyph(options, folded ? "ne-chevron-right" : "ne-chevron-down"));
     head.append(fold);
 
@@ -244,13 +267,23 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
     pin.type = "button";
     pin.className = "ui-graph__node-pinned";
     pin.setAttribute(PinToggleAttribute, "");
-    pin.title = options.words.text(node.pinned === true ? "ui.graph.unpin" : "ui.graph.pin");
-    pin.setAttribute("aria-label", pin.title);
-    pin.disabled = options.readOnly;
+    headMark(pin, node.pinned === true ? "ui.graph.unpin" : "ui.graph.pin", options);
     pin.append(glyph(options, node.pinned === true ? "ne-pin" : "ne-pin-outlined"));
     head.append(pin);
 
     return head;
+}
+
+/**
+ * A head mark's word, as its name and the page's tooltip; on a read-only sheet it is still drawn, as the node's state, disabled the
+ * framework's way, so it keeps its place for the keyboard.
+ */
+function headMark(mark: HTMLElement, key: string, options: NodeViewOptions): void {
+    options.words.write(mark, "aria-label", key);
+    options.words.write(mark, options.names.tooltip, key);
+
+    if (options.readOnly)
+        options.states.setDisabled(mark, true);
 }
 
 /** An icon value on a box of its own, the way `IconValueRenderer` writes one: a pack's glyph, or one of the framework's `ne-` marks. */
@@ -283,17 +316,27 @@ function renderPortRow(node: DocumentNode, input: Pin | undefined, output: Pin |
 
     row.className = "ui-graph__row";
 
+    // Two pins share the line, so each opens its own menu from its own half: its mark and its caption.
     if (input !== undefined) {
-        row.append(renderPin(node, input, input.type, "in", options));
-        row.append(caption(input, "ui-graph__row-label"));
+        row.append(opensPinMenu(renderPin(node, input, input.type, "in", options), input, "in", options));
+        row.append(opensPinMenu(caption(input, "ui-graph__row-label"), input, "in", options));
     }
 
     if (output !== undefined) {
-        row.append(label(output.title, "ui-graph__row-label ui-graph__row-label--out"));
-        row.append(renderPin(node, output, options.outputType(node.id, output.name), "out", options));
+        row.append(opensPinMenu(label(output.title, "ui-graph__row-label ui-graph__row-label--out"), output, "out", options));
+        row.append(opensPinMenu(renderPin(node, output, options.outputType(node.id, output.name), "out", options), output, "out", options));
     }
 
     return row;
+}
+
+/** Makes a part open the pin's menu on a right press, rather than its node's. */
+function opensPinMenu(element: HTMLElement, pin: Pin, direction: "in" | "out", options: NodeViewOptions): HTMLElement {
+    element.setAttribute(options.names.contextMenuUse, PinMenuName);
+    element.setAttribute(PinMenuAttribute, pin.name);
+    element.setAttribute(PinMenuDirectionAttribute, direction);
+
+    return element;
 }
 
 function label(text: string, className: string): HTMLElement {
@@ -320,6 +363,8 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
     const tall = isTall(pin);
 
     row.className = tall ? "ui-graph__row ui-graph__row--tall" : "ui-graph__row";
+    // The whole row is the input's: a right press anywhere on it — its pin, its caption, its field — opens the pin's menu.
+    opensPinMenu(row, pin, "in", options);
 
     // Only a large picture, a display or a multi-line text takes the node's dragged height; every other row keeps its own, and spare height gathers below.
     if ((pin.editor === "Image" && pin.large === true) || pin.editor === "Display" || (pin.editor === "Text" && (pin.maxLines ?? 1) > 1))
@@ -328,7 +373,10 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
     if (pin.hasPin !== false)
         row.append(renderPin(node, pin, pin.type, "in", options));
 
-    const editor = renderEditor(node, pin, options);
+    // A wired input shows what the wire carries, read-only as the family draws one — still readable, never inert — except a list,
+    // where wired rows come first but typed rows beside them stay open.
+    const sealed = connected && pin.editor !== "List";
+    const editor = renderEditor(node, pin, sealed, options);
     const add = editor.querySelector<HTMLElement>(`[${ListAddAttribute}]`);
 
     // A list's add button stands at the end of its caption's line, where it reads as the caption's own action.
@@ -340,18 +388,15 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
         head.append(add);
         row.append(head);
     }
-    else if (tall || pin.editor === "Boolean") {
+    else if (!captionInField(pin)) {
         row.append(caption(pin, "ui-graph__row-label"));
     }
 
     if (pin.height !== null && pin.height !== undefined && pin.height > 0)
         editor.style.setProperty("--ui-graph-editor-height", `${pin.height}rem`);
 
-    // A connected edge makes the editor read-only, showing what it carries — except a list, where wired rows come first but typed rows beside them stay open.
-    if (connected && pin.editor !== "List") {
+    if (sealed)
         row.classList.add("ui-graph__row--connected");
-        editor.setAttribute("inert", "");
-    }
 
     row.append(editor);
 
@@ -372,7 +417,7 @@ function stateReset(node: DocumentNode, pin: Pin, editor: HTMLElement, options: 
     if (reset === null)
         return null;
 
-    disableOnReadOnly(reset, options);
+    disableOnReadOnly(reset, options.readOnly, options);
     reset.addEventListener("click", () => {
         const value = pin.defaultValue ?? null;
         const field = editor.firstElementChild;
@@ -385,6 +430,11 @@ function stateReset(node: DocumentNode, pin: Pin, editor: HTMLElement, options: 
     });
 
     return reset;
+}
+
+/** Whether the pin's field wears its caption inside its own box; a tall one and a boolean's box take it beside them instead. */
+export function captionInField(pin: Pin): boolean {
+    return !isTall(pin) && pin.editor !== "Boolean";
 }
 
 /** Whether the editor is one that cannot share a line with its caption. */
@@ -413,44 +463,57 @@ function renderPin(node: DocumentNode, pin: Pin, type: string, direction: "in" |
     if (direction === "out" || pin.required !== true)
         mark.setAttribute(OptionalAttribute, "");
 
-    // The page's own tooltip, not the browser's: it shows at once and carries the type plus the pin's line — the only way a
-    // folded node (its captions gone) can say it.
+    // The page's own tooltip, not the browser's: the type plus the pin's line — the only way a folded node (its captions gone) can
+    // say it.
+    const words = options.words;
     const description = pin.description ?? "";
-    const words = `${pin.title} (${typeName(type, pin.multiple === true, options)})${description.length > 0 ? `\n${description}` : ""}`;
+    const named = words.format("ui.graph.pin-type", { name: pin.title, type: typeName(type, pin.multiple === true, options) });
 
-    mark.addEventListener("pointerenter", () => options.tooltips.show(mark, words));
-    mark.addEventListener("pointerleave", () => options.tooltips.hide());
+    hoverTooltip(mark, description.length > 0 ? `${named}\n${description}` : named, options.tooltips);
 
     return mark;
 }
 
-/** A pin type as a person reads it: an array as its element with brackets, an enum by its own name, a pin taking several said so. */
+/** A pin type as a person reads it: a built-in one in the page's words, a list of its element, an enum or a class by the catalogue's name for it, a pin taking several said so. */
 function typeName(type: string, many: boolean, options: NodeViewOptions): string {
-    const read = (id: string): string => id.startsWith("array:") ? `${read(id.slice("array:".length))}[]` : id.startsWith("enum:") ? id.slice("enum:".length) : id;
+    const words = options.words;
+    const read = (id: string): string => {
+        if (id.startsWith(ArrayPrefix))
+            return words.format("ui.graph.type-list-of", { type: read(id.slice(ArrayPrefix.length)) });
 
-    return many ? options.words.format("ui.graph.pin-many", { type: read(type) }) : read(type);
+        const key = TypeWords[id];
+
+        if (key !== undefined)
+            return words.text(key);
+
+        const title = options.typeTitles.get(id);
+
+        return title === undefined ? (id.startsWith(EnumPrefix) ? id.slice(EnumPrefix.length) : id) : title;
+    };
+
+    return many ? words.format("ui.graph.pin-many", { type: read(type) }) : read(type);
 }
 
-function renderEditor(node: DocumentNode, pin: Pin, options: NodeViewOptions): HTMLElement {
-    // A value the document does not hold — a node an application wrote, a field emptied — is the kind's default, which is what
-    // a run takes for it, so the field shows it rather than standing empty; but not on a wired input, whose value the wire brings.
+function renderEditor(node: DocumentNode, pin: Pin, sealed: boolean, options: NodeViewOptions): HTMLElement {
+    // An unheld value (a node an application wrote, a field emptied) shows the kind's default, which a run takes for it, rather than
+    // standing empty — but not on a wired input, whose value the wire brings.
     const wired = options.isConnected(node.id, pin.name, "in");
     const value = node.values[pin.name] ?? (wired ? null : pin.defaultValue);
 
     switch (pin.editor) {
         case "Image":
-            return imageEditor(node, pin, value, options);
+            return imageEditor(node, pin, value, sealed || options.readOnly, options);
         case "List":
             return listEditor(node, pin, value, options);
         case "Display":
             return displayEditor(pin, options);
         default:
-            return fieldEditor(node, pin, value, options);
+            return fieldEditor(node, pin, value, sealed || options.readOnly, options);
     }
 }
 
 /** A pin's field: a framework component cloned from the canvas's template, shaped server-side by the pin's attributes, given the node's value and read back on change. */
-function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeViewOptions): HTMLElement {
+function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boolean, options: NodeViewOptions): HTMLElement {
     const box = editorBox(pin, pin.editor === "Boolean" ? "ui-graph__editor--check" : null);
     const field = options.cloneEditor(`${EditorPrefix}${node.type}:${pin.name}`);
 
@@ -458,7 +521,7 @@ function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, options: Node
         return box;
 
     box.append(field);
-    bindField(field, value ?? null, options, () => options.onValueChanged(node.id, pin.name, readPinValue(pin, options.readValue(field))));
+    bindField(field, value ?? null, readOnly, options, () => options.onValueChanged(node.id, pin.name, readPinValue(pin, options.readValue(field))));
 
     return box;
 }
@@ -472,11 +535,11 @@ function editorBox(pin: Pin, modifier: string | null): HTMLElement {
     return box;
 }
 
-/** Gives a cloned field its value, and either seals it on a read-only sheet or reads it back on every change. */
-function bindField(field: HTMLElement, value: unknown, options: NodeViewOptions, onChange: () => void): void {
+/** Gives a cloned field its value, and either seals it — a read-only sheet, a wired input — or reads it back on every change. */
+function bindField(field: HTMLElement, value: unknown, readOnly: boolean, options: NodeViewOptions, onChange: () => void): void {
     options.setProperty(field, "Value", value);
 
-    if (options.readOnly)
+    if (readOnly)
         options.setProperty(field, "IsReadOnly", true);
     else
         field.addEventListener("change", onChange);
@@ -484,9 +547,9 @@ function bindField(field: HTMLElement, value: unknown, options: NodeViewOptions,
 
 /**
  * A field's value as the document keeps it: a number as a number, an emptied field as nothing — but an emptied text as an empty text,
- * which a run takes as it is, where nothing would be the kind's default and the field would show what the run does not take.
+ * since nothing would run as the kind's default while the field shows empty.
  */
-function readPinValue(pin: Pin, value: unknown): unknown {
+export function readPinValue(pin: Pin, value: unknown): unknown {
     return pin.editor === "Text" && value === "" ? "" : readValueAs(pin.editor === "Number", value);
 }
 
@@ -510,13 +573,29 @@ function displayEditor(pin: Pin, options: NodeViewOptions): HTMLElement {
     box.className = "ui-graph__editor ui-graph__editor--display";
     box.setAttribute(ValueAttribute, pin.name);
     box.setAttribute(DisplayAttribute, "");
-    box.append(renderDisplayValue(null, { empty: options.words.text("ui.graph.no-value"), number: value => options.number(value, pin.format) }));
+    box.append(renderDisplayValue(null, displayOptions(pin, options)));
 
     return box;
 }
 
+/** How a display pin writes what it is given: the page's word for nothing, a number by the pin's format, a moment as the page writes one. */
+export function displayOptions(pin: Pin | undefined, options: Pick<NodeViewOptions, "words" | "number" | "date" | "temporal">): DisplayOptions {
+    return {
+        empty: options.words.text("ui.graph.no-value"),
+        more: count => options.words.format(MoreKey, { count }),
+        list: entries => joinList(entries, document.documentElement.lang),
+        field: (key, value) => options.words.format(DisplayFieldKey, { key, value }),
+        number: value => options.number(value, pin?.format),
+        moment: text => {
+            const written = options.temporal.parse(text);
+
+            return written === null ? null : options.date(options.temporal.toDate(written), text.length <= 10 ? "yyyy-MM-dd" : null);
+        }
+    };
+}
+
 /** A picture pin: large, the framework's picture field shows the file at once and sends it, with the server answering where it's kept; otherwise the address on one line with a send button. */
-function imageEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeViewOptions): HTMLElement {
+function imageEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boolean, options: NodeViewOptions): HTMLElement {
     const large = pin.large === true;
     const box = editorBox(pin, large ? "ui-graph__editor--picture" : null);
     const address = asText(value);
@@ -529,13 +608,13 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, options: Node
 
     if (large) {
         // The field's selection input changes once the file has landed; its name is what the field wrote while it was on its way.
-        bindField(field, address.length === 0 ? null : address, options, () => {
-            const selection = field.querySelector<HTMLInputElement>(`input.${PictureSelectionClass}`);
+        bindField(field, address.length === 0 ? null : address, readOnly, options, () => {
+            const selection = field.querySelector<HTMLInputElement>(`input.${CoreNames.pictureSelectionClass}`);
 
             if (selection === null || selection.value.length === 0)
                 return;
 
-            const name = field.querySelector(`.${PictureTextClass}`)?.textContent ?? "";
+            const name = field.querySelector(`.${CoreNames.pictureTextClass}`)?.textContent ?? "";
 
             options.onImageUploaded(node.id, pin.name, selection.value, name);
         });
@@ -543,17 +622,17 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, options: Node
         return box;
     }
 
-    bindField(field, address.length === 0 ? null : address, options, () => {
+    bindField(field, address.length === 0 ? null : address, readOnly, options, () => {
         const next = asText(options.readValue(field));
 
         options.onValueChanged(node.id, pin.name, next.length === 0 ? null : next);
     });
 
     // The file goes to the server first, which answers with where it's kept; the button is the field's own trailing action, drawn by the template.
-    const pick = field.querySelector<HTMLElement>(".ui-text-input__action > *");
+    const pick = field.querySelector<HTMLElement>(`.${CoreNames.textInputActionClass} > *`);
 
     if (pick !== null) {
-        disableOnReadOnly(pick, options);
+        disableOnReadOnly(pick, readOnly, options);
 
         pick.addEventListener("click", event => {
             // Inside the field's label: a press on the button is not a press on the field.
@@ -565,9 +644,9 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, options: Node
     return box;
 }
 
-/** A cloned button on a read-only sheet takes no press. */
-function disableOnReadOnly(button: HTMLElement, options: NodeViewOptions): void {
-    if (options.readOnly)
+/** A cloned button on a read-only sheet, or of a wired input, takes no press. */
+function disableOnReadOnly(button: HTMLElement, readOnly: boolean, options: NodeViewOptions): void {
+    if (readOnly)
         options.setProperty(button, "Enabled", false);
 }
 
@@ -596,7 +675,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
             row.className = "ui-graph__list-row";
 
             if (field !== null) {
-                bindField(field, entry ?? null, options, () => {
+                bindField(field, entry ?? null, options.readOnly, options, () => {
                     values[index] = readValueAs(numbers, options.readValue(field));
                     publish();
                 });
@@ -605,7 +684,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
             }
 
             if (remove !== null) {
-                disableOnReadOnly(remove, options);
+                disableOnReadOnly(remove, options.readOnly, options);
 
                 remove.addEventListener("click", () => {
                     values.splice(index, 1);
@@ -626,7 +705,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
 
     if (add !== null) {
         add.setAttribute(ListAddAttribute, "");
-        disableOnReadOnly(add, options);
+        disableOnReadOnly(add, options.readOnly, options);
 
         add.addEventListener("click", () => {
             values.push(null);

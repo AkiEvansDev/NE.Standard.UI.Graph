@@ -26,8 +26,8 @@ export type ArrangeOptions = {
 };
 
 /**
- * Where every arranged node lands, by id: the whole document from the origin, a selection from the top-left corner of the box it
- * stood in, so it stays where it was. A pinned node is left where it is, and neither it nor a wire of it takes part.
+ * Where every arranged node lands, by id: the whole document from the origin, a selection from its old box's top-left so it stays
+ * put. A pinned node stays, and neither it nor its wires take part.
  */
 export function arrange(document: GraphDocument, options: ArrangeOptions): Map<string, Point> {
     const fallback = options.fallback ?? { width: 220, height: 120 };
@@ -68,9 +68,9 @@ export function arrange(document: GraphDocument, options: ArrangeOptions): Map<s
 }
 
 /**
- * Puts the answer on the grid without bending what the layout made straight: every node's left edge on a grid line, and each run of
- * nodes joined by level wires moved up or down as one, by what puts its first node's top on a line. Every node's own top on a line
- * would leave a wire between pins at different depths of their nodes a step of a few pixels.
+ * Puts the answer on the grid without bending what the layout made straight: every left edge on a line, and each run of nodes joined
+ * by level wires moved as one so its first node's top is on a line — every top on a line would step a wire between pins at different
+ * depths by a few pixels.
  */
 function placeOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[], edges: readonly LayeredEdge[], gridSize: number): void {
     const heights = new Map(nodes.map(node => [node.id, node.height]));
@@ -122,9 +122,9 @@ function placeOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[
 }
 
 /**
- * The room after each column whose wires need more than the least: a lane apiece and the margin either side, the lanes bundled as
- * `canvas/lanes.ts` bundles them — the wires of an output that forks share its lane, and the rest share the lane of the input they
- * merge into. A wire that runs back against the columns turns in no gap of its own.
+ * The room after each column whose wires need more than the least: a lane apiece plus a margin either side, bundled as
+ * `canvas/lanes.ts` bundles them (an output's forked wires share its lane, the rest the lane of the input they merge into). A wire
+ * running back against the columns turns in no gap of its own.
  */
 function gapsAfter(wires: readonly DocumentEdge[], layers: ReadonlyMap<string, number>, columnGap: number): Map<number, number> {
     const leaving = wires.filter(wire => layers.get(wire.toNode)! > layers.get(wire.fromNode)!);

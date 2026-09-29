@@ -2,10 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// The graph's document: the layout from <see cref="UIGraphDocumentBase"/>, plus the draft of node changes. Nodes and links are
-/// the bound collection's, not the document's; an unplaced node is placed by the layout.
-/// </summary>
+/// <summary>The graph's document: the layout from <see cref="UIGraphDocumentBase"/>, plus the draft of node changes.</summary>
+/// <remarks>Nodes and links are the bound collection's, not the document's; an unplaced node is placed by the layout.</remarks>
 [method: JsonConstructor]
 public sealed class UIGraphDocument(UIGraphPlacement[]? nodes = null, UIGraphRoute[]? edges = null, UIGraphGroup[]? groups = null, UIGraphDraft? draft = null, string? key = null)
     : UIGraphDocumentBase(nodes, edges, groups, key)

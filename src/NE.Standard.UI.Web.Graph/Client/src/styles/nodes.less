@@ -11,6 +11,11 @@
     --ui-graph-foot-height: var(--ui-graph-log-strip-height);
 }
 
+    // The log opened is what the canvas's foot is: the corner stands on it, and the parameters panel ends above the corner.
+    .ui-graph[data-ui-graph-kind="nodes"][data-ui-graph-log-open] {
+        --ui-graph-foot-height: var(--ui-graph-log-height);
+    }
+
 // --- nodes ----------------------------------------------------------------------------------------------------------------
 
 .ui-graph__nodes {
@@ -87,17 +92,14 @@
 // one shape and colour, told apart by how faint each is until hovered.
 .ui-graph-head-mark() {
     .ui-glyph-host();
+    .ui-graph-bare-button();
     width: 1rem;
     height: 1rem;
-    padding: 0;
-    border: none;
     border-radius: var(--ui-radius-button);
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
     transition: opacity @ui-motion-fast @ui-motion-ease;
 
-    &:disabled {
+    // On a read-only sheet: still drawn, as the node's state, and disabled the framework's way (`aria-disabled`, focusable).
+    &[aria-disabled='true'] {
         cursor: default;
     }
 }
@@ -112,18 +114,18 @@
         font-size: @ui-glyph-sm;
     }
 
-    .ui-graph__node-fold:hover:not(:disabled) {
+    .ui-graph__node-fold:hover:not([aria-disabled='true']) {
         opacity: 1;
     }
 
-// Folded, the node is only as wide as its head's words (min-width belongs to the open body), never narrower than reads as a
-// node; the grid step, where it applies, is the floor the engine writes — for the width only: the height stays the head's own.
+// Folded, the node is only as wide as its head's words (min-width belongs to the open body), never narrower than reads as a node;
+// the engine's grid step floors the width only, the height stays the head's own.
 .ui-graph__node[data-ui-graph-collapsed] {
     width: max-content;
     min-width: max(7.5rem, calc(var(--ui-graph-node-w, 0) * 1px));
 }
 
-// Folded, the node is its head alone: no divider, corners the body used to round.
+// Folded, the node is its head alone: no divider, and the head takes the corners the open body rounds.
 .ui-graph__node[data-ui-graph-collapsed] > .ui-graph__node-head {
     border-bottom: none;
     border-radius: calc(var(--ui-radius-card) - 1px);
@@ -184,7 +186,7 @@
         font-size: @ui-glyph-sm;
     }
 
-    .ui-graph__node-pinned:hover:not(:disabled) {
+    .ui-graph__node-pinned:hover:not([aria-disabled='true']) {
         opacity: 0.8;
     }
 
@@ -192,9 +194,8 @@
         opacity: 1;
     }
 
-// Edge to edge under the head, square and roomless: a running node is a line across it, not a control set into it. Only a
-// kind that asked for one carries it, gone once the node stops running. It lies over the body's top padding, taking no room,
-// so the rows do not jump when a run begins.
+// Edge to edge under the head, square and roomless: a running node is a line across it, not a control set into it. Only a kind
+// that asks carries it, while the node runs; it lies over the body's top padding, so the rows don't jump when a run begins.
 .ui-graph__node-progress {
     --ui-graph-progress: 0;
 
@@ -302,10 +303,6 @@
         min-height: 0;
     }
 
-    .ui-graph__row--connected > .ui-graph__editor {
-        opacity: var(--ui-disabled-opacity);
-    }
-
 .ui-graph__row-label {
     flex: 1 1 auto;
     min-width: 0;
@@ -332,9 +329,12 @@
     border: 2px solid var(--ui-graph-pin-color);
     border-radius: 50%;
     background: var(--ui-color-surface);
-    cursor: crosshair;
-    transition: transform @ui-motion-fast @ui-motion-ease, opacity @ui-motion-fast @ui-motion-ease;
+    transition: transform @ui-motion-fast @ui-motion-ease, opacity @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease;
 }
+
+// A pin a press pulls a wire out of — an output, or an input a wire feeds — on a sheet that may be edited: only such a pin
+// promises a wire under the pointer. An input nothing feeds, or any pin of a read-only sheet, reads as a mark.
+@ui-graph-pin-live: ~".ui-graph:not(.ui-readonly):not(.ui-graph--connecting) .ui-graph__pin:is([data-ui-graph-pin-dir='out'], .ui-graph__pin--filled)";
 
     .ui-graph__pin[data-ui-graph-pin-dir="in"] {
         left: -0.375rem;
@@ -374,7 +374,7 @@
     }
 
     .ui-graph__pin--filled::before,
-    .ui-graph__pin:hover::before {
+    @{ui-graph-pin-live}:hover::before {
         transform: scale(1);
     }
 
@@ -408,7 +408,11 @@
         border-radius: 0.0625rem;
     }
 
-    .ui-graph__pin:hover {
+    @{ui-graph-pin-live} {
+        cursor: crosshair;
+    }
+
+    @{ui-graph-pin-live}:hover {
         transform: scale(1.2);
     }
 
@@ -660,16 +664,27 @@ dialog.ui-graph__picker {
     color: var(--ui-color-on-surface);
     overflow: hidden;
     .ui-elevation-3();
+    // The framework's dialog's own exit: it fades out, held in the top layer until the fade ends.
+    .ui-dialog-exit();
 }
 
+    // The framework's dialog's own entrance: the panel rises into place as the veil fades in.
     dialog.ui-graph__picker[open] {
         display: flex;
         flex-direction: column;
+        opacity: 1;
+        .ui-dialog-enter();
     }
 
-    // The same veil the framework's dialogs draw over the page.
+    // The same veil the framework's dialogs draw over the page, leaving with the panel.
     dialog.ui-graph__picker::backdrop {
-        background: var(--ui-color-overlay, rgba(0, 0, 0, 0.45));
+        .ui-dialog-veil();
+        .ui-dialog-backdrop-exit();
+    }
+
+    dialog.ui-graph__picker[open]::backdrop {
+        opacity: 1;
+        .ui-dialog-backdrop-enter();
     }
 
 // The title at the start and the search at the end, with air between them rather than the field running up to the title.
@@ -703,33 +718,26 @@ dialog.ui-graph__picker {
 .ui-graph__picker-rail {
     display: flex;
     flex: 0 0 10rem;
-    flex-direction: column;
-    gap: 0.125rem;
+    .ui-entry-list();
     padding: @ui-space-2;
     border-right: var(--ui-border-width) solid var(--ui-color-border);
     overflow: auto;
 }
 
-// A category under another steps in by its depth, which the engine writes on the entry.
+// A category under another steps in by its depth, which the engine writes on the entry. The chosen one keeps its own ground under
+// the pointer, and a press shows through as on every row of the framework's; the arrows' category washes as a menu's entry does.
 .ui-graph__picker-category {
+    .ui-graph-bare-button();
     display: flex;
     align-items: center;
     gap: 0.25rem;
     padding: 0.375rem 0.625rem;
     padding-inline-start: calc(0.25rem + var(--ui-graph-picker-depth, 0) * 0.875rem);
-    border: none;
     // A button's corners, as the framework's own menu entries have: a list of square slabs in a rounded dialog reads as a table.
     border-radius: var(--ui-radius-button);
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
+    .ui-entry-hover();
+    .ui-entry-keyboard();
 }
-
-    .ui-graph__picker-category:hover {
-        background: var(--ui-wash-hover);
-    }
 
     .ui-graph__picker-category[aria-selected="true"] {
         .ui-selected-ground();
@@ -753,30 +761,26 @@ dialog.ui-graph__picker {
 .ui-graph__picker-list {
     display: flex;
     flex: 1 1 auto;
-    flex-direction: column;
-    gap: 0.125rem;
+    .ui-entry-list();
     padding: @ui-space-2;
     overflow: auto;
 }
 
-// The kind's own icon beside what it says about itself, when the kind names one; without one the text takes the whole entry.
+// The kind's icon, when it names one, beside what it says about itself. No hover wash: the pointer moves the current entry, as a
+// select's options do (picker.ts).
 .ui-graph__picker-entry {
+    .ui-graph-bare-button();
     display: flex;
     align-items: center;
     gap: @ui-space-3;
     padding: @ui-space-2 0.625rem;
-    border: none;
     border-radius: var(--ui-radius-button);
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-}
+    transition: background-color @ui-motion-fast @ui-motion-ease;
 
-    .ui-graph__picker-entry:hover {
-        background: var(--ui-wash-hover);
+    &:not([aria-selected='true']):active {
+        background-color: var(--ui-wash-active);
     }
+}
 
     .ui-graph__picker-entry--current {
         .ui-selected-ground();
@@ -801,7 +805,6 @@ dialog.ui-graph__picker {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: 0.125rem;
     min-width: 0;
 }
 
@@ -813,6 +816,8 @@ dialog.ui-graph__picker {
     color: var(--ui-text-muted);
     font-size: var(--ui-text-caption-font-size);
     .ui-text-nowrap();
+    // Tight under the title, as a Text draws its description; after the nowrap, whose overflow it narrows to a clip.
+    .ui-text-description-line();
 }
 
 .ui-graph__picker-empty {
@@ -822,11 +827,6 @@ dialog.ui-graph__picker {
 }
 
 // --- the run line and the log ---------------------------------------------------------------------------------------------
-
-// The corner stands on the log's strip, and is raised by the whole log while it is open, so the two are never under it.
-.ui-graph[data-ui-graph-log-open] .ui-graph__corner {
-    bottom: calc(var(--ui-graph-log-height) + @ui-space-2);
-}
 
 // The corner menu stands under the run line.
 .ui-graph[data-ui-graph-run-progress] .ui-graph__menu-panel {
@@ -858,9 +858,157 @@ dialog.ui-graph__picker {
     }
 
     // Run speaks in the page's own colour, so the panel reads as the way to run the sheet rather than three marks alike.
-    .ui-graph__run-panel > [data-ui-graph-run-once]:not(:disabled) {
+    .ui-graph__run-panel > [data-ui-graph-run-once]:not([aria-disabled='true']) {
         color: var(--ui-color-primary);
     }
+
+// --- the parameters panel ---------------------------------------------------------------------------------------------------------
+// Under the run panel, on the trailing side as the production graph's plan stands (canvas.less's side panel): shown only on a
+// canvas that sets parameters out, and ending above the zoom bar however many there are.
+
+.ui-graph {
+    // The run panel's own height: its small buttons in a padded frame, as the zoom bar's corner is.
+    --ui-graph-run-panel-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width));
+    // Where the parameters panel starts: under the run line, and under the run panel where the canvas shows one.
+    --ui-graph-parameters-top: @ui-space-2;
+    --ui-graph-parameters-width: 18rem;
+}
+
+    .ui-graph[data-ui-graph-run-progress] {
+        --ui-graph-parameters-top: calc(var(--ui-graph-run-height) + @ui-space-2);
+    }
+
+    .ui-graph[data-ui-graph-run-panel] {
+        --ui-graph-parameters-top: calc(@ui-space-2 * 2 + var(--ui-graph-run-panel-height));
+    }
+
+    .ui-graph[data-ui-graph-run-progress][data-ui-graph-run-panel] {
+        --ui-graph-parameters-top: calc(var(--ui-graph-run-height) + @ui-space-2 * 2 + var(--ui-graph-run-panel-height));
+    }
+
+.ui-graph .ui-graph__parameters {
+    .ui-graph-side-panel(var(--ui-graph-parameters-width); ~".ui-graph__parameters-body");
+    top: var(--ui-graph-parameters-top);
+    display: none;
+    max-height: calc(100% - var(--ui-graph-parameters-top) - 2 * @ui-space-2 - var(--ui-graph-corner-height) - var(--ui-graph-foot-height));
+}
+
+    .ui-graph[data-ui-graph-parameters] .ui-graph__parameters {
+        display: flex;
+    }
+
+.ui-graph__parameters-toggle {
+    .ui-graph-side-toggle();
+}
+
+.ui-graph__parameters-chevron {
+    .ui-graph-side-chevron(~".ui-graph__parameters");
+}
+
+// The gear stands for the panel once folded; open, the word and the chevron do.
+.ui-graph__parameters-icon {
+    .ui-glyph-host();
+    display: none;
+    font-size: @ui-glyph-md;
+}
+
+// Folded, a small block the run panel's height and corners, under it: the gear alone, the name kept on the button's tooltip. The
+// gear answers the pointer as the corner menu's switch does — the frame's wash, reaching its edges, and the ink coming up.
+.ui-graph .ui-graph__parameters[data-ui-collapsed]:not([data-ui-folding]) {
+    border-radius: var(--ui-radius-button);
+    box-shadow: none;
+
+    > .ui-graph__parameters-toggle {
+        justify-content: center;
+        width: calc(var(--ui-graph-run-panel-height) - 2 * var(--ui-border-width));
+        height: calc(var(--ui-graph-run-panel-height) - 2 * var(--ui-border-width));
+        padding: 0;
+        border-radius: calc(var(--ui-radius-button) - var(--ui-border-width));
+        color: var(--ui-text-muted);
+        .ui-reveal-hover();
+
+        > :not(.ui-graph__parameters-icon) {
+            display: none;
+        }
+
+        > .ui-graph__parameters-icon {
+            display: inline-flex;
+        }
+
+        &:hover {
+            color: var(--ui-color-on-surface);
+        }
+    }
+}
+
+.ui-graph__parameters-body {
+    .ui-graph-side-body();
+}
+
+.ui-graph__parameters-list {
+    display: flex;
+    flex-direction: column;
+    gap: @ui-space-2;
+}
+
+    // With none set out, the line that says how to set one out stands in the list's place.
+    .ui-graph__parameters-list:not(:empty) + .ui-graph__parameters-empty {
+        display: none;
+    }
+
+.ui-graph__parameters-empty {
+    margin: 0;
+    color: var(--ui-text-muted);
+}
+
+// A parameter: its node's name over the input's caption, which chooses the node; beside them the node's own field and the button
+// that takes it back.
+.ui-graph__parameter {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    align-items: center;
+    gap: @ui-space-1;
+}
+
+    .ui-graph__parameter > .ui-graph__parameter-field {
+        min-width: 0;
+    }
+
+    .ui-graph__parameter > .ui-button {
+        --ui-min-height: @ui-control-height-sm;
+        --ui-padding: 0;
+    }
+
+// Set tight, as a node's own caption and a field's are: the two lines read as one name, not as two rows.
+.ui-graph__parameter-name {
+    .ui-graph-bare-button();
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+
+    > span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    // A press takes the view to the node, so the name answers the pointer as a link does, and the keyboard's focus alike.
+    &:hover > .ui-graph__parameter-node,
+    &@{ui-keyboard-focus} > .ui-graph__parameter-node {
+        color: var(--ui-color-primary);
+        text-decoration: underline;
+    }
+}
+
+.ui-graph__parameter-node {
+    font-weight: 600;
+}
+
+.ui-graph__parameter-pin {
+    color: var(--ui-text-muted);
+}
 
 // Along the canvas's top: upper half the whole run, lower half the running node's own steps, with its name and share written
 // over them. Square and edge to edge; keeps the last run's end, coloured danger on failure.
@@ -888,6 +1036,13 @@ dialog.ui-graph__picker {
 
     .ui-graph:not([data-ui-graph-run-progress]) .ui-graph__run {
         display: none;
+    }
+
+    // Before the first run there is nothing to say: hidden rather than gone, so its room stays where the menu, the run panel and a
+    // Fit keep to — nothing moves under the pointer when Run shows it.
+    .ui-graph__run:not([data-ui-graph-run-state]),
+    .ui-graph__run[data-ui-graph-run-state="idle"] {
+        visibility: hidden;
     }
 
 // In the success colour, the one a finished thing wears, so the line never reads as a selection or a control in the brand colour.
@@ -941,6 +1096,7 @@ dialog.ui-graph__picker {
 
 // The log at the canvas's foot: folded, a strip with a count (like a code field's status bar); open, lines above the strip
 // at the log's height. The count's colour is the worst line's, so a failure reads even folded.
+// A height at rest as well as open, so the log opens at the pace the corner standing on it rises.
 .ui-graph__log {
     position: absolute;
     left: 0;
@@ -949,8 +1105,10 @@ dialog.ui-graph__picker {
     z-index: 2;
     display: flex;
     flex-direction: column;
+    height: calc(var(--ui-graph-log-strip-height) + var(--ui-border-width));
     border-top: var(--ui-border-width) solid var(--ui-color-border);
     background: var(--ui-color-surface);
+    transition: height @ui-motion-fast @ui-motion-ease;
 }
 
     .ui-graph[data-ui-graph-log-open] .ui-graph__log {
@@ -976,15 +1134,10 @@ dialog.ui-graph__picker {
 // The whole strip opens the log: square, the strip's height, with the faintest hover response (just the word brightens, no wash), since the log sits under the sheet and isn't what a reader looks at.
 .ui-graph__log-toggle,
 .ui-graph__log-clear {
+    .ui-graph-bare-button();
     display: flex;
     align-items: center;
-    margin: 0;
-    border: none;
     border-radius: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
     transition: color @ui-motion-fast @ui-motion-ease;
 }
 
@@ -993,10 +1146,9 @@ dialog.ui-graph__picker {
         color: var(--ui-color-on-surface);
     }
 
-    // The keyboard's ring as well as the hover's colour: a colour alone reads as the pointer passing, not as where the focus is.
-    .ui-graph__log-toggle:focus-visible,
-    .ui-graph__log-clear:focus-visible {
-        .ui-focus-ring();
+    // The keyboard's focus brightens the word as the hover does; the ring is the framework's own (reset.less).
+    .ui-graph__log-toggle@{ui-keyboard-focus},
+    .ui-graph__log-clear@{ui-keyboard-focus} {
         color: var(--ui-color-on-surface);
     }
 
@@ -1005,7 +1157,6 @@ dialog.ui-graph__picker {
     gap: 0.375rem;
     min-width: 0;
     padding: 0 @ui-space-2;
-    text-align: start;
 }
 
 .ui-graph__log-chevron {
@@ -1090,22 +1241,14 @@ dialog.ui-graph__picker {
 
 // The node a line came from, as a link-like control: a press takes the view to the node and chooses it.
 .ui-graph__log-node {
+    .ui-graph-bare-button();
     flex: 0 0 auto;
-    padding: 0;
-    border: none;
-    background: none;
     color: var(--ui-color-primary-ink);
-    font: inherit;
     font-weight: var(--ui-text-title-font-weight);
-    cursor: pointer;
 }
 
     .ui-graph__log-node:hover {
         text-decoration: underline;
-    }
-
-    .ui-graph__log-node:focus-visible {
-        .ui-focus-ring();
     }
 
 .ui-graph__log-message {

@@ -4,13 +4,10 @@ using NE.Standard.UI.Abstractions.Effects;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Reports how many of a run's nodes are through, of how many, drawn as the canvas's top progress line. The first report (0
-/// through) starts the run and clears the log; the last (all through) ends it.
-/// </summary>
+/// <summary>Reports how many of a run's nodes are through, of how many, drawn as the canvas's top progress line.</summary>
 /// <remarks>
-/// Total comes from the runner, not computed from the sheet — a node of an unknown kind never runs, so the runner alone knows the
-/// count.
+/// The first report (0 through) starts the run and clears the log; the last (all through) ends it. Total comes from the runner, not
+/// computed from the sheet — a node of an unknown kind never runs, so the runner alone knows the count.
 /// </remarks>
 public sealed class SetRunProgressEffect : TargetedClientEffect
 {

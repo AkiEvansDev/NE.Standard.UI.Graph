@@ -3,10 +3,11 @@ using System.Collections.Generic;
 
 namespace NE.Standard.UI.Graph.Calculator;
 
-/// <summary>
-/// The calculator's kinds, for a catalogue beside an application's own; they wear the core's own glyphs, so the host registers
-/// nothing for them. A number typed in is the canvas's own <see cref="UINodeKinds"/> <c>NumberNode</c>.
-/// </summary>
+/// <summary>The calculator's kinds, for a catalogue beside an application's own.</summary>
+/// <remarks>
+/// They wear the core's own glyphs, so the host registers nothing for them. A number typed in is the canvas's own
+/// <see cref="UINodeKinds"/> <c>NumberNode</c>.
+/// </remarks>
 public static class CalculatorNodes
 {
     /// <summary>Where the kinds stand in the picker, each in a category under this one.</summary>

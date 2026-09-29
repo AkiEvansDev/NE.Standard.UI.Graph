@@ -5,13 +5,14 @@ using System.Threading.Tasks;
 namespace NE.Standard.UI.Graph.Image;
 
 /// <summary>
-/// How much the picture kinds may take of the server: the most pixels one picture is decoded to, and how many pictures are
-/// decoded at once across the process. Registered as a singleton (<c>services.AddSingleton(new UINodeImageLimits { ... })</c>);
-/// unregistered, the kinds use the defaults.
+/// How much the picture kinds may take of the server: the most pixels one picture is decoded to, and how many are decoded at once
+/// across the process.
 /// </summary>
 /// <remarks>
-/// A decoded picture takes four bytes a pixel, and a kind holds two or three of them at once — the picture, the one it makes and
-/// what is encoded of it — so the pixel cap times the decodes at once is about a third of what the kinds may hold in memory.
+/// Registered as a singleton (<c>services.AddSingleton(new UINodeImageLimits { ... })</c>); unregistered, the kinds use the
+/// defaults. A decoded picture takes four bytes a pixel, and a kind holds two or three of them at once — the picture, the one it
+/// makes and what is encoded of it — so the pixel cap times the decodes at once is about a third of what the kinds may hold in
+/// memory.
 /// </remarks>
 public sealed class UINodeImageLimits : IDisposable
 {
@@ -25,10 +26,11 @@ public sealed class UINodeImageLimits : IDisposable
 
     private SemaphoreSlim? _gate;
 
-    /// <summary>
-    /// Gets the most pixels a picture is decoded to. A small file can claim a huge picture; a resize decodes a large photograph at
-    /// a smaller size where its format allows, so this bounds what is actually decoded rather than what the file claims.
-    /// </summary>
+    /// <summary>Gets the most pixels a picture is decoded to.</summary>
+    /// <remarks>
+    /// A small file can claim a huge picture; since a resize decodes a large photograph smaller where its format allows, this
+    /// bounds what is decoded rather than what the file claims.
+    /// </remarks>
     public long MaxPixels { get; init; } = DefaultMaxPixels;
 
     /// <summary>Gets how many pictures the process decodes at once; a run past it waits its turn.</summary>

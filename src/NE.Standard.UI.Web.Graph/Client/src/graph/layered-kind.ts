@@ -285,10 +285,10 @@ export class LayeredKind implements CanvasKind {
         const conflict = editable && target?.kind === "node" && this.conflicts.has(target.id);
 
         // A conflict's two answers stand in the menu only of an item that has one.
-        showMenuEntries(this.services.root, "graph:take-server", conflict);
-        showMenuEntries(this.services.root, "graph:keep-mine", conflict);
+        showMenuEntries(this.services, "graph:take-server", conflict);
+        showMenuEntries(this.services, "graph:keep-mine", conflict);
 
         for (const key of ["graph:add-node", "graph:caption", "graph:delete-edge"])
-            enableMenuEntries(this.services.root, key, allowed);
+            enableMenuEntries(this.services, key, allowed);
     }
 }

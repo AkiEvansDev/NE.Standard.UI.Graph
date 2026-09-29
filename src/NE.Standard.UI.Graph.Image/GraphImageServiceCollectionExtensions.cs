@@ -11,10 +11,12 @@ namespace NE.Standard.UI.Graph.Image;
 public static class GraphImageServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="UINodeImageMemoryStore"/> as the image store and as the application's content provider, so the pictures
-    /// it keeps are served too. An application with a content provider of its own registers an <see cref="IUINodeImageStore"/> of
-    /// its own instead: there is one content provider per application.
+    /// Registers <see cref="UINodeImageMemoryStore"/> as the image store and as the content provider that serves what it keeps.
     /// </summary>
+    /// <remarks>
+    /// An application with a content provider of its own registers an <see cref="IUINodeImageStore"/> of its own instead: there is
+    /// one content provider per application.
+    /// </remarks>
     public static IServiceCollection AddGraphImages(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -26,9 +28,12 @@ public static class GraphImageServiceCollectionExtensions
 
     /// <summary>
     /// Registers <see cref="UINodeImageMemoryStore"/> as <see cref="AddGraphImages(IServiceCollection)"/> does, keeping at most
-    /// <paramref name="maxBytes"/> of pictures: past it, the pictures used longest ago are let go, though a run cache may still hand
-    /// their addresses on once (<see cref="UINodeImageMemoryStore.MaxBytes"/>).
+    /// <paramref name="maxBytes"/> of pictures.
     /// </summary>
+    /// <remarks>
+    /// Past it, the pictures used longest ago are let go, though a run cache may still hand their addresses on once
+    /// (<see cref="UINodeImageMemoryStore.MaxBytes"/>).
+    /// </remarks>
     public static IServiceCollection AddGraphImages(this IServiceCollection services, long maxBytes)
     {
         ArgumentNullException.ThrowIfNull(services);

@@ -1,9 +1,9 @@
 // A layered canvas's two structural gestures: a link pulled from a node's handle and dropped on its target, and text edited in a
 // chip on the sheet.
 
-import { markAimed } from "../canvas/aim.ts";
+import { beginConnecting, endConnecting, markAimed } from "../canvas/aim.ts";
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
-import { NodeAttribute } from "../canvas/canvas-dom.ts";
+import { DropAttribute, NodeAttribute } from "../canvas/canvas-dom.ts";
 import type { CanvasDocument, Point } from "../canvas/canvas-model.ts";
 import { pathMiddle } from "../canvas/geometry.ts";
 
@@ -13,9 +13,6 @@ export const HandleAttribute = "data-ui-graph-handle";
 export const EntryAttribute = "data-ui-graph-entry";
 /** On the node a link is being pulled out of, while it is. */
 const SourceAttribute = "data-ui-graph-link-source";
-/** On a node while a pulled link is over the sheet: `yes` for the one it would land on, `no` for one that would refuse it. */
-const DropAttribute = "data-ui-graph-drop";
-const ConnectingClass = "ui-graph--connecting";
 
 export type LinkRules = {
     /** Whether a link from the one node may land on the other. */
@@ -35,7 +32,7 @@ export function beginLinkDrag(services: CanvasServices<CanvasDocument>, handle: 
     const root = services.root;
     let target: HTMLElement | null = null;
 
-    root.classList.add(ConnectingClass);
+    beginConnecting(root);
     source.setAttribute(SourceAttribute, "");
 
     for (const node of services.nodeLayer.querySelectorAll<HTMLElement>(`[${NodeAttribute}]`)) {
@@ -66,12 +63,9 @@ export function beginLinkDrag(services: CanvasServices<CanvasDocument>, handle: 
                 rules.link(from, to, event);
         },
         end: () => {
-            root.classList.remove(ConnectingClass);
             source.removeAttribute(SourceAttribute);
             sourceNow()?.removeAttribute(SourceAttribute);
-
-            for (const marked of services.nodeLayer.querySelectorAll<HTMLElement>(`[${DropAttribute}]`))
-                marked.removeAttribute(DropAttribute);
+            endConnecting(root, services.nodeLayer);
         }
     };
 }
@@ -123,9 +117,7 @@ export function openChipField(services: CanvasServices<CanvasDocument>, at: Poin
         value,
         allowEmpty: true,
         commit,
-        done: () => {
-            box.remove();
-            services.view.viewportElement.focus({ preventScroll: true });
-        }
+        done: () => box.remove(),
+        refocus: () => services.view.viewportElement.focus({ preventScroll: true })
     });
 }

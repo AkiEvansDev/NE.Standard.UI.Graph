@@ -1,8 +1,8 @@
-// Draws one graph node as a card (icon/picture, title, subtitle, badge) or a circle (picture/icon, its title under it and as its tooltip).
-// The title carries the class a rename field lays over; the root carries the attribute every canvas finds an item by.
+// One graph node as a card (icon or picture, title, subtitle, badge) or a circle (picture or icon, titled under it and in its
+// tooltip). The title carries the rename field's class; the root the attribute every canvas finds an item by.
 
 import type { Icons, Tooltips } from "ne-standard-ui";
-import { ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { CoreNames, hoverTooltip, ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "./draft.ts";
 import { EntryAttribute, HandleAttribute } from "./link-drag.ts";
@@ -67,10 +67,8 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
     // A circle's title, small under it, is also what the pointer reads when the node names no words of its own.
     const words = node.tooltip ?? (round ? title : null);
 
-    if (words !== null) {
-        root.addEventListener("pointerenter", () => options.tooltips.show(root, words));
-        root.addEventListener("pointerleave", () => options.tooltips.hide());
-    }
+    if (words !== null)
+        hoverTooltip(root, words, options.tooltips);
 
     return root;
 }
@@ -137,9 +135,9 @@ function renderBadge(value: string, className: string): HTMLElement {
     const badge = document.createElement("span");
     const text = document.createElement("span");
 
-    badge.className = `ui-badge ui-badge-style--surface ${className}`;
-    badge.setAttribute("data-ui-badge-text", "");
-    text.className = "ui-badge__text";
+    badge.className = `${CoreNames.badgeClass} ${CoreNames.badgeSurfaceClass} ${className}`;
+    badge.setAttribute(CoreNames.badgeText, "");
+    text.className = CoreNames.badgeTextClass;
     text.textContent = value;
     badge.append(text);
 

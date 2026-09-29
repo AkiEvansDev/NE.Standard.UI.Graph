@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
@@ -7,17 +8,19 @@ using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Compiled.Models;
 using NE.Standard.UI.Graph;
 using NE.Standard.UI.Primitives.Constants;
+using NE.Standard.UI.Primitives.Styling;
 using NE.Standard.UI.Web.Abstractions.Html;
 using NE.Standard.UI.Web.Abstractions.Rendering;
+using NE.Standard.UI.Web.Abstractions.Theming;
 using NE.Standard.UI.Web.Renderers.Foundation;
 
 namespace NE.Standard.UI.Web.Graph;
 
-/// <summary>
-/// A canvas rendered as an empty frame: settings on the root, the document on a hidden value element, and empty layers (grid,
-/// groups, edges, items) the client engine fills in.
-/// </summary>
-/// <remarks>Nothing of the document renders on the server: only the client engine can place, size and wire an item pixel-exact.</remarks>
+/// <summary>A canvas rendered as an empty frame the client engine fills in.</summary>
+/// <remarks>
+/// Settings on the root, the document on a hidden value element, and empty layers (grid, groups, edges, items). Nothing of the
+/// document renders on the server: only the client engine can place, size and wire an item pixel-exact.
+/// </remarks>
 public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBase
     where TDocument : class
 {
@@ -62,9 +65,6 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
 
     /// <summary>The greatest zoom, on the root.</summary>
     public const string MaxZoomAttribute = "data-ui-graph-max-zoom";
-
-    /// <summary>Whether the viewer may not edit the sheet, on the root.</summary>
-    public const string ReadOnlyAttribute = "data-ui-graph-read-only";
 
     /// <summary>The grid's step, as a CSS variable on the root.</summary>
     public const string GridSizeVariable = "--ui-graph-grid-size";
@@ -122,7 +122,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowMinimapProperty, MinimapAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.HighlightOnHoverProperty, HighlightAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.AutoSaveProperty, AutoSaveAttribute);
-        RenderFlagAttribute(context, root, IInputComponent.IsReadOnlyProperty, ReadOnlyAttribute);
+        // The family's read-only mark on the root, which the engine and the stylesheet read as every read-only control's.
+        NativeInputRendererBase.RenderIsReadOnlyMark(context, root);
 
         RenderNumber(context, root, IGraphCanvasComponent.GridSizeProperty, GridSizeVariable, style: true);
         RenderNumber(context, root, IGraphCanvasComponent.MinZoomProperty, MinZoomAttribute, style: false);
@@ -198,8 +199,11 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         _ = root.Element("dialog", picker =>
         {
             _ = picker.Class($"{ClassName}__picker");
-            _ = picker.Attribute("aria-label", context.Translate(titleKey));
+            WebWords.Write(context, picker, "aria-label", titleKey);
             _ = picker.Attribute("data-ui-graph-picker");
+            // A right press in the modal chooser is not one on the sheet behind it: no canvas menu opens under the veil, and the
+            // search keeps the browser's own.
+            _ = picker.Attribute(WebAttributes.NoContextMenu);
 
             _ = picker.Element("div", head =>
             {
@@ -208,7 +212,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 _ = head.Element("span", title =>
                 {
                     _ = title.Class($"{ClassName}__picker-title");
-                    _ = title.Text(context.Translate(titleKey));
+                    WebWords.Write(context, title, null, titleKey);
                 });
 
                 // The core's text field, carried as a region; the engine reads the input inside it.
@@ -227,8 +231,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 _ = main.Element("div", rail =>
                 {
                     _ = rail.Class($"{ClassName}__picker-rail");
-                    _ = rail.Attribute("role", "tablist");
-                    _ = rail.Attribute("aria-label", context.Translate(GraphStrings.Categories));
+                    _ = rail.Attribute("role", "tree");
+                    WebWords.Write(context, rail, "aria-label", GraphStrings.Categories);
                     _ = rail.Attribute("data-ui-graph-picker-rail");
                 });
 
@@ -245,15 +249,13 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 _ = empty.Class($"{ClassName}__picker-empty");
                 _ = empty.Attribute("hidden");
                 _ = empty.Attribute("data-ui-graph-picker-empty");
-                _ = empty.Text(context.Translate(emptyKey));
+                WebWords.Write(context, empty, null, emptyKey);
             });
         });
     }
 
-    /// <summary>
-    /// The document on its own hidden element — the canvas's writable value. The engine writes the attribute and raises
-    /// <c>change</c>; a server push arrives through the custom operation.
-    /// </summary>
+    /// <summary>The document on its own hidden element — the canvas's writable value.</summary>
+    /// <remarks>The engine writes the attribute and raises <c>change</c>; a server push arrives through the custom operation.</remarks>
     private void RenderValue(WebRenderContext context, IHtmlElementBuilder root)
     {
         _ = root.Element("div", value =>
@@ -279,7 +281,9 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             // The canvas takes the keyboard: Delete, the clipboard keys and Ctrl+S are its own, and it is reached by Tab.
             _ = viewport.Attribute("tabindex", "0");
             _ = viewport.Attribute("role", "application");
-            _ = viewport.Attribute("aria-label", context.Translate(GraphStrings.Canvas));
+            // Enter or Escape leaving a node's field hands the keyboard back to the sheet.
+            _ = viewport.Attribute(WebAttributes.FocusHolder);
+            WebWords.Write(context, viewport, "aria-label", GraphStrings.Canvas);
 
             // The canvas is what takes the keyboard, so a caption names it over the generic word.
             RenderFieldLabel(context, viewport);
@@ -299,7 +303,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 });
 
                 // An edge's words are HTML over the lines rather than SVG text: Chrome lays SVG text out for the scale of every
-                // transform above it and does not lay it out again when the scene's zoom changes, so the words stood where they were.
+                // transform above it and does not lay it out again on a zoom, so SVG words would stay where they were.
                 _ = scene.Element("div", labels =>
                 {
                     _ = labels.Class($"{ClassName}__labels");
@@ -361,7 +365,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             _ = panel.Class($"{ClassName}__menu-panel");
             _ = panel.Attribute(WebAttributes.NoContextMenu);
             _ = panel.Attribute(MenuPanelAttribute, UIGraphMenus.Main);
-            _ = panel.Attribute("aria-label", context.Translate(GraphStrings.Menu));
+            WebWords.Write(context, panel, "aria-label", GraphStrings.Menu);
             RenderRegion(context, panel, UIGraphMenus.Main);
         });
     }
@@ -376,7 +380,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         {
             _ = map.Class($"{ClassName}__minimap");
             _ = map.Attribute("data-ui-graph-map");
-            _ = map.Attribute("aria-label", context.Translate(GraphStrings.Minimap));
+            WebWords.Write(context, map, "aria-label", GraphStrings.Minimap);
             _ = map.Attribute("hidden");
 
             _ = map.Element("div", nodes =>
@@ -400,25 +404,24 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         {
             _ = bar.Class($"{ClassName}__bar");
 
-            RenderBarButton(context, bar, "zoom-out", GraphStrings.ZoomOut, UIGlyphs.Remove);
+            RenderBarButton(context, bar, "data-ui-graph-zoom-out", GraphStrings.ZoomOut, UIGlyphs.Remove);
 
             _ = bar.Element("span", zoom =>
             {
                 _ = zoom.Class($"{ClassName}__zoom");
                 _ = zoom.Attribute("data-ui-graph-zoom");
                 _ = zoom.Attribute("aria-live", "polite");
-                _ = zoom.Text("100%");
+                // The first frame's zoom, unmarked: the engine writes the label from its start and on every switch of the words.
+                _ = zoom.Text(context.Translate(GraphStrings.Percent, new Dictionary<string, object?>(StringComparer.Ordinal) { ["value"] = 100 }));
             });
 
-            RenderBarButton(context, bar, "zoom-in", GraphStrings.ZoomIn, UIGlyphs.Add);
-            RenderBarButton(context, bar, "fit", GraphStrings.Fit, UIGlyphs.Fit);
+            RenderBarButton(context, bar, "data-ui-graph-zoom-in", GraphStrings.ZoomIn, UIGlyphs.Add);
+            RenderBarButton(context, bar, "data-ui-graph-fit", GraphStrings.Fit, UIGlyphs.Fit);
         });
     }
 
-    /// <summary>
-    /// The node, group and edge menus, each opened by the part naming it, plus the colours their colour entries paint — matched by
-    /// the engine to what it draws. The corner menu stands in its own panel.
-    /// </summary>
+    /// <summary>The node, group and edge menus, each opened by the part naming it, plus the colours their colour entries paint.</summary>
+    /// <remarks>The engine matches them to what it draws; the corner menu stands in its own panel.</remarks>
     private static void RenderMenus(WebRenderContext context, IHtmlElementBuilder root)
     {
         UIGraphColorChoice[] choices = ReadRenderValue<UIGraphColorChoice[]?>(context, IGraphCanvasComponent.ColorChoicesProperty, null) ?? [];
@@ -448,30 +451,102 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             _ = state.Element("span", unsaved =>
             {
                 _ = unsaved.Class($"{ClassName}__state-unsaved");
-                _ = unsaved.Text(context.Translate(GraphStrings.Unsaved));
+                WebWords.Write(context, unsaved, null, GraphStrings.Unsaved);
             });
 
             _ = state.Element("span", saving =>
             {
                 _ = saving.Class($"{ClassName}__state-saving");
-                _ = saving.Text(context.Translate(GraphStrings.Saving));
+                WebWords.Write(context, saving, null, GraphStrings.Saving);
             });
         });
     }
 
-    /// <summary>One of the canvas's own small buttons: a mark of the framework's, its word as the tooltip, and a name the engine finds it by.</summary>
-    protected void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string name, string wordKey, string icon)
+    /// <summary>A panel over the viewport's trailing side — the parameters, the plan: a switch over a body, open or folded until the viewer says otherwise.</summary>
+    /// <remarks>
+    /// The body holds the keyboard for its fields (<c>data-ui-focus-holder</c>), as a dialog's surface does. The framework's
+    /// collapsible slides it and the engine remembers the viewer's fold per canvas (<c>SidePanelFold</c>), against
+    /// <paramref name="folded"/> as the panel's own default. Its parts are named after <paramref name="part"/> and drawn by the
+    /// stylesheet's <c>.ui-graph-side-panel()</c>. With <paramref name="foldedIcon"/>, folded it is that icon alone, so its switch
+    /// carries the panel's word as its name and tooltip.
+    /// </remarks>
+    protected void RenderSidePanel(WebRenderContext context, IHtmlElementBuilder viewport, string part, string wordKey, string marker, string? foldedIcon, bool folded, Action<IHtmlElementBuilder> renderBody)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(viewport);
+        ArgumentNullException.ThrowIfNull(renderBody);
+
+        _ = viewport.Element("aside", panel =>
+        {
+            _ = panel.Class($"{ClassName}__{part}");
+            // A panel over the sheet, not the sheet: a right press on it opens none of the canvas's menus.
+            _ = panel.Attribute(WebAttributes.NoContextMenu);
+            _ = panel.Class(CollapsibleChromeRenderer.RootClassName);
+            _ = panel.Class(WebClassNames.Side(UISide.Right));
+            _ = panel.Attribute(marker);
+            // A panel over the viewport's trailing side, which Fit keeps clear of: its column while it is open, its switch folded.
+            _ = panel.Attribute("data-ui-graph-side");
+            WebWords.Write(context, panel, "aria-label", wordKey);
+
+            if (folded)
+                _ = panel.Attribute(WebAttributes.Collapsed);
+
+            _ = panel.Element("button", toggle =>
+            {
+                _ = toggle.Class($"{ClassName}__{part}-toggle");
+                _ = toggle.Attribute("type", "button");
+                _ = toggle.Attribute("aria-expanded", folded ? "false" : "true");
+                _ = toggle.Attribute(WebAttributes.CollapseToggle);
+
+                if (foldedIcon is not null)
+                {
+                    WebWords.Write(context, toggle, "aria-label", wordKey);
+                    WebWords.Write(context, toggle, WebAttributes.Tooltip, wordKey);
+
+                    _ = toggle.Element("span", icon =>
+                    {
+                        _ = icon.Class($"{ClassName}__{part}-icon");
+                        _ = icon.Attribute("aria-hidden", "true");
+                        IconValueRenderer.RenderIcon(icon, foldedIcon);
+                    });
+                }
+
+                _ = toggle.Element("span", mark =>
+                {
+                    _ = mark.Class($"{ClassName}__{part}-chevron");
+                    _ = mark.Attribute("aria-hidden", "true");
+                    IconValueRenderer.RenderIcon(mark, UIGlyphs.ChevronRight);
+                });
+
+                _ = toggle.Element("span", text => WebWords.Write(context, text, null, wordKey));
+            });
+
+            _ = panel.Element("div", body =>
+            {
+                _ = body.Class($"{ClassName}__{part}-body");
+                _ = body.Class(CollapsibleChromeRenderer.ContentClassName);
+                // Its own keyboard holder: Enter or Escape leaving one of its fields hands the keyboard to the panel, not to the sheet.
+                _ = body.Attribute(WebAttributes.FocusHolder);
+                // A document inside the viewport's application region: a screen reader reads the panel's fields and names in browse mode.
+                // Unnamed, since the aside around it carries the panel's word: a second name would be read twice.
+                _ = body.Attribute("role", "document");
+                _ = body.Attribute("tabindex", "-1");
+                renderBody(body);
+            });
+        });
+    }
+
+    /// <summary>One of the canvas's own small buttons: a mark of the framework's, its word as the tooltip, and the attribute the engine finds it by.</summary>
+    protected void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string attribute, string wordKey, string icon)
     {
         _ = bar.Element("button", button =>
         {
-            var word = context.Translate(wordKey);
-
             _ = button.Class($"{ClassName}__bar-button ui-button ui-button--ghost ui-button--small");
             _ = button.Attribute("type", "button");
             _ = button.Attribute(IconOnlyButtonAttribute);
-            _ = button.Attribute("title", word);
-            _ = button.Attribute("aria-label", word);
-            _ = button.Attribute($"data-ui-graph-{name}");
+            WebWords.Write(context, button, WebAttributes.Tooltip, wordKey);
+            WebWords.Write(context, button, "aria-label", wordKey);
+            _ = button.Attribute(attribute);
             IconValueRenderer.RenderIcon(button, icon);
         });
     }

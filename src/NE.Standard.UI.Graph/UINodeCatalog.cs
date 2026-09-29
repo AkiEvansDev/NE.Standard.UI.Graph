@@ -3,15 +3,17 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Primitives.Text;
 
 namespace NE.Standard.UI.Graph;
 
 /// <summary>
-/// The node kinds an application offers, read off its classes via <see cref="GraphNodeAttribute"/>, <see cref="GraphInputAttribute"/>
-/// and <see cref="GraphOutputAttribute"/>. Shared by the canvas that draws them and the code that materializes a saved document.
+/// The node kinds an application offers, read off its classes' <see cref="GraphNodeAttribute"/>, <see cref="GraphInputAttribute"/>
+/// and <see cref="GraphOutputAttribute"/>.
 /// </summary>
+/// <remarks>Shared by the canvas that draws them and the code that materializes a saved document.</remarks>
 public sealed class UINodeCatalog
 {
     private readonly Dictionary<string, Type> _clrTypes;
@@ -28,9 +30,9 @@ public sealed class UINodeCatalog
     public IReadOnlyList<UINodeType> Types { get; }
 
     /// <summary>
-    /// Reads a catalogue off the given classes; each must carry <see cref="GraphNodeAttribute"/> and have a parameterless
-    /// constructor. The <see cref="RerouteNode"/> is added when the classes do not name it.
+    /// Reads a catalogue off the given classes, each carrying <see cref="GraphNodeAttribute"/> and a parameterless constructor.
     /// </summary>
+    /// <remarks>The <see cref="RerouteNode"/> is added when the classes do not name it.</remarks>
     public static UINodeCatalog FromTypes(params Type[] types)
     {
         ArgumentNullException.ThrowIfNull(types);
@@ -222,7 +224,25 @@ public sealed class UINodeCatalog
             unit: input.Unit,
             format: input.Format,
             state: input.State,
-            hidden: input.Hidden);
+            hidden: input.Hidden,
+            typeTitle: TypeTitleOf(property.PropertyType));
+    }
+
+    /// <summary>
+    /// How a person reads an application's own pin type — an enum or a class, a list's element's — humanized from its name; none for
+    /// a built-in one.
+    /// </summary>
+    private static string? TypeTitleOf(Type clrType)
+    {
+        Type underlying = Nullable.GetUnderlyingType(clrType) ?? clrType;
+
+        if (UINodePinTypes.TryGetElementType(underlying, out Type element))
+            return TypeTitleOf(element);
+
+        var id = UINodePinTypes.FromClrType(underlying);
+        var own = id.StartsWith(UINodePinTypes.EnumPrefix, StringComparison.Ordinal) || string.Equals(id, underlying.Name, StringComparison.Ordinal);
+
+        return own ? UINaming.Humanize(underlying.Name) : null;
     }
 
     /// <summary>The choices the attribute names, either as a list on it or from a member of the node's own class.</summary>
@@ -334,7 +354,7 @@ public sealed class UINodeCatalog
         if (output.Image && UINodePinTypes.IsTextLike(pinType))
             pinType = UINodePinTypes.Image;
 
-        return new(property.Name, output.Title ?? UINaming.Humanize(property.Name), pinType, typeOf: output.TypeOf, description: output.Description);
+        return new(property.Name, output.Title ?? UINaming.Humanize(property.Name), pinType, typeOf: output.TypeOf, description: output.Description, typeTitle: TypeTitleOf(property.PropertyType));
     }
 
     /// <summary>
@@ -356,9 +376,96 @@ public sealed class UINodeCatalog
     }
 
     /// <summary>
-    /// Turns a saved document back into a typed network: an instance of the developer's class per node, with the values the
-    /// viewer filled in, and the edges between them. A node of a kind this catalogue does not know is left out.
+    /// Whether a parameter may stand: an input of a known node, with a field of its own, that no edge feeds and that its node shows now.
     /// </summary>
+    /// <remarks>
+    /// The canvas offers nothing else, and passes any other over; one whose input its node hides for now (<c>VisibleWhen</c>) stays in
+    /// the document and stands again when the input shows.
+    /// </remarks>
+    public bool CanBeParameter(UINodeDocument document, UINodeParameter parameter)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(parameter);
+
+        UINode? node = Array.Find(document.Nodes, candidate => string.Equals(candidate.Id, parameter.Node, StringComparison.Ordinal));
+
+        if (node is null || !TryGetType(node.Type, out UINodeType type))
+            return false;
+
+        UINodePin? pin = Array.Find(type.Inputs, candidate => string.Equals(candidate.Name, parameter.Pin, StringComparison.Ordinal));
+
+        return pin is not null && CanBeParameter(pin) && !document.IsFed(node.Id, pin.Name) && IsShown(pin, node, type);
+    }
+
+    /// <summary>
+    /// Whether a kind's input can be a parameter at all: one with a field of its own — not a picture, a list, a display or a hidden
+    /// state.
+    /// </summary>
+    public static bool CanBeParameter(UINodePin pin)
+    {
+        ArgumentNullException.ThrowIfNull(pin);
+
+        return !pin.Hidden && pin.Editor is not (UINodeEditor.None or UINodeEditor.Image or UINodeEditor.List or UINodeEditor.Display);
+    }
+
+    /// <summary>Whether a node draws an input, by the canvas's rule.</summary>
+    /// <remarks>
+    /// One shown beside another appears only while that one holds one of the named values, or any value but an empty one — the
+    /// node's own, else the kind's default.
+    /// </remarks>
+    private static bool IsShown(UINodePin pin, UINode node, UINodeType type)
+    {
+        if (pin.Hidden)
+            return false;
+
+        if (pin.VisibleWhen is not { Length: > 0 } beside)
+            return true;
+
+        var value = node.Values.TryGetValue(beside, out var held) && !IsNull(held)
+            ? held
+            : Array.Find(type.Inputs, candidate => string.Equals(candidate.Name, beside, StringComparison.Ordinal))?.DefaultValue;
+        var text = TextOf(value);
+
+        if (pin.VisibleValues.Length > 0)
+            return Array.Exists(pin.VisibleValues, candidate => string.Equals(candidate, text, StringComparison.Ordinal));
+
+        return text.Length > 0 && value is not false && value is not JsonElement { ValueKind: JsonValueKind.False };
+    }
+
+    private static bool IsNull(object? value)
+        => value is null or JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined };
+
+    /// <summary>A value as the canvas compares it: its text, the wire's spelling for a boolean, nothing for nothing.</summary>
+    private static string TextOf(object? value)
+        => value switch
+        {
+            null => string.Empty,
+            bool flag => flag ? "true" : "false",
+            JsonElement { ValueKind: JsonValueKind.String } element => element.GetString() ?? string.Empty,
+            JsonElement { ValueKind: JsonValueKind.True } => "true",
+            JsonElement { ValueKind: JsonValueKind.False } => "false",
+            JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => string.Empty,
+            JsonElement element => element.GetRawText(),
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? string.Empty
+        };
+
+    /// <summary>
+    /// The document's parameters that may stand (<see cref="CanBeParameter(UINodeDocument, UINodeParameter)"/>), in their order.
+    /// </summary>
+    /// <remarks>A document off the wire carries what the browser sent, so a sheet's parameters are read through here.</remarks>
+    public UINodeParameter[] ParametersOf(UINodeDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        return Array.FindAll(document.Parameters, parameter => CanBeParameter(document, parameter));
+    }
+
+    /// <summary>
+    /// Turns a saved document back into a typed network: an instance of the developer's class per node, with the viewer's values,
+    /// and the edges between them.
+    /// </summary>
+    /// <remarks>A node of a kind this catalogue does not know is left out.</remarks>
     public UINodeNetwork Materialize(UINodeDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);

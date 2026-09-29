@@ -1,6 +1,7 @@
 using System;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
+using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
@@ -31,12 +32,13 @@ public sealed class AddNodeLogEffect : TargetedClientEffect
     /// Appends <paramref name="message"/> from the node with <paramref name="nodeId"/> to the log of the canvas identified by
     /// <paramref name="targetComponentId"/>.
     /// </summary>
-    public AddNodeLogEffect(string targetComponentId, string nodeId, UINodeLogLevel level, string message, params object?[]? dynamicParameters)
+    /// <remarks>A word, or a node's own text (<see cref="UIPhrase.Text"/>).</remarks>
+    public AddNodeLogEffect(string targetComponentId, string nodeId, UINodeLogLevel level, UIPhrase message, params object?[]? dynamicParameters)
         : this(new UIComponentReference(targetComponentId, dynamicParameters), nodeId, level, message)
     { }
 
-    /// <inheritdoc cref="AddNodeLogEffect(string, string, UINodeLogLevel, string, object?[])"/>
-    public AddNodeLogEffect(UIComponentReference target, string nodeId, UINodeLogLevel level, string message)
+    /// <inheritdoc cref="AddNodeLogEffect(string, string, UINodeLogLevel, UIPhrase, object?[])"/>
+    public AddNodeLogEffect(UIComponentReference target, string nodeId, UINodeLogLevel level, UIPhrase message)
         : base(target)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nodeId);
@@ -61,9 +63,9 @@ public sealed class AddNodeLogEffect : TargetedClientEffect
     public UINodeLogLevel Level { get; }
 
     /// <summary>
-    /// Gets what the line says.
+    /// Gets what the line says, written in the page's language.
     /// </summary>
-    public string Message { get; }
+    public UIPhrase Message { get; }
 
     /// <inheritdoc/>
     public override ClientEffect Resolve(IUIReferenceResolver resolver)
@@ -74,7 +76,7 @@ public sealed class AddNodeLogEffect : TargetedClientEffect
     }
 }
 
-internal sealed class CompiledAddNodeLogEffect(UIComponentAddress target, string nodeId, UINodeLogLevel level, string message) : CompiledTargetedClientEffect(target)
+internal sealed class CompiledAddNodeLogEffect(UIComponentAddress target, string nodeId, UINodeLogLevel level, UIPhrase message) : CompiledTargetedClientEffect(target)
 {
     public override string Kind => AddNodeLogEffect.EffectKind;
 
@@ -82,5 +84,5 @@ internal sealed class CompiledAddNodeLogEffect(UIComponentAddress target, string
 
     public UINodeLogLevel Level { get; } = level;
 
-    public string Message { get; } = message;
+    public UIPhrase Message { get; } = message;
 }

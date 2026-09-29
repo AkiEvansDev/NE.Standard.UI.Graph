@@ -55,7 +55,7 @@ internal sealed partial class BuildsController : UIControllerBase
     public partial UIVisibility EmptyVisibility { get; set; } = UIVisibility.Collapsed;
 
     [RecursiveMember]
-    public partial string DeleteQuestion { get; set; } = string.Empty;
+    public partial UIPhrase? DeleteQuestion { get; set; }
 
     /// <summary>The picker's upload, which the import reads the file back by.</summary>
     [RecursiveMember]
@@ -238,10 +238,11 @@ internal sealed partial class BuildsController : UIControllerBase
             return UICommandResult.Ok();
 
         if (Builds.Count == 1)
-            return UICommandResult.Ok([new ShowNotificationEffect("The last build stays: clear its goals instead.", UIColorStyle.Warning)]);
+            return UICommandResult.Ok([new ShowNotificationEffect(Context.Translate(new UIPhrase("planner.build.last-stays")), UIColorStyle.Warning)]);
 
         _pendingDeleteId = id;
-        DeleteQuestion = $"{tab.Title} and its goals go; the resources stay as they are.";
+        // The build's name is content, an argument as written.
+        DeleteQuestion = UIPhrase.Of("planner.build.delete.question", ("name", tab.Title ?? string.Empty));
 
         return UICommandResult.Ok([new OpenDialogEffect(DeleteDialogKey)]);
     }
@@ -318,16 +319,15 @@ internal sealed partial class BuildsController : UIControllerBase
         Store.ImportBuilds(builds, replace);
         LoadBuilds(_openId);
 
-        var taken = string.Create(CultureInfo.InvariantCulture, $"{Count(builds.Count, "build")} taken in");
+        // A toast is written once, in the language the page shows as it opens.
+        UIPhrase taken = UIPhrase.Of(replace ? "planner.builds.imported.replace" : "planner.builds.imported.merge", ("count", builds.Count));
 
-        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(replace ? taken + ", in place of these." : taken + ", merged by id.", UIColorStyle.Success)]);
+        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(Context.Translate(taken), UIColorStyle.Success)]);
     }
 
-    private static UICommandResult Refuse(string? reason)
-        => UICommandResult.Ok([new ShowNotificationEffect(reason ?? "Nothing was read.", UIColorStyle.Danger)]);
-
-    private static string Count(int count, string noun)
-        => count == 1 ? $"One {noun}" : string.Create(CultureInfo.InvariantCulture, $"{count} {noun}s");
+    /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
+    private UICommandResult Refuse(string? reason)
+        => UICommandResult.Ok([new ShowNotificationEffect(Context.Translate(new UIPhrase(reason ?? "planner.file.nothing-read")), UIColorStyle.Danger)]);
 
     /// <summary>
     /// The canvas sent an edit in its plan panel — a target added, changed or taken off, the period or what is made least of chosen,

@@ -6,13 +6,12 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// Runs a saved document in connection order, filling each node's inputs from the outputs feeding it and reading its outputs for
-/// the nodes below. Values stay the developer's typed properties throughout.
-/// </summary>
+/// <summary>Runs a saved document in connection order, filling each node's inputs from the outputs feeding it.</summary>
+/// <remarks>Values stay the developer's typed properties throughout.</remarks>
 public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? services = null)
 {
     private static readonly ConcurrentDictionary<Type, bool> AlwaysRunsByType = new();
@@ -20,15 +19,13 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     private readonly UINodeCatalog _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IServiceProvider? _services = services;
 
-    /// <summary>
-    /// Called as a node's state changes: before it runs, while it reports, and when done or failed. A controller turns this into
-    /// <see cref="SetNodeStatusEffect"/>s for the canvas.
-    /// </summary>
+    /// <summary>Called as a node's state changes: before it runs, while it reports, and when done or failed.</summary>
     /// <remarks>
-    /// Awaited before the next node starts, so a controller pushing status to the canvas (<c>UIContext.SendEffectsAsync</c>) makes
-    /// the run visible as it happens.
+    /// A controller turns this into <see cref="SetNodeStatusEffect"/>s. Awaited before the next node starts, so a controller
+    /// pushing status to the canvas (<c>UIContext.SendEffectsAsync</c>) makes the run visible as it happens. The runner's own
+    /// messages are its words (<see cref="UIGraphWords"/>); a node's are its text.
     /// </remarks>
-    public Func<string, UINodeState, double?, string?, ValueTask>? OnStatus { get; set; }
+    public Func<string, UINodeState, double?, UIPhrase?, ValueTask>? OnStatus { get; set; }
 
     /// <summary>
     /// Called with a display pin's value once its node has run — node id, pin name and value. A controller turns this into
@@ -40,7 +37,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     /// Called with every log line — node id, level and message — from a node's own logging and every failure. A controller turns
     /// this into <see cref="AddNodeLogEffect"/>s.
     /// </summary>
-    public Func<string, UINodeLogLevel, string, ValueTask>? OnLog { get; set; }
+    public Func<string, UINodeLogLevel, UIPhrase, ValueTask>? OnLog { get; set; }
 
     /// <summary>
     /// Called with how many nodes are through, of how many — once before the first node and after each one. A controller turns
@@ -49,10 +46,13 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     public Func<int, int, ValueTask>? OnRunProgress { get; set; }
 
     /// <summary>
-    /// Called, once the run is through, with each state value it changed — node id, pin name and value
-    /// (<see cref="GraphInputAttribute.State"/>). A controller turns this into a committed <see cref="SetNodeValueEffect"/>, so the
-    /// canvas holds what the next run starts from; a run stopped part way changes nothing.
+    /// Called once the run is through with each state value it changed — node id, pin name and value
+    /// (<see cref="GraphInputAttribute.State"/>).
     /// </summary>
+    /// <remarks>
+    /// A controller turns this into a committed <see cref="SetNodeValueEffect"/>, so the canvas holds what the next run starts
+    /// from; a run stopped part way changes nothing.
+    /// </remarks>
     public Func<string, string, object?, ValueTask>? OnState { get; set; }
 
     /// <summary>
@@ -67,13 +67,12 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     public Func<int, ValueTask>? OnRunStarting { get; set; }
 
     /// <summary>
-    /// Runs the document again and again, each run starting from the state the last one left, until a sequence node
-    /// (<see cref="IGraphNodeSequence"/>) has nothing left or <paramref name="maxRuns"/> is reached; a document with no sequence
-    /// node runs once.
+    /// Runs the document again and again, each run from the state the last one left, until its sequence node
+    /// (<see cref="IGraphNodeSequence"/>) runs out or <paramref name="maxRuns"/> is reached.
     /// </summary>
     /// <remarks>
-    /// A failure takes its own branch and that run's, as in a single run, and the next run goes on with the next item — one bad file
-    /// does not stop a folder — unless the sequence node itself failed, which leaves nothing to go on with.
+    /// A document with no sequence node runs once. A failure takes its own branch and that run's, as in a single run, and the next
+    /// run goes on with the next item — one bad file does not stop a folder — unless the sequence node itself failed.
     /// </remarks>
     public async Task<UINodeRunAllResult> RunAllAsync(UINodeDocument document, int maxRuns, CancellationToken cancellationToken = default)
     {
@@ -192,7 +191,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
                 await ReportStatusAsync(node.Id, UINodeState.Idle, null, null).ConfigureAwait(false);
 
                 if (OnLog is not null)
-                    await OnLog(node.Id, UINodeLogLevel.Warning, "Stopped.").ConfigureAwait(false);
+                    await OnLog(node.Id, UINodeLogLevel.Warning, new UIPhrase(UIGraphWords.RunStopped)).ConfigureAwait(false);
 
                 throw;
             }
@@ -202,7 +201,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
                 // What the node wrote before it fell comes first: it is usually the line that says why.
                 ForgetAbove(node, incoming);
                 await context.FlushAsync().ConfigureAwait(false);
-                await FailAsync(node, exception.Message, stopped, failures).ConfigureAwait(false);
+                await FailAsync(node, UINodeRunContext.Said(exception.Message) ?? UIPhrase.Text(exception.GetType().Name), stopped, failures).ConfigureAwait(false);
                 await ReportRunAsync(++completed, total).ConfigureAwait(false);
                 continue;
             }
@@ -233,7 +232,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         // A node on a cycle fails like any failed node; what it feeds is skipped the same way — a cycle costs only its own corner.
         foreach (UINodeInstance node in cyclic)
         {
-            await FailAsync(node, "The node is on a cycle: it waits for itself.", stopped, failures).ConfigureAwait(false);
+            await FailAsync(node, new UIPhrase(UIGraphWords.RunCycle), stopped, failures).ConfigureAwait(false);
             await ReportRunAsync(++completed, total).ConfigureAwait(false);
         }
 
@@ -420,7 +419,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     }
 
     /// <summary>A node's state on its way to whoever asked for it, awaited so the canvas has it before the next node starts.</summary>
-    private ValueTask ReportStatusAsync(string nodeId, UINodeState state, double? progress, string? message)
+    private ValueTask ReportStatusAsync(string nodeId, UINodeState state, double? progress, UIPhrase? message)
         => OnStatus is null ? ValueTask.CompletedTask : OnStatus(nodeId, state, progress, message);
 
     private ValueTask ReportRunAsync(int completed, int total)
@@ -489,8 +488,8 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         return null;
     }
 
-    /// <summary>The title of the first required input the node was handed nothing for, or nothing when it has all of them.</summary>
-    private string? MissingRequired(UINodeInstance node, List<UINodeConnection>? edges)
+    /// <summary>The failure of the first required input the node was handed nothing for, or nothing when it has all of them.</summary>
+    private UIPhrase? MissingRequired(UINodeInstance node, List<UINodeConnection>? edges)
     {
         if (!_catalog.TryGetType(node.Type, out UINodeType type))
             return null;
@@ -509,7 +508,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             var unfilled = pin.Editor == UINodeEditor.None && property.PropertyType.IsValueType && !IsFed(edges, pin.Name);
 
             if (unfilled || IsEmpty(property.GetValue(node.Node)))
-                return $"'{pin.Title}' is required.";
+                return UIPhrase.Of(UIGraphWords.RunRequired, ("pin", pin.Title));
         }
 
         return null;
@@ -538,7 +537,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             _ => false
         };
 
-    private async ValueTask FailAsync(UINodeInstance node, string message, HashSet<string> stopped, List<UINodeFailure> failures)
+    private async ValueTask FailAsync(UINodeInstance node, UIPhrase message, HashSet<string> stopped, List<UINodeFailure> failures)
     {
         _ = stopped.Add(node.Id);
         failures.Add(new UINodeFailure(node.Id, message));
@@ -602,10 +601,11 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             synchronous.Execute(context);
     }
 
-    /// <summary>
-    /// Forgets the last runs of a failed node and of every node above it: the failure may come from what a kept run handed on — a
-    /// picture its store has let go since — so the next run makes all of it afresh rather than handing the same thing on again.
-    /// </summary>
+    /// <summary>Forgets the last runs of a failed node and of every node above it, so the next run makes all of it afresh.</summary>
+    /// <remarks>
+    /// The failure may come from what a kept run handed on — a picture its store has let go since — which handing on again would
+    /// repeat.
+    /// </remarks>
     private void ForgetAbove(UINodeInstance node, Dictionary<string, List<UINodeConnection>> incoming)
     {
         if (Cache is null)
@@ -704,9 +704,9 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
 }
 
 /// <summary>
-/// One node that did not run, and why.
+/// One node that did not run, and why: the runner's word, or the text the node's exception said.
 /// </summary>
-public sealed record UINodeFailure(string NodeId, string Error);
+public sealed record UINodeFailure(string NodeId, UIPhrase Error);
 
 /// <summary>
 /// What a run came to: every node's outputs, and the nodes that failed along with the ones their failure took with them.
@@ -760,7 +760,7 @@ public sealed class UINodeRunResult
     /// <summary>
     /// Gets what went wrong on <see cref="FailedNodeId"/>.
     /// </summary>
-    public string? Error => Failures.Count == 0 ? null : Failures[0].Error;
+    public UIPhrase? Error => Failures.Count == 0 ? null : Failures[0].Error;
 
     /// <summary>
     /// The value one node's output pin came to.

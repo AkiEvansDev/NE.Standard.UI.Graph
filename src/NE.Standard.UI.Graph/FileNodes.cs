@@ -4,14 +4,15 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NE.Standard.UI.Primitives.Constants;
+using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// The files of a folder that match a pattern, one a run: the file it took last is kept in the document, so the next run takes
-/// the one after it in name order — a file added or removed meanwhile moves no other — a run of all goes through every one, and
-/// the node's reset starts it over.
-/// </summary>
+/// <summary>The files of a folder that match a pattern, one a run.</summary>
+/// <remarks>
+/// The file it took last is kept in the document, so the next run takes the one after it in name order — a file added or removed
+/// meanwhile moves no other; a run of all goes through every one, and the node's reset starts it over.
+/// </remarks>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.FilesCategory, Title = "Files in folder", Description = "Hands out the folder's files, one a run.", Icon = UIGlyphs.FolderOpen, Color = FileColor, MinWidth = 15)]
 public sealed class FilesInFolderNode : IGraphNode, IGraphNodeSequence
 {
@@ -79,7 +80,7 @@ public sealed class FilesInFolderNode : IGraphNode, IGraphNodeSequence
         Taken = Math.Max(0, Taken) + 1;
         HasMore = next + 1 < files.Count;
 
-        context.Log($"{next + 1} of {files.Count}: {Name}.");
+        context.Log(UIPhrase.Of(UIGraphWords.FileProgress, ("index", next + 1), ("total", files.Count), ("name", Name)));
     }
 
     /// <summary>Where the first file past <paramref name="last"/> stands in the list, which is in ordinal name order.</summary>

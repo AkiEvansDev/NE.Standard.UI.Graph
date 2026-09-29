@@ -15,12 +15,13 @@ function chain(): GraphDocument {
             { id: "e2", fromNode: "b", fromPin: "Result", toNode: "c", toPin: "Right", points: [] }
         ],
         groups: [],
-        key: null
+        key: null,
+        parameters: []
     };
 }
 
 function sheet(nodes: DocumentNode[], edges: DocumentEdge[]): GraphDocument {
-    return { nodes, edges, groups: [], key: null };
+    return { nodes, edges, groups: [], key: null, parameters: [] };
 }
 
 function node(id: string, x = 0, y = 0): DocumentNode {

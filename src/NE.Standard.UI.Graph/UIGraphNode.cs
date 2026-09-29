@@ -5,10 +5,8 @@ using NE.Standard.UI.Primitives.Annotations;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>
-/// One node of a graph, drawn as a card: title, subtitle, icon, colour, badge, tooltip, and the links it leaves by. Bound as a
-/// collection; a change arrives in the browser as the node replaced.
-/// </summary>
+/// <summary>One node of a graph, drawn as a card: title, subtitle, icon, colour, badge, tooltip, and the links it leaves by.</summary>
+/// <remarks>Bound as a collection; a change arrives in the browser as the node replaced.</remarks>
 public sealed partial class UIGraphNode(string id) : RecursiveObservable, IBindableItem
 {
     /// <summary>

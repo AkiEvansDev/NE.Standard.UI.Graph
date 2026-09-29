@@ -60,10 +60,11 @@ public sealed class GraphNodeAttribute : Attribute
     /// </summary>
     public bool Compact { get; set; }
 
-    /// <summary>
-    /// Gets or sets whether the node runs every time, even on the inputs it last ran on — one that waits, reads or writes the disk,
-    /// or otherwise does more than turn its inputs into its outputs. A node with state always runs by itself.
-    /// </summary>
+    /// <summary>Gets or sets whether the node runs every time, even on the inputs it last ran on.</summary>
+    /// <remarks>
+    /// For one that waits, reads or writes the disk, or otherwise does more than turn its inputs into its outputs. A node with
+    /// state always runs by itself.
+    /// </remarks>
     public bool AlwaysRuns { get; set; }
 
     /// <summary>
@@ -94,13 +95,10 @@ public sealed class GraphInputAttribute : Attribute
     /// </summary>
     public bool PinOnly { get; set; }
 
-    /// <summary>
-    /// Gets or sets whether the pin takes several connections, gathered into the property's collection; the property must be an
-    /// array or list, and the pin's type is its element type.
-    /// </summary>
+    /// <summary>Gets or sets whether the pin takes several connections, gathered into the property's collection.</summary>
     /// <remarks>
-    /// The editor accepts typed values until an edge feeds the pin, then goes inert; connected values take the order of their
-    /// edges in the document.
+    /// The property must be an array or list, and the pin's type is its element type. The editor accepts typed values until an edge
+    /// feeds the pin, then goes inert; connected values take the order of their edges in the document.
     /// </remarks>
     public bool Multiple { get; set; }
 
@@ -142,8 +140,9 @@ public sealed class GraphInputAttribute : Attribute
 
     /// <summary>
     /// Gets or sets the member the choices come from: a public static property or method on the node's class returning
-    /// <see cref="string"/>s or <see cref="UIChoice"/>s. Read once, when the catalogue builds.
+    /// <see cref="string"/>s or <see cref="UIChoice"/>s.
     /// </summary>
+    /// <remarks>Read once, when the catalogue builds.</remarks>
     public string? ChoicesFrom { get; set; }
 
     /// <summary>
@@ -163,10 +162,11 @@ public sealed class GraphInputAttribute : Attribute
     /// </summary>
     public bool Required { get; set; }
 
-    /// <summary>
-    /// Gets or sets whether the node itself changes this value as it runs — a counter's count, a place in a list: what a run leaves
-    /// it at is written back into the document for the next run, and the node offers to put it back to its default. Never a pin.
-    /// </summary>
+    /// <summary>Gets or sets whether the node itself changes this value as it runs — a counter's count, a place in a list.</summary>
+    /// <remarks>
+    /// What a run leaves it at is written back into the document for the next run, and the node offers to put it back to its
+    /// default. Never a pin.
+    /// </remarks>
     public bool State { get; set; }
 
     /// <summary>

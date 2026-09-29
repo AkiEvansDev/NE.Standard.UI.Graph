@@ -70,8 +70,16 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.callbacks.redraw();
     }
 
-    /** Records the document as a step, then redraws; every edit goes through here so undo covers all of them. */
+    /**
+     * Records the document as an undo step, then redraws; every edit goes through here. A read-only sheet puts the change back,
+     * whatever made it — a drop that outlived the switch, a value the server sent unsaved.
+     */
     public edited(redrawNodes = true): void {
+        if (this.settings.readOnly) {
+            this.refuseEdit();
+            return;
+        }
+
         const changed = this.history.record(this.documentValue);
 
         this.version++;
@@ -88,10 +96,20 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
             queueMicrotask(() => this.save(AutoSaveReason));
     }
 
+    private refuseEdit(): void {
+        const present = this.history.revert(this.documentValue);
+
+        if (present === null)
+            return;
+
+        this.documentValue = present;
+        this.version++;
+        this.callbacks.redraw();
+    }
+
     /**
-     * A change the server already holds — a node's state as a run left it: made to the document and to a save still on its way,
-     * with no step to undo and the canvas no dirtier than it was. `redraw` false leaves the drawing to a caller that updates the one
-     * field in place, so a run writing state does not rebuild every node under a viewer typing into one.
+     * Applies a change the server already holds (a node's state after a run) to the document and any save in flight, with no undo
+     * step and no new dirt. `redraw` false leaves the drawing to a caller updating one field, so a run doesn't rebuild the node being typed into.
      */
     public committed(change: (document: TDocument) => void, redraw = true): void {
         const clean = !this.history.dirty;
@@ -119,9 +137,8 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         if (this.settings.readOnly)
             return;
 
-        // Only one save is in flight at a time; a second is queued rather than sent, so its answer doesn't clear the first's
-        // bookkeeping before the first has answered. A save asked for with a reason of its own — a run — is not replaced by a plain
-        // or an automatic one, which it saves as well.
+        // One save in flight at a time: a second is queued, so its answer can't clear the first's bookkeeping early. A save with a
+        // reason of its own (a run) is not replaced by a plain or automatic one, which it saves as well.
         if (this.sent !== null) {
             if (this.queuedSave === null || !hasOwnReason(this.queuedSave) || hasOwnReason(reason))
                 this.queuedSave = reason;
@@ -166,8 +183,8 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
     }
 
     /**
-     * The save on its way has landed though its command has not answered: the server began a run on it, and the command answers
-     * only when the run ends. The canvas is clean of it now, and the saves made meanwhile go rather than wait for the run.
+     * Treats the save in flight as landed while its command waits on the run the server began on it: the canvas is clean of it,
+     * and later saves go without waiting for the run.
      */
     public settle(): void {
         if (this.sent !== null)
@@ -212,12 +229,13 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.root.classList.remove("ui-graph--dirty", "ui-graph--saving");
     }
 
+    /** The step before, or nothing on a read-only canvas: a step taken back is an edit, which a read-only sheet takes none of. */
     public undo(): TDocument | null {
-        return this.history.undo();
+        return this.settings.readOnly ? null : this.history.undo();
     }
 
     public redo(): TDocument | null {
-        return this.history.redo();
+        return this.settings.readOnly ? null : this.history.redo();
     }
 
     /** What undo or redo landed on becomes the present document; neither touches the viewer's choice. */
