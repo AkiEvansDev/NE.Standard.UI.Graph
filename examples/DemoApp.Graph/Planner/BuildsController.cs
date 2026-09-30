@@ -198,10 +198,11 @@ internal sealed partial class BuildsController : UIControllerBase
         {
             case nameof(TabItem.Title):
                 // A caption renamed to nothing gets a name back rather than a blank tab.
-                if (string.IsNullOrWhiteSpace(tab.Title))
+                // A rename writes the viewer's text, a plain string.
+                if (string.IsNullOrWhiteSpace(tab.Title?.Key))
                     tab.Title = "Build";
                 else
-                    Store.RenameBuild(tab.Id, tab.Title.Trim());
+                    Store.RenameBuild(tab.Id, tab.Title.Key.Trim());
 
                 break;
             case nameof(TabItem.Pinned):

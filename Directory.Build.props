@@ -26,12 +26,12 @@
        Bump a slice's number in the commit that releases it: Release refuses a tag that disagrees, and a
        number bumped early would have a demo pointing at a version nobody published yet. -->
   <PropertyGroup>
-    <CoreVersion>1.4.0-rc.2</CoreVersion>
-    <IconsVersion>1.4.0-rc.2</IconsVersion>
-    <CodeInputVersion>1.4.0-rc.2</CodeInputVersion>
-    <DataGridVersion>1.4.0-rc.2</DataGridVersion>
-    <GraphVersion>1.4.0-rc.2</GraphVersion>
-    <ChartsVersion>1.4.0-rc.2</ChartsVersion>
+    <CoreVersion>1.4.0-rc.3</CoreVersion>
+    <IconsVersion>1.4.0-rc.3</IconsVersion>
+    <CodeInputVersion>1.4.0-rc.3</CodeInputVersion>
+    <DataGridVersion>1.4.0-rc.3</DataGridVersion>
+    <GraphVersion>1.4.0-rc.3</GraphVersion>
+    <ChartsVersion>1.4.0-rc.3</ChartsVersion>
   </PropertyGroup>
 
   <!-- A package's buildTransitive/ folder - the namespaces it turns into global usings for whoever installs it - ships with

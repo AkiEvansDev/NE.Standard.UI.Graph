@@ -129,7 +129,7 @@ public sealed class DelayNode : IGraphNodeAsync
             for (var taken = 1; taken <= Steps; taken++)
             {
                 await Task.Delay(step, cancellationToken).ConfigureAwait(false);
-                await context.ReportAsync((string?)null, taken / (double)Steps).ConfigureAwait(false);
+                await context.ReportAsync(null, taken / (double)Steps).ConfigureAwait(false);
             }
         }
 
