@@ -162,14 +162,29 @@ declare module "ne-standard-ui" {
         addValueChangeHandler(handler: (change: PropertyValueChange) => void): () => void;
     };
 
+    /**
+     * A moment as a word's argument, as the server's `UIMoment` travels: the instant in UTC (`2026-09-30T14:05:00.000Z`) and a
+     * timestamp's format, the day and the time where none is named; written in the reader's zone as a timestamp is.
+     */
+    export type Moment = {
+        readonly moment: string;
+        readonly format?: "date-time" | "date" | "time" | "relative";
+    };
+
     /** The page's words in its language — a package's `IUIStringsSource` among them — which a language switch replaces in place. */
     export type ClientStrings = {
         text(key: string): string;
-        /** The word with its `{name}` placeholders filled: a numeric `count` picks the plural, a `{ text }` resolves as `resolveText`. */
-        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string }>>): string;
+        /**
+         * The word with its `{name}` placeholders filled: a numeric `count` picks the plural, a `{ text }` resolves as `resolveText`, a
+         * `Moment` is written in the reader's zone (a relative one is written once: `write` keeps it current).
+         */
+        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string } | Moment>>): string;
         /** An author's text as shown: looked up as a plain value (under key prefixes only a prefixed one), else itself; `WebWords.WriteText`. */
         resolveText(text: string): string;
-        /** Writes a word on an attribute, or the text where `attribute` is null, marked with its key so a language switch rewrites it. */
+        /**
+         * Writes a word on an attribute, or the text where `attribute` is null, marked with its key so a language switch rewrites it — and
+         * the page's relative clock, where an argument is a relative `Moment`.
+         */
         write(element: Element, attribute: string | null, key: string, args?: Readonly<Record<string, unknown>> | null): void;
         /** Hears every change of the words after the framework rewrote its own, for words `write` did not mark; answers the stop. */
         onChange(handler: () => void): () => void;
