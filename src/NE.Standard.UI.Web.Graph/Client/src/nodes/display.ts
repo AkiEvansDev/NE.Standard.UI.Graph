@@ -1,16 +1,22 @@
-// What a display pin draws, by the JSON value's shape alone: a picture's address as the picture, a list of records as a table, any
-// other list as lines, an object as its fields, the rest as text. What the server cut from a long value arrives as a word
-// (`ui.graph.more`, with a count) written in the page's language.
+// What a display pin draws: a picture where a type says so, a list of records as a table, any other list as lines, an object as
+// its fields, the rest as text. A text is a picture only when the pin's type is a picture's (`picture` in the options), and a
+// record's field or a list's item only when the server marked it one (`UINodePicture`) — never by what the text looks like. What
+// the server cut from a long value arrives as a word (`ui.graph.more`, with a count) written in the page's language.
 
 import { readSize } from "../canvas/canvas-model.ts";
 
-// Matches an address, not a picture — a stored picture's key has no extension, so a string's shape is all we can go on; one
-// that fails to draw falls back to its own text.
-const AddressPattern = /^(https?:\/\/|data:image\/|blob:|\/)/i;
+// `UINodePicture.WireKey` on the server: the key a picture marked as one travels under.
+const PictureKey = "$picture";
 
-/** How a display draws what it is given: the word for nothing, and how a number and a moment are written. */
+type MarkedPicture = { readonly address: string; readonly width: number | null; readonly height: number | null };
+
+/** How a display draws what it is given: the word for nothing, whether a text is a picture, and how a number and a moment are written. */
 export type DisplayOptions = {
     readonly empty: string;
+    /** Whether a text given alone is a picture's address — the pin's type says so, a picture's or fed by one; unset, it is text. */
+    readonly picture?: boolean;
+    /** The framework's rule for an address a picture may be fetched from (`urls.isImageSource`), read as the browser reads it. */
+    readonly isImageSource: (address: string) => boolean;
     /** The page's own culture and the pin's format; without a format, the number as it is. */
     readonly number: (value: number) => string;
     /** A text that names a moment — a date the wire wrote — as the page writes one; null for any other text. */
@@ -36,7 +42,7 @@ export function renderDisplayValue(value: unknown, options: DisplayOptions): HTM
         return line(options.empty, "ui-graph__display-empty");
 
     if (typeof value === "string")
-        return looksLikePicture(value) ? picture(value) : line(options.moment(value) ?? value, "ui-graph__display-text");
+        return options.picture === true && isPictureAddress(value, options) ? picture(value, null, null) : line(options.moment(value) ?? value, "ui-graph__display-text");
 
     if (typeof value === "number")
         return line(options.number(value), "ui-graph__display-number");
@@ -49,6 +55,11 @@ export function renderDisplayValue(value: unknown, options: DisplayOptions): HTM
 
     if (Array.isArray(value))
         return value.length === 0 ? line(options.empty, "ui-graph__display-empty") : list(value, options);
+
+    const marked = markedPicture(value);
+
+    if (marked !== null)
+        return drawMarked(marked, options);
 
     const left = leftOut(value);
 
@@ -71,8 +82,28 @@ function leftOut(value: unknown): number | null {
     return phrase.key === MoreKey && Object.keys(value).length === 2 && typeof phrase.args?.count === "number" ? phrase.args.count : null;
 }
 
-function looksLikePicture(value: string): boolean {
-    return AddressPattern.test(value.trim());
+/** A picture the server marked as one (`UINodePicture`), with the size to draw it at, or null for any other value. */
+function markedPicture(value: unknown): MarkedPicture | null {
+    if (value === null || typeof value !== "object" || Array.isArray(value))
+        return null;
+
+    const fields = value as Record<string, unknown>;
+    const address = fields[PictureKey];
+
+    return typeof address === "string" ? { address, width: readSize(fields["width"]), height: readSize(fields["height"]) } : null;
+}
+
+/** A marked picture drawn, at its size where it has one; an address no picture is drawn from, as its text. */
+function drawMarked(marked: MarkedPicture, options: DisplayOptions): HTMLElement {
+    return isPictureAddress(marked.address, options) ? picture(marked.address, marked.width, marked.height) : line(marked.address, "ui-graph__display-text");
+}
+
+/**
+ * Whether a text a type calls a picture is an address one may be drawn from: the framework's rule — this site's path, a web
+ * address, an inline picture, never `//host` or `/\host`, which the browser reads as another site — and a local `blob:` besides.
+ */
+export function isPictureAddress(value: string, options: Pick<DisplayOptions, "isImageSource">): boolean {
+    return /^blob:/i.test(value.trim()) || options.isImageSource(value);
 }
 
 function line(text: string, className: string): HTMLElement {
@@ -84,13 +115,21 @@ function line(text: string, className: string): HTMLElement {
     return element;
 }
 
-function picture(address: string): HTMLElement {
+function picture(address: string, width: number | null, height: number | null): HTMLElement {
     const image = document.createElement("img");
 
     image.className = "ui-graph__display-image";
+
+    if (width !== null) {
+        image.classList.add("ui-graph__display-image--sized");
+        image.style.width = `${width}px`;
+
+        if (height !== null)
+            image.style.height = `${height}px`;
+    }
     image.src = address;
     image.alt = "";
-    // Not every address is a picture, and nothing on the client can tell which are: one that does not draw becomes its own text.
+    // A type names a picture, not that it is still there — one gone from its store — so one that does not draw becomes its own text.
     image.addEventListener("error", () => image.replaceWith(line(address, "ui-graph__display-text")), { once: true });
 
     return image;
@@ -106,8 +145,11 @@ function list(values: readonly unknown[], options: DisplayOptions): HTMLElement 
 
         box.className = "ui-graph__display-list";
 
+        // The pin's type is the list's, not its items': an item is a picture only when the server marked it one.
+        const items = { ...options, picture: false };
+
         for (const entry of values)
-            box.append(renderDisplayValue(entry, options));
+            box.append(renderDisplayValue(entry, items));
 
         return box;
     }
@@ -161,12 +203,12 @@ export function splitMore(values: readonly unknown[]): { readonly entries: reado
     return more === null ? { entries: values, more: null } : { entries: values.slice(0, -1), more };
 }
 
-/** The columns every entry shares, or null when the entries are not all plain records. */
+/** The columns every entry shares, or null when the entries are not all plain records — a marked picture is none. */
 export function sharedColumns(values: readonly unknown[]): string[] | null {
     const columns: string[] = [];
 
     for (const entry of values) {
-        if (entry === null || typeof entry !== "object" || Array.isArray(entry))
+        if (entry === null || typeof entry !== "object" || Array.isArray(entry) || markedPicture(entry) !== null)
             return null;
 
         for (const key of Object.keys(entry)) {
@@ -178,34 +220,17 @@ export function sharedColumns(values: readonly unknown[]): string[] | null {
     return columns.length === 0 ? null : columns;
 }
 
-/** An object's fields, with a picture field drawn as one; an object with a picture plus `width`/`height` is drawn at that size, without repeating those two fields below. */
+/** An object's fields, a field the server marked as a picture drawn as one, at its size where it has one. */
 function record(value: Record<string, unknown>, options: DisplayOptions): HTMLElement {
     const box = document.createElement("div");
-    const addressKey = Object.keys(value).find(key => typeof value[key] === "string" && looksLikePicture(value[key]));
-    const width = readSize(value["width"]);
-    const height = readSize(value["height"]);
-    const sized = addressKey !== undefined && width !== null;
 
     box.className = "ui-graph__display-record";
 
-    if (sized) {
-        const image = picture(value[addressKey] as string);
-
-        image.classList.add("ui-graph__display-image--sized");
-        image.style.width = `${width}px`;
-
-        if (height !== null)
-            image.style.height = `${height}px`;
-
-        box.append(image);
-    }
-
     for (const [key, field] of Object.entries(value)) {
-        if (sized && (key === addressKey || key === "width" || key === "height"))
-            continue;
+        const marked = markedPicture(field);
 
-        if (typeof field === "string" && looksLikePicture(field)) {
-            box.append(picture(field));
+        if (marked !== null) {
+            box.append(drawMarked(marked, options));
             continue;
         }
 
@@ -236,6 +261,11 @@ export function displayText(value: unknown, options: DisplayOptions): string {
 
     if (Array.isArray(value))
         return options.list(value.map(entry => displayText(entry, options)));
+
+    const marked = markedPicture(value);
+
+    if (marked !== null)
+        return marked.address;
 
     const left = leftOut(value);
 

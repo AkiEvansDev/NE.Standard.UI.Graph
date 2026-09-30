@@ -247,6 +247,10 @@ export class FakeElement {
         return this.rect.width;
     }
 
+    public get clientHeight(): number {
+        return this.rect.height;
+    }
+
     /** Its own words and its children's, in order; set, the words replace the children. */
     public get textContent(): string {
         return this.text + this.children.map(child => child.textContent).join("");

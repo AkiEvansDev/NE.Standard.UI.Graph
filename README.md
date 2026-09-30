@@ -39,6 +39,9 @@ services.AddStandardRenderers();
 services.AddGraph();
 ```
 
+The canvases' own words (`ui.graph.*`) ship in Russian and Simplified Chinese as well as English (`GraphStrings.Translations`),
+turned on with `application.AddFrameworkWords("ru", "zh-Hans")` and outranked by any word of the application's own.
+
 ## A node kind
 
 ```csharp

@@ -146,6 +146,7 @@ export class NodesKind implements CanvasKind {
             number: (value, format) => this.log.formatNumber(value, format),
             date: (value, format) => this.log.formatDate(value, format),
             temporal: context.temporal,
+            urls: context.urls,
             cloneEditor: region => cloneTemplate(this.services.root, region),
             setProperty: (component, propertyName, value) => context.properties.set(component, propertyName, value),
             readValue: component => context.values.read(component)

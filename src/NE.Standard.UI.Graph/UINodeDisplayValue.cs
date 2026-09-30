@@ -14,7 +14,7 @@ namespace NE.Standard.UI.Graph;
 /// </summary>
 /// <remarks>
 /// A display is read, not kept: a whole file's text or a list of a million lines would otherwise cross the connection and stand in
-/// the page on every run.
+/// the page on every run. A value the canvas keeps — a node's state — is sent whole, by <see cref="Wire"/>.
 /// </remarks>
 internal static class UINodeDisplayValue
 {
@@ -32,12 +32,43 @@ internal static class UINodeDisplayValue
         {
             null => null,
             string text => ShortenText(text),
-            _ when IsScalar(value) => value,
+            _ when IsScalar(value) => Finite(value),
             // A dictionary is a record's fields to the display, not a list of pairs.
-            IDictionary => Sendable(value),
+            IDictionary => Sendable(value, MostBytes),
             IEnumerable items => ShortenList(items),
-            _ => Sendable(value)
+            _ => Sendable(value, MostBytes)
         };
+
+    /// <summary>
+    /// A value the canvas keeps, as the wire can carry it whole: a number JSON cannot spell as its text, a list's items each so, and
+    /// anything else JSON cannot write as its text; the value itself when nothing of it needs to change.
+    /// </summary>
+    public static object? Wire(object? value)
+        => value switch
+        {
+            null or string => value,
+            _ when IsScalar(value) => Finite(value),
+            IDictionary => Sendable(value, int.MaxValue),
+            IEnumerable items => WireList(items),
+            _ => Sendable(value, int.MaxValue)
+        };
+
+    /// <summary>The list itself when every item travels as it is, or its items as the wire can carry them.</summary>
+    private static object WireList(IEnumerable items)
+    {
+        List<object?> wired = [];
+        var changed = false;
+
+        foreach (var item in items)
+        {
+            var sent = Wire(item);
+
+            changed |= !ReferenceEquals(sent, item);
+            wired.Add(sent);
+        }
+
+        return changed ? wired : items;
+    }
 
     /// <summary>A text as it is, or its first characters and then what was left out, as two lines.</summary>
     private static object ShortenText(string text)
@@ -57,16 +88,30 @@ internal static class UINodeDisplayValue
     private static bool IsScalar(object value)
         => value.GetType().IsPrimitive || value is decimal or Enum or DateTime or DateTimeOffset or DateOnly or TimeOnly or TimeSpan or Guid;
 
-    /// <summary>The value itself when it travels as JSON within the bound, or its own text: a cycle or an unwritable member would break the connection it is sent over.</summary>
-    private static object? Sendable(object value)
+    /// <summary>A NaN or an infinity as its text; any other scalar as it is.</summary>
+    /// <remarks>JSON has no NaN or infinity: the hub's writer throws on one and drops the connection it was sending over.</remarks>
+    private static object Finite(object value)
+        => value switch
+        {
+            double number when !double.IsFinite(number) => number.ToString(CultureInfo.InvariantCulture),
+            float number when !float.IsFinite(number) => number.ToString(CultureInfo.InvariantCulture),
+            _ => value
+        };
+
+    /// <summary>
+    /// The value itself when it travels as JSON within the bound, or its own text: a cycle, an unwritable member or a number JSON
+    /// cannot spell would break the connection it is sent over.
+    /// </summary>
+    private static object? Sendable(object value, int mostBytes)
     {
         try
         {
             var json = JsonSerializer.SerializeToUtf8Bytes(value, value.GetType(), JsonSerializerOptions.Web);
 
-            return json.Length <= MostBytes ? value : ShortenText(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+            return json.Length <= mostBytes ? value : ShortenText(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
         }
-        catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException)
+        // A NaN or an infinity is an ArgumentException from the writer, not a JsonException.
+        catch (Exception exception) when (exception is JsonException or NotSupportedException or InvalidOperationException or ArgumentException)
         {
             return ShortenText(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
         }

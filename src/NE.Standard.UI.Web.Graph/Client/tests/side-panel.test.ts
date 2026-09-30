@@ -1,5 +1,5 @@
-// A side panel's fold against the one the server drew it with: the parameters panel arrives folded, the plan open, and only the
-// viewer's departure from that is stored for the canvas.
+// A side panel's fold against the one the server drew it with: the parameters panel arrives folded, the plan open — folded where the
+// stylesheet says the window is too narrow for it — and only the viewer's departure from that is stored for the canvas.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -8,6 +8,11 @@ import { FakeElement, real } from "./fake-dom.ts";
 import { SidePanelFold } from "../src/canvas/side-panel.ts";
 
 const Collapsed = "data-ui-collapsed";
+
+// What the stylesheet answers for a panel: the plan's fold on a phone.
+let narrow = false;
+
+Object.assign(globalThis, { getComputedStyle: () => ({ getPropertyValue: (name: string) => (narrow && name === "--ui-graph-side-folded" ? " 1" : "") }) });
 
 function memoryStore(initial: string | null = null): { store: ClientStore; stored: () => string | null } {
     let value = initial;
@@ -73,4 +78,30 @@ test("a panel drawn open stores its fold, and nothing once opened again", () => 
     aside.removeAttribute(Collapsed);
     fold.press(real(toggle));
     assert.equal(stored(), null);
+});
+
+test("on a narrow window the plan starts folded, and opened by the viewer it is stored open", () => {
+    narrow = true;
+
+    try {
+        const { store, stored } = memoryStore();
+        const { panel: aside, toggle } = panel(false);
+        const fold = new SidePanelFold(store, real(FakeElement.of("ui-graph")), real(aside), "plan");
+
+        assert.equal(aside.hasAttribute(Collapsed), true);
+        assert.equal(toggle.getAttribute("aria-expanded"), "false");
+
+        aside.removeAttribute(Collapsed);
+        fold.press(real(toggle));
+        assert.equal(stored(), "open");
+
+        // A viewer who opened it once finds it open again on the phone.
+        const again = panel(false);
+
+        new SidePanelFold(memoryStore("open").store, real(FakeElement.of("ui-graph")), real(again.panel), "plan");
+        assert.equal(again.panel.hasAttribute(Collapsed), false);
+    }
+    finally {
+        narrow = false;
+    }
 });

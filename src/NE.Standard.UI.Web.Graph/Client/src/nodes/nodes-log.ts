@@ -5,7 +5,7 @@ import type { PluginEngineContext } from "ne-standard-ui";
 import { CoreNames, percentText } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { renderDisplayValue } from "./display.ts";
-import { findPin } from "./model.ts";
+import { findPin, showsPicture } from "./model.ts";
 import type { GraphDocument, NodeType } from "./model.ts";
 import { DisplayAttribute, displayOptions, NodeStateAttribute, ValueAttribute } from "./node-view.ts";
 
@@ -152,15 +152,19 @@ export class NodesLog {
 
     private applyDisplay(nodeId: string, pinName: string, value: unknown): void {
         const box = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${DisplayAttribute}][${ValueAttribute}="${CSS.escape(pinName)}"]`);
-        const node = this.services.documentState.document.nodes.find(candidate => candidate.id === nodeId);
+        const sheet = this.services.documentState.document;
+        const node = sheet.nodes.find(candidate => candidate.id === nodeId);
         const pin = findPin(node === undefined ? undefined : this.types.get(node.type), pinName, false);
-
-        box?.replaceChildren(renderDisplayValue(value, displayOptions(pin, {
+        const options = displayOptions(pin, {
             words: this.context.strings,
             number: (number, format) => this.formatNumber(number, format),
             date: (date, format) => this.formatDate(date, format),
-            temporal: this.context.temporal
-        })));
+            temporal: this.context.temporal,
+            urls: this.context.urls
+        });
+
+        // A picture by the pin's type, read off the sheet as it stands: the wire says nothing of what a text is.
+        box?.replaceChildren(renderDisplayValue(value, { ...options, picture: pin !== undefined && showsPicture(sheet, this.types, nodeId, pin) }));
     }
 
     /** A number as the page writes one: the pin's own format against the culture the page carries. */

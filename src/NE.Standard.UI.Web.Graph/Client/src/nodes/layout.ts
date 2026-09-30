@@ -52,13 +52,22 @@ export function arrange(document: GraphDocument, options: ArrangeOptions): Map<s
         toOffset: options.pinOffset?.(wire.toNode, wire.toPin, "in") ?? undefined
     }));
     const selection = options.only !== undefined;
+    let originX = Number.POSITIVE_INFINITY;
+    let originY = Number.POSITIVE_INFINITY;
+
+    // A loop rather than a spread: thousands of nodes pass more arguments than a call may take.
+    for (const node of moving) {
+        originX = Math.min(originX, node.x);
+        originY = Math.min(originY, node.y);
+    }
+
     const positions = layered(nodes, edges, {
         direction: "right",
         layerGap: columnGap,
         layerGaps: layers => gapsAfter(wires, layers, columnGap),
         nodeGap: options.rowGap ?? 32,
-        originX: selection ? Math.min(...moving.map(node => node.x)) : 0,
-        originY: selection ? Math.min(...moving.map(node => node.y)) : 0
+        originX: selection ? originX : 0,
+        originY: selection ? originY : 0
     }).positions;
 
     if ((options.gridSize ?? 0) > 0)

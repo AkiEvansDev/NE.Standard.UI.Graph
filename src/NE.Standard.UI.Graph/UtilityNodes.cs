@@ -35,7 +35,8 @@ public sealed class ToTextNode : IGraphNode
 }
 
 /// <summary>
-/// Shows whatever reaches it, drawn by the shape the run gave it: a number, a line of text, a picture, a list or a table of records.
+/// Shows whatever reaches it, drawn by the shape the run gave it: a number, a line of text, a list or a table of records — and a
+/// picture where a type says so: a picture's output feeds it, or the value is a <see cref="UINodePicture"/>.
 /// </summary>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Display", Description = "Shows whatever reaches it, drawn by the shape it has.", Icon = UIGlyphs.Visibility, Color = UINodeKinds.AnyColor, MinWidth = 16)]
 public sealed class DisplayNode

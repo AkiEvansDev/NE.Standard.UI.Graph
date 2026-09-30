@@ -315,9 +315,10 @@ class Canvas {
         return this.root.isConnected;
     }
 
-    /** Lets go of what would outlive the root: the watch on every node's size. */
+    /** Lets go of what would outlive the root: the watch on every node's size and on the canvas's own. */
     public dispose(): void {
         this.render.dispose();
+        this.view.dispose();
     }
 
     /**

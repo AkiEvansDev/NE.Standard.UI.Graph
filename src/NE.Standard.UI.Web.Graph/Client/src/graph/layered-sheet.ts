@@ -276,7 +276,14 @@ export class LayeredSheet {
 
     /** Runs the layered layout, snapped to the grid; a long edge's via-points move with its source's snap so it sets out level — remembered positions tell laid-out nodes from hand-placed ones. */
     private layout(sizes: readonly { id: string; width: number; height: number }[]): ReturnType<typeof layered> {
-        const widest = this.host.nodeBox === undefined ? 0 : Math.max(0, ...sizes.map(size => this.services.nodeExtent(size.id)?.width ?? 0));
+        let widest = 0;
+
+        // A loop rather than a spread: thousands of nodes pass more arguments than a call may take.
+        if (this.host.nodeBox !== undefined) {
+            for (const size of sizes)
+                widest = Math.max(widest, this.services.nodeExtent(size.id)?.width ?? 0);
+        }
+
         const boxes = sizes.map(size => ({ id: size.id, ...this.box(size.width, size.height, widest) }));
         const result = layered(boxes, this.host.links(), { direction: this.direction, nodeGap: this.options.nodeGap, layerGap: this.options.layerGap });
         const moved = new Map<string, Point>();

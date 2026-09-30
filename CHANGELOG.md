@@ -4,6 +4,69 @@ One section per release of this slice, headed `## X.Y.Z` and named by the tag �
 workflow cuts the matching section out to become the body of the GitHub release, and a tag with no section
 fails the release before anything is published.
 
+## 1.4.0-rc.1
+
+- **A node fails wherever its code throws, not only in `Execute`.** A setter an input was fed through, an output's getter
+  (`[GraphOutput] public int Ratio => A / B;`), `HasMore` and a display pin's getter used to throw past the runner: the node stood
+  drawn running, the run's line never reached its end and the save command failed. Each now fails the node and its branch, as a
+  throw in `Execute` does, and a failed node hands nothing on.
+- **A display is sent `NaN` or an infinity as its text.** Alone, the number broke the connection it was sent over; inside a record
+  or a dictionary, the writer's `ArgumentException` escaped the runner and failed the whole run. Both go as their text, as the
+  documentation said of any value JSON cannot carry. So does a node's state on its way back to the canvas (`SetNodeValueEffect`,
+  and the sheet `UINodeRuns` keeps), a list's items each; the next run reads the text as the number again.
+- **A state collection changed in place is kept.** A list a node adds to was compared with itself and never reported, so a run of
+  all went round on the same item until its limit; its items are compared now. Each run's node works on its own copy of a
+  collection the document holds, so the document a run started from is not changed under it.
+- **A document from the browser is read as the browser's.** A node with no id or no kind (which threw), one whose id an earlier
+  node took (which neither ran nor reported, the run's line stopping one short), an edge naming no node or pin, and an entry sent
+  as nothing are left out, as a node of an unknown kind is. `UIGraphDraft.ApplyTo` passes over a node sent as nothing or with no
+  key, and a link sent as nothing, with no key or to no node, where it threw half way through changing the application's nodes.
+- **The server's plan no longer throws on a plan longer than a `TimeSpan` holds** (about 29 000 years); it is solved, as the
+  canvas solves it, its time the longest one there is and its workers at most `int.MaxValue`. The canvas's plan answers the same,
+  where it counted on past both, and the corpus both ports are held to has such a plan.
+- **The file kinds' check is given the path the kind will open**, every link along it followed — a symbolic link or a junction —
+  so a link inside an allowed folder no longer leads past a check that compared names. `UINodeFiles.RealPath` names a folder the
+  same way for the check to compare against. **Breaking** for a check comparing against a folder that stands under a link (the
+  system's temporary folder on macOS): name it by `RealPath`, or compare with the new `UINodeFiles.IsInside(path, folder)`, which
+  names both that way, compares names as the system does (ignoring case on Windows and macOS only) and takes `D:\Work2` for no
+  part of `D:\Work`. The documentation's checks, which compared with `StartsWith`, and the node demo's use it.
+- **A file kind reads at most 64 MB of one file** (`UINodeFiles.MaxReadBytes`, `DefaultMaxReadBytes`), whatever the file says of
+  its length; a larger one, or a device that reads without end, fails the node rather than filling the server's memory.
+- **The memory picture store keeps 256 MB of pictures unless told otherwise** (`UINodeImageMemoryStore.DefaultMaxBytes`),
+  letting go of the pictures used longest ago; it kept every upload and every picture a run made until the process ended.
+  **Breaking** in behaviour for an application that registered `AddGraphImages()` counting on a picture never being let go:
+  `MaxBytes = null` keeps them all, as before.
+- **A display draws a picture by type, never by what a text looks like.** Any text starting with `/` or `http(s)://` was drawn
+  as an `<img>`, so a file's path from *Files in folder*, or any address a sheet held, was fetched with the viewer's cookies. A text
+  is now a picture only when the display pin is a picture's (`[GraphInput(Display = true, Image = true)]`) or the output feeding
+  it is one (`[GraphOutput(Image = true)]`, followed through `TypeOf` — a *Delay*, a reroute); any other text is text. A picture
+  inside a record or a list is the new `UINodePicture` (address, and a width and height to draw it at), which travels marked
+  (`{ "$picture": … }`). Even a typed picture is drawn only from an address the framework fetches a picture from — this site, the
+  web, an inline picture, judged as the browser reads the address (`urls.isImageSource`), so `//host/…`, `/\host/…` and
+  `/<tab>/host/…` stay text — or a local `blob:`; the package keeps no rule of its own, and needs the framework's 1.4.0-rc.1 or
+  later, whose plugin surface carries `urls`. **Breaking** for a record that carried a picture as a text field with
+  `width`/`height` beside it — it is drawn as its fields now; give it a `UINodePicture` — and for a display fed a text of a
+  picture through a pin no type names as one.
+- **The layered layout takes a sheet of any size.** The least and most of a layer, of an alignment and of a selection were
+  spread into `Math.min`/`Math.max`, which throws past about a hundred thousand arguments — a long edge across a large sheet puts
+  a virtual node in every layer it crosses.
+- **The node demo's folders are each page's own.** Every visitor could write into the shared `in` (a *Save image* pointed at it,
+  with *Replace* on, overwrote the demo's pictures for everyone until the next restart) and read another page's `out/<id>`, and
+  the check ignored case on Linux too. `in` is read-only now, and a page's file kinds reach only its own folder under `out`.
+- **The canvas's words ship in Russian and Simplified Chinese.** `GraphStrings.Translations` carries `ru` and `zh-Hans` for every
+  `ui.graph.*` key, and an application turns them on with the framework's `application.AddFrameworkWords("ru", "zh-Hans")`, ranked
+  below its own words. The Russian is new; the Chinese is the demos' (the node canvas's and the planner's held the same table).
+  Both demos keep only their own `nodes.*` and `planner.*` words, and the planner's notifications are `UIPhrase`s now, so an open
+  one follows a language switch.
+- **The production graph's Plan panel starts folded on a phone.** Below `md` it stood open over the canvas it plans; the
+  stylesheet now says the window is too narrow (`--ui-graph-side-folded`), and the panel starts folded there, its switch opening
+  it. A viewer's own fold or opening is kept as before, and wins.
+- **A fitted view follows the canvas's size.** A sheet fitted on a phone and then widened stood where the narrow fit had put it —
+  the planner's builds, widened from 390 to 1366 px, mostly past the left edge. A view that is a fit the viewer has not panned,
+  zoomed or centred since is fitted again whenever the canvas takes another size; one the viewer moved stays where they left it.
+  The kept view says whether it is a fit, so a fit kept from an earlier visit opens where it was, as a kept view does, and
+  follows the canvas from there.
+
 ## 1.3.0
 
 - **Needs the framework's plugin contract 2.** The package reads what a component's state is, the wheel and the framework's

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canConnect, canResetPin, createNode, dropParameter, duplicate, edgesInto, isParameterAllowed, isPinVisible, readDocument, resetPin, resolveOutputType, slice } from "../src/nodes/model.ts";
+import { canConnect, canResetPin, createNode, dropParameter, duplicate, edgesInto, isParameterAllowed, isPinVisible, readDocument, resetPin, resolveOutputType, showsPicture, slice } from "../src/nodes/model.ts";
 import type { GraphDocument, NodeType, Pin } from "../src/nodes/model.ts";
 
 const numberType: NodeType = {
@@ -320,4 +320,37 @@ test("a pin with nothing to reset offers none: a default value, an absent one, a
     resetPin(document, fieldTypes, "b", "Values", "in");
 
     assert.deepEqual(document.nodes[1].values["Values"], []);
+});
+
+test("a display shows a picture by type: its own pin's, or an output of a picture's feeding it, through what passes it on", () => {
+    const picture: NodeType = { key: "Picture", title: "Picture", inputs: [], outputs: [{ name: "Image", title: "Image", type: "image", editor: "None" }] };
+    const show: NodeType = { key: "Show", title: "Show", inputs: [{ name: "Value", title: "Value", type: "any", editor: "Display" }], outputs: [] };
+    const preview: NodeType = { key: "Preview", title: "Preview", inputs: [{ name: "Shown", title: "Shown", type: "image", editor: "Display" }], outputs: [] };
+    const all = new Map<string, NodeType>([...types, [picture.key, picture], [show.key, show], [preview.key, preview]]);
+    const document: GraphDocument = {
+        nodes: [
+            { id: "p", type: "Picture", x: 0, y: 0, values: {} },
+            { id: "pass", type: "Pass", x: 0, y: 0, values: {} },
+            { id: "shown", type: "Show", x: 0, y: 0, values: {} },
+            { id: "n", type: "Number", x: 0, y: 0, values: {} },
+            { id: "number", type: "Show", x: 0, y: 0, values: {} },
+            { id: "alone", type: "Show", x: 0, y: 0, values: {} },
+            { id: "own", type: "Preview", x: 0, y: 0, values: {} }
+        ],
+        edges: [
+            { id: "e1", fromNode: "p", fromPin: "Image", toNode: "pass", toPin: "Input", points: [] },
+            { id: "e2", fromNode: "pass", fromPin: "Output", toNode: "shown", toPin: "Value", points: [] },
+            { id: "e3", fromNode: "n", fromPin: "Result", toNode: "number", toPin: "Value", points: [] }
+        ],
+        groups: [],
+        key: null,
+        parameters: []
+    };
+
+    const shows = (nodeId: string, type: NodeType): boolean => showsPicture(document, all, nodeId, type.inputs[0]);
+
+    assert.equal(shows("shown", show), true);
+    assert.equal(shows("own", preview), true);
+    assert.equal(shows("number", show), false);
+    assert.equal(shows("alone", show), false);
 });

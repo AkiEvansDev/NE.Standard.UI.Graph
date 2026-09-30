@@ -11,7 +11,8 @@ namespace NE.Standard.UI.Graph.Image;
 public static class GraphImageServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="UINodeImageMemoryStore"/> as the image store and as the content provider that serves what it keeps.
+    /// Registers <see cref="UINodeImageMemoryStore"/> as the image store and as the content provider that serves what it keeps, up
+    /// to <see cref="UINodeImageMemoryStore.DefaultMaxBytes"/> of pictures.
     /// </summary>
     /// <remarks>
     /// An application with a content provider of its own registers an <see cref="IUINodeImageStore"/> of its own instead: there is

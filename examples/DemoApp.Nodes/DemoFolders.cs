@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using SkiaSharp;
 
@@ -6,8 +5,8 @@ namespace DemoApp.Nodes;
 
 /// <summary>
 /// The folder the demo's file kinds start from and the only one they reach, under the system's temporary folder: <c>in</c>, which the demo fills with a few
-/// pictures of its own drawing on start, so the repository carries no picture files; and <c>out</c>, where each page's sheet
-/// writes into a folder of its own.
+/// pictures of its own drawing on start, so the repository carries no picture files, and which every page reads and none writes;
+/// and <c>out</c>, where each page's sheet writes into a folder of its own, which no other page reaches.
 /// </summary>
 internal static class DemoFolders
 {
@@ -24,7 +23,8 @@ internal static class DemoFolders
 
     public static string Root { get; } = Path.Combine(Path.GetTempPath(), "ne-nodes-demo");
 
-    public static UINodeFiles Open()
+    /// <summary>Makes <c>in</c> and draws its pictures, once, as the application starts.</summary>
+    public static void Prepare()
     {
         var input = Path.Combine(Root, In);
 
@@ -37,15 +37,22 @@ internal static class DemoFolders
             if (!File.Exists(path))
                 File.WriteAllBytes(path, Draw(ground, mark));
         }
+    }
 
-        // The base folder only resolves a relative path; the check is what keeps an absolute one or `..` from the rest of the disk.
-        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(Root));
-        var inside = root + Path.DirectorySeparatorChar;
+    /// <summary>What one page's file kinds reach: <c>in</c> to read, and the page's own folder under <c>out</c> to read and write.</summary>
+    /// <remarks>
+    /// The base folder only resolves a relative path; the check is what keeps an absolute one, `..` or a link from the rest of the
+    /// disk, and one page's sheet from another's pictures.
+    /// </remarks>
+    public static UINodeFiles For(string page)
+    {
+        var input = Path.Combine(Root, In);
+        var own = Path.GetFullPath(page, Root);
 
         return new UINodeFiles
         {
             BasePath = Root,
-            Allow = (path, _) => path.StartsWith(inside, StringComparison.OrdinalIgnoreCase) || string.Equals(path, root, StringComparison.OrdinalIgnoreCase)
+            Allow = (path, access) => UINodeFiles.IsInside(path, own) || (access == UINodeFileAccess.Read && UINodeFiles.IsInside(path, input))
         };
     }
 

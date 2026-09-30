@@ -10,7 +10,7 @@ namespace NE.Standard.UI.Web.Graph;
 /// The words the canvas's own chrome writes (picker, zoom bar, node parts), with their English; translated like the framework's
 /// <c>UIStrings</c>.
 /// </summary>
-public sealed class GraphStrings : IUIStringsSource
+public sealed partial class GraphStrings : IUIStringsSource
 {
     public const string Canvas = "ui.graph.canvas";
     public const string AddNode = UIGraphWords.AddNode;

@@ -296,8 +296,17 @@ declare module "ne-standard-ui" {
         writeCount(badge: Element, count: number): void;
     };
 
+    /** Addresses judged by the framework's own rule, each read as the browser's URL parser reads it; a package keeps no copy of it. */
+    export type Urls = {
+        /** Whether a picture may be fetched from an address: a path of this site, http(s) or an image data URL — never `//host`, `/\host` or `/<tab>/host`, which the browser reads as another site. */
+        isImageSource(address: string): boolean;
+        /** The address as the browser reads it: the controls and spaces at either end stripped, and every tab and line break inside. */
+        asBrowserReads(address: string): string;
+    };
+
     /** Values as the framework reads and writes them: a root reads off its `data-ui-value-holder`, not a composed control's first field. */
     export type ValueReading = {
+        /** The value as its binding would send it: a number field answers its invariant text ("1234.5"), never what it shows in its culture. */
         read(element: Element): unknown;
         /** Holds an editor's unsaved value until its `change` or form submit sends it: a push meanwhile neither lands nor is told. */
         hold(element: Element): void;
@@ -520,6 +529,8 @@ declare module "ne-standard-ui" {
         readonly bindValue: "data-ui-bind-value";
         /** A part of a row whose double click is its own, not the row's open. */
         readonly noRowOpen: "data-ui-no-row-open";
+        /** A part of a row a press in never drags the row by (a grid's open detail), where the host's rows drag. */
+        readonly noRowDrag: "data-ui-no-row-drag";
         /** An element no event crosses outward: a component above it never takes an event raised inside it. */
         readonly eventBoundary: "data-ui-event-boundary";
         /** A focusable layer a package draws (a canvas, a panel over it) that takes the keyboard back from a field in it on Enter or Escape. */
@@ -589,6 +600,7 @@ declare module "ne-standard-ui" {
         readonly temporal: TemporalFormatting;
         readonly icons: Icons;
         readonly badges: Badges;
+        readonly urls: Urls;
         readonly values: ValueReading;
         readonly properties: PropertyWriting;
         readonly windows: ItemWindows;

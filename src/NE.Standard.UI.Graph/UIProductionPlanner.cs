@@ -245,9 +245,9 @@ public static class UIProductionPlanner
                 continue;
 
             var time = count * Math.Max(0, craft.Time.TotalSeconds);
-            int? workers = period is TimeSpan length ? (int)Math.Ceiling((time / length.TotalSeconds) - Eps) : null;
+            int? workers = period is TimeSpan length ? (int)Math.Min(Math.Ceiling((time / length.TotalSeconds) - Eps), int.MaxValue) : null;
 
-            planned.Add(new UIPlannedCraft(craft.Id, count, TimeSpan.FromSeconds(time), workers));
+            planned.Add(new UIPlannedCraft(craft.Id, count, Duration(time), workers));
             total += time;
 
             foreach (UICraftAmount product in craft.Products)
@@ -286,8 +286,16 @@ public static class UIProductionPlanner
             read.Add(new UIPlannedResource(resource.Id, source, target, gives, takes, source ? 0 : Settle(gives - takes - target)));
         }
 
-        return new UIProductionPlan(UIProductionPlanStatus.Solved, planned, read, TimeSpan.FromSeconds(total), raw, cost);
+        return new UIProductionPlan(UIProductionPlanStatus.Solved, planned, read, Duration(total), raw, cost);
     }
+
+    /// <summary>A plan's seconds as a time, the longest one there is for a plan longer than that.</summary>
+    /// <remarks>
+    /// The canvas's plan (<c>plan.ts</c>) counts seconds in a number and solves such a plan all the same; a time cannot hold past
+    /// 29 000 years, and <see cref="TimeSpan.FromSeconds(double)"/> would throw rather than answer.
+    /// </remarks>
+    private static TimeSpan Duration(double seconds)
+        => seconds * TimeSpan.TicksPerSecond < TimeSpan.MaxValue.Ticks ? TimeSpan.FromSeconds(seconds) : TimeSpan.MaxValue;
 
     private static double Settle(double value)
         => Math.Abs(value) < 1e-7 ? 0 : value;

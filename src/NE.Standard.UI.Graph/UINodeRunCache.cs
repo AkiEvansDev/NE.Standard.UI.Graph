@@ -63,7 +63,7 @@ public sealed class UINodeRunCache
     }
 
     /// <summary>Equal values, a list — a pin taking several, a list pin — by its items rather than by reference.</summary>
-    private static bool SameValue(object? left, object? right)
+    internal static bool SameValue(object? left, object? right)
     {
         if (Equals(left, right))
             return true;

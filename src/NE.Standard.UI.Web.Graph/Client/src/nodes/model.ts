@@ -323,6 +323,19 @@ export function resolveOutputType(document: GraphDocument, types: ReadonlyMap<st
     return resolveOutputType(document, types, feeding.fromNode, feeding.fromPin, seen);
 }
 
+/**
+ * Whether a node's display pin, as its type names it, shows a text as a picture: by type alone — its own type is a picture's, or
+ * the output feeding it resolves to one — never by what the text looks like.
+ */
+export function showsPicture(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pin: Pin): boolean {
+    if (pin.type === ImageType)
+        return true;
+
+    const feeding = edgeInto(document, nodeId, pin.name);
+
+    return feeding !== undefined && resolveOutputType(document, types, feeding.fromNode, feeding.fromPin) === ImageType;
+}
+
 /** Everything the given nodes carry with them: the nodes themselves and the edges that run between two of them. */
 export function slice(document: GraphDocument, nodeIds: ReadonlySet<string>): { nodes: DocumentNode[]; edges: DocumentEdge[] } {
     const nodes = document.nodes.filter(node => nodeIds.has(node.id));

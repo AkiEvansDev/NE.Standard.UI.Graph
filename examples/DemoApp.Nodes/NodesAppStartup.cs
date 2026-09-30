@@ -13,8 +13,9 @@ public sealed class NodesAppStartup : UIStartupBase
         // application's own decision, here the picture package's store in memory.
         _ = services.AddGraphImages();
 
-        // The folders the file kinds may reach, and nothing else of the disk: pictures to read, and a folder to write them into.
-        _ = services.AddGraphFiles(DemoFolders.Open());
+        // The pictures the file kinds read. What of the disk they reach is a page's own (DemoFolders.For), handed to its runs by the
+        // page, so nothing is registered here: a run that came without it would reach nothing.
+        DemoFolders.Prepare();
     }
 
     protected override void ConfigureApplication(UIApplicationBuilder application)
@@ -22,6 +23,9 @@ public sealed class NodesAppStartup : UIStartupBase
         ArgumentNullException.ThrowIfNull(application);
 
         _ = application.AddLocalizationSource(NodesDemoWords.Build());
+
+        // The framework's and its packages' own words in the demo's other languages, as they ship.
+        _ = application.AddFrameworkWords("zh-Hans");
 
         // Only a string starting "nodes." is a key: every other string on a translatable property — a node's name, the sheet's
         // values — is content, so the missing-word report in Development names only words the demo has not translated.

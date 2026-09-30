@@ -147,7 +147,7 @@ public sealed class GraphInputAttribute : Attribute
 
     /// <summary>
     /// Gets or sets whether a text input holds a picture's address: its pin is a picture's, and its editor, if it has one, shows
-    /// the picture and the address under it.
+    /// the picture and the address under it; a display pin draws the text it is given as the picture.
     /// </summary>
     public bool Image { get; set; }
 
@@ -239,7 +239,8 @@ public sealed class GraphOutputAttribute : Attribute
     public string? TypeOf { get; set; }
 
     /// <summary>
-    /// Gets or sets whether a text output carries a picture's address, so its pin is a picture's.
+    /// Gets or sets whether a text output carries a picture's address, so its pin is a picture's and a display it feeds draws the
+    /// picture.
     /// </summary>
     public bool Image { get; set; }
 

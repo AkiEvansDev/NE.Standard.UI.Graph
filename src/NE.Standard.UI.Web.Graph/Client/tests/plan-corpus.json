@@ -25,6 +25,16 @@
       "expected": {"status": "Solved", "runs": {"smelt": 7200, "press": 3600}, "workers": {"smelt": 4, "press": 3}, "surplus": {}, "time": 25200, "raw": 7200, "cost": 7200}
     },
     {
+      "case": "a plan longer than the server's time holds answers the longest time there is, and its workers the most an int holds",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "ingot"},
+        {"kind": "Craft", "id": "smelt", "time": 1000000, "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "ingot", "amount": 1}]}
+      ],
+      "request": {"targets": [{"resource": "ingot", "amount": 1000000000}], "period": "Minute", "objective": "LeastTime"},
+      "expected": {"status": "Solved", "runs": {"smelt": 1000000000}, "workers": {"smelt": 2147483647}, "surplus": {}, "time": 922337203685.4775, "raw": 1000000000, "cost": 1000000000}
+    },
+    {
       "case": "the Buck Capsule chain, its two seed cycles run no further than they must",
       "entries": [
         {"kind": "Resource", "id": "ferrium-ore", "cost": 1},

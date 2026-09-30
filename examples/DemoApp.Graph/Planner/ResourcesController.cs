@@ -439,12 +439,12 @@ internal sealed partial class ResourcesController : UIControllerBase
         // A toast is written once, in the language the page shows as it opens.
         UIPhrase taken = UIPhrase.Of(replace ? "planner.resources.imported.replace" : "planner.resources.imported.merge", ("count", resources.Count));
 
-        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(Context.Translate(taken), UIColorStyle.Success)]);
+        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(taken, UIColorStyle.Success)]);
     }
 
     /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
-    private UICommandResult Refuse(string? reason)
-        => UICommandResult.Ok([new ShowNotificationEffect(Context.Translate(new UIPhrase(reason ?? "planner.file.nothing-read")), UIColorStyle.Danger)]);
+    private static UICommandResult Refuse(string? reason)
+        => UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase(reason ?? "planner.file.nothing-read"), UIColorStyle.Danger)]);
 
     /// <summary>The catalogue read again, and the list rewritten in place: a row keeps its key, so the selection and the scroll stay.</summary>
     private void Reload()

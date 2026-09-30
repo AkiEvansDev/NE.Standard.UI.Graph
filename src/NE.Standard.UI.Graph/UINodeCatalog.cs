@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -282,7 +283,7 @@ public sealed class UINodeCatalog
         var value = owner.GetProperty(member, BindingFlags.Public | BindingFlags.Static)?.GetValue(null)
             ?? owner.GetMethod(member, BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes)?.Invoke(null, null);
 
-        return value as IEnumerable<object?> ?? (value as System.Collections.IEnumerable)?.Cast<object?>();
+        return value as IEnumerable<object?> ?? (value as IEnumerable)?.Cast<object?>();
     }
 
     private static UINodeEditor EditorFor(Type clrType, string pinType)
@@ -465,7 +466,10 @@ public sealed class UINodeCatalog
     /// Turns a saved document back into a typed network: an instance of the developer's class per node, with the viewer's values,
     /// and the edges between them.
     /// </summary>
-    /// <remarks>A node of a kind this catalogue does not know is left out.</remarks>
+    /// <remarks>
+    /// A node of a kind this catalogue does not know is left out. The document may be the browser's, so a node with no id or no
+    /// kind, a node whose id an earlier one took and an edge that names no pin are left out too.
+    /// </remarks>
     public UINodeNetwork Materialize(UINodeDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -475,6 +479,9 @@ public sealed class UINodeCatalog
 
         foreach (UINode node in document.Nodes)
         {
+            if (string.IsNullOrEmpty(node.Id) || string.IsNullOrEmpty(node.Type) || byId.ContainsKey(node.Id))
+                continue;
+
             if (!_clrTypes.TryGetValue(node.Type, out Type? clrType) || Activator.CreateInstance(clrType) is not { } instance)
                 continue;
 
@@ -490,6 +497,9 @@ public sealed class UINodeCatalog
 
         foreach (UINodeEdge edge in document.Edges)
         {
+            if (edge.FromNode is null || edge.ToNode is null || string.IsNullOrEmpty(edge.FromPin) || string.IsNullOrEmpty(edge.ToPin))
+                continue;
+
             if (byId.TryGetValue(edge.FromNode, out UINodeInstance? from) && byId.TryGetValue(edge.ToNode, out UINodeInstance? to))
                 connections.Add(new UINodeConnection(from, edge.FromPin, to, edge.ToPin));
         }
@@ -503,8 +513,14 @@ public sealed class UINodeCatalog
         {
             PropertyInfo? property = UINodeProperties.Find(clrType, value.Key);
 
-            if (property is not null && property.CanWrite && property.GetCustomAttribute<GraphInputAttribute>() is not null)
-                UINodeProperties.Set(property, instance, value.Value);
+            if (property is null || !property.CanWrite || property.GetCustomAttribute<GraphInputAttribute>() is null)
+                continue;
+
+            // A collection is the node's own copy: a node may change it in place, and the document's must stand as it was until a
+            // run is through with it — a run of all hands the state one run left to the next.
+            var held = value.Value is IEnumerable items and not string ? UINodeProperties.Collect(property.PropertyType, items) ?? value.Value : value.Value;
+
+            UINodeProperties.Set(property, instance, held);
         }
     }
 }

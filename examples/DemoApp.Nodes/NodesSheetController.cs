@@ -23,8 +23,10 @@ internal abstract partial class NodesSheetController : UIControllerBase
     private readonly string _canvasId;
     private readonly Func<string, UINodeDocument> _startingSheet;
 
-    // The page's own folder under the demo's out, so one viewer's thumbnails never overwrite another's.
+    // The page's own folder under the demo's out, so one viewer's thumbnails never overwrite another's, and what its file kinds
+    // reach: that folder, and the demo's pictures to read.
     private readonly string _out = $"{DemoFolders.Out}/{Guid.NewGuid().ToString("N")[..8]}";
+    private readonly UINodeFiles _files;
 
     /// <summary>
     /// A page's sheet: its canvas's id, its kinds, the sheet it opens with (handed the page's own folder to write into) and its first
@@ -37,6 +39,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
         _catalog = catalog;
         _startingSheet = startingSheet;
         _runs = new UINodeRuns(canvasId, catalog, () => Sheet, sheet => Sheet = sheet);
+        _files = DemoFolders.For(_out);
         Sheet = startingSheet(_out);
         Status = status;
     }
@@ -70,13 +73,20 @@ internal abstract partial class NodesSheetController : UIControllerBase
     {
         Status = UIPhrase.Of("nodes.status.saved", ("time", DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)), ("nodes", Sheet.Nodes.Length), ("edges", Sheet.Edges.Length));
 
-        UINodeRunOutcome? outcome = await _runs.SavedAsync(Context.SendEffectsAsync, Context.Runtime.InvokeAsync, Context.Services, reason, cancellationToken).ConfigureAwait(false);
+        UINodeRunOutcome? outcome = await _runs.SavedAsync(Context.SendEffectsAsync, Context.Runtime.InvokeAsync, new PageServices(Context.Services, _files), reason, cancellationToken).ConfigureAwait(false);
 
         // In the runtime's turn: past its first wait the command runs beside the tab and its other commands.
         if (outcome is not null)
             _ = await Context.Runtime.InvokeAsync(() => Report(outcome), cancellationToken).ConfigureAwait(false);
 
         return UICommandResult.Ok();
+    }
+
+    /// <summary>The application's services as this page's runs reach them, the files being the page's own.</summary>
+    private sealed class PageServices(IServiceProvider services, UINodeFiles files) : IServiceProvider
+    {
+        public object? GetService(Type serviceType)
+            => serviceType == typeof(UINodeFiles) ? files : services.GetService(serviceType);
     }
 
     /// <summary>What a run came to, on the page's lines.</summary>

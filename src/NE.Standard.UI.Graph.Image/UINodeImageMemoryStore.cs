@@ -15,12 +15,14 @@ namespace NE.Standard.UI.Graph.Image;
 /// </summary>
 /// <remarks>
 /// Kept by the hash of what it is, so the same file written twice is one picture at one address, and <see cref="UINodeRunCache"/>
-/// hands the nodes below it on rather than running them. With no <see cref="MaxBytes"/> it keeps every picture until the process
-/// ends — for a run of all over a folder, each one it made. An application keeping its pictures elsewhere, or for longer,
-/// implements <see cref="IUINodeImageStore"/> on its own store.
+/// hands the nodes below it on rather than running them. Past <see cref="MaxBytes"/> it lets go of the pictures used longest ago.
+/// An application keeping its pictures elsewhere, or for longer, implements <see cref="IUINodeImageStore"/> on its own store.
 /// </remarks>
 public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvider
 {
+    /// <summary>The most bytes of pictures the store keeps unless the application says otherwise: 256 MB.</summary>
+    public const long DefaultMaxBytes = 256L * 1024 * 1024;
+
     private readonly Lock _sync = new();
     // Every picture by its key, each holding its place in the order of use: the least recently used goes first under a cap.
     private readonly Dictionary<string, LinkedListNode<Kept>> _files = new(StringComparer.Ordinal);
@@ -39,14 +41,16 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
     }
 
     /// <summary>
-    /// Gets the most bytes the store keeps, past which the pictures used longest ago are let go; unset, it keeps every picture.
+    /// Gets the most bytes the store keeps, past which the pictures used longest ago are let go; null keeps every picture until the
+    /// process ends.
     /// </summary>
     /// <remarks>
-    /// A runner's <see cref="UINodeRunCache"/> hands on a node's last outputs without asking the store, so a picture let go can
-    /// still be handed on by address; the kind below it fails on it, and the next run makes everything above it afresh. Where the
-    /// cap is tight, run without a cache.
+    /// Every upload and every picture a run makes lands here, from anyone viewing a page, so the store is bounded unless the
+    /// application says otherwise. A runner's <see cref="UINodeRunCache"/> hands on a node's last outputs without asking the store,
+    /// so a picture let go can still be handed on by address; the kind below it fails on it, and the next run makes everything
+    /// above it afresh. Where the cap is tight, run without a cache.
     /// </remarks>
-    public long? MaxBytes { get; init; }
+    public long? MaxBytes { get; init; } = DefaultMaxBytes;
 
     /// <summary>Gets how many pictures the store keeps.</summary>
     public int Count

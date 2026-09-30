@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
+import { dirname, resolve } from "node:path";
 import test from "node:test";
-import { displayText, joinList, sharedColumns, splitMore } from "../src/nodes/display.ts";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import type { Urls } from "ne-standard-ui";
+import { displayText, isPictureAddress, joinList, renderDisplayValue, sharedColumns, splitMore } from "../src/nodes/display.ts";
 import type { DisplayOptions } from "../src/nodes/display.ts";
+import { FakeElement, installFakeDom } from "./fake-dom.ts";
+
+installFakeDom();
+
+// The framework's own rule, as the plugin surface hands it over.
+const repository = resolve(dirname(fileURLToPath(import.meta.url)), "../../../../../..");
+const urls = await import(pathToFileURL(resolve(repository, "src/Platforms/Web/NE.Standard.UI.Web/Client/src/rendering/url-safety.ts")).href) as Urls;
 
 const options: DisplayOptions = {
     empty: "—",
@@ -9,7 +19,8 @@ const options: DisplayOptions = {
     moment: text => (text.startsWith("2026-") ? `d${text}` : null),
     more: count => `+${count}`,
     list: entries => entries.join(" | "),
-    field: (key, value) => `${key}=${value}`
+    field: (key, value) => `${key}=${value}`,
+    isImageSource: address => urls.isImageSource(address)
 };
 
 const marker = { key: "ui.graph.more", args: { count: 800 } };
@@ -46,4 +57,46 @@ test("a list is joined as the page's language joins one, and as English where th
 
 test("a marker in a cell is the page's word for what was left out", () => {
     assert.equal(displayText(marker, options), "+800");
+});
+
+test("an address a type calls a picture is this site's, the web's or an inline one, never a path naming another site", () => {
+    assert.equal(isPictureAddress("/_ne/content/abc", options), true);
+    assert.equal(isPictureAddress("https://cdn.example/a.png", options), true);
+    assert.equal(isPictureAddress("data:image/png;base64,AA==", options), true);
+    assert.equal(isPictureAddress("//elsewhere.example/a.png", options), false);
+    assert.equal(isPictureAddress("/\\elsewhere.example/a.png", options), false);
+    assert.equal(isPictureAddress("/\t/elsewhere.example/a.png", options), false);
+    assert.equal(isPictureAddress("\u0001//elsewhere.example/a.png", options), false);
+    assert.equal(isPictureAddress("in/a.png", options), false);
+    assert.equal(isPictureAddress("blob:https://this.example/5f1c", options), true);
+});
+
+function drawn(value: unknown, picture?: boolean): FakeElement {
+    return renderDisplayValue(value, { ...options, picture }) as unknown as FakeElement;
+}
+
+test("a text is a picture only when the pin's type says so, never by what it looks like", () => {
+    assert.equal(drawn("/_ne/content/abc").tagName.toLowerCase(), "div");
+    assert.equal(drawn("https://cdn.example/a.png").tagName.toLowerCase(), "div");
+    assert.equal(drawn("/_ne/content/abc", true).tagName.toLowerCase(), "img");
+    // Typed a picture, an address naming another site is still its text.
+    assert.equal(drawn("//elsewhere.example/a.png", true).tagName.toLowerCase(), "div");
+});
+
+test("a picture the server marked is drawn at its size, alone, in a record and in a list; a field that only looks like one is text", () => {
+    const alone = drawn({ $picture: "/_ne/content/a", width: 40, height: 30 });
+
+    assert.equal(alone.tagName.toLowerCase(), "img");
+    assert.equal(alone.style["width"], "40px");
+    assert.equal(alone.style["height"], "30px");
+
+    const fields = drawn({ name: "sea", shown: { $picture: "/_ne/content/b" }, path: "/data/in/sea.png" });
+
+    assert.deepEqual(fields.children.map(child => child.tagName.toLowerCase()), ["div", "img", "div"]);
+
+    const items = drawn([{ $picture: "/_ne/content/a" }, { $picture: "/_ne/content/b" }], true);
+
+    assert.deepEqual(items.children.map(child => child.tagName.toLowerCase()), ["img", "img"]);
+    assert.equal(drawn(["/_ne/content/a"], true).children[0].tagName.toLowerCase(), "div");
+    assert.equal(displayText({ $picture: "/_ne/content/a" }, options), "/_ne/content/a");
 });

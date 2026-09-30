@@ -19,17 +19,17 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
     /// <summary>
     /// Gets the nodes on the canvas.
     /// </summary>
-    public UINode[] Nodes { get; } = nodes ?? [];
+    public UINode[] Nodes { get; } = Present(nodes);
 
     /// <summary>
     /// Gets the edges between the nodes' pins.
     /// </summary>
-    public UINodeEdge[] Edges { get; } = edges ?? [];
+    public UINodeEdge[] Edges { get; } = Present(edges);
 
     /// <summary>
     /// Gets the groups, each a frame that carries the nodes inside it.
     /// </summary>
-    public UIGraphGroup[] Groups { get; } = groups ?? [];
+    public UIGraphGroup[] Groups { get; } = Present(groups);
 
     /// <summary>
     /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given.
@@ -43,7 +43,12 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
     /// wire; read them through <see cref="UINodeCatalog.ParametersOf"/>, which passes over one whose node is gone, whose input is
     /// wired or has no field.
     /// </remarks>
-    public UINodeParameter[] Parameters { get; } = parameters ?? [];
+    public UINodeParameter[] Parameters { get; } = Present(parameters);
+
+    /// <summary>The entries of a list as the wire may send it: none for none, and an entry sent as nothing left out.</summary>
+    private static TEntry[] Present<TEntry>(TEntry[]? entries)
+        where TEntry : class
+        => entries is null ? [] : Array.TrueForAll(entries, static entry => entry is not null) ? entries : Array.FindAll(entries, static entry => entry is not null);
 
     /// <summary>
     /// The same document under another key — how an application names the document it puts on the canvas.

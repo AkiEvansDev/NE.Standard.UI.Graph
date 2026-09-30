@@ -208,3 +208,6 @@ examples/TeamRoom.Web/data/
 
 # The graph demo's planner database, created at its first start; no prefix, so the rule holds in the slice's mirror too.
 **/DemoApp.Graph.Web/data/
+
+# Playwright MCP session files (screenshots, snapshots) written at the repository root
+.playwright-mcp/

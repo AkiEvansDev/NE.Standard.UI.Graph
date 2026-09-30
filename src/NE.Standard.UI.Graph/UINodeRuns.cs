@@ -143,8 +143,11 @@ public sealed class UINodeRuns
             // overwritten; committed, since the server has it already, so the canvas takes it as saved rather than as an edit to undo.
             OnState = async (nodeId, pinName, value) =>
             {
-                await invoke(() => _keep(_sheet().WithValue(nodeId, pinName, value)), cancellationToken).ConfigureAwait(false);
-                await Push(new SetNodeValueEffect(_canvasId, nodeId, pinName, value) { Committed = true }).ConfigureAwait(false);
+                // As the canvas will hold it, so the sheet the controller keeps travels as surely as the effect does.
+                SetNodeValueEffect effect = new(_canvasId, nodeId, pinName, value) { Committed = true };
+
+                await invoke(() => _keep(_sheet().WithValue(nodeId, pinName, effect.Value)), cancellationToken).ConfigureAwait(false);
+                await Push(effect).ConfigureAwait(false);
             }
         };
 

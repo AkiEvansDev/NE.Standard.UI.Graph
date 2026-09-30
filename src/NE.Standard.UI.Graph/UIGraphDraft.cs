@@ -43,9 +43,10 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 
         HashSet<string> removed = UIGraphDraftSupport.RemoveAll(nodes, Removed);
 
-        foreach (UIGraphNodeDraft draft in Nodes)
+        // The draft is the browser's: a node it sent as nothing, or with no key, is no node.
+        foreach (UIGraphNodeDraft? draft in Nodes)
         {
-            if (removed.Contains(draft.Id))
+            if (string.IsNullOrEmpty(draft?.Id) || removed.Contains(draft.Id))
                 continue;
 
             UIGraphNode? node = UIGraphDraftSupport.Find(nodes, draft.Id);
@@ -115,7 +116,8 @@ public sealed class UIGraphNodeDraft(string id, string? title = null, string? su
     public string? Tooltip { get; } = tooltip;
 
     /// <summary>Gets the links the node leaves by.</summary>
-    public UIGraphLink[] Links { get; } = links ?? [];
+    /// <remarks>As the browser sent them, less a link it sent as nothing, with no key or to no node.</remarks>
+    public UIGraphLink[] Links { get; } = links is null ? [] : Array.FindAll(links, static link => !string.IsNullOrEmpty(link?.Id) && !string.IsNullOrEmpty(link.To));
 
     /// <summary>Gets whether the viewer added the node rather than changed one the application had.</summary>
     public bool Created { get; } = created;

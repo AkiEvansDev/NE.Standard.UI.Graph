@@ -93,6 +93,16 @@ test("a sheet of many nodes and edges finds its back edges without laying itself
     assert.ok(performance.now() - started < 2000, "finding the back edges of 2000 nodes took more than two seconds");
 });
 
+test("a chain too long to spread into a call's arguments, with an edge across the whole of it, still lays out", () => {
+    // Seventy thousand nodes and as many virtual ones for the long edge: past what a spread into Math.min takes.
+    const ids = Array.from({ length: 70_000 }, (_, index) => `n${index}`);
+    const links = ids.slice(1).map((id, index) => ({ id: `${ids[index]}>${id}`, from: ids[index], to: id }));
+    const result = layered(nodes(...ids), [...links, { id: "across", from: ids[0], to: ids.at(-1)! }], { direction: "right" });
+
+    assert.equal(result.positions.size, ids.length);
+    assert.equal(result.layers.get(ids.at(-1)!), ids.length - 1);
+});
+
 test("nodes of one layer never overlap, and neither do nodes of a graph that fans out and back in", () => {
     const all = nodes("root", "a", "b", "c", "d", "sink");
     const result = layered(all, edges("root>a", "root>b", "root>c", "root>d", "a>sink", "b>sink", "c>sink", "d>sink"), { direction: "right" });

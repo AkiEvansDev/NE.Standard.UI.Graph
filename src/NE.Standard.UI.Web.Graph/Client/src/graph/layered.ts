@@ -118,7 +118,12 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
     }
 
     for (const [index, layer] of layers.entries()) {
-        const band = Math.max(0, ...layer.map(slot => slot.depth));
+        let band = 0;
+
+        // A loop rather than a spread, here and below: a sheet of thousands of nodes and long edges, each a virtual node a layer,
+        // passes more arguments than a call may take.
+        for (const slot of layer)
+            band = Math.max(band, slot.depth);
 
         for (const slot of layer) {
             const shift = Number.isFinite(least) ? least : 0;
@@ -316,15 +321,27 @@ function pullForward(sequence: readonly Slot[], forward: readonly Link[], slots:
 
     for (const edge of forward) {
         feeds.set(edge.to, (feeds.get(edge.to) ?? 0) + 1);
-        fed.set(edge.from, [...fed.get(edge.from) ?? [], edge.to]);
+        const targets = fed.get(edge.from);
+
+        if (targets === undefined)
+            fed.set(edge.from, [edge.to]);
+        else
+            targets.push(edge.to);
     }
 
     for (let index = sequence.length - 1; index >= 0; index--) {
         const slot = sequence[index];
         const targets = fed.get(slot.id) ?? [];
 
-        if (targets.length > 0 && targets.length >= (feeds.get(slot.id) ?? 0))
-            slot.layer = Math.max(slot.layer, Math.min(...targets.map(id => slots.get(id)!.layer)) - 1);
+        if (targets.length === 0 || targets.length < (feeds.get(slot.id) ?? 0))
+            continue;
+
+        let nearest = Number.POSITIVE_INFINITY;
+
+        for (const id of targets)
+            nearest = Math.min(nearest, slots.get(id)!.layer);
+
+        slot.layer = Math.max(slot.layer, nearest - 1);
     }
 }
 
@@ -665,8 +682,15 @@ function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, rever
 function narrowest(layers: readonly Slot[][], variants: readonly Map<string, number>[]): Map<string, number> {
     const all = layers.flat();
     const widths = variants.map(centers => {
-        const least = Math.min(...all.map(slot => centers.get(slot.id)! - slot.lead));
-        const most = Math.max(...all.map(slot => centers.get(slot.id)! + slot.breadth - slot.lead));
+        let least = Number.POSITIVE_INFINITY;
+        let most = Number.NEGATIVE_INFINITY;
+
+        for (const slot of all) {
+            const center = centers.get(slot.id)!;
+
+            least = Math.min(least, center - slot.lead);
+            most = Math.max(most, center + slot.breadth - slot.lead);
+        }
 
         return most - least;
     });

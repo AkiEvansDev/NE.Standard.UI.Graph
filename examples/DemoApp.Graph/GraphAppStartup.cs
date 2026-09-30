@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using DemoApp.Graph.Planner;
 using Microsoft.Extensions.DependencyInjection;
-using NE.Standard.UI.Shell.Runtime;
 
 namespace DemoApp.Graph;
 
@@ -33,6 +32,9 @@ public sealed class GraphAppStartup : UIStartupBase
         _ = application.ConfigurePersistence(static persistence => persistence.Lifetime = UIRuntimeLifetime.PerPage);
 
         _ = application.AddLocalizationSource(PlannerDemoWords.Build());
+
+        // The framework's and its packages' own words in the demo's other languages, as they ship.
+        _ = application.AddFrameworkWords("zh-Hans");
 
         // Only a string starting "planner." is a key: every other string on a translatable property — a resource's, a build's or a
         // module's name — is content, so the missing-word report in Development names only words the demo has not translated.

@@ -6,6 +6,10 @@ import { minimise } from "./simplex.ts";
 
 const Eps = 1e-9;
 
+// The server's plan holds a time in a TimeSpan and its workers in an int; past either, both ports answer the most it can hold.
+const LongestTime = 922_337_203_685.477_5;
+const MostWorkers = 2_147_483_647;
+
 export type PlanPeriod = "Once" | "Minute" | "Hour";
 export type PlanObjective = "LeastRaw" | "LeastTime" | "LeastCost";
 
@@ -203,7 +207,7 @@ function readPlan(resources: ReadonlyMap<string, Resource>, makers: ReadonlyMap<
 
         const time = count * Math.max(0, craft.time);
 
-        planned.push({ craft: craft.id, runs: count, time, workers: period === null ? null : Math.ceil(time / period - Eps) });
+        planned.push({ craft: craft.id, runs: count, time: Math.min(time, LongestTime), workers: period === null ? null : Math.min(Math.ceil(time / period - Eps), MostWorkers) });
         total += time;
 
         for (const product of amountsOf(craft.products, resources))
@@ -234,7 +238,7 @@ function readPlan(resources: ReadonlyMap<string, Resource>, makers: ReadonlyMap<
         read.push({ resource: entry.id, source, target, produced: gives, consumed: takes, surplus: source ? 0 : settle(gives - takes - target) });
     }
 
-    return { status: "Solved", crafts: planned, resources: read, time: total, raw, cost };
+    return { status: "Solved", crafts: planned, resources: read, time: Math.min(total, LongestTime), raw, cost };
 }
 
 /** What one run takes of the sources together, each counted as one or at its own cost. */

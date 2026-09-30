@@ -62,6 +62,12 @@
 // ground that is opaque (a popup, the dialog, a Background, Raised or Tinted surface); unset, the ground is the page's surface.
 @ui-ground: var(--ui-ground, var(--ui-color-surface));
 
+// A popup's own ground, one step above the ground it opens from: the page's surface colour over the page; over a raised panel or
+// the dialog, what the panel writes to `--ui-popup-ground` — its fill with 8 % more of the text, the step the panel is off the
+// surface. A Background or Tinted ground is the page's level again and takes the step back; a popup on the body is handed its
+// opener's (`carryPopupGround`, anchored-popup.ts).
+@ui-popup-ground: var(--ui-popup-ground, var(--ui-color-surface));
+
 // A link on a filled ground: the brand ink could be the ground's own colour (1:1 on Primary), so there it takes the ground's ink,
 // as the text around it does, and its underline — at rest only there; on the page the hue says "link" and a hover draws the line.
 // On the page and on a card (`--ui-faint-base` unset or reset) a link is the brand ink, as before.
@@ -550,12 +556,12 @@
 .ui-popup-look() {
     border: var(--ui-border-width, 1px) solid var(--ui-color-border);
     border-radius: var(--ui-radius-input);
-    background: var(--ui-color-surface);
+    background: @ui-popup-ground;
     // A field inside mixes its fill into the popup's colour, not the page's.
-    --ui-surface-fill: var(--ui-color-surface);
+    --ui-surface-fill: @ui-popup-ground;
     // Muted text inside fades the popup's own ink, not a filled ground the popup's anchor stands on.
     --ui-faint-base: initial;
-    --ui-ground: var(--ui-color-surface);
+    --ui-ground: @ui-popup-ground;
     .ui-elevation-2();
 }
 
@@ -763,6 +769,45 @@
     &:is(:disabled, [aria-disabled='true']) {
         cursor: default;
         opacity: @ui-field-idle-part-opacity;
+    }
+}
+
+// A group of the author's buttons at a field's end (a text input's row, a text area's box), each sized like the adornments: a small
+// button's height, a caption's words, and a ghost answering with its ink alone, since the field is the surface that lifts.
+.ui-field-actions() {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    cursor: default;
+
+    > .ui-button {
+        .ui-responsive-property(min-height, --ui-min-height, @ui-button-height-sm);
+        .ui-responsive-property(padding, --ui-padding, @ui-space-1 @ui-space-2);
+    }
+
+    > .ui-button[data-ui-text-icon]:not([data-ui-text-title]) {
+        .ui-responsive-property(padding, --ui-padding, @ui-space-1);
+    }
+
+    // A small field's button fits inside the small field's line rather than stretching it: the row's height less its borders.
+    .ui-input--small & > .ui-button {
+        .ui-responsive-property(min-height, --ui-min-height, calc(@ui-control-height-sm - 2 * var(--ui-border-width, 1px)));
+        .ui-responsive-property(padding, --ui-padding, 0 @ui-space-1);
+    }
+
+    > .ui-split-button > .ui-split-button__main {
+        .ui-responsive-property(padding, --ui-padding, @ui-space-1 @ui-space-2);
+    }
+
+    > .ui-button > .ui-button__content.ui-text-type--body {
+        font-size: var(--ui-text-caption-font-size);
+        line-height: var(--ui-text-caption-line-height);
+        font-weight: var(--ui-text-caption-font-weight);
+    }
+
+    > .ui-button--ghost {
+        color: var(--ui-text-muted);
+        .ui-reveal-hover-off({ color: var(--ui-color-on-surface); });
     }
 }
 

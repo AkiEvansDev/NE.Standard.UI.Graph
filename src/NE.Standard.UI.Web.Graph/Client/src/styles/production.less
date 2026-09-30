@@ -70,6 +70,13 @@
         display: flex;
     }
 
+// A phone's sheet is too narrow to stand beside the plan: the panel starts folded there, and its switch opens it (`side-panel.ts`).
+@media (max-width: (@ui-breakpoint-md - 0.02px)) {
+    .ui-graph .ui-graph__plan {
+        --ui-graph-side-folded: 1;
+    }
+}
+
 .ui-graph__plan-toggle {
     .ui-graph-side-toggle();
 }

@@ -4,7 +4,7 @@ using NE.Standard.UI.Abstractions.Effects;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>Puts a value into one node's display pin (a number, text, picture address, list or table).</summary>
+/// <summary>Puts a value into one node's display pin (a number, text, list or table, or a picture where a type says so).</summary>
 /// <remarks>Reaches the node without touching the document — a run result, not a saved value.</remarks>
 public sealed class SetNodeDisplayEffect : TargetedClientEffect
 {

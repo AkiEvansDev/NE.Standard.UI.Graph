@@ -126,7 +126,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                     new SelectComponent()
                         .SetTitle("planner.graph.built-on")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetOptions(DependenciesController.Choices.Select(static choice => new OptionItem { Id = choice.Id, Title = choice.Title }))
+                        .SetOptions(DependenciesController.Choices.Select(static choice => new OptionItem { Id = choice.Id, Title = choice.Title, IsContent = true }))
                         .BindValue(nameof(DependenciesController.UsedModule))
                         .SetWidth(UILayoutLength.Absolute(220))
                         .SetVerticalAlignment(UIAlignment.Center),

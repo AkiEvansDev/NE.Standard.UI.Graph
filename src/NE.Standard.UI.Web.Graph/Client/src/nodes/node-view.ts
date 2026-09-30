@@ -2,7 +2,7 @@
 // component cloned from the canvas's template. The node's own marks (chevron, pin) are framework `ne-` glyphs, written as a
 // renderer writes an icon value.
 
-import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormatting, Tooltips } from "ne-standard-ui";
+import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormatting, Tooltips, Urls } from "ne-standard-ui";
 import { CollapsedAttribute, CoreNames, FoldAttribute, hoverTooltip, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
 import { joinList, MoreKey, renderDisplayValue } from "./display.ts";
 import type { DisplayOptions } from "./display.ts";
@@ -70,6 +70,8 @@ export type NodeViewOptions = {
     /** A moment as the page writes one, for a display's dates. */
     readonly date: (value: Date, format: string | null) => string;
     readonly temporal: TemporalFormatting;
+    /** The framework's rule for an address a display may draw a picture from. */
+    readonly urls: Urls;
     /** A fresh copy of the framework's component the canvas carries a template of under the region's name; null when it carries none. */
     readonly cloneEditor: (region: string) => HTMLElement | null;
     /** A property of such a copy, set the way a push sets it. */
@@ -579,13 +581,14 @@ function displayEditor(pin: Pin, options: NodeViewOptions): HTMLElement {
 }
 
 /** How a display pin writes what it is given: the page's word for nothing, a number by the pin's format, a moment as the page writes one. */
-export function displayOptions(pin: Pin | undefined, options: Pick<NodeViewOptions, "words" | "number" | "date" | "temporal">): DisplayOptions {
+export function displayOptions(pin: Pin | undefined, options: Pick<NodeViewOptions, "words" | "number" | "date" | "temporal" | "urls">): DisplayOptions {
     return {
         empty: options.words.text("ui.graph.no-value"),
         more: count => options.words.format(MoreKey, { count }),
         list: entries => joinList(entries, document.documentElement.lang),
         field: (key, value) => options.words.format(DisplayFieldKey, { key, value }),
         number: value => options.number(value, pin?.format),
+        isImageSource: address => options.urls.isImageSource(address),
         moment: text => {
             const written = options.temporal.parse(text);
 

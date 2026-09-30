@@ -238,7 +238,7 @@ internal sealed partial class BuildsController : UIControllerBase
             return UICommandResult.Ok();
 
         if (Builds.Count == 1)
-            return UICommandResult.Ok([new ShowNotificationEffect(Context.Translate(new UIPhrase("planner.build.last-stays")), UIColorStyle.Warning)]);
+            return UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase("planner.build.last-stays"), UIColorStyle.Warning)]);
 
         _pendingDeleteId = id;
         // The build's name is content, an argument as written.
@@ -322,12 +322,12 @@ internal sealed partial class BuildsController : UIControllerBase
         // A toast is written once, in the language the page shows as it opens.
         UIPhrase taken = UIPhrase.Of(replace ? "planner.builds.imported.replace" : "planner.builds.imported.merge", ("count", builds.Count));
 
-        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(Context.Translate(taken), UIColorStyle.Success)]);
+        return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(taken, UIColorStyle.Success)]);
     }
 
     /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
-    private UICommandResult Refuse(string? reason)
-        => UICommandResult.Ok([new ShowNotificationEffect(Context.Translate(new UIPhrase(reason ?? "planner.file.nothing-read")), UIColorStyle.Danger)]);
+    private static UICommandResult Refuse(string? reason)
+        => UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase(reason ?? "planner.file.nothing-read"), UIColorStyle.Danger)]);
 
     /// <summary>
     /// The canvas sent an edit in its plan panel — a target added, changed or taken off, the period or what is made least of chosen,

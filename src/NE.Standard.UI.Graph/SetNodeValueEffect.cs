@@ -32,7 +32,7 @@ public sealed class SetNodeValueEffect : TargetedClientEffect
 
         NodeId = nodeId;
         PinName = pinName;
-        Value = value;
+        Value = UINodeDisplayValue.Wire(value);
     }
 
     /// <inheritdoc/>
@@ -51,6 +51,7 @@ public sealed class SetNodeValueEffect : TargetedClientEffect
     /// <summary>
     /// Gets the value the pin takes.
     /// </summary>
+    /// <remarks>A number JSON cannot spell — <c>NaN</c>, an infinity — comes as its text, as it does on a display.</remarks>
     public object? Value { get; }
 
     /// <summary>
