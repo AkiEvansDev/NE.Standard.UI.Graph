@@ -502,7 +502,7 @@ internal sealed partial class ResourcesController : UIControllerBase
     /// <summary>Every resource but the one open, by name: a recipe cannot take what it makes.</summary>
     private void FillOptions()
     {
-        // Kept in step rather than filled anew: every ingredient's select redraws its list on each change to it, and a fresh fill on
+        // Kept in step rather than filled anew: every ingredient's search redraws its list on each change to it, and a fresh fill on
         // each open was seventy removals and seventy inserts for the one resource that left the list and the one that came back.
         List<ResourceRecord> wanted = new(_resources.Count);
 

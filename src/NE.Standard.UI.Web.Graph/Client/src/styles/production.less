@@ -11,7 +11,7 @@
     min-width: 0;
     min-height: 0;
     padding: 0.125rem @ui-space-2;
-    border-color: var(--ui-graph-node-color);
+    border-color: var(--ui-graph-node-ink);
     border-radius: 999px;
     box-shadow: none;
     line-height: 1.25rem;
@@ -222,8 +222,10 @@
         cursor: pointer;
     }
 
-    tbody tr:hover > th {
-        color: var(--ui-color-primary);
+    @media @ui-can-hover {
+        tbody tr:hover > th {
+            color: var(--ui-color-primary);
+        }
     }
 }
 

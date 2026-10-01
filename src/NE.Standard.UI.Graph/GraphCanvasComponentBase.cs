@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NE.Standard.UI.Abstractions.Styling;
+using NE.Standard.UI.Authoring.BuiltIns.Models;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Components.BuiltIns.Models;
 using NE.Standard.UI.Components.BuiltIns.Navigation;
@@ -60,8 +61,11 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         ]);
 
         ColorChoices = DefaultColorChoices;
-        NodeMenu = new MenuComponent().AddItems(ItemEntries());
-        GroupMenu = new MenuComponent().AddItems(ItemEntries());
+
+        // Pin, rename and delete are what a node is most often asked for: they stand in its action bar (SetNodeActionBar), colour
+        // behind its "…" — a group's band has no bar.
+        NodeMenu = new MenuComponent().AddItems([.. ItemEntries(inActionBar: true), Separator(), DeleteEntry()]);
+        GroupMenu = new MenuComponent().AddItems(ItemEntries(inActionBar: false));
 
         // Delete is every edge's; what else an edge's menu offers is the kind's, put ahead of it.
         EdgeMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.DeleteEdge, UIGraphWords.DeleteEdge, UIGlyphs.Delete)]);
@@ -79,18 +83,30 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     }
 
     /// <summary>What an item's menu and a group's menu both hold — built once for each, since an entry stands in one menu only.</summary>
-    private MenuItem[] ItemEntries()
+    private MenuItem[] ItemEntries(bool inActionBar)
     {
         MenuItem color = Entry(UIGraphCommands.Color, UIGraphWords.Color, UIGlyphs.Colorize, kind: UIMenuItemKind.Select);
+        MenuItem pin = Entry(UIGraphCommands.Pin, UIGraphWords.Pinned, UIGlyphs.Pin, kind: UIMenuItemKind.Check);
+        MenuItem rename = Entry(UIGraphCommands.Rename, UIGraphWords.Rename, UIGlyphs.Edit);
 
         FillColorChoices(color);
 
-        return
-        [
-            Entry(UIGraphCommands.Pin, UIGraphWords.Pinned, UIGlyphs.Pin, kind: UIMenuItemKind.Check),
-            Entry(UIGraphCommands.Rename, UIGraphWords.Rename, UIGlyphs.Edit),
-            color
-        ];
+        pin.InActionBar = inActionBar;
+        rename.InActionBar = inActionBar;
+
+        return [pin, rename, color];
+    }
+
+    /// <summary>A node's own delete, last and in the danger colour, as a destructive entry stands; the selection goes with the node.</summary>
+    private MenuItem DeleteEntry()
+    {
+        MenuItem delete = Entry(UIGraphCommands.Delete, UIGraphWords.Delete, UIGlyphs.Delete);
+
+        delete.IconColor = UIThemeColor.Danger;
+        delete.TitleColor = UIThemeColor.Danger;
+        delete.InActionBar = true;
+
+        return delete;
     }
 
     /// <summary>The colour entry's choices: the colour taken away first, then each choice — checks the engine marks as the menu opens.</summary>
@@ -121,7 +137,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public MenuComponent CanvasMenu { get; }
 
     /// <summary>
-    /// Gets the menu the right button opens on an item: pin, rename and colour.
+    /// Gets the menu the right button opens on an item: pin, rename, colour and delete.
     /// </summary>
     public MenuComponent NodeMenu { get; }
 
@@ -204,6 +220,27 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public bool? AutoSave { get; set; }
 
     /// <summary>
+    /// Gets or sets whether a node carries an action bar: the node menu's entries marked <c>InActionBar</c> — pin, rename and delete,
+    /// and an application's own — as icons in a bar above the node the reader pressed, centred on it, until a press elsewhere or
+    /// Escape; the rest behind its "…". Off by default.
+    /// </summary>
+    /// <remarks>
+    /// Render-time only. The bar floats a small gap above the node at its size on screen, under it where the canvas leaves no room
+    /// above, and stays over the node redrawn as the document changes. A read-only canvas, and one in the middle of a drag, shows
+    /// none. A long press on a touch screen opens the node's menu with the bar's icons atop it.
+    /// </remarks>
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), IsBindable = false, DefaultValue = false)]
+    public bool? NodeActionBar { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the menu a node bar's "…" opens repeats the entries the bar shows. Off by default: the "…" opens the rest
+    /// of the node menu (colour, an application's own entries), and a right-click or a long press the whole of it.
+    /// </summary>
+    /// <remarks>Render-time only.</remarks>
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), IsBindable = false, DefaultValue = false)]
+    public bool? NodeActionBarRepeatInMore { get; set; }
+
+    /// <summary>
     /// Gets or sets whether a moved item's position, and a node's size on the node canvas, snap to the grid step. On by default.
     /// </summary>
     [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = true)]
@@ -251,10 +288,22 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         => AppendEntries(CanvasMenu, entries);
 
     /// <summary>
-    /// Appends a separator and then the given entries to the menu the right button opens on an item; the command hears which item.
+    /// Adds a separator and then the given entries to the menu the right button opens on an item, ahead of the rule over Delete,
+    /// which stays last; the command hears which item.
     /// </summary>
     public T AddNodeMenuEntries(params MenuItem[] entries)
-        => AppendEntries(NodeMenu, entries);
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+
+        if (entries.Length == 0)
+            return Self;
+
+        IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
+
+        _ = NodeMenu.SetItems([.. items[..^2], Separator(), .. entries, .. items[^2..]]);
+
+        return Self;
+    }
 
     /// <summary>
     /// Appends a separator and then the given entries to the menu the right button opens on an edge; the command hears which edge.
@@ -373,6 +422,22 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// </summary>
     public T SetSnapToGrid()
         => SetSnapToGrid(true);
+
+    /// <summary>
+    /// Gives every node an action bar above it: the node menu's entries marked <c>InActionBar</c>, as icons.
+    /// </summary>
+    public T SetNodeActionBar()
+        => SetNodeActionBar(true);
+
+    /// <summary>A kind's own entry of the node menu, after the shared ones and ahead of the rule over Delete, which stays last.</summary>
+    protected void AddNodeEntry(MenuItem entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
+
+        _ = NodeMenu.SetItems([.. items[..^2], entry, .. items[^2..]]);
+    }
 
     /// <summary>A built-in entry a kind puts ahead of the shared ones in a menu, as the node canvas puts Add node.</summary>
     protected void PrependEntries(MenuComponent menu, params MenuItem[] entries)

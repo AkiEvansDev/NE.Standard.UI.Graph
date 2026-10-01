@@ -29,6 +29,8 @@ export type LayeredSheetHost = {
     spreadsEnds?(id: string): boolean;
 };
 
+/** How far along its side, as a share, a backward edge meets a node: high up, clear of the forward edges at the middle. */
+const SideHigh = 0.35;
 /** The most room between two points one side of a node sets edges apart at, and the share of the side they may take. */
 const EndGap = 12;
 const EndShare = 0.6;
@@ -346,7 +348,7 @@ export class LayeredSheet {
     }
 
     /** Where a link's edge leaves and enters: a forward edge from the side facing the next layer to the one facing the last; a backward edge arcs clear of the layers it runs back over. */
-    public ends(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "via" | "reversed" | "turns"> | null {
+    public ends(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "loop" | "via" | "reversed" | "turns"> | null {
         const ends = this.endsOf(link);
 
         if (ends === null || ends.back === true || this.services.settings.edgeShape !== "orthogonal")
@@ -390,7 +392,7 @@ export class LayeredSheet {
     }
 
     /** A link's ends, each moved along its side to the point that side sets it at. */
-    private endsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "via" | "reversed"> | null {
+    private endsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "loop" | "via" | "reversed"> | null {
         const ends = this.middleEndsOf(link);
 
         if (ends === null || ends.back === true || this.host.spreadsEnds === undefined)
@@ -463,7 +465,7 @@ export class LayeredSheet {
     }
 
     /** A link's ends at the middles of the sides it leaves and enters. */
-    private middleEndsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "via" | "reversed"> | null {
+    private middleEndsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "loop" | "via" | "reversed"> | null {
         const from = this.services.nodeRect(link.from);
         const to = this.services.nodeRect(link.to);
 
@@ -471,33 +473,11 @@ export class LayeredSheet {
             return null;
 
         const direction = this.direction;
-        const down = direction === "down" || direction === "up";
-        // The layers run back the other way: an edge then leaves by the side that faces the next layer there, which is the other one.
         const back = this.backEdges.has(link.id);
-        const turned = direction === "left" || direction === "up";
         const self = link.from === link.to;
+        const { start, end } = edgeSides(from, to, direction, back, self);
 
-        let start: Point;
-        let end: Point;
-
-        if (!back) {
-            start = down
-                ? { x: from.x + from.width / 2, y: turned ? from.y : from.y + from.height }
-                : { x: turned ? from.x : from.x + from.width, y: from.y + from.height / 2 };
-            end = down
-                ? { x: to.x + to.width / 2, y: turned ? to.y + to.height : to.y }
-                : { x: turned ? to.x + to.width : to.x, y: to.y + to.height / 2 };
-        }
-        else {
-            // A node's link to itself leaves and returns on the same side, a little apart, so its arc is a loop over the node.
-            const leave = self ? 0.7 : 0.5;
-            const enter = self ? 0.3 : 0.5;
-
-            start = down ? { x: from.x, y: from.y + from.height * leave } : { x: from.x + from.width * leave, y: from.y };
-            end = down ? { x: to.x, y: to.y + to.height * enter } : { x: to.x + to.width * enter, y: to.y };
-        }
-
-        return { from: start, to: end, axis: down ? "vertical" : "horizontal", back, via: this.routeOf(link), reversed: turned };
+        return { from: start, to: end, axis: direction === "down" || direction === "up" ? "vertical" : "horizontal", back, loop: back && self, via: this.routeOf(link), reversed: direction === "left" || direction === "up" };
     }
 
     /** The route the last layout gave a long edge, while both its ends still stand where that layout put them. */
@@ -523,4 +503,38 @@ export class LayeredSheet {
 
         return this.placements.byId.get(id);
     }
+}
+
+/** Where an edge leaves its source and enters its target, given the two boxes and the way the layers run. */
+export function edgeSides(from: Rect, to: Rect, direction: LayeredDirection, back: boolean, self: boolean): { start: Point; end: Point } {
+    const down = direction === "down" || direction === "up";
+    // The layers run back the other way: an edge then leaves by the side that faces the next layer there, which is the other one.
+    const turned = direction === "left" || direction === "up";
+
+    if (!back) {
+        return {
+            start: down
+                ? { x: from.x + from.width / 2, y: turned ? from.y : from.y + from.height }
+                : { x: turned ? from.x : from.x + from.width, y: from.y + from.height / 2 },
+            end: down
+                ? { x: to.x + to.width / 2, y: turned ? to.y + to.height : to.y }
+                : { x: turned ? to.x + to.width : to.x, y: to.y + to.height / 2 }
+        };
+    }
+
+    // High on the sides, not on the tops: a node's top carries what it wears there (a production node's chip), which hid an arc's
+    // ends and arrow. A back edge leaves by its source's side facing the earlier layers and enters its target's side facing the later
+    // ones, so its arc spans the gap between them, beside the forward edge; a node's link to itself leaves by the side facing the next
+    // layer and comes back by the other, rising over the node.
+    const leaving = self ? !turned : turned;
+    const entering = self ? turned : !turned;
+
+    return {
+        start: down
+            ? { x: from.x + from.width * SideHigh, y: leaving ? from.y + from.height : from.y }
+            : { x: leaving ? from.x + from.width : from.x, y: from.y + from.height * SideHigh },
+        end: down
+            ? { x: to.x + to.width * SideHigh, y: entering ? to.y + to.height : to.y }
+            : { x: entering ? to.x + to.width : to.x, y: to.y + to.height * SideHigh }
+    };
 }

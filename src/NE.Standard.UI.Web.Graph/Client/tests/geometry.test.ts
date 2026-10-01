@@ -68,12 +68,24 @@ test("a vertical edge is the horizontal one turned: it leaves downwards and ente
 test("a backward edge arcs beside its two ends, away from the nodes between them, and bends through the viewer's points instead", () => {
     const arc = drawEdge("bezier", { x: 300, y: 100 }, { x: 0, y: 100 }, [], { back: true }).path;
 
-    // Lifted 20 plus a tenth of the 300 it spans above the higher of the two ends, its handles leaning a fifth of the span inwards.
-    assert.equal(arc, "M300,100 C240,50 60,50 0,100");
+    // Lifted 20 plus a tenth of the 300 it spans above the higher of the two ends, its handles leaning 64 inwards, the most they lean.
+    assert.equal(arc, "M300,100 C236,50 64,50 0,100");
+
+    // Over a short gap the handles lean nearly half of it, so the arc sets out low.
+    assert.equal(drawEdge("bezier", { x: 100, y: 100 }, { x: 0, y: 100 }, [], { back: true }).path, "M100,100 C55,70 45,70 0,100");
 
     const bent = drawEdge("straight", { x: 300, y: 100 }, { x: 0, y: 100 }, [{ x: 150, y: 300 }], { back: true }).path;
 
     assert.equal(bent, "M300,100 L150,300 L0,100");
+});
+
+test("a node's edge to itself rises well over the node, its handles reaching out past its sides, and arrives into the side it enters by", () => {
+    // Leaving the right side of a node 56 across, 17 down it, and entering its left side as high.
+    const drawing = drawEdge("orthogonal", { x: 56, y: 17 }, { x: 0, y: 17 }, [], { back: true, loop: true, arrow: true });
+
+    assert.equal(drawing.path, "M56,17 C72,-39 -16,-39 0,17");
+    // The arrow's tip stands at the left side, reached from above and outside it.
+    assert.match(drawing.arrow!, /^M0,17 /);
 });
 
 test("an arrow's head points the way the edge arrives", () => {

@@ -110,6 +110,7 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string GroupSelection = UIGraphWords.GroupSelection;
     public const string DeleteSelection = UIGraphWords.DeleteSelection;
     public const string DeleteEdge = UIGraphWords.DeleteEdge;
+    public const string Delete = UIGraphWords.Delete;
     public const string Pinned = UIGraphWords.Pinned;
     public const string Rename = UIGraphWords.Rename;
     public const string Color = UIGraphWords.Color;
@@ -236,6 +237,7 @@ public sealed partial class GraphStrings : IUIStringsSource
         [GroupSelection] = "Group selection",
         [DeleteSelection] = "Delete selection",
         [DeleteEdge] = "Delete",
+        [Delete] = "Delete",
         [Pinned] = "Pinned",
         [Rename] = "Rename",
         [Color] = "Color",

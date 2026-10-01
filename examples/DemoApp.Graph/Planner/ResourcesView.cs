@@ -245,8 +245,11 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
     /// <summary>One ingredient in the recipe's two columns — which resource, how many a run — and a button that takes the row away.</summary>
     private static ContainerComponent CreateIngredient()
         => new ContainerComponent()
-            .AddChild(new SelectComponent()
+            // A search over the catalogue rather than a list to scroll; Replace, so a left field shows the pick, icon and all, never a
+            // term typed to find it.
+            .AddChild(new SearchComponent()
                 .SetPlaceholder("planner.recipe.pick-resource")
+                .SetSelectionDisplayMode(UISearchSelectionDisplayMode.ReplaceWithSelectedItem)
                 .BindOptions(nameof(ResourcesController.IngredientOptions))
                 .BindValue(nameof(AmountRow.Resource), UIBindingScope.Relative)
                 .OnChange(nameof(ResourcesController.SaveIngredients))

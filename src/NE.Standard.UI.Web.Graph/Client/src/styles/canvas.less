@@ -156,6 +156,11 @@
     transition: opacity @ui-motion-fast @ui-motion-ease;
 }
 
+// A chosen node wears its ring outside its edge: the node's action bar stands 8px clear of the ring, not of the edge under it.
+.ui-graph__node {
+    --ui-action-bar-gap: 10px;
+}
+
 .ui-graph--edge-focus .ui-graph__node {
     opacity: 0.35;
 }
@@ -339,11 +344,12 @@
     opacity: 0.7;
 }
 
+// The part on screen washed as a chosen entry is — the brand's tint on a light palette, neutral on a dark one — and edged in the brand.
 .ui-graph__minimap-view {
     position: absolute;
     border: var(--ui-border-width) solid var(--ui-color-primary);
     border-radius: 1px;
-    background: color-mix(in srgb, var(--ui-color-primary) 14%, transparent);
+    background: var(--ui-wash-selected);
     pointer-events: none;
 }
 

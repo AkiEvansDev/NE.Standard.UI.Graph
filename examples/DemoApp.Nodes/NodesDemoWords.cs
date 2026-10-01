@@ -20,7 +20,7 @@ internal static class NodesDemoWords
     {
         ["nodes.nav.kinds"] = "Kinds",
         ["nodes.page.common"] = "Common",
-        ["nodes.page.common.description"] = "The kinds every catalogue carries, on the node canvas: double-click the background to add a node, drag from a pin to wire one, the corner button or the right button for the menu, Ctrl+S to save, Ctrl+Z to undo; the panel in the top corner runs the sheet, once or until a counter runs out.",
+        ["nodes.page.common.description"] = "The kinds every catalogue carries, on the node canvas: double-click the background to add a node, drag from a pin to wire one, press a node for its frequent entries in a bar above it, the corner button or the right button for the menu, Ctrl+S to save, Ctrl+Z to undo; the panel in the top corner runs the sheet, once or until a counter runs out.",
         ["nodes.page.calculator"] = "Calculator",
         ["nodes.page.calculator.description"] = "The calculator package's kinds, NE.Standard.UI.Graph.Calculator: operations, rounding, sums, comparisons and a result to read, worked out on the server by the same classes the canvas drew.",
         ["nodes.page.image"] = "Image",
@@ -58,7 +58,7 @@ internal static class NodesDemoWords
     {
         ["nodes.nav.kinds"] = "节点类型",
         ["nodes.page.common"] = "常用",
-        ["nodes.page.common.description"] = "每个目录都带有的节点类型，放在节点画布上：双击背景添加节点，从引脚拖出连线，用角落的按钮或右键打开菜单，Ctrl+S 保存，Ctrl+Z 撤销；顶角的面板运行整张画布，运行一次，或一直运行到计数器用完。",
+        ["nodes.page.common.description"] = "每个目录都带有的节点类型，放在节点画布上：双击背景添加节点，从引脚拖出连线，单击节点在其上方的操作栏中使用常用命令，用角落的按钮或右键打开菜单，Ctrl+S 保存，Ctrl+Z 撤销；顶角的面板运行整张画布，运行一次，或一直运行到计数器用完。",
         ["nodes.page.calculator"] = "计算器",
         ["nodes.page.calculator.description"] = "计算器包的节点类型 NE.Standard.UI.Graph.Calculator：运算、舍入、求和、比较和可读的结果，由画布所画的同一批类在服务器上算出。",
         ["nodes.page.image"] = "图片",

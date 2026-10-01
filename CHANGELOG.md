@@ -4,6 +4,62 @@ One section per release of this slice, headed `## X.Y.Z` and named by the tag �
 workflow cuts the matching section out to become the body of the GitHub release, and a tag with no section
 fails the release before anything is published.
 
+## 1.4.0-rc.4
+
+- **An action bar above every node.** `SetNodeActionBar()` (`NodeActionBar`, on or off) gives every node of any canvas the
+  framework's new action bar: the node menu's entries marked `InActionBar` stand as icons in a bar above the node, centred on it,
+  the rest behind its "…" — which opens under it as a menu button's list and holds the rest alone (the colour, an application's
+  own entries; a right-click or a long press opens the whole menu) unless `SetNodeActionBarRepeatInMore(true)` asks for the
+  whole menu there too — a press is the entry's own, and chooses the node as a right press does. The bar shows over the node
+  the reader pressed or tapped (or whose part holds the keyboard; the canvas has no keyboard cursor over its nodes), never on
+  hover, and stays while that node is chosen — the node redrawn as the document changes keeps it — until a press elsewhere
+  (the background, another node), Escape, or a drag of the node, after which it shows again over the node where it was dropped.
+  *Pin*, *Rename* and *Delete* are marked; an application marks its own (`InActionBar = true` on a `MenuItem` given to
+  `AddNodeMenuEntries`). The bar floats 10 px above the node's edge (8 px clear of a chosen node's ring), at its size on screen
+  whatever the zoom, centred from its first showing, follows a pan and a
+  zoom, stands under the node where the canvas leaves no room above it, and hides while the node is out of the canvas's sight.
+  A read-only or disabled canvas shows none, nor does one in the middle of a drag; a key in the bar is the bar's,
+  never the sheet's Delete, Escape from the "…" menu gives the keyboard back to "…" with the bar standing, and a node deleted from its bar leaves the keyboard on the sheet, so Ctrl+Z undoes it at once. A pin
+  keeps its context menu alone. On a touch screen a long press on a node opens its menu with the bar's icons atop it — on iOS
+  Safari too, where the framework now times the long press itself (#69). **New:**
+  `IGraphCanvasComponent.NodeActionBar` (`bool?`, off by default), `SetNodeActionBar()`,
+  `IGraphCanvasComponent.NodeActionBarRepeatInMore` (`bool?`, off by default), and the root's
+  `GraphCanvasRendererBase.NodeActionBarAttribute` and `NodeActionBarRepeatInMoreAttribute`. **Breaking:** an
+  `IGraphCanvasComponent` implemented by hand adds `NodeActionBar` and `NodeActionBarRepeatInMore`.
+- **A node's menu has Delete.** The node, and whatever else is chosen with it, as the Delete key takes them (`UIGraphCommands.Delete`,
+  word `ui.graph.delete`), in the danger colour, under a rule after the node's own entries — a kind's own (the node canvas's
+  *Reset*) stands above that rule, and so does an application's (`AddNodeMenuEntries`, behind a rule of its own): Delete stays
+  last. **New:** `UIGraphCommands.Delete`, `UIGraphWords.Delete`.
+- **Node colours are brighter, in both themes.** A node's head, a reroute's box and a round node's face are washed in 28 % of
+  its colour (16–18 % before), and on a dark palette the colour itself is drawn lifted toward white (`--ui-graph-node-ink`,
+  `light-dark()`), so a card's strip and icon, a circle's ring and a craft's edge no longer sink into the dark surface. The
+  theme's series colours are unchanged.
+- **The node canvas's run line is drawn before the first run** — an empty strip along the canvas's top where it stood hidden,
+  leaving a band of bare grid above the menu and the run panel that read as a gap.
+- **The node picker stands on the framework dialog's ground.** It wears `.ui-dialog-look()` — the raised ground, its ink, the
+  elevation and no edge — where it painted the plain surface with an edge, a step below every other dialog on a dark palette.
+- **The map's view is washed as a chosen entry is:** `--ui-wash-selected`, the brand's tint on a light palette and neutral on a
+  dark one, inside the brand's edge, where it was the brand's tint in both.
+- **A card's words wait while its action bar stands.** The hover words a card shows (its tooltip, a round node's name) stood across
+  the bar's icons once the card was pressed and the pointer rested on it; the framework's tooltip now leaves a host its bar stands
+  over alone.
+- **A cycle is laid out where its layers run shortest, and its backward edge is a short arc between the two nodes.** The layered
+  layout breaks cycles within each strongly connected tangle alone, so an edge on no cycle always runs forward (the greedy order
+  over the whole sheet turned some of those back, dashed); a tangle of up to 24 nodes is then reordered, up to 128 tries, to
+  where its layers run shortest. A plant and its seed now stand seed, plant, product in one row — the plant first had put its
+  seed in a layer of its own and sent its product's edge across the cycle. A backward edge leaves its source's side facing the
+  earlier layers and enters its target's side facing the later ones, both high up, so its arc spans the gap between them beside
+  the forward edge rather than over the nodes' tops, where a production node's chip hid its ends and arrow; a node's edge to
+  itself leaves by one side and comes back by the other, rising clear over the node, its chip and its label. A sheet of many small
+  cycles lays out faster too: 3 000 two-node cycles took 2.2 s and take 45 ms.
+- **Built on the framework's 1.4.0-rc.4.** Its copy of the plugin contract carries `names.actionBar`, `names.actionBarKey`,
+  `names.actionBarRest` and the `actionBar` flag of `ui-context-menu-opening`, raised before a bar shows a menu's entries, and its stylesheet's `.ui-popup-scroll()` caps a list at
+  the dynamic viewport's height (`100dvh`), `@ui-popup-radius` and `@ui-list-entry-radius` round a popup and its entries, and
+  `.ui-dialog-look()` is the framework dialog's panel.
+- **The demos:** the planner's and the node canvas's option rows stand in even columns (`WrapPanelComponent.ItemMinWidth`), their selects carry their caption inside, and the page header is compact on a phone.
+  A recipe's ingredient is picked by a search over the resources (`SearchComponent` under `ReplaceWithSelectedItem`, the
+  resource's icon in its options and on the closed field) in place of a select to scroll; the resource itself is still not on offer.
+
 ## 1.4.0-rc.3
 
 - **Built on the framework's 1.4.0-rc.3.** Nothing of this package's own changed. Its copy of the plugin

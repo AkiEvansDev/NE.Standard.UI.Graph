@@ -138,6 +138,9 @@ export class CanvasView {
 
         this.drawZoom();
         this.placeMinimapView();
+        // The sheet moved under what floats over it — a node's action bar, a tooltip — with no scroll of its own: told as one, which
+        // the page's anchored popups follow and close by as they do a scrolling box's.
+        this.viewport.dispatchEvent(new Event("scroll"));
 
         clearTimeout(this.keepTimer);
         this.keepTimer = setTimeout(() => this.keepView(), KeepDelay);

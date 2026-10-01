@@ -19,6 +19,9 @@ public static class UIGraphCommands
     /// <summary>Removes the chosen nodes, groups and edges.</summary>
     public const string DeleteSelection = Prefix + "delete-selection";
 
+    /// <summary>Removes the node the menu was opened on, and every other chosen with it, as Delete does.</summary>
+    public const string Delete = Prefix + "delete";
+
     /// <summary>Puts a frame around the chosen nodes.</summary>
     public const string GroupSelection = Prefix + "group-selection";
 
@@ -222,6 +225,9 @@ public static class UIGraphWords
 
     /// <summary>An edge's menu entry that takes it out.</summary>
     public const string DeleteEdge = "ui.graph.delete-edge";
+
+    /// <summary>A node's menu entry that takes it out.</summary>
+    public const string Delete = "ui.graph.delete";
 
     /// <summary>An item's or a frame's menu entry that pins it, checked while it is.</summary>
     public const string Pinned = "ui.graph.pinned";

@@ -102,15 +102,11 @@ export class CanvasMenus {
         if (!(target instanceof Element) || target.closest(anyMenuSelector(this.scope)) !== null)
             return;
 
-        const node = target.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute) ?? null;
-        const group = node === null && target.closest(".ui-graph__group-band") !== null
-            ? target.closest<HTMLElement>(`[${GroupAttribute}]`)?.getAttribute(GroupAttribute) ?? null
-            : null;
-        const edge = node === null && group === null && this.host.kind().hasEdgeMenu()
-            ? target.closest(`[${EdgeAttribute}]`)?.getAttribute(EdgeAttribute) ?? null
-            : null;
+        this.menuTarget = this.targetOf(target);
 
-        this.menuTarget = node !== null ? { kind: "node", id: node } : group !== null ? { kind: "group", id: group } : edge !== null ? { kind: "edge", id: edge } : null;
+        const node = this.menuTarget?.kind === "node" ? this.menuTarget.id : null;
+        const group = this.menuTarget?.kind === "group" ? this.menuTarget.id : null;
+        const edge = this.menuTarget?.kind === "edge" ? this.menuTarget.id : null;
 
         // An edge pressed is chosen alone, as a click chooses it, so what its menu does is done to that edge.
         if (edge !== null) {
@@ -135,6 +131,29 @@ export class CanvasMenus {
         this.syncMenus();
     }
 
+    /**
+     * Records what an action bar is about to show its menu's entries for and brings them up to date for it — its pin checked, what it
+     * may do enabled — choosing nothing: the bar shows over a node the pointer merely passes. Its icon's press asks again as a right
+     * press does, choosing the node then.
+     */
+    public prepareBar(target: Element): void {
+        this.menuTarget = this.targetOf(target);
+        this.syncMenus();
+    }
+
+    /** What a press on `target` opens a menu for: a node, a group's band, an edge where the kind has an edge menu, or the sheet. */
+    private targetOf(target: Element): MenuTarget | null {
+        const node = target.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute) ?? null;
+        const group = node === null && target.closest(".ui-graph__group-band") !== null
+            ? target.closest<HTMLElement>(`[${GroupAttribute}]`)?.getAttribute(GroupAttribute) ?? null
+            : null;
+        const edge = node === null && group === null && this.host.kind().hasEdgeMenu()
+            ? target.closest(`[${EdgeAttribute}]`)?.getAttribute(EdgeAttribute) ?? null
+            : null;
+
+        return node !== null ? { kind: "node", id: node } : group !== null ? { kind: "group", id: group } : edge !== null ? { kind: "edge", id: edge } : null;
+    }
+
     /** Updates every menu entry to the canvas's state: disabled with nothing chosen or on a read-only canvas; a node/group menu shows its pin and colour. */
     public syncMenus(): void {
         const editable = !this.settings.readOnly;
@@ -145,6 +164,8 @@ export class CanvasMenus {
         this.enableEntries("graph:save", editable);
         this.enableEntries("graph:group-selection", editable && chosenNode);
         this.enableEntries("graph:delete-selection", editable && (this.selection.size > 0 || this.selection.edgeSize > 0));
+        // A node's own delete takes the node it was opened on, chosen or not.
+        this.enableEntries("graph:delete", editable);
 
         for (const name of [NodeMenuName, GroupMenuName]) {
             const menu = this.root.querySelector<HTMLElement>(`[${this.context.names.contextMenu}="${name}"]`);
@@ -245,6 +266,7 @@ export class CanvasMenus {
 
         switch (key) {
             case "graph:delete-selection":
+            case "graph:delete":
                 this.host.deleteSelection();
                 break;
             case "graph:group-selection":

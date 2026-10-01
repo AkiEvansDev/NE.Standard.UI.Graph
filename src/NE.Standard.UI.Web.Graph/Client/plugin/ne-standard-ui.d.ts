@@ -168,7 +168,7 @@ declare module "ne-standard-ui" {
      */
     export type Moment = {
         readonly moment: string;
-        readonly format?: "date-time" | "date" | "time" | "relative";
+        readonly format?: "date-time" | "date" | "time" | "relative" | "relative-date";
     };
 
     /** The page's words in its language — a package's `IUIStringsSource` among them — which a language switch replaces in place. */
@@ -556,6 +556,27 @@ declare module "ne-standard-ui" {
         /** A context menu's host, and a part naming which of its owner's menus a right press there opens. */
         readonly contextMenu: "data-ui-context-menu";
         readonly contextMenuUse: "data-ui-context-menu-use";
+        /**
+         * On a menu's owner, or on a part naming one of its menus by `contextMenuUse` (a node a package draws): the action bar's
+         * alignment above it — `end`, `start` or `center`. The framework draws the bar from that menu's entries marked for it over
+         * the element the reader chose — pressed, tapped, or reached by the keyboard — above it (under it where there is no room),
+         * as a floating layer, until a press elsewhere, Escape or another element chosen; before it shows, before an icon's press,
+         * and again on a press of the element, the menu hears `ui-context-menu-opening` with the element (or the icon) as its
+         * `target`, all but the icon's with `actionBar: true`: set the entries' state then, but choose nothing. Kept shut for the
+         * element's press (a drag beginning), the bar is asked for again as the press ends. A view that moves its parts with no
+         * scroll (a canvas's pan and zoom) dispatches `scroll` on its viewport, which the bar follows as every anchored popup does.
+         */
+        readonly actionBar: "data-ui-action-bar";
+        /**
+         * On an element carrying `actionBar` that a package draws anew (a node redrawn with its document): what it stands for,
+         * unique among its siblings. The bar chosen over it stands over the element drawn in its place with the same value.
+         */
+        readonly actionBarKey: "data-ui-action-bar-key";
+        /**
+         * On an element carrying `actionBar`: its bar's "more" opens the menu without the entries the bar shows (and without a rule or
+         * a caption left with nothing to stand between or over); a right press or a long press still opens the whole menu.
+         */
+        readonly actionBarRest: "data-ui-action-bar-rest";
         /** A component's root while disabled, loading, or read-only. */
         readonly disabledClass: "ui-disabled";
         readonly loadingClass: "ui-loading";

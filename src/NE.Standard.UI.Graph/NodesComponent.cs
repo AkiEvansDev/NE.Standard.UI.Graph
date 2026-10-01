@@ -26,7 +26,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add), Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route), Separator());
         PrependEntries(EdgeMenu, Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route));
         // Shown only on a node whose kind keeps a state; a hidden state has no reset button of its own.
-        _ = NodeMenu.AddItems([Entry(UIGraphCommands.ResetState, UIGraphWords.ResetNodeState, UIGlyphs.Restart)]);
+        AddNodeEntry(Entry(UIGraphCommands.ResetState, UIGraphWords.ResetNodeState, UIGlyphs.Restart));
 
         // A pin's row opens its own menu over the node's; the engine shows and enables each entry for the pin as it opens.
         MenuComponent pinMenu = new MenuComponent().AddItems(

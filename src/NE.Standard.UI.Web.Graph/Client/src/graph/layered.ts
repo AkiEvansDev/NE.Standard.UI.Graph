@@ -1,6 +1,7 @@
-// Sugiyama-style layered layout: cycles broken by Eades-Lin-Smyth greedy ordering, layers by longest path, long edges get virtual
-// nodes, order by barycentre sweeps, places across the layers by Brandes-Köpf. Pure and deterministic — ties always fall to input
-// order, so the same graph lays out the same way.
+// Sugiyama-style layered layout: cycles broken within each strongly connected tangle by Eades-Lin-Smyth greedy ordering, a small
+// tangle then reordered where its layers run shortest, layers by longest path, long edges get virtual nodes, order by barycentre
+// sweeps, places across the layers by Brandes-Köpf. Pure and deterministic — ties always fall to input order, so the same graph
+// lays out the same way.
 
 import type { Point } from "../canvas/canvas-model.ts";
 
@@ -50,6 +51,12 @@ export type LayeredResult = {
 /** How thick a virtual node stands along the order axis: an edge passing through a layer still takes a little room in it. */
 const VirtualThickness = 8;
 const Sweeps = 4;
+/**
+ * A tangle's breaks are searched (`searchBreaks`) only in a tangle of at most this many nodes, at most this many moves tried in it:
+ * a seed and its plant, a short loop of crafts — not a sheet that is one knot, which keeps its greedy breaks.
+ */
+const SearchedTangle = 24;
+const SearchedMoves = 128;
 /** The room between layers when the caller names none: a part of how deep the nodes are, held between these two. */
 const LeastLayerGap = 48;
 const MostLayerGap = 96;
@@ -194,12 +201,12 @@ function orient<TNode extends { readonly id: string }>(all: readonly TNode[], ed
     }
 
     const links = known.filter(edge => edge.from !== edge.to);
-    const sequence = breakCycles(all, links);
-    const rank = new Map(sequence.map((node, index) => [node.id, index]));
+    const reversed = breakCycles(all, links);
+    const sequence = orderedBy(all, links, reversed);
     const forward: Link[] = [];
 
     for (const edge of links) {
-        if (rank.get(edge.from)! > rank.get(edge.to)!) {
+        if (reversed.has(edge.id)) {
             backEdges.add(edge.id);
             forward.push({ id: edge.id, from: edge.to, to: edge.from, fromOffset: edge.toOffset, toOffset: edge.fromOffset });
         }
@@ -211,14 +218,156 @@ function orient<TNode extends { readonly id: string }>(all: readonly TNode[], ed
     return { sequence, forward, backEdges };
 }
 
-/** Eades-Lin-Smyth cycle breaking: sinks to the end, sources to the front, else the node with the highest out-minus-in degree to the front; a resulting backward edge is where a cycle breaks. */
-function breakCycles<TNode extends { readonly id: string }>(all: readonly TNode[], links: readonly LayeredEdge[]): TNode[] {
+/**
+ * The edges turned round to break every cycle, found within each strongly connected tangle alone, so an edge on no cycle always
+ * runs forward. Eades-Lin-Smyth orders a tangle first; a small one (`SearchedTangle`) is then reordered to where its layers run
+ * shortest — the greedy order puts first the node that feeds the most, which for a plant and its seed is the plant: the seed took a
+ * layer of its own past it, and the plant's product an edge across that layer.
+ */
+function breakCycles(all: readonly { readonly id: string }[], links: readonly LayeredEdge[]): Set<string> {
+    const reversed = new Set<string>();
+    const found = tangles(all, links);
+    const tangleOf = new Map<string, number>();
+
+    found.forEach((members, index) => {
+        for (const id of members)
+            tangleOf.set(id, index);
+    });
+
+    const inner = found.map((): LayeredEdge[] => []);
+    const outer = found.map((): LayeredEdge[] => []);
+
+    for (const edge of links) {
+        const from = tangleOf.get(edge.from);
+        const to = tangleOf.get(edge.to);
+
+        if (from !== undefined && from === to) {
+            inner[from].push(edge);
+            continue;
+        }
+
+        if (from !== undefined)
+            outer[from].push(edge);
+
+        if (to !== undefined)
+            outer[to].push(edge);
+    }
+
+    found.forEach((members, index) => {
+        const greedy = greedyOrder(members, inner[index], outer[index]);
+        const order = members.length <= SearchedTangle ? searchBreaks(greedy, inner[index], outer[index]) : greedy;
+        const rank = new Map(order.map((id, at) => [id, at]));
+
+        for (const edge of inner[index]) {
+            if (rank.get(edge.from)! > rank.get(edge.to)!)
+                reversed.add(edge.id);
+        }
+    });
+
+    return reversed;
+}
+
+/** The strongly connected components of more than one node, each in input order, by Tarjan's walk kept on a stack of its own rather than recursion. */
+function tangles(all: readonly { readonly id: string }[], links: readonly LayeredEdge[]): string[][] {
+    const outgoing = new Map<string, string[]>();
+
+    for (const edge of links) {
+        const list = outgoing.get(edge.from);
+
+        if (list === undefined)
+            outgoing.set(edge.from, [edge.to]);
+        else
+            list.push(edge.to);
+    }
+
+    const input = new Map(all.map((node, at) => [node.id, at]));
+    const index = new Map<string, number>();
+    const low = new Map<string, number>();
+    const stack: string[] = [];
+    const onStack = new Set<string>();
+    const found: string[][] = [];
+    let counter = 0;
+
+    const enter = (id: string): void => {
+        index.set(id, counter);
+        low.set(id, counter++);
+        stack.push(id);
+        onStack.add(id);
+    };
+
+    for (const root of all) {
+        if (index.has(root.id))
+            continue;
+
+        // Each frame is a node and how many of its outgoing edges it has walked.
+        const frames: { id: string; next: number }[] = [{ id: root.id, next: 0 }];
+
+        enter(root.id);
+
+        while (frames.length > 0) {
+            const frame = frames[frames.length - 1];
+            const targets = outgoing.get(frame.id) ?? [];
+
+            if (frame.next < targets.length) {
+                const to = targets[frame.next++];
+
+                if (!index.has(to)) {
+                    enter(to);
+                    frames.push({ id: to, next: 0 });
+                }
+                else if (onStack.has(to)) {
+                    low.set(frame.id, Math.min(low.get(frame.id)!, index.get(to)!));
+                }
+
+                continue;
+            }
+
+            frames.pop();
+
+            if (frames.length > 0) {
+                const parent = frames[frames.length - 1].id;
+
+                low.set(parent, Math.min(low.get(parent)!, low.get(frame.id)!));
+            }
+
+            if (low.get(frame.id) !== index.get(frame.id))
+                continue;
+
+            const members: string[] = [];
+            let id: string;
+
+            do {
+                id = stack.pop()!;
+                onStack.delete(id);
+                members.push(id);
+            } while (id !== frame.id);
+
+            if (members.length > 1)
+                found.push(members.sort((left, right) => input.get(left)! - input.get(right)!));
+        }
+    }
+
+    return found;
+}
+
+/**
+ * Eades-Lin-Smyth ordering of a tangle: sinks to the end, sources to the front, else the node with the highest out-minus-in degree
+ * to the front, its edges to and from the rest of the sheet counted too; an edge running backward in it is where a cycle breaks.
+ */
+function greedyOrder(all: readonly string[], links: readonly LayeredEdge[], outer: readonly LayeredEdge[]): string[] {
     const outgoing = new Map<string, Set<string>>();
     const incoming = new Map<string, Set<string>>();
+    // Out minus in over the edges joining the tangle to the rest, which no take changes.
+    const beyond = new Map<string, number>();
 
-    for (const slot of all) {
-        outgoing.set(slot.id, new Set());
-        incoming.set(slot.id, new Set());
+    for (const edge of outer) {
+        beyond.set(edge.from, (beyond.get(edge.from) ?? 0) + 1);
+        beyond.set(edge.to, (beyond.get(edge.to) ?? 0) - 1);
+    }
+
+    for (const id of all) {
+        outgoing.set(id, new Set());
+        incoming.set(id, new Set());
     }
 
     for (const edge of links) {
@@ -226,10 +375,10 @@ function breakCycles<TNode extends { readonly id: string }>(all: readonly TNode[
         incoming.get(edge.to)!.add(edge.from);
     }
 
-    const left = new Set(all.map(slot => slot.id));
-    const front: TNode[] = [];
+    const left = new Set(all);
+    const front: string[] = [];
     // The sinks in the order they were taken; the last taken stands first, so the list is read backwards at the end.
-    const taken: TNode[] = [];
+    const taken: string[] = [];
 
     const take = (id: string): void => {
         left.delete(id);
@@ -242,7 +391,7 @@ function breakCycles<TNode extends { readonly id: string }>(all: readonly TNode[
     };
 
     // The nodes still left, in the order they came in: every choice below takes the earliest of its equals.
-    const remaining = (): TNode[] => all.filter(slot => left.has(slot.id));
+    const remaining = (): string[] => all.filter(id => left.has(id));
 
     while (left.size > 0) {
         let changed = true;
@@ -250,18 +399,18 @@ function breakCycles<TNode extends { readonly id: string }>(all: readonly TNode[
         while (changed) {
             changed = false;
 
-            for (const slot of remaining()) {
-                if (outgoing.get(slot.id)!.size === 0) {
-                    taken.push(slot);
-                    take(slot.id);
+            for (const id of remaining()) {
+                if (outgoing.get(id)!.size === 0) {
+                    taken.push(id);
+                    take(id);
                     changed = true;
                 }
             }
 
-            for (const slot of remaining()) {
-                if (incoming.get(slot.id)!.size === 0) {
-                    front.push(slot);
-                    take(slot.id);
+            for (const id of remaining()) {
+                if (incoming.get(id)!.size === 0) {
+                    front.push(id);
+                    take(id);
                     changed = true;
                 }
             }
@@ -270,23 +419,204 @@ function breakCycles<TNode extends { readonly id: string }>(all: readonly TNode[
         if (left.size === 0)
             break;
 
-        let best: TNode | null = null;
+        let best: string | null = null;
         let bestScore = Number.NEGATIVE_INFINITY;
 
-        for (const slot of remaining()) {
-            const score = outgoing.get(slot.id)!.size - incoming.get(slot.id)!.size;
+        for (const id of remaining()) {
+            const score = outgoing.get(id)!.size - incoming.get(id)!.size + (beyond.get(id) ?? 0);
 
             if (score > bestScore) {
-                best = slot;
+                best = id;
                 bestScore = score;
             }
         }
 
         front.push(best!);
-        take(best!.id);
+        take(best!);
     }
 
     return [...front, ...taken.reverse()];
+}
+
+/**
+ * Moves each node of a tangle's order to its front or its end, at most `SearchedMoves` tries, keeping a move that leaves the tangle
+ * lighter; the order's backward edges are the breaks. A move rather than one edge swapped for another: two cycles sharing a node
+ * break at both of its edges at once, which no single swap reaches.
+ */
+function searchBreaks(order: readonly string[], inner: readonly LayeredEdge[], outer: readonly LayeredEdge[]): readonly string[] {
+    let best = order;
+    let bestWeight = tangleWeight(best, inner, outer);
+    let tries = 0;
+
+    for (let pass = 0; pass < 3; pass++) {
+        let improved = false;
+
+        for (const id of order) {
+            const rest = best.filter(other => other !== id);
+
+            for (const trial of [[...rest, id], [id, ...rest]]) {
+                if (tries++ >= SearchedMoves)
+                    return best;
+
+                const weight = tangleWeight(trial, inner, outer);
+
+                if (lighter(weight, bestWeight)) {
+                    best = trial;
+                    bestWeight = weight;
+                    improved = true;
+                }
+            }
+        }
+
+        if (!improved)
+            break;
+    }
+
+    return best;
+}
+
+/**
+ * What a tangle's order costs: how many edges it turns back (never more than the greedy order's, so a cycle still breaks at one
+ * edge), then the spans of its edges over its longest-path layers. Between equals the greedy order stands.
+ */
+type TangleWeight = { readonly back: number; readonly span: number };
+
+/**
+ * A tangle's own edges' spans over its layers, plus each edge from outside to the layer it enters at and each edge leaving to the
+ * tangle's end — so what is fed from outside stands first and what feeds onwards last.
+ */
+function tangleWeight(order: readonly string[], inner: readonly LayeredEdge[], outer: readonly LayeredEdge[]): TangleWeight {
+    const rank = new Map(order.map((id, at) => [id, at]));
+    const oriented = inner.map(edge => (rank.get(edge.from)! < rank.get(edge.to)! ? { from: edge.from, to: edge.to } : { from: edge.to, to: edge.from }));
+    const layer = new Map(order.map(id => [id, 0]));
+
+    // The order is topological for the edges turned its way, so one walk along it finds the longest path.
+    oriented.sort((left, right) => rank.get(left.from)! - rank.get(right.from)!);
+
+    for (const edge of oriented)
+        layer.set(edge.to, Math.max(layer.get(edge.to)!, layer.get(edge.from)! + 1));
+
+    let depth = 0;
+    let span = 0;
+    let back = 0;
+
+    for (const edge of inner) {
+        if (rank.get(edge.from)! > rank.get(edge.to)!)
+            back++;
+    }
+
+    for (const value of layer.values())
+        depth = Math.max(depth, value);
+
+    for (const edge of oriented)
+        span += layer.get(edge.to)! - layer.get(edge.from)!;
+
+    for (const edge of outer)
+        span += rank.has(edge.to) ? layer.get(edge.to)! + 1 : depth + 1 - layer.get(edge.from)!;
+
+    return { back, span };
+}
+
+function lighter(weight: TangleWeight, than: TangleWeight): boolean {
+    if (weight.back !== than.back)
+        return weight.back < than.back;
+
+    return weight.span < than.span;
+}
+
+/** The nodes in an order every edge runs forward along but the reversed ones, ties falling to input order. */
+function orderedBy<TNode extends { readonly id: string }>(all: readonly TNode[], links: readonly LayeredEdge[], reversed: ReadonlySet<string>): TNode[] {
+    const input = new Map(all.map((node, index) => [node.id, index]));
+    const waiting = new Array<number>(all.length).fill(0);
+    const next = new Map<number, number[]>();
+
+    for (const edge of links) {
+        const from = input.get(reversed.has(edge.id) ? edge.to : edge.from)!;
+        const to = input.get(reversed.has(edge.id) ? edge.from : edge.to)!;
+        const list = next.get(from);
+
+        waiting[to]++;
+
+        if (list === undefined)
+            next.set(from, [to]);
+        else
+            list.push(to);
+    }
+
+    const heap = new IndexHeap();
+    const order: TNode[] = [];
+
+    waiting.forEach((count, at) => {
+        if (count === 0)
+            heap.push(at);
+    });
+
+    while (heap.size > 0) {
+        const at = heap.pop();
+
+        order.push(all[at]);
+
+        for (const to of next.get(at) ?? []) {
+            if (--waiting[to] === 0)
+                heap.push(to);
+        }
+    }
+
+    return order;
+}
+
+/** The least index first: a binary heap, since a sheet of thousands of nodes would make a sorted list's every insert a long move. */
+class IndexHeap {
+    private readonly items: number[] = [];
+
+    public get size(): number {
+        return this.items.length;
+    }
+
+    public push(value: number): void {
+        const items = this.items;
+        let at = items.length;
+
+        items.push(value);
+
+        while (at > 0) {
+            const parent = (at - 1) >> 1;
+
+            if (items[parent] <= value)
+                break;
+
+            items[at] = items[parent];
+            at = parent;
+        }
+
+        items[at] = value;
+    }
+
+    public pop(): number {
+        const items = this.items;
+        const top = items[0];
+        const last = items.pop()!;
+
+        if (items.length === 0)
+            return top;
+
+        let at = 0;
+
+        while (at * 2 + 1 < items.length) {
+            const left = at * 2 + 1;
+            const child = left + 1 < items.length && items[left + 1] < items[left] ? left + 1 : left;
+
+            if (items[child] >= last)
+                break;
+
+            items[at] = items[child];
+            at = child;
+        }
+
+        items[at] = last;
+
+        return top;
+    }
 }
 
 /** The longest path: a node stands one layer past the furthest of what feeds it. The sequence is already a topological order. */

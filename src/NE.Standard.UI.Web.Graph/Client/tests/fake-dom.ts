@@ -517,7 +517,7 @@ function matchesComplex(element: FakeElement, compounds: readonly string[], comb
     return false;
 }
 
-const Token = /^(?:([a-z]+|\*)|\.([\w-]+)|\[([\w-]+)(?:=['"]?([^'"\]]*)['"]?)?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope))/;
+const Token = /^(?:([a-z]+|\*)|\.([\w-]+)|\[([\w-]+)(?:(\^?)=['"]?([^'"\]]*)['"]?)?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope))/;
 
 function matchesCompound(element: FakeElement, compound: string, scope: FakeElement | null): boolean {
     let rest = compound.trim();
@@ -528,7 +528,7 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
         if (token === null)
             throw new Error(`The stand-in does not read "${compound}".`);
 
-        const [whole, tag, className, attribute, value, negated, alternatives, pseudo] = token;
+        const [whole, tag, className, attribute, prefix, value, negated, alternatives, pseudo] = token;
 
         if (tag !== undefined && tag !== "*" && element.tagName !== tag)
             return false;
@@ -536,7 +536,10 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
         if (className !== undefined && !element.classes.has(className))
             return false;
 
-        if (attribute !== undefined && (!element.attributes.has(attribute) || (value !== undefined && element.attributes.get(attribute) !== value)))
+        // `[name^=value]` matches a value that starts with it, `[name=value]` the value alone.
+        const actual = attribute === undefined ? undefined : element.attributes.get(attribute);
+
+        if (attribute !== undefined && (actual === undefined || (value !== undefined && (prefix === "^" ? !actual.startsWith(value) : actual !== value))))
             return false;
 
         if (negated !== undefined && matchesSelector(element, negated, scope))

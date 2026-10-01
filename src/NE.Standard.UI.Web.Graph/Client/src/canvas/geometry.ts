@@ -43,6 +43,8 @@ export type EdgeDrawingOptions = {
     readonly axis?: EdgeAxis;
     /** An edge running against the layers: drawn as an arc beside the two ends rather than a curve through the nodes between them. */
     readonly back?: boolean;
+    /** A backward edge from a node to itself, its ends on the node's two sides: the arc rises clear over the node rather than beside the ends. */
+    readonly loop?: boolean;
     readonly arrow?: boolean;
     /** The edge runs towards the axis's start (layers running right-to-left or bottom-to-top), so it's drawn as the mirror of one running towards the end. */
     readonly reversed?: boolean;
@@ -52,6 +54,12 @@ export type EdgeDrawingOptions = {
 
 /** How close to either end a stepped leg may turn: the arrow's head and a little more. */
 const TurnRoom = 12;
+
+/** The furthest a backward arc's handles lean inward from its ends. */
+const ArcLean = 64;
+/** How far a node's edge to itself rises over its ends, and how far its handles reach out past the node's sides. */
+const LoopLift = 56;
+const LoopReach = 16;
 
 /** How long an arrow's head is along the edge, and how wide at its base. */
 const ArrowLength = 9;
@@ -74,7 +82,7 @@ export function drawEdge(shape: EdgeShape, from: Point, to: Point, points: reado
 
     // A backward edge with no points of the viewer's own arcs beside the ends; one the viewer bent follows the points instead.
     const commands = options.back === true && points.length === 0
-        ? arcCommands(stops[0], stops[1])
+        ? options.loop === true ? loopCommands(stops[0], stops[1]) : arcCommands(stops[0], stops[1])
         : shape === "straight"
             ? straightCommands(stops)
             : shape === "orthogonal"
@@ -224,16 +232,34 @@ function orthogonalCommands(stops: readonly Point[], turns: readonly (number | u
     return commands;
 }
 
-/** A backward edge's arc: a flat oval hugging the nodes, rising slightly more the further it spans, with handles leaning inward so it slants rather than looping straight up. */
+/**
+ * A backward edge's arc: a flat oval hugging the nodes, rising slightly more the further it spans, with handles leaning inward —
+ * nearly half the span over a short gap, so it sets out low and stays under what its nodes wear on their tops (a production node's
+ * chip, wider than the node), and no further than `ArcLean` over a long one, so it clears the nodes it passes over.
+ */
 function arcCommands(start: Point, end: Point): Command[] {
     const span = end.x - start.x;
     const lift = Math.min(96, 20 + Math.abs(span) * 0.1);
     const side = Math.min(start.y, end.y) - lift;
-    const lean = span * 0.2;
+    const lean = Math.sign(span) * Math.min(Math.abs(span) * 0.45, ArcLean);
 
     return [
         { op: "M", points: [start] },
         { op: "C", points: [{ x: start.x + lean, y: side }, { x: end.x - lean, y: side }, end] }
+    ];
+}
+
+/**
+ * A node's edge to itself: from the side it leaves by, up over the node, and down into the side it enters by, handles reaching
+ * outward so the loop stands clear of the node's top — and of what the node wears there, a production node's chip.
+ */
+function loopCommands(start: Point, end: Point): Command[] {
+    const side = Math.min(start.y, end.y) - LoopLift;
+    const reach = Math.sign(start.x - end.x) * LoopReach;
+
+    return [
+        { op: "M", points: [start] },
+        { op: "C", points: [{ x: start.x + reach, y: side }, { x: end.x - reach, y: side }, end] }
     ];
 }
 

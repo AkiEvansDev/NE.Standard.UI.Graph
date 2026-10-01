@@ -18,6 +18,10 @@ export const NodeShapeAttribute = "data-ui-graph-node-shape";
 export const EditStructureAttribute = "data-ui-graph-edit-structure";
 /** Which of its uses a kind with more than one is put to — a production graph's constructor or its plan. */
 export const ModeAttribute = "data-ui-graph-mode";
+/** Whether every node carries the framework's action bar. */
+const NodeActionBarAttribute = "data-ui-graph-node-action-bar";
+/** Whether a node bar's "…" opens the whole node menu rather than the rest of it. */
+const NodeActionBarRepeatAttribute = "data-ui-graph-node-action-bar-repeat";
 const MinZoomAttribute = "data-ui-graph-min-zoom";
 const MaxZoomAttribute = "data-ui-graph-max-zoom";
 
@@ -52,6 +56,16 @@ export class CanvasSettings {
 
     public get gridSize(): number {
         return Number(getComputedStyle(this.root).getPropertyValue("--ui-graph-grid-size")) || 20;
+    }
+
+    /** Whether every node drawn carries an action bar. */
+    public get nodeActionBar(): boolean {
+        return this.root.hasAttribute(NodeActionBarAttribute);
+    }
+
+    /** Whether a node bar's "…" repeats the entries the bar shows. */
+    public get nodeActionBarRepeats(): boolean {
+        return this.root.hasAttribute(NodeActionBarRepeatAttribute);
     }
 
     public get minZoom(): number {

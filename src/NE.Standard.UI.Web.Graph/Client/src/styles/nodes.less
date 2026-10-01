@@ -26,6 +26,9 @@
 
 .ui-graph__node {
     --ui-graph-node-color: var(--ui-color-primary);
+    // The colour as it is drawn: the theme's series colours are set deep for a light ground, so on a dark one they are lifted
+    // toward white, or a node's strip, icon and head would sink into the surface around them.
+    --ui-graph-node-ink: light-dark(var(--ui-graph-node-color), color-mix(in oklab, var(--ui-graph-node-color) 70%, white));
 
     display: flex;
     flex-direction: column;
@@ -82,7 +85,7 @@
     padding: 0.375rem @ui-space-2;
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: calc(var(--ui-radius-card) - 1px) calc(var(--ui-radius-card) - 1px) 0 0;
-    background: color-mix(in srgb, var(--ui-graph-node-color) 16%, var(--ui-color-surface));
+    background: color-mix(in srgb, var(--ui-graph-node-ink) 28%, var(--ui-color-surface));
     font-weight: var(--ui-text-title-font-weight);
     cursor: move;
     user-select: none;
@@ -114,8 +117,10 @@
         font-size: @ui-glyph-sm;
     }
 
-    .ui-graph__node-fold:hover:not([aria-disabled='true']) {
-        opacity: 1;
+    @media @ui-can-hover {
+        .ui-graph__node-fold:hover:not([aria-disabled='true']) {
+            opacity: 1;
+        }
     }
 
 // Folded, the node is only as wide as its head's words (min-width belongs to the open body), never narrower than reads as a node;
@@ -151,9 +156,9 @@
     width: max-content;
     min-width: 3rem;
     min-height: 1.5rem;
-    border-color: color-mix(in srgb, var(--ui-graph-node-color) 60%, var(--ui-color-border));
+    border-color: color-mix(in srgb, var(--ui-graph-node-ink) 60%, var(--ui-color-border));
     border-radius: var(--ui-radius-button);
-    background: color-mix(in srgb, var(--ui-graph-node-color) 16%, var(--ui-color-surface));
+    background: color-mix(in srgb, var(--ui-graph-node-ink) 28%, var(--ui-color-surface));
     cursor: move;
     user-select: none;
 }
@@ -186,8 +191,10 @@
         font-size: @ui-glyph-sm;
     }
 
-    .ui-graph__node-pinned:hover:not([aria-disabled='true']) {
-        opacity: 0.8;
+    @media @ui-can-hover {
+        .ui-graph__node-pinned:hover:not([aria-disabled='true']) {
+            opacity: 0.8;
+        }
     }
 
     .ui-graph__node[data-ui-graph-pinned] .ui-graph__node-pinned {
@@ -651,6 +658,7 @@
 }
 
 // The catalogue as a modal dialog: the search above, the categories beside, the kinds and what each says about itself in the list.
+// The framework's dialog's own ground, so the two dialogs a page opens are one.
 dialog.ui-graph__picker {
     display: none;
     width: min(36rem, calc(100vw - 2rem));
@@ -658,12 +666,9 @@ dialog.ui-graph__picker {
     height: min(26rem, calc(100vh - 4rem));
     max-height: none;
     padding: 0;
-    border: var(--ui-border-width) solid var(--ui-color-border);
-    border-radius: var(--ui-radius-card);
-    background: var(--ui-color-surface);
-    color: var(--ui-color-on-surface);
+    border: none;
     overflow: hidden;
-    .ui-elevation-3();
+    .ui-dialog-look();
     // The framework's dialog's own exit: it fades out, held in the top layer until the fade ends.
     .ui-dialog-exit();
 }
@@ -935,8 +940,10 @@ dialog.ui-graph__picker {
             display: inline-flex;
         }
 
-        &:hover {
-            color: var(--ui-color-on-surface);
+        @media @ui-can-hover {
+            &:hover {
+                color: var(--ui-color-on-surface);
+            }
         }
     }
 }
@@ -995,10 +1002,19 @@ dialog.ui-graph__picker {
     }
 
     // A press takes the view to the node, so the name answers the pointer as a link does, and the keyboard's focus alike.
-    &:hover > .ui-graph__parameter-node,
-    &@{ui-keyboard-focus} > .ui-graph__parameter-node {
+    @ui-graph-parameter-link: {
         color: var(--ui-color-primary);
         text-decoration: underline;
+    };
+
+    @media @ui-can-hover {
+        &:hover > .ui-graph__parameter-node {
+            @ui-graph-parameter-link();
+        }
+    }
+
+    &@{ui-keyboard-focus} > .ui-graph__parameter-node {
+        @ui-graph-parameter-link();
     }
 }
 
@@ -1011,7 +1027,8 @@ dialog.ui-graph__picker {
 }
 
 // Along the canvas's top: upper half the whole run, lower half the running node's own steps, with its name and share written
-// over them. Square and edge to edge; keeps the last run's end, coloured danger on failure.
+// over them. Square and edge to edge; keeps the last run's end, coloured danger on failure. Before the first run it is an empty
+// strip, drawn rather than hidden: the menu, the run panel and a Fit keep its room, and a band of bare grid there reads as a gap.
 .ui-graph__run {
     --ui-graph-run: 0;
     --ui-graph-run-step: 0;
@@ -1036,13 +1053,6 @@ dialog.ui-graph__picker {
 
     .ui-graph:not([data-ui-graph-run-progress]) .ui-graph__run {
         display: none;
-    }
-
-    // Before the first run there is nothing to say: hidden rather than gone, so its room stays where the menu, the run panel and a
-    // Fit keep to — nothing moves under the pointer when Run shows it.
-    .ui-graph__run:not([data-ui-graph-run-state]),
-    .ui-graph__run[data-ui-graph-run-state="idle"] {
-        visibility: hidden;
     }
 
 // In the success colour, the one a finished thing wears, so the line never reads as a selection or a control in the brand colour.
@@ -1141,9 +1151,11 @@ dialog.ui-graph__picker {
     transition: color @ui-motion-fast @ui-motion-ease;
 }
 
-    .ui-graph__log-toggle:hover,
-    .ui-graph__log-clear:hover {
-        color: var(--ui-color-on-surface);
+    @media @ui-can-hover {
+        .ui-graph__log-toggle:hover,
+        .ui-graph__log-clear:hover {
+            color: var(--ui-color-on-surface);
+        }
     }
 
     // The keyboard's focus brightens the word as the hover does; the ring is the framework's own (reset.less).
@@ -1247,8 +1259,10 @@ dialog.ui-graph__picker {
     font-weight: var(--ui-text-title-font-weight);
 }
 
-    .ui-graph__log-node:hover {
-        text-decoration: underline;
+    @media @ui-can-hover {
+        .ui-graph__log-node:hover {
+            text-decoration: underline;
+        }
     }
 
 .ui-graph__log-message {

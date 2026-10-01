@@ -32,53 +32,43 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
             .AddRow(UIGridUnit.Star(min: CanvasHeight * 16))
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
-            // Rows that wrap, each list kept with its caption: at a narrow width the switches and the button go under.
-            .AddChild(UILayout.Row(16,
-                    UILayout.Row(8,
-                        new TextComponent()
-                            .SetTitle("planner.graph.layers")
-                            .SetTitleType(UITextAppearance.Body)
-                            .SetVerticalAlignment(UIAlignment.Center),
-                        new SelectComponent()
-                            .SetOptions([
-                                new OptionItem { Id = nameof(UIGraphDirection.LeftToRight), Title = "planner.graph.left-to-right" },
-                                new OptionItem { Id = nameof(UIGraphDirection.TopToBottom), Title = "planner.graph.top-to-bottom" },
-                                new OptionItem { Id = nameof(UIGraphDirection.RightToLeft), Title = "planner.graph.right-to-left" },
-                                new OptionItem { Id = nameof(UIGraphDirection.BottomToTop), Title = "planner.graph.bottom-to-top" }
-                            ])
-                            .BindValue(nameof(DependenciesController.Direction))
-                            .SetWidth(UILayoutLength.Absolute(160))
-                            .SetVerticalAlignment(UIAlignment.Center)
-                    ),
-                    UILayout.Row(8,
-                        new TextComponent()
-                            .SetTitle("planner.graph.edges")
-                            .SetTitleType(UITextAppearance.Body)
-                            .SetVerticalAlignment(UIAlignment.Center),
-                        new SelectComponent()
-                            .SetOptions([
-                                new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "planner.graph.curved" },
-                                new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "planner.graph.straight" },
-                                new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "planner.graph.stepped" }
-                            ])
-                            .BindValue(nameof(DependenciesController.EdgeShape))
-                            .SetWidth(UILayoutLength.Absolute(160))
-                            .SetVerticalAlignment(UIAlignment.Center)
-                    ),
-                    UILayout.Row(8,
-                        new TextComponent()
-                            .SetTitle("planner.graph.nodes")
-                            .SetTitleType(UITextAppearance.Body)
-                            .SetVerticalAlignment(UIAlignment.Center),
-                        new SelectComponent()
-                            .SetOptions([
-                                new OptionItem { Id = nameof(UIGraphNodeShape.Card), Title = "planner.graph.cards" },
-                                new OptionItem { Id = nameof(UIGraphNodeShape.Icon), Title = "planner.graph.circles" }
-                            ])
-                            .BindValue(nameof(DependenciesController.NodeShape))
-                            .SetWidth(UILayoutLength.Absolute(120))
-                            .SetVerticalAlignment(UIAlignment.Center)
-                    ),
+            // Even columns that wrap, each list's caption inside its field so the set stays one line tall: at a narrow width the
+            // switches and the button go under, and the lines never stagger.
+            .AddChild(new WrapPanelComponent()
+                .SetSpacing(16)
+                .SetLineSpacing(8)
+                .SetItemMinWidth(240)
+                .AddChildren(
+                    new SelectComponent()
+                        .SetTitle("planner.graph.layers")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetOptions([
+                            new OptionItem { Id = nameof(UIGraphDirection.LeftToRight), Title = "planner.graph.left-to-right" },
+                            new OptionItem { Id = nameof(UIGraphDirection.TopToBottom), Title = "planner.graph.top-to-bottom" },
+                            new OptionItem { Id = nameof(UIGraphDirection.RightToLeft), Title = "planner.graph.right-to-left" },
+                            new OptionItem { Id = nameof(UIGraphDirection.BottomToTop), Title = "planner.graph.bottom-to-top" }
+                        ])
+                        .BindValue(nameof(DependenciesController.Direction))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new SelectComponent()
+                        .SetTitle("planner.graph.edges")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetOptions([
+                            new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "planner.graph.curved" },
+                            new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "planner.graph.straight" },
+                            new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "planner.graph.stepped" }
+                        ])
+                        .BindValue(nameof(DependenciesController.EdgeShape))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new SelectComponent()
+                        .SetTitle("planner.graph.nodes")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetOptions([
+                            new OptionItem { Id = nameof(UIGraphNodeShape.Card), Title = "planner.graph.cards" },
+                            new OptionItem { Id = nameof(UIGraphNodeShape.Icon), Title = "planner.graph.circles" }
+                        ])
+                        .BindValue(nameof(DependenciesController.NodeShape))
+                        .SetVerticalAlignment(UIAlignment.Center),
                     new SwitchComponent()
                         .SetTitle("planner.graph.edit-structure")
                         .BindValue(nameof(DependenciesController.EditStructure))
@@ -91,6 +81,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                         .SetTitle("planner.graph.forget-layout")
                         .SetType(UIButtonType.Outline)
                         .OnClick(nameof(DependenciesController.ResetLayout))
+                        .SetHorizontalAlignment(UIAlignment.Start)
                         .SetVerticalAlignment(UIAlignment.Center)
                 )
                 .SetMargin(UIThickness.All(0, 0, 0, 12))
@@ -103,6 +94,8 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                 .SetShowMinimap(true)
                 // Out past the default quarter: the modules side by side are wider than a phone's canvas at a quarter of their size.
                 .SetZoomRange(0.1, 2.5)
+                // A module's pin, rename and delete as icons in a bar above the module pressed, at their size whatever the zoom.
+                .SetNodeActionBar()
                 // The layout is the viewer's until a save sends it; the modules are the server's and arrive as they change.
                 .SetFormId(DependenciesController.CanvasForm)
                 .BindValue(nameof(DependenciesController.Layout), mode: UIBindingMode.OnSubmit)

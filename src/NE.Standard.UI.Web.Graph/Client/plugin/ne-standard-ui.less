@@ -13,6 +13,13 @@
 
 @ui-focus-ring-offset: 2px;
 
+// Every pointer-hover look is drawn under this query: a touch screen keeps `:hover` on whatever a finger last tapped, so a wash, an
+// ink or a reveal there would stay lit after the tap. A press (`:active`, the ripple), the keyboard's marks and selection are not.
+@ui-can-hover: ~"(hover: hover)";
+// Its other half: where nothing hovers, what a hover would reveal shows on the thing the reader chose instead (a chosen tab's close),
+// or, on a lone thing with no state to wait for, at all times (a picture's pencil, a shelf tile's cross).
+@ui-cannot-hover: ~"(hover: none)";
+
 @ui-space-1: 0.25rem;  
 @ui-space-2: 0.5rem;   
 @ui-space-3: 0.75rem;  
@@ -33,6 +40,17 @@
 // The air between two entries of a list, so two grounds side by side (the chosen one, the pointer's) read as two, not one block.
 @ui-list-entry-gap: 2px;
 
+// An entry's corner in a list (a select's options, a popup menu's entries, the "…" and language lists, a calendar's cells, a sidebar's
+// entries): two thirds of a button's, 4 px to its 6, so a theme's shape scales both and a list reads finer than its buttons.
+@ui-list-entry-radius: ~"calc(var(--ui-radius-button) * 2 / 3)";
+
+// A popup's corner: its entries' widened by the list's padding, so the two curves run parallel — 8 px by default.
+@ui-popup-radius: ~"calc(var(--ui-radius-button) * 2 / 3 + @{ui-space-1})";
+
+// A range's track: a step of the text over whatever ground it stands on, so it reads on the page, a card and a dialog alike (the
+// raised ground it was is the dialog's own, where it vanished); on the page it is the raised step it was.
+@ui-range-track: ~"color-mix(in srgb, var(--ui-color-on-surface) 14%, transparent)";
+
 // How close to the viewport's edge a popup may sit; must match anchored-popup.ts's own margin.
 @ui-popup-viewport-margin: 4px;
 
@@ -52,7 +70,7 @@
 // Muted is the ink at 68% on the page and at 87% on a filled ground, which reads 4.5:1 on every theme fill (Success, the lowest,
 // 4.6:1). One expression rather than a second property to set beside every base: the base's own veil, mixed under the page's
 // share, lifts the ink only where a base is set — unset or reset, the veil is transparent and the page's muted is what it was.
-@ui-text-muted-share: 0.68;
+@ui-text-muted-share: 0.75;
 @ui-text-muted-filled-share: 0.87;
 @ui-faint-lift: color-mix(in srgb, var(--ui-faint-base, transparent) percentage(((@ui-text-muted-filled-share - @ui-text-muted-share) / (1 - @ui-text-muted-share))), transparent);
 @ui-text-muted: color-mix(in srgb, @ui-text-ink percentage(@ui-text-muted-share), @ui-faint-lift);
@@ -66,7 +84,7 @@
 // the dialog, what the panel writes to `--ui-popup-ground` — its fill with 8 % more of the text, the step the panel is off the
 // surface. A Background or Tinted ground is the page's level again and takes the step back; a popup on the body is handed its
 // opener's (`carryPopupGround`, anchored-popup.ts).
-@ui-popup-ground: var(--ui-popup-ground, var(--ui-color-surface));
+@ui-popup-ground: var(--ui-popup-ground, var(--ui-popup-base, var(--ui-color-surface)));
 
 // A link on a filled ground: the brand ink could be the ground's own colour (1:1 on Primary), so there it takes the ground's ink,
 // as the text around it does, and its underline — at rest only there; on the page the hue says "link" and a hover draws the line.
@@ -85,12 +103,14 @@
 // A script that animates by itself reads these from rendering/motion.ts, which MotionSyncTests holds to the same numbers.
 @ui-motion-fast: 120ms;
 @ui-motion-normal: 200ms;
-// The press ripple: long enough to read as a flash, short enough not to outlast a quick click.
-@ui-motion-ripple: 250ms;
+// The press ripple's growth to the pressed thing's frame while the pointer is held; a quick click's finishes in @ui-motion-fast.
+@ui-motion-ripple: 400ms;
 @ui-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
 // The standard enter/exit pair. Use @ui-motion-ease where two boxes move against each other and their heights have to cancel.
 @ui-motion-enter: cubic-bezier(0, 0, 0.2, 1);
 @ui-motion-exit: cubic-bezier(0.4, 0, 1, 1);
+// A spring back past the rest and home again: what a press gave (an icon that shrank under the finger) returning.
+@ui-motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
 // Every component root's fade for Show and Hide, `visibility` held to its end; an own transition list starts with it, or the root
 // stops fading. No `display`: a collapse goes at once as a show arrives at once, or the page below would jump 200 ms late.
@@ -388,8 +408,10 @@
         transition: background-color @ui-motion-fast @ui-motion-ease;
     }
 
-    &:hover {
-        background-color: var(--ui-wash-hover);
+    @media @ui-can-hover {
+        &:hover {
+            background-color: var(--ui-wash-hover);
+        }
     }
 
     &:active {
@@ -406,7 +428,14 @@
 
 // Takes .ui-reveal-hover() off an element reacting another way; the selector chain must match the ghost button's for equal specificity.
 .ui-reveal-hover-off(@rules: {}) {
-    &@{ui-button-live}:is(:hover, :active) {
+    @media @ui-can-hover {
+        &@{ui-button-live}:hover {
+            background: none;
+            @rules();
+        }
+    }
+
+    &@{ui-button-live}:active {
         background: none;
         @rules();
     }
@@ -551,11 +580,20 @@
     }
 
     // The keyboard predicate, not :focus: a press focuses the handle too, and the bar must rest once the pointer leaves.
-    &@{live}:hover::before,
-    &@{ui-keyboard-focus}::before,
-    &[data-ui-splitting]::before {
+    @thick: {
         --ui-drag-bar-line: 3px;
         background: color-mix(in srgb, var(--ui-color-on-surface) 32%, transparent);
+    };
+
+    @media @ui-can-hover {
+        &@{live}:hover::before {
+            @thick();
+        }
+    }
+
+    &@{ui-keyboard-focus}::before,
+    &[data-ui-splitting]::before {
+        @thick();
     }
 }
 
@@ -564,7 +602,7 @@
 // A floating panel's look alone — edge, corners, ground, elevation — for a panel not placed as a popup (a find panel in its field).
 .ui-popup-look() {
     border: var(--ui-border-width, 1px) solid var(--ui-color-border);
-    border-radius: var(--ui-radius-input);
+    border-radius: @ui-popup-radius;
     background: @ui-popup-ground;
     // A field inside mixes its fill into the popup's colour, not the page's.
     --ui-surface-fill: @ui-popup-ground;
@@ -624,16 +662,20 @@
         background-image: linear-gradient(var(--ui-wash-hover), var(--ui-wash-hover));
     }
 
-    &@{ui-keyboard-focus}:not(@{current}):hover:not(:active) {
-        background-color: transparent;
+    @media @ui-can-hover {
+        &@{ui-keyboard-focus}:not(@{current}):hover:not(:active) {
+            background-color: transparent;
+        }
     }
 }
 
 // A list whose entry follows the pointer: while the keyboard stands on an entry, the resting pointer's entry stays quiet, so two
 // never look current. `@entry` the entries (`~"> .x"`), `@live` their hover guard, `@current` the one keeping its ground.
 .ui-entry-quiet(@entry; @live: ~""; @current: ~"[aria-selected='true']") {
-    &:has(@{entry}@{ui-keyboard-focus}) @{entry}@{live}:not(@{ui-keyboard-focus}, @{current}):hover:not(:active) {
-        background-color: transparent;
+    @media @ui-can-hover {
+        &:has(@{entry}@{ui-keyboard-focus}) @{entry}@{live}:not(@{ui-keyboard-focus}, @{current}):hover:not(:active) {
+            background-color: transparent;
+        }
     }
 }
 
@@ -650,8 +692,17 @@
 
 // Caps a list-shaped popup to the viewport height; skip it where a tail is drawn outside the box, since overflow would clip it.
 .ui-popup-scroll() {
-    max-height: calc(100vh - 2 * @ui-popup-viewport-margin);
+    max-height: calc(100dvh - 2 * @ui-popup-viewport-margin);
     overflow: auto;
+}
+
+// --- mixins/lift.less ---
+
+// A popup opened on a lifted ground — a raised panel, a dialog — stands one step off it, as the panel stands off the page: 8 % more
+// of the text. The panel's own step, `--ui-surface-raised`, is the same mix of the page, written by `WebThemeCssBuilder`; the two keep
+// one number.
+.ui-popup-ground-lifted(@ground) {
+    --ui-popup-ground: color-mix(in srgb, @ground 92%, var(--ui-color-on-surface) 8%);
 }
 
 // --- mixins/dialog.less ---
@@ -659,6 +710,19 @@
 // A modal's veil over the page: the theme's overlay colour, on the framework's backdrop and on a package's native `::backdrop`.
 .ui-dialog-veil() {
     background: var(--ui-color-overlay, rgba(0, 0, 0, 0.45));
+}
+
+// A dialog's panel: the raised ground and what stands on it — a field's fill, muted ink, the ground a part cut out of it paints, a
+// popup opened in it lifted once more — for the framework's dialog and a package's own <dialog> alike, so the two are one ground.
+.ui-dialog-look() {
+    border-radius: var(--ui-radius-card);
+    background: var(--ui-surface-raised);
+    color: var(--ui-color-on-surface);
+    --ui-faint-base: initial;
+    --ui-ground: var(--ui-surface-raised);
+    --ui-surface-fill: var(--ui-surface-raised);
+    .ui-popup-ground-lifted(var(--ui-surface-raised));
+    .ui-elevation-4();
 }
 
 // The dialog's entrance, for a package's own <dialog> too; the keyframes are ui-dialog.less's, reduced motion preferences.less's.
@@ -771,8 +835,10 @@
     .ui-interactive-base();
     transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
-    &@{ui-adornment-live}:hover {
-        color: var(--ui-color-on-surface);
+    @media @ui-can-hover {
+        &@{ui-adornment-live}:hover {
+            color: var(--ui-color-on-surface);
+        }
     }
 
     &:is(:disabled, [aria-disabled='true']) {
@@ -858,6 +924,16 @@
     }
 }
 
+// Where nothing hovers, a veil's mark stands in the picture's corner at all times instead of over the whole picture: a small round
+// mark that leaves the picture to be seen (a shelf tile's cross, a picture's pencil).
+.ui-picture-corner-mark() {
+    inset: 0.25rem 0.25rem auto auto;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    opacity: 1;
+}
+
 // The up/down pair at a field's end (number input, time input): one column behind a rule, two chevrons from the shared glyph.
 .ui-field-stepper() {
     display: flex;
@@ -886,8 +962,10 @@
     .ui-interactive-base();
     transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
-    &:hover {
-        color: var(--ui-color-on-surface);
+    @media @ui-can-hover {
+        &:hover {
+            color: var(--ui-color-on-surface);
+        }
     }
 
     &::before {
@@ -928,8 +1006,10 @@
 
 // The states of an own field-shaped control on `.ui-field-ground()`: hover, and the active edge on a field's focus or an open popup.
 .ui-field-states(@hover: var(--ui-field-hover)) {
-    &@{ui-button-live}:hover {
-        .ui-field-edge-hover(@hover);
+    @media @ui-can-hover {
+        &@{ui-button-live}:hover {
+            .ui-field-edge-hover(@hover);
+        }
     }
 
     &@{ui-button-live}:is(@{ui-field-focus}, [aria-expanded="true"]) {
@@ -980,12 +1060,14 @@
     box-shadow: var(--ui-selected-mark, @default);
 }
 
-// A chosen row: ground, inherited ink, mark, and the cursor's layer — transparent until `.ui-row-cursor-layer()`, so it fades both ways.
+// A chosen row: ground, inherited ink, the brand's line on its leading edge — a list on the page, which the reader goes by, says which
+// row it holds in the brand's colour while its ground stays neutral — and the cursor's layer, transparent until
+// `.ui-row-cursor-layer()`, so it fades both ways. A list in a popup marks no line: its chosen entry is its ground and its own check.
 .ui-selected-row() {
     .ui-selected-ground();
     background-image: linear-gradient(var(--ui-row-cursor-wash, transparent), var(--ui-row-cursor-wash, transparent));
     .ui-selected-ink(inherit);
-    .ui-selected-mark();
+    .ui-selected-mark(@ui-selected-mark-left);
 }
 
 // A chosen tile: a chosen row over the tile's own picture, which the row's `background` shorthand would reset (`.ui-tile-wash()`
@@ -1027,16 +1109,18 @@
         .ui-reveal-hover-off();
     }
 
-    :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:hover,
-    .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
-        background-color: transparent;
-    }
+    @media @ui-can-hover {
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:hover,
+        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
+            background-color: transparent;
+        }
 
-    // The parts, never a root (a split button's hovered part alone): a filter makes the root the containing block of a popup inside
-    // it, which would jump.
-    :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
-    .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
-        .ui-brighten-hover();
+        // The parts, never a root (a split button's hovered part alone): a filter makes the root the containing block of a popup
+        // inside it, which would jump.
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
+        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
+            .ui-brighten-hover();
+        }
     }
 
     :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:active,
@@ -1055,8 +1139,10 @@
 .ui-entry-hover(@current: ~"[aria-selected='true']") {
     transition: background-color @ui-motion-fast @ui-motion-ease;
 
-    &:not(@{current}):hover {
-        background-color: var(--ui-wash-hover);
+    @media @ui-can-hover {
+        &:not(@{current}):hover {
+            background-color: var(--ui-wash-hover);
+        }
     }
 
     &:not(@{current}):active {
@@ -1072,6 +1158,19 @@
     }
 
     @{host}@{ui-row-cursor-focus}:not([data-ui-selection="one"]) > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
+        .ui-row-cursor-layer();
+    }
+}
+
+// The row an action bar stands over (action-bar-engine.ts) washes as the keyboard's row does, so the bar says whose it is when no
+// pointer is on the row — a finger lifted, the keyboard; on a chosen row, as the cursor's layer. `@bar` is the path from the row to
+// the bar, which stands in its host: the row itself or a part of it.
+.ui-row-bar(@host; @row; @via: ~""; @bar: ~"> [data-ui-action-bar] > .ui-action-bar") {
+    @{host} > @{via}[data-ui-items-host] > @{row}:not([data-ui-selected]):has(@{bar}) {
+        .ui-row-hover();
+    }
+
+    @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-selected]:has(@{bar}) {
         .ui-row-cursor-layer();
     }
 }
@@ -1099,6 +1198,13 @@
     overflow-clip-margin: 0.25em;
 }
 
+// The second line of one unit that runs on (a wrapping description under its title, a field's message under the field) starts at
+// its words, not at its leading: the half-leading above its first line is taken back, so it stands as close as a one-line
+// description does. Half the leading only, so the two lines' selection highlights never cross the other's words.
+.ui-text-leading-trim-start() {
+    margin-top: calc((1em - 1lh) / 2);
+}
+
 // A link in running text (`[label](url)`, Markdown): accent and underline, brightening under the pointer by a filter; on a filled
 // ground the ground's ink, the underline still saying it is a link.
 .ui-inline-link() {
@@ -1107,8 +1213,10 @@
     text-underline-offset: 0.15em;
     transition: filter @ui-motion-fast @ui-motion-ease;
 
-    &:hover {
-        .ui-brighten-hover();
+    @media @ui-can-hover {
+        &:hover {
+            .ui-brighten-hover();
+        }
     }
 }
 

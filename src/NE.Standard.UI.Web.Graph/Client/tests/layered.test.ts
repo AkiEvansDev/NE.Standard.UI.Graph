@@ -76,6 +76,118 @@ test("an edge from a node to itself is a backward edge and moves nothing", () =>
     assert.equal(result.layers.get("a"), 0);
 });
 
+test("a plant and its seed: the cycle breaks at the plant's edge to the seed, so seed, plant and product stand in one row", () => {
+    // Greedy alone puts the plant first, as it feeds the most: the seed then took a layer between the plant and its product.
+    const all = nodes("plant", "seed", "powder");
+    const links = edges("seed>plant", "plant>seed", "plant>powder");
+    const result = layered(all, links, { direction: "right" });
+
+    assert.deepEqual([...result.backEdges], ["plant>seed"]);
+    assert.deepEqual(["seed", "plant", "powder"].map(id => result.layers.get(id)), [0, 1, 2]);
+    assert.equal(result.positions.get("seed")!.y, result.positions.get("powder")!.y);
+    assert.equal(result.routes.size, 0);
+});
+
+test("a cycle through three nodes breaks at one edge, and every other edge is a layer long", () => {
+    // Greedy alone puts the brew first, as it feeds the most: the mash, fed from outside, then stood two layers past its water.
+    const links = edges("water>mash", "mash>brew", "brew>yeast", "yeast>mash", "brew>ale");
+    const result = layered(nodes("ale", "brew", "yeast", "mash", "water"), links, { direction: "right" });
+
+    assert.equal(result.backEdges.size, 1);
+
+    for (const link of links.filter(candidate => !result.backEdges.has(candidate.id)))
+        assert.equal(result.layers.get(link.to)! - result.layers.get(link.from)!, 1, link.id);
+});
+
+test("two cycles sharing a node: both break at the shared node's edges, and what it is made from stands before it", () => {
+    const links = edges("plant>seed", "seed>plant", "plant>cutting", "cutting>plant", "plant>powder");
+    const result = layered(nodes("plant", "seed", "cutting", "powder"), links, { direction: "right" });
+
+    assert.deepEqual([...result.backEdges].sort(), ["plant>cutting", "plant>seed"]);
+    assert.deepEqual(["seed", "cutting", "plant", "powder"].map(id => result.layers.get(id)), [0, 0, 1, 2]);
+});
+
+test("a node's link to itself takes no part in breaking the cycle beside it", () => {
+    const links = edges("seed>plant", "plant>seed", "plant>plant", "plant>powder");
+    const result = layered(nodes("plant", "seed", "powder"), links, { direction: "right" });
+
+    assert.deepEqual([...result.backEdges].sort(), ["plant>plant", "plant>seed"]);
+    assert.deepEqual(["seed", "plant", "powder"].map(id => result.layers.get(id)), [0, 1, 2]);
+});
+
+test("an edge on no cycle always runs forward, however the greedy order would have taken its ends", () => {
+    let seed = 7;
+    const random = (): number => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const ids = Array.from({ length: 400 }, (_, index) => `n${index}`);
+    const links = Array.from({ length: 800 }, (_, index) => {
+        const from = Math.floor(random() * 390);
+
+        return { id: `f${index}`, from: ids[from], to: ids[from + 1 + Math.floor(random() * 10)] };
+    });
+
+    for (let index = 0; index < 40; index++) {
+        const from = 20 + Math.floor(random() * 380);
+
+        links.push({ id: `b${index}`, from: ids[from], to: ids[from - 1 - Math.floor(random() * 20)] });
+    }
+
+    const outgoing = new Map<string, string[]>();
+
+    for (const link of links)
+        outgoing.set(link.from, [...outgoing.get(link.from) ?? [], link.to]);
+
+    const reaches = (from: string, to: string): boolean => {
+        const seen = new Set([from]);
+        const queue = [from];
+
+        for (let at = 0; at < queue.length; at++) {
+            for (const next of outgoing.get(queue[at]) ?? []) {
+                if (next === to)
+                    return true;
+
+                if (!seen.has(next)) {
+                    seen.add(next);
+                    queue.push(next);
+                }
+            }
+        }
+
+        return false;
+    };
+    const back = backEdgesOf(ids, links);
+
+    assert.ok(back.size > 0);
+
+    for (const link of links.filter(candidate => back.has(candidate.id)))
+        assert.ok(reaches(link.to, link.from), `${link.id} runs back but closes no cycle`);
+});
+
+test("the back edges a sheet asks for agree with the layout's on cycles broken again", () => {
+    const all = nodes("plant", "seed", "cutting", "powder", "water", "mash", "brew", "yeast");
+    const links = edges("plant>seed", "seed>plant", "plant>cutting", "cutting>plant", "plant>powder", "water>mash", "mash>brew", "brew>yeast", "yeast>mash", "powder>mash");
+
+    assert.deepEqual([...backEdgesOf(all.map(node => node.id), links)].sort(), [...layered(all, links, { direction: "right" }).backEdges].sort());
+});
+
+test("a sheet of thousands of small cycles lays out quickly", () => {
+    const ids: string[] = [];
+    const links: LayeredEdge[] = [];
+
+    for (let index = 0; index < 3000; index++) {
+        ids.push(`p${index}`, `s${index}`);
+        links.push({ id: `p${index}>s${index}`, from: `p${index}`, to: `s${index}` }, { id: `s${index}>p${index}`, from: `s${index}`, to: `p${index}` });
+
+        if (index > 0)
+            links.push({ id: `p${index - 1}>p${index}`, from: `p${index - 1}`, to: `p${index}` });
+    }
+
+    const started = performance.now();
+    const result = layered(nodes(...ids), links, { direction: "right" });
+
+    assert.ok(performance.now() - started < 2000, "laying out 3000 two-cycles took more than two seconds");
+    assert.equal(result.backEdges.size, 3000);
+});
+
 test("the back edges a sheet asks for on every change are the ones the whole layout finds", () => {
     const all = nodes("a", "b", "c", "d", "e");
     const links = edges("a>b", "b>c", "c>a", "c>d", "d>d", "e>d", "d>b", "x>a");
@@ -298,15 +410,14 @@ test("the planner's battery lays out in rows: each merge in line with one input,
     assert.ok([y("Ferrium Powder"), y("Sandleaf Powder")].includes(y("Dense Ferrium Powder")));
     assert.ok([y("Steel Part"), y("Dense Originium Powder")].includes(y("HC Valley Battery")));
 
-    for (const [id, from] of [["Sandleaf Powder>Dense Ferrium Powder", "Sandleaf Powder"], ["Dense Originium Powder>HC Valley Battery", "Dense Originium Powder"]]) {
-        const route = result.routes.get(id)!;
+    const route = result.routes.get("Dense Originium Powder>HC Valley Battery")!;
 
-        assert.ok(route.every(point => point.y === y(from) + 45), `${id} runs ${route.map(point => point.y).join(", ")}`);
-    }
+    assert.ok(route.every(point => point.y === y("Dense Originium Powder") + 45), `the long edge runs ${route.map(point => point.y).join(", ")}`);
 
-    // The long edge into Dense Ferrium Powder runs straight into it, as the hand layout has it.
-    assert.equal(y("Dense Ferrium Powder"), y("Sandleaf Powder"));
-    assert.equal(y("HC Valley Battery"), y("Dense Originium Powder"));
+    // The seed's cycle is broken at the plant's edge to it: seed, plant and powder stand in one row, a layer apiece.
+    assert.deepEqual([...result.backEdges], ["Sandleaf>Sandleaf Seed"]);
+    assert.deepEqual(["Sandleaf Seed", "Sandleaf", "Sandleaf Powder"].map(id => result.layers.get(id)), [0, 1, 2]);
+    assert.deepEqual(["Sandleaf", "Sandleaf Powder"].map(y), [y("Sandleaf Seed"), y("Sandleaf Seed")]);
     assert.equal(overlaps(result, all), false);
     assert.deepEqual([...result.positions], [...layered(all, edges(...batteryLinks), { direction: "right", nodeGap: 32, layerGap: 84 }).positions]);
 });
@@ -317,12 +428,11 @@ test("a circle with its name under it lines up by the circle: a long edge runs a
     const result = layered(all, edges(...batteryLinks), { direction: "right", nodeGap: 32, layerGap: 84 });
     const line = (id: string): number => result.positions.get(id)!.y + 28;
 
-    for (const [id, from, to] of [["Sandleaf Powder>Dense Ferrium Powder", "Sandleaf Powder", "Dense Ferrium Powder"], ["Dense Originium Powder>HC Valley Battery", "Dense Originium Powder", "HC Valley Battery"]]) {
-        const route = result.routes.get(id)!;
+    const route = result.routes.get("Dense Originium Powder>HC Valley Battery")!;
 
-        assert.ok(route.every(point => point.y === line(from)), `${id} runs ${route.map(point => point.y).join(", ")} against ${line(from)}`);
-        assert.equal(line(to), line(from));
-    }
+    assert.ok(route.every(point => point.y === line("Dense Originium Powder")), `the long edge runs ${route.map(point => point.y).join(", ")} against ${line("Dense Originium Powder")}`);
+    assert.ok([line("Steel Part"), line("Dense Originium Powder")].includes(line("HC Valley Battery")));
+    assert.equal(line("Sandleaf Seed"), line("Sandleaf"));
 
     assert.equal(overlaps(result, all), false);
 });

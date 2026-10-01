@@ -13,6 +13,9 @@ import type { CanvasSettings } from "./canvas-settings.ts";
 import type { CanvasView } from "./canvas-view.ts";
 import { EdgeAttribute, GroupAttribute, ReroutAttribute, RootSelector, SelectedAttribute } from "./canvas-dom.ts";
 
+/** A node's bar stands above it, centred on it. */
+const NodeBarAlignment = "center";
+
 const SvgNamespace = "http://www.w3.org/2000/svg";
 /** On the root while the pointer rests on an item: every edge but that item's own steps back. */
 const FocusClass = "ui-graph--edge-focus";
@@ -109,6 +112,18 @@ export class CanvasRender {
                 element.setAttribute(SelectedAttribute, "");
 
             element.setAttribute(this.context.names.contextMenuUse, NodeMenuName);
+
+            // The framework draws the bar from the node menu over the node the reader chose, above it; keyed by the node, the bar
+            // stands over the node drawn in its place as the document changes.
+            if (this.settings.nodeActionBar) {
+                element.setAttribute(this.context.names.actionBar, NodeBarAlignment);
+                element.setAttribute(this.context.names.actionBarKey, node.id);
+
+                // The bar's "…" opens what the bar does not show, unless the canvas asked for the whole menu there.
+                if (!this.settings.nodeActionBarRepeats)
+                    element.setAttribute(this.context.names.actionBarRest, "");
+            }
+
             this.nodeLayer.append(element);
             this.nodeElements.set(node.id, element);
             drawn.add(node.id);
@@ -261,7 +276,7 @@ export class CanvasRender {
 
             const color = kind.edgeColor(edge);
             const points = edge.points.length === 0 && ends.via !== undefined ? ends.via : edge.points;
-            const drawing = drawEdge(this.settings.edgeShape, ends.from, ends.to, points, { axis: ends.axis, back: ends.back, arrow: ends.arrow, reversed: ends.reversed, turns: edge.points.length === 0 ? ends.turns : undefined });
+            const drawing = drawEdge(this.settings.edgeShape, ends.from, ends.to, points, { axis: ends.axis, back: ends.back, loop: ends.loop, arrow: ends.arrow, reversed: ends.reversed, turns: edge.points.length === 0 ? ends.turns : undefined });
             const path = document.createElementNS(SvgNamespace, "path");
 
             path.setAttribute("d", drawing.path);

@@ -29,6 +29,8 @@ export type EdgeEnds = {
     readonly axis?: EdgeAxis;
     /** An edge running against the layers: dashed, and arced beside its ends. */
     readonly back?: boolean;
+    /** A backward edge from a node to itself: its arc rises over the node, from the side it leaves by to the side it enters by. */
+    readonly loop?: boolean;
     /** Whether the edge wears an arrow's head at its end. */
     readonly arrow?: boolean;
     /** The thing the edge draws was moved under the viewer's own change to it: the edge is marked as an item would be. */

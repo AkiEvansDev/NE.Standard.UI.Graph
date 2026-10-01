@@ -389,8 +389,29 @@ class Canvas {
 
     /** Marks the entries for the menu key before the menu shows (a right press marked them on its press); a disabled canvas opens none of the sheet's. */
     private menuOpening(event: Event): void {
+        const detail = event instanceof CustomEvent ? event.detail as { readonly target?: Element; readonly actionBar?: boolean } | null : null;
+
+        if (detail?.actionBar === true) {
+            this.barOpening(event, detail.target ?? null);
+            return;
+        }
+
         if (!this.states.isInert(this.root))
-            this.menus.prepareMenus(event instanceof CustomEvent ? (event.detail as { readonly target?: Element } | null)?.target ?? null : null);
+            this.menus.prepareMenus(detail?.target ?? null);
+    }
+
+    /**
+     * An action bar about to show a node's entries: brought up to date for it without choosing it. A read-only or disabled canvas
+     * shows none — its menu still opens — and nor does one in the middle of a drag: a press beginning one keeps the bar away until
+     * the press ends, when the framework asks again.
+     */
+    private barOpening(event: Event, host: Element | null): void {
+        if (!(host instanceof HTMLElement) || this.settings.readOnly || this.states.isInert(this.root) || this.drag !== null) {
+            event.preventDefault();
+            return;
+        }
+
+        this.menus.prepareBar(host);
     }
 
     private wheel(event: WheelEvent): void {
@@ -825,6 +846,10 @@ class Canvas {
         if (typing)
             return;
 
+        // A key in the action bar the framework draws over a node is the bar's — its arrows, its Escape — never the sheet's Delete.
+        if (event.target instanceof Element && event.target.closest(`[${this.context.names.eventBoundary}]`) !== null && this.onSheet(event.target))
+            return;
+
         // Keys act on the sheet from the sheet and the canvas's own buttons only — not a panel's contents (Backspace on a parameter's
         // select), nor the corner menu's entries.
         if (!this.onSheet(event.target) && !(event.target instanceof Element && event.target.matches(ChromeButtonSelector)))
@@ -927,6 +952,12 @@ class Canvas {
             this.menus.run(key, menuName);
         else
             this.menus.raiseEntry(key, menuName);
+
+        // A node deleted from its own bar took the keyboard with it: the sheet takes it, as the Delete key leaves it, so Ctrl+Z undoes.
+        const active = document.activeElement;
+
+        if (!(active instanceof HTMLElement) || active === document.body || !active.isConnected)
+            this.viewport.focus({ preventScroll: true });
     }
 }
 

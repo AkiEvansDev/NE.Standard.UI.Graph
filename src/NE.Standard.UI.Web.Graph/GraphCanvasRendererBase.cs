@@ -60,6 +60,12 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     /// <summary>Whether every edit is saved as it is made, on the root.</summary>
     public const string AutoSaveAttribute = "data-ui-graph-auto-save";
 
+    /// <summary>Whether every node carries an action bar (<c>NodeActionBar</c>), on the root; the client marks each node it draws.</summary>
+    public const string NodeActionBarAttribute = "data-ui-graph-node-action-bar";
+
+    /// <summary>Whether a node bar's "…" repeats the bar's entries (<c>NodeActionBarRepeatInMore</c>), on the root.</summary>
+    public const string NodeActionBarRepeatInMoreAttribute = "data-ui-graph-node-action-bar-repeat";
+
     /// <summary>The least zoom, on the root.</summary>
     public const string MinZoomAttribute = "data-ui-graph-min-zoom";
 
@@ -124,6 +130,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         RenderFlagAttribute(context, root, IGraphCanvasComponent.AutoSaveProperty, AutoSaveAttribute);
         // The family's read-only mark on the root, which the engine and the stylesheet read as every read-only control's.
         NativeInputRendererBase.RenderIsReadOnlyMark(context, root);
+        RenderFlagAttribute(context, root, IGraphCanvasComponent.NodeActionBarProperty, NodeActionBarAttribute);
+        RenderFlagAttribute(context, root, IGraphCanvasComponent.NodeActionBarRepeatInMoreProperty, NodeActionBarRepeatInMoreAttribute);
 
         RenderNumber(context, root, IGraphCanvasComponent.GridSizeProperty, GridSizeVariable, style: true);
         RenderNumber(context, root, IGraphCanvasComponent.MinZoomProperty, MinZoomAttribute, style: false);
@@ -264,8 +272,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             _ = value.Attribute("hidden");
             _ = value.Attribute(WebAttributes.ValueKind, ValueKind);
 
-            // The form a save submits when the value is bound OnSubmit, and a DiscardFormEffect names.
-            NativeInputRendererBase.RenderFormId(context, value);
+            // The form a save submits when the value is bound OnSubmit, and a DiscardFormEffect names; no field, so no browser's form.
+            NativeInputRendererBase.RenderFormId(context, value, joinsForm: false);
 
             _ = RenderProperty<TDocument?>(context, value, IInputComponent.ValueProperty, (target, document) =>
                 _ = target.Attribute(DocumentAttribute, JsonSerializer.Serialize(document ?? EmptyDocument, WireJson))

@@ -29,21 +29,23 @@ internal abstract class NodesSheetView : NodesDemoView
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             // Every control in the row is one line tall and centred on the same line: a caption above a field would raise that
-            // field's middle above its neighbours', so the select wears its caption beside it, as the switches do. The row wraps, the
-            // list kept with its caption, so a narrow page takes the switches and the button under it.
-            .AddChild(UILayout.Row(16,
-                    UILayout.Row(8,
-                        UIText.Body("nodes.edges").SetVerticalAlignment(UIAlignment.Center),
-                        new SelectComponent()
-                            .SetOptions([
-                                new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "nodes.edges.curved" },
-                                new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "nodes.edges.straight" },
-                                new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "nodes.edges.stepped" }
-                            ])
-                            .BindValue(nameof(NodesSheetController.EdgeShape))
-                            .SetWidth(UILayoutLength.Absolute(160))
-                            .SetVerticalAlignment(UIAlignment.Center)
-                    ),
+            // field's middle above its neighbours', so the select wears its caption inside it, as one line. The set wraps in even
+            // columns, so a narrow page takes the switches and the button under it.
+            .AddChild(new WrapPanelComponent()
+                .SetSpacing(16)
+                .SetLineSpacing(8)
+                .SetItemMinWidth(240)
+                .AddChildren(
+                    new SelectComponent()
+                        .SetTitle("nodes.edges")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetOptions([
+                            new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "nodes.edges.curved" },
+                            new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "nodes.edges.straight" },
+                            new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "nodes.edges.stepped" }
+                        ])
+                        .BindValue(nameof(NodesSheetController.EdgeShape))
+                        .SetVerticalAlignment(UIAlignment.Center),
                     new SwitchComponent()
                         .SetTitle("nodes.snap")
                         .BindValue(nameof(NodesSheetController.SnapToGrid))
@@ -56,6 +58,7 @@ internal abstract class NodesSheetView : NodesDemoView
                         .SetTitle("nodes.reset")
                         .SetType(UIButtonType.Outline)
                         .OnClick(nameof(NodesSheetController.Reset))
+                        .SetHorizontalAlignment(UIAlignment.Start)
                         .SetVerticalAlignment(UIAlignment.Center)
                 )
                 .SetMargin(UIThickness.All(0, 0, 0, 12))
@@ -70,6 +73,9 @@ internal abstract class NodesSheetView : NodesDemoView
                 .SetShowRunPanel(true)
                 // Under the run panel: the inputs set out from a pin's menu, edited there as well as on their nodes.
                 .SetShowParameters(true)
+                // A node's frequent entries as icons in a bar above the node pressed: the node menu's own, a press on one its entry's
+                // press; a long press on a phone opens the menu with them atop it.
+                .SetNodeActionBar()
                 .OnStop(nameof(NodesSheetController.Stop))
                 // Held in the browser until a save sends it: the sheet is the viewer's until then.
                 .SetFormId(NodesSheetController.CanvasForm)
@@ -79,7 +85,7 @@ internal abstract class NodesSheetView : NodesDemoView
                 .BindIsReadOnly(nameof(NodesSheetController.ReadOnly))
                 .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "nodes.run-sheet", Icon = NodesIcons.Run })
                 // An entry of the page's own in a node's menu, under the canvas's: the command hears which node.
-                .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "nodes.show-position", Icon = NodesIcons.Position })
+                .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "nodes.show-position", Icon = NodesIcons.Position, InActionBar = true })
                 .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"), UIGraphArguments.Target("target"))
                 .OnSave(nameof(NodesSheetController.SaveAsync), UIGraphArguments.Reason("reason"))
                 .OnImageUpload(nameof(NodesSheetController.ImageUploadedAsync))

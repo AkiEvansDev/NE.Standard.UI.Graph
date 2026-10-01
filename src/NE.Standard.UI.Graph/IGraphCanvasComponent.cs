@@ -45,6 +45,12 @@ public interface IGraphCanvasComponent : IInputComponent
     /// <summary>Gets the registered property key for <see cref="CanvasHeight"/>.</summary>
     static UIProperty CanvasHeightProperty { get; } = new(nameof(CanvasHeight));
 
+    /// <summary>Gets the registered property key for <see cref="NodeActionBar"/>.</summary>
+    static UIProperty NodeActionBarProperty { get; } = new(nameof(NodeActionBar));
+
+    /// <summary>Gets the registered property key for <see cref="NodeActionBarRepeatInMore"/>.</summary>
+    static UIProperty NodeActionBarRepeatInMoreProperty { get; } = new(nameof(NodeActionBarRepeatInMore));
+
     /// <summary>Gets the registered property key for <see cref="ColorChoices"/>.</summary>
     static UIProperty ColorChoicesProperty { get; } = new(nameof(ColorChoices));
 
@@ -77,6 +83,18 @@ public interface IGraphCanvasComponent : IInputComponent
 
     /// <summary>Gets whether every edit is saved as it is made, as Ctrl+S would save it.</summary>
     bool? AutoSave { get; }
+
+    /// <summary>
+    /// Gets whether a node carries an action bar: the node menu's entries marked <c>InActionBar</c> as icons above the node the reader
+    /// chose — pressed, tapped, or holding the keyboard — until a press elsewhere, Escape, or another node chosen.
+    /// </summary>
+    bool? NodeActionBar { get; }
+
+    /// <summary>
+    /// Gets whether the menu a node bar's "…" opens repeats the entries the bar shows; off, it holds the rest alone. A right-click and
+    /// a long press open the whole menu either way.
+    /// </summary>
+    bool? NodeActionBarRepeatInMore { get; }
 
     /// <summary>Gets whether a moved item's position is rounded to the grid's step.</summary>
     bool? SnapToGrid { get; }
