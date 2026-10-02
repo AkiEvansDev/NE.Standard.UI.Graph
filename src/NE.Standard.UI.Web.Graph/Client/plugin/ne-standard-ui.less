@@ -1217,15 +1217,18 @@
 }
 
 // The row an action bar stands over (action-bar-engine.ts) washes as the keyboard's row does, so the bar says whose it is when no
-// pointer is on the row — a finger lifted, the keyboard; on a chosen row, as the cursor's layer. `@bar` is the path from the row to
-// the bar, which stands in its host: the row itself or a part of it.
+// pointer is on the row — a finger lifted, the keyboard; on a chosen row, as the cursor's layer. `SelectionStyle.ActionBarBackground`
+// (`--ui-selected-bar-ground`) gives it another ground, or none for a row its own card covers. `@bar` is the path from the row to the
+// bar, which stands in its host: the row itself or a part of it.
 .ui-row-bar(@host; @row; @via: ~""; @bar: ~"> [data-ui-action-bar] > .ui-action-bar") {
     @{host} > @{via}[data-ui-items-host] > @{row}:not([data-ui-selected]):has(@{bar}) {
         .ui-row-hover();
+        background-color: var(--ui-selected-bar-ground, var(--ui-wash-hover));
+        --ui-row-wash: var(--ui-selected-bar-ground, var(--ui-wash-hover));
     }
 
     @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-selected]:has(@{bar}) {
-        .ui-row-cursor-layer();
+        --ui-row-cursor-wash: var(--ui-selected-bar-ground, var(--ui-wash-hover));
     }
 }
 
