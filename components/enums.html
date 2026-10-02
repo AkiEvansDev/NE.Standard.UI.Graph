@@ -1,0 +1,580 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Enums and value types — NE.Standard.UI.Graph</title>
+    <meta name="description" content="The enums and the value types a component property takes.">
+    <link rel="stylesheet" href="../site.css">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <script src="../site.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="site">
+        <a class="name" href="../index.html">NE.Standard.UI.Graph</a>
+        <button class="pages-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Pages</button>
+        <nav>
+            <a href="../node-canvas.html">Guides</a>
+            <a href="../components/index.html">Components</a>
+            <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <input class="nav-filter" type="search" placeholder="Filter pages" aria-label="Filter pages" autocomplete="off" hidden>
+            <h3>Guides</h3>
+            <ul>
+                <li><a href="../index.html" title="Three canvases for the NE.Standard UI framework: a node editor, a layered graph and a production graph.">Overview</a></li>
+                <li><a href="../node-canvas.html" title="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">The node canvas</a></li>
+                <li><a href="../node-kinds.html" title="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">Ready-made kinds</a></li>
+                <li><a href="../canvas.html" title="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">The canvas</a></li>
+                <li><a href="../layered-graph.html" title="A graph of the application&#39;s nodes and links, laid out in layers.">Layered graph</a></li>
+                <li><a href="../production-graph.html" title="Resources and the recipes between them, and a plan over the catalogue.">Production graph</a></li>
+                <li><a href="../inside.html" title="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">Inside the package</a></li>
+            </ul>
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="../components/index.html">All components</a></li>
+                <li class="current"><a href="../components/enums.html">Enums and value types</a></li>
+            </ul>
+            <h3>Graph</h3>
+            <ul>
+                <li><a href="../components/layered-graph.html" title="A graph of the application&#39;s nodes and the links between them, laid out in layers.">Layered graph</a></li>
+                <li><a href="../components/nodes.html" title="A canvas of typed nodes the viewer wires together.">Nodes</a></li>
+                <li><a href="../components/production-graph.html" title="A graph of resources and the crafts between them, laid out in layers.">Production graph</a></li>
+            </ul>
+        </aside>
+        <main>
+<article class="reference">
+<h1>Enums and value types</h1>
+<p class="lead">Every enum and every value type a component property or an item model carries, with what each member means. A property page links here from its type.</p>
+<h2 id="value-types">Value types</h2>
+<p>A length, a colour, a text appearance: built from a static member, or written as its parts.</p>
+<h3 id="ColorVariant"><code>ColorVariant</code></h3>
+<p class="meta">From <code>NE.Colors</code>, a package of its own: the names are listed here, and
+what they mean is in <a href="https://github.com/AkiEvansDev/NE.Colors">its own repository</a>.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>FromRgb(byte red, byte green, byte blue, ColorAdjustment adjustment = ColorAdjustment.None, int factor = 0, byte opacity = 255)</code></td><td></td></tr>
+<tr><td><code>FromColor(Color color, ColorAdjustment adjustment = ColorAdjustment.None, int factor = 0)</code></td><td></td></tr>
+<tr><td><code>TryParseHex(string? text, ColorVariant variant)</code></td><td></td></tr>
+<tr><td><code>MinFactor</code></td><td></td></tr>
+<tr><td><code>MaxFactor</code></td><td></td></tr>
+<tr><td><code>ColorName Name</code></td><td></td></tr>
+<tr><td><code>ColorAdjustment Adjustment</code></td><td></td></tr>
+<tr><td><code>int Factor</code></td><td></td></tr>
+<tr><td><code>byte Opacity</code></td><td></td></tr>
+<tr><td><code>int? Rgb</code></td><td></td></tr>
+</tbody>
+</table>
+<h3 id="UIActionArgument"><code>UIActionArgument</code></h3>
+<p>Represents a value, binding, or contextual value passed to a UI action.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Literal(object? value)</code></td><td>Creates a literal action argument from a value.</td></tr>
+<tr><td><code>CurrentItem()</code></td><td>Creates an action argument resolved from the current item.</td></tr>
+<tr><td><code>CurrentItemKey()</code></td><td>Creates an action argument resolved from the current item key.</td></tr>
+<tr><td><code>GroupKey()</code></td><td>Creates an action argument resolved from the current item&#39;s group.</td></tr>
+<tr><td><code>EventKey(int index)</code></td><td>Creates an action argument resolved from the key at <code>index</code> of the event&#39;s own key chain.</td></tr>
+<tr><td><code>EventValue()</code></td><td>Creates an action argument resolved from what the event carries after the keys that address its component.</td></tr>
+<tr><td><code>Bind(UIBindingPath binding)</code></td><td>Creates an action argument resolved from a binding path.</td></tr>
+<tr><td><code>UIActionArgumentKind Kind</code></td><td>How this argument is resolved.</td></tr>
+<tr><td><code>object Value</code></td><td>The literal value for literal arguments, and the place in the event&#39;s key chain for an event key.</td></tr>
+<tr><td><code>UIBindingPath? Binding</code></td><td>The binding path for binding arguments.</td></tr>
+</tbody>
+</table>
+<h3 id="UIBindingPath"><code>UIBindingPath</code></h3>
+<p>Represents a recursive binding path and the context used to resolve it.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Relative(RecursivePath path)</code></td><td>Creates a binding path resolved relative to the current binding context.</td></tr>
+<tr><td><code>Parent(RecursivePath path)</code></td><td>Creates a binding path resolved relative to the parent binding context.</td></tr>
+<tr><td><code>Root(RecursivePath path)</code></td><td>Creates a binding path resolved relative to the root binding context.</td></tr>
+<tr><td><code>RecursivePath Path</code></td><td>The recursive binding path.</td></tr>
+<tr><td><code>UIBindingScope Scope</code></td><td>The context used to resolve the path.</td></tr>
+</tbody>
+</table>
+<h3 id="UIGridPlacement"><code>UIGridPlacement</code></h3>
+<p>A component&#39;s placement in the fixed-column grid: 1-based column/row, and how many columns/rows it spans.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>At(int column, int row, int columnSpan = 1, int rowSpan = 1)</code></td><td>Creates a placement at the given column and row with the given spans.</td></tr>
+<tr><td><code>GridColumns</code></td><td>Gets the number of columns in the standard UI grid.</td></tr>
+<tr><td><code>int Column</code></td><td></td></tr>
+<tr><td><code>int Row</code></td><td></td></tr>
+<tr><td><code>int ColumnSpan</code></td><td></td></tr>
+<tr><td><code>int RowSpan</code></td><td></td></tr>
+</tbody>
+</table>
+<h3 id="UILayoutLength"><code>UILayoutLength</code></h3>
+<p>Represents a layout length value.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Auto()</code></td><td>Creates a layout length that sizes automatically to its content.</td></tr>
+<tr><td><code>Absolute(double value)</code></td><td>Creates a layout length with a fixed absolute value.</td></tr>
+<tr><td><code>Fill()</code></td><td>The whole of what the parent gives, less the component&#39;s own margin on that axis: a list with <code>SetMargin(8)</code> and a <code>Fill</code> height fits its parent with 8 px clear at either end rather than overflowing it by the margin.</td></tr>
+<tr><td><code>UILayoutLengthKind Kind</code></td><td>Whether the length is absolute, the whole of what the parent gives, or the content&#39;s own.</td></tr>
+<tr><td><code>double Value</code></td><td>The length in pixels for <code>UILayoutLengthKind.Absolute</code>; <code>-1</code> for the kinds that carry none.</td></tr>
+</tbody>
+</table>
+<h3 id="UIProperty"><code>UIProperty</code></h3>
+<p>Represents a UI component property key.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>string Name</code></td><td>The property name.</td></tr>
+</tbody>
+</table>
+<h3 id="UITextAppearance"><code>UITextAppearance</code></h3>
+<p>Represents a text&#39;s typography: either a semantic <code>UITextType</code> role, or an explicit <code>UITextAppearance.Size</code> override.</p>
+<p><code>UITextAppearance.Weight</code>, <code>UITextAppearance.LineHeight</code> and <code>UITextAppearance.LetterSpacing</code> are read only alongside an explicit <code>UITextAppearance.Size</code>.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>FromRole(UITextType role)</code></td><td>Creates a text appearance tracking the given semantic <code>UITextType</code> role live.</td></tr>
+<tr><td><code>Custom(double size, int? weight = null, double? lineHeight = null, double? letterSpacing = null)</code></td><td>Creates a text appearance from an explicit font size, optionally overriding weight, line-height, and letter-spacing.</td></tr>
+<tr><td><code>Display</code></td><td>The largest, most prominent typographic role, for hero-style text, tracked live via <code>UITextAppearance.FromRole</code>.</td></tr>
+<tr><td><code>Title</code></td><td>The typographic role for primary headings, tracked live via <code>UITextAppearance.FromRole</code>.</td></tr>
+<tr><td><code>Subtitle</code></td><td>The typographic role for secondary headings, tracked live via <code>UITextAppearance.FromRole</code>.</td></tr>
+<tr><td><code>Body</code></td><td>The typographic role for regular body text, tracked live via <code>UITextAppearance.FromRole</code>.</td></tr>
+<tr><td><code>Caption</code></td><td>The typographic role for small, supplementary text, tracked live via <code>UITextAppearance.FromRole</code>.</td></tr>
+<tr><td><code>Overline</code></td><td>The typographic role for small label text placed above content, tracked live via <code>UITextAppearance.FromRole</code>.</td></tr>
+<tr><td><code>UITextType? Role</code></td><td>The semantic role sizing the text; used only while <code>Size</code> is unset.</td></tr>
+<tr><td><code>double? Size</code></td><td>An explicit size, in pixels, which wins over the role.</td></tr>
+<tr><td><code>int? Weight</code></td><td>An explicit font weight.</td></tr>
+<tr><td><code>double? LineHeight</code></td><td>An explicit line height, in pixels.</td></tr>
+<tr><td><code>double? LetterSpacing</code></td><td>An explicit letter spacing, in pixels.</td></tr>
+</tbody>
+</table>
+<h3 id="UIThemeColor"><code>UIThemeColor</code></h3>
+<p>Represents a themed color: either a semantic <code>UIColorStyle</code> role, or an explicit <code>UIThemeColor.Light</code>/<code>UIThemeColor.Dark</code> override, which wins when set.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>FromStyle(UIColorStyle style)</code></td><td>Creates a theme color tracking the given semantic <code>UIColorStyle</code> role live.</td></tr>
+<tr><td><code>FromColorVariant(ColorName name, ColorAdjustment adjustment = ColorAdjustment.None, int factor = 0, byte opacity = 255)</code></td><td>Creates a theme color from a fixed color variant, used identically in both light and dark mode.</td></tr>
+<tr><td><code>FromColorVariant(ColorVariant color)</code></td><td>Creates a theme color from a fixed color variant, used identically in both light and dark mode.</td></tr>
+<tr><td><code>Create(ColorVariant? light, ColorVariant? dark)</code></td><td>Creates a theme color from explicit light and dark overrides.</td></tr>
+<tr><td><code>TryParse(string? text, UIThemeColor color)</code></td><td>Reads the canonical wire form a client sends back: <code>@Role</code> for a semantic role, <code>#RRGGBBAA</code> for an explicit colour, or <code>Name/Adjustment/factor/opacity</code> for a palette variant.</td></tr>
+<tr><td><code>Default</code></td><td>Presets mirroring each <code>UIColorStyle</code> role, theme-aware via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Primary</code></td><td>The theme&#39;s primary brand color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Accent</code></td><td>The theme&#39;s secondary accent color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Background</code></td><td>The page/surface background color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Surface</code></td><td>A raised surface&#39;s background color (e.g. a card), tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnPrimary</code></td><td>A color intended to sit on top of <code>UIThemeColor.Primary</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnAccent</code></td><td>A color intended to sit on top of <code>UIThemeColor.Accent</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnBackground</code></td><td>A color intended to sit on top of <code>UIThemeColor.Background</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnSurface</code></td><td>A color intended to sit on top of <code>UIThemeColor.Surface</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Info</code></td><td>The informational status color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Warning</code></td><td>The warning status color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Success</code></td><td>The success status color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Danger</code></td><td>The danger/error status color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnInfo</code></td><td>A color intended to sit on top of <code>UIThemeColor.Info</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnWarning</code></td><td>A color intended to sit on top of <code>UIThemeColor.Warning</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnSuccess</code></td><td>A color intended to sit on top of <code>UIThemeColor.Success</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>OnDanger</code></td><td>A color intended to sit on top of <code>UIThemeColor.Danger</code>, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Muted</code></td><td>A dimmed variant of the ambient color, for secondary/de-emphasized text, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Selected</code></td><td>The chrome token indicating a selected item or state, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>FocusRing</code></td><td>The focus indicator ring color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Border</code></td><td>The default border color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Shadow</code></td><td>The drop shadow color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Overlay</code></td><td>The modal/scrim overlay color, tracked live via <code>UIThemeColor.FromStyle</code>.</td></tr>
+<tr><td><code>Transparent</code></td><td>No fill: a colour of no opacity, the same in both themes. A background written it shows what is behind it, and what stands on it takes the page&#39;s ink, as on the page&#39;s own grounds.</td></tr>
+<tr><td><code>UIColorStyle? Style</code></td><td>The semantic role the palette resolves the colour from.</td></tr>
+<tr><td><code>ColorVariant? Light</code></td><td>An explicit colour for the light theme.</td></tr>
+<tr><td><code>ColorVariant? Dark</code></td><td>An explicit colour for the dark theme.</td></tr>
+</tbody>
+</table>
+<h3 id="UIThickness"><code>UIThickness</code></h3>
+<p>Thickness values, in pixels, for a rectangular UI element&#39;s four sides.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>All(double left, double top, double right, double bottom)</code></td><td>Creates a thickness with an independent value for each side.</td></tr>
+<tr><td><code>Uniform(double value)</code></td><td>Creates a thickness applying the same value to all four sides.</td></tr>
+<tr><td><code>Symmetric(double horizontal, double vertical)</code></td><td>Creates a thickness applying one value to the left/right sides and another to the top/bottom sides.</td></tr>
+<tr><td><code>double Left</code></td><td></td></tr>
+<tr><td><code>double Top</code></td><td></td></tr>
+<tr><td><code>double Right</code></td><td></td></tr>
+<tr><td><code>double Bottom</code></td><td></td></tr>
+</tbody>
+</table>
+<h3 id="UIValidationMessage"><code>UIValidationMessage</code></h3>
+<p>A validation message a controller puts on an input: the severity and the words. Null on the property means none.</p>
+<p>The words are translatable as a label is: a text is looked up as a plain value on a translatable property is — under key prefixes only a prefixed one — and a <code>UIPhrase</code> always; the page shows them in its language and again after a switch.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Error(string message)</code></td><td>A message that refuses the value.</td></tr>
+<tr><td><code>Error(UIPhrase message)</code></td><td>A message that refuses the value.</td></tr>
+<tr><td><code>Warning(string message)</code></td><td>A message that warns about the value without refusing it.</td></tr>
+<tr><td><code>Warning(UIPhrase message)</code></td><td>A message that warns about the value without refusing it.</td></tr>
+<tr><td><code>Info(string message)</code></td><td>A message that only tells the viewer something about the value.</td></tr>
+<tr><td><code>Info(UIPhrase message)</code></td><td>A message that only tells the viewer something about the value.</td></tr>
+<tr><td><code>UIValidationSeverity Severity</code></td><td>How the message is drawn and whether it refuses a submit.</td></tr>
+<tr><td><code>UIPhrase Message</code></td><td>The words shown under the input, or in its marker&#39;s tooltip: the author&#39;s text (<code>UIPhrase.IsText</code>) or a phrase.</td></tr>
+</tbody>
+</table>
+<h3 id="UIValidationRule"><code>UIValidationRule</code></h3>
+<p>Describes a validation rule for a UI value.</p>
+<p>The message is translatable as <code>UIValidationMessage.Message</code> is: a text is looked up as a plain value on a translatable property is — under key prefixes only a prefixed one — and a <code>UIPhrase</code> always; the page shows it in its language and again after a switch.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>UIValidationTrigger Trigger</code></td><td>When the validation rule is evaluated.</td></tr>
+<tr><td><code>UIComparisonOperator Operator</code></td><td>The comparison operator used by the rule.</td></tr>
+<tr><td><code>object Value</code></td><td>The comparison value used by the rule.</td></tr>
+<tr><td><code>UIValidationSeverity Severity</code></td><td>The validation severity.</td></tr>
+<tr><td><code>UIPhrase Message</code></td><td>The validation message shown when the rule fails: the author&#39;s text (<code>UIPhrase.IsText</code>) or a phrase.</td></tr>
+</tbody>
+</table>
+<h2 id="enums">Enums</h2>
+<h3 id="ColorAdjustment"><code>ColorAdjustment</code></h3>
+<p class="meta">From <code>NE.Colors</code>, a package of its own: the names are listed here, and
+what they mean is in <a href="https://github.com/AkiEvansDev/NE.Colors">its own repository</a>.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>None</code></td><td></td></tr>
+<tr><td><code>Shade</code></td><td></td></tr>
+<tr><td><code>Tint</code></td><td></td></tr>
+</tbody>
+</table>
+<h3 id="ColorName"><code>ColorName</code></h3>
+<p class="meta">From <code>NE.Colors</code>, a package of its own: the names are listed here, and
+what they mean is in <a href="https://github.com/AkiEvansDev/NE.Colors">its own repository</a>.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>IronFog</code></td><td></td></tr>
+<tr><td><code>SilverNight</code></td><td></td></tr>
+<tr><td><code>BronzeDusk</code></td><td></td></tr>
+<tr><td><code>StellarRed</code></td><td></td></tr>
+<tr><td><code>NebulaRose</code></td><td></td></tr>
+<tr><td><code>LunarPink</code></td><td></td></tr>
+<tr><td><code>SolarAmber</code></td><td></td></tr>
+<tr><td><code>NebulaGold</code></td><td></td></tr>
+<tr><td><code>LunarYellow</code></td><td></td></tr>
+<tr><td><code>EclipseOlive</code></td><td></td></tr>
+<tr><td><code>NebulaLime</code></td><td></td></tr>
+<tr><td><code>LunarSage</code></td><td></td></tr>
+<tr><td><code>AuroraGreen</code></td><td></td></tr>
+<tr><td><code>NebulaMint</code></td><td></td></tr>
+<tr><td><code>LunarFern</code></td><td></td></tr>
+<tr><td><code>AstralTeal</code></td><td></td></tr>
+<tr><td><code>NebulaCyan</code></td><td></td></tr>
+<tr><td><code>LunarMoss</code></td><td></td></tr>
+<tr><td><code>QuantumBlue</code></td><td></td></tr>
+<tr><td><code>NebulaAqua</code></td><td></td></tr>
+<tr><td><code>LunarAzure</code></td><td></td></tr>
+<tr><td><code>NovaPurple</code></td><td></td></tr>
+<tr><td><code>NebulaViolet</code></td><td></td></tr>
+<tr><td><code>LunarLavender</code></td><td></td></tr>
+<tr><td><code>Comet</code></td><td></td></tr>
+<tr><td><code>Flare</code></td><td></td></tr>
+<tr><td><code>Ember</code></td><td></td></tr>
+<tr><td><code>Photon</code></td><td></td></tr>
+<tr><td><code>Vortex</code></td><td></td></tr>
+<tr><td><code>Halo</code></td><td></td></tr>
+</tbody>
+</table>
+<h3 id="UIActionArgumentKind"><code>UIActionArgumentKind</code></h3>
+<p>Defines how an interaction action argument is resolved.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Literal</code></td><td>The argument value is a fixed literal.</td></tr>
+<tr><td><code>CurrentItem</code></td><td>The argument value is the current item of the enclosing items scope.</td></tr>
+<tr><td><code>CurrentItemKey</code></td><td>The argument value is the key of the current item of the enclosing items scope.</td></tr>
+<tr><td><code>Binding</code></td><td>The argument value is resolved from a binding.</td></tr>
+<tr><td><code>EventKey</code></td><td>The argument value is one key of the event&#39;s own chain, by its place in it — for an event that names its keys itself.</td></tr>
+<tr><td><code>EventValue</code></td><td>The argument value is what the event carries after the keys that address its component — the place a dragged row was dropped at.</td></tr>
+<tr><td><code>GroupKey</code></td><td>The argument value is the group of the current item — in a group header, the group the header heads.</td></tr>
+</tbody>
+</table>
+<h3 id="UIActionBarAlignment"><code>UIActionBarAlignment</code></h3>
+<p>How a component&#39;s action bar lines up with it (<code>SetActionBar</code>): the bar floats above the component, under it where there is no room above, aligned with its end, its start or its middle. Start and end follow the page&#39;s direction, so a right-to-left page mirrors them.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>End</code></td><td>Aligned with the end edge, where a messenger puts a message&#39;s actions.</td></tr>
+<tr><td><code>Start</code></td><td>Aligned with the start edge.</td></tr>
+<tr><td><code>Center</code></td><td>Centred on the component, as over a node on a canvas.</td></tr>
+</tbody>
+</table>
+<h3 id="UIAlignment"><code>UIAlignment</code></h3>
+<p>Defines cross-axis or main-axis alignment for UI layout.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Start</code></td><td>Aligns content to the start of the axis.</td></tr>
+<tr><td><code>Center</code></td><td>Aligns content to the center of the axis.</td></tr>
+<tr><td><code>End</code></td><td>Aligns content to the end of the axis.</td></tr>
+<tr><td><code>Stretch</code></td><td>Stretches content to fill the axis.</td></tr>
+</tbody>
+</table>
+<h3 id="UIBadgeType"><code>UIBadgeType</code></h3>
+<p>Defines visual variants for badge-like components.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Primary</code></td><td>The theme&#39;s primary brand color variant.</td></tr>
+<tr><td><code>Accent</code></td><td>The theme&#39;s secondary accent color variant.</td></tr>
+<tr><td><code>Info</code></td><td>The informational status color variant.</td></tr>
+<tr><td><code>Warning</code></td><td>The warning status color variant.</td></tr>
+<tr><td><code>Success</code></td><td>The success status color variant.</td></tr>
+<tr><td><code>Danger</code></td><td>The danger/error status color variant.</td></tr>
+<tr><td><code>Surface</code></td><td>A card-like distinct background variant with no color accent.</td></tr>
+<tr><td><code>Plain</code></td><td>The content alone, with no ground, edge or padding, in the muted ink; a reachable one brightens under the pointer and the keyboard.</td></tr>
+</tbody>
+</table>
+<h3 id="UIBindingMode"><code>UIBindingMode</code></h3>
+<p>Defines how data flows between a binding source and a UI target.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>OneWay</code></td><td>Updates flow only from the binding source to the UI target.</td></tr>
+<tr><td><code>TwoWay</code></td><td>Updates flow in both directions between the binding source and the UI target.</td></tr>
+<tr><td><code>OneWayToSource</code></td><td>Updates flow only from the UI target to the binding source.</td></tr>
+<tr><td><code>OnSubmit</code></td><td>Target-to-source updates are buffered until an explicit submit occurs.</td></tr>
+</tbody>
+</table>
+<h3 id="UIBindingScope"><code>UIBindingScope</code></h3>
+<p>Defines the component context used to resolve a binding path.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Relative</code></td><td>Resolves the binding path relative to the component&#39;s own context.</td></tr>
+<tr><td><code>Parent</code></td><td>Resolves the binding path relative to the parent component&#39;s context.</td></tr>
+<tr><td><code>Root</code></td><td>Resolves the binding path relative to the root context.</td></tr>
+</tbody>
+</table>
+<h3 id="UIColorStyle"><code>UIColorStyle</code></h3>
+<p>Defines semantic color roles used by UI components.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Default</code></td><td>No explicit color override; inherits the ambient color.</td></tr>
+<tr><td><code>Primary</code></td><td>The theme&#39;s primary brand color.</td></tr>
+<tr><td><code>Accent</code></td><td>The theme&#39;s secondary accent color.</td></tr>
+<tr><td><code>Background</code></td><td>The page/surface background color.</td></tr>
+<tr><td><code>Surface</code></td><td>A raised surface&#39;s background color (e.g. a card).</td></tr>
+<tr><td><code>OnPrimary</code></td><td>A color intended to sit on top of <code>UIColorStyle.Primary</code>.</td></tr>
+<tr><td><code>OnAccent</code></td><td>A color intended to sit on top of <code>UIColorStyle.Accent</code>.</td></tr>
+<tr><td><code>OnBackground</code></td><td>A color intended to sit on top of <code>UIColorStyle.Background</code>.</td></tr>
+<tr><td><code>OnSurface</code></td><td>A color intended to sit on top of <code>UIColorStyle.Surface</code>.</td></tr>
+<tr><td><code>Info</code></td><td>The informational status color.</td></tr>
+<tr><td><code>Warning</code></td><td>The warning status color.</td></tr>
+<tr><td><code>Success</code></td><td>The success status color.</td></tr>
+<tr><td><code>Danger</code></td><td>The danger/error status color.</td></tr>
+<tr><td><code>OnInfo</code></td><td>A color intended to sit on top of <code>UIColorStyle.Info</code>.</td></tr>
+<tr><td><code>OnWarning</code></td><td>A color intended to sit on top of <code>UIColorStyle.Warning</code>.</td></tr>
+<tr><td><code>OnSuccess</code></td><td>A color intended to sit on top of <code>UIColorStyle.Success</code>.</td></tr>
+<tr><td><code>OnDanger</code></td><td>A color intended to sit on top of <code>UIColorStyle.Danger</code>.</td></tr>
+<tr><td><code>Muted</code></td><td>A dimmed variant of the ambient color, for secondary/de-emphasized text.</td></tr>
+<tr><td><code>Selected</code></td><td>The color indicating a selected item or state.</td></tr>
+<tr><td><code>FocusRing</code></td><td>The color of the focus indicator ring around focused elements.</td></tr>
+<tr><td><code>Border</code></td><td>The default border color.</td></tr>
+<tr><td><code>Shadow</code></td><td>The color used for drop shadows.</td></tr>
+<tr><td><code>Overlay</code></td><td>The color used for modal/scrim overlay backgrounds.</td></tr>
+</tbody>
+</table>
+<h3 id="UIComparisonOperator"><code>UIComparisonOperator</code></h3>
+<p>Defines comparison operators used by UI validation and interaction rules.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Required</code></td><td>The value must be present: not null, not <code>false</code>, and not empty or whitespace text.</td></tr>
+<tr><td><code>Equal</code></td><td>The value must equal the comparison value.</td></tr>
+<tr><td><code>NotEqual</code></td><td>The value must not equal the comparison value.</td></tr>
+<tr><td><code>Greater</code></td><td>The value must be greater than the comparison value.</td></tr>
+<tr><td><code>GreaterOrEqual</code></td><td>The value must be greater than or equal to the comparison value.</td></tr>
+<tr><td><code>Less</code></td><td>The value must be less than the comparison value.</td></tr>
+<tr><td><code>LessOrEqual</code></td><td>The value must be less than or equal to the comparison value.</td></tr>
+<tr><td><code>Like</code></td><td>The value must contain the comparison value as a substring.</td></tr>
+<tr><td><code>In</code></td><td>The value must be contained in the comparison value&#39;s collection.</td></tr>
+<tr><td><code>Regex</code></td><td>The value must match the comparison value as a regular expression.</td></tr>
+<tr><td><code>LikeIgnoreCase</code></td><td>The value must contain the comparison value as a substring, ignoring case.</td></tr>
+</tbody>
+</table>
+<h3 id="UIGraphDirection"><code>UIGraphDirection</code></h3>
+<p>Which way the layered layout runs, from what nothing feeds to what feeds nothing.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>LeftToRight</code></td><td>The layers stand side by side, the first at the left.</td></tr>
+<tr><td><code>TopToBottom</code></td><td>The layers stand one under another, the first at the top.</td></tr>
+<tr><td><code>RightToLeft</code></td><td>The layers stand side by side, the first at the right — read from what feeds nothing back to what nothing feeds.</td></tr>
+<tr><td><code>BottomToTop</code></td><td>The layers stand one under another, the first at the bottom.</td></tr>
+</tbody>
+</table>
+<h3 id="UIGraphEdgeShape"><code>UIGraphEdgeShape</code></h3>
+<p>How an edge is drawn between two pins.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Bezier</code></td><td>A curve leaving each pin sideways.</td></tr>
+<tr><td><code>Straight</code></td><td>A straight line from pin to pin.</td></tr>
+<tr><td><code>Orthogonal</code></td><td>Horizontal and vertical runs with square corners.</td></tr>
+</tbody>
+</table>
+<h3 id="UIGraphNodeShape"><code>UIGraphNodeShape</code></h3>
+<p>How a graph&#39;s node is drawn.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Card</code></td><td>A card: the icon or picture, the title and the line under it, and the badge at its end.</td></tr>
+<tr><td><code>Icon</code></td><td>A circle holding the node&#39;s picture, or its icon when it has none, with the title standing under it and as its tooltip.</td></tr>
+</tbody>
+</table>
+<h3 id="UIIconShape"><code>UIIconShape</code></h3>
+<p>The shape an icon that is a picture is drawn in; a glyph keeps its own whatever the shape.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Default</code></td><td>The picture as it is, its corners slightly rounded.</td></tr>
+<tr><td><code>Circle</code></td><td>The picture cut to a circle and filling it, a picture of another proportion cropped to its middle — a person, a team.</td></tr>
+</tbody>
+</table>
+<h3 id="UIIconSize"><code>UIIconSize</code></h3>
+<p>Defines standard icon sizes used by UI components.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Small</code></td><td>The smallest standard icon size.</td></tr>
+<tr><td><code>Medium</code></td><td>The default, medium icon size.</td></tr>
+<tr><td><code>Large</code></td><td>The largest standard icon size.</td></tr>
+</tbody>
+</table>
+<h3 id="UILayoutLengthKind"><code>UILayoutLengthKind</code></h3>
+<p>Defines the kind of layout length value.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Auto</code></td><td>The length is determined automatically based on content.</td></tr>
+<tr><td><code>Absolute</code></td><td>The length is a fixed value expressed in device-independent units.</td></tr>
+<tr><td><code>Fill</code></td><td>The whole of what the parent gives: a page that fills the viewport, a pane that fills its track. A component&#39;s own margin on that axis comes out of it, so a filled box with a margin still fits its parent.</td></tr>
+</tbody>
+</table>
+<h3 id="UIPopupPlacement"><code>UIPopupPlacement</code></h3>
+<p>Defines where a popup prefers to sit relative to its anchor; a side with no room for it flips to its opposite, and with room on neither, to a side across, so the popup never covers its own anchor where one of the four sides has room.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>BottomStart</code></td><td>Below the anchor, aligned to its start edge.</td></tr>
+<tr><td><code>Bottom</code></td><td>Below the anchor, centered on it.</td></tr>
+<tr><td><code>BottomEnd</code></td><td>Below the anchor, aligned to its end edge.</td></tr>
+<tr><td><code>TopStart</code></td><td>Above the anchor, aligned to its start edge.</td></tr>
+<tr><td><code>Top</code></td><td>Above the anchor, centered on it.</td></tr>
+<tr><td><code>TopEnd</code></td><td>Above the anchor, aligned to its end edge.</td></tr>
+<tr><td><code>LeftStart</code></td><td>To the left of the anchor, aligned to its start edge.</td></tr>
+<tr><td><code>Left</code></td><td>To the left of the anchor, centered on it.</td></tr>
+<tr><td><code>LeftEnd</code></td><td>To the left of the anchor, aligned to its end edge.</td></tr>
+<tr><td><code>RightStart</code></td><td>To the right of the anchor, aligned to its start edge.</td></tr>
+<tr><td><code>Right</code></td><td>To the right of the anchor, centered on it.</td></tr>
+<tr><td><code>RightEnd</code></td><td>To the right of the anchor, aligned to its end edge.</td></tr>
+</tbody>
+</table>
+<h3 id="UIProductionMode"><code>UIProductionMode</code></h3>
+<p>Which of its two uses a production graph is put to.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Constructor</code></td><td>The catalogue as it is: every resource and craft, one run&#39;s amounts on the edges, edited where the graph allows it.</td></tr>
+<tr><td><code>Plan</code></td><td>A plan over the catalogue: the viewer names target amounts, and the graph draws the crafts and resources that reach them.</td></tr>
+</tbody>
+</table>
+<h3 id="UITextBadgePlacement"><code>UITextBadgePlacement</code></h3>
+<p>Defines where a badge in text content is placed.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Inline</code></td><td>The badge is placed inline within the text content.</td></tr>
+<tr><td><code>Trailing</code></td><td>The badge is placed after the text content.</td></tr>
+</tbody>
+</table>
+<h3 id="UITextType"><code>UITextType</code></h3>
+<p>Defines semantic text roles used by text components.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Display</code></td><td>The largest, most prominent typographic role, for hero-style text.</td></tr>
+<tr><td><code>Title</code></td><td>The typographic role for primary headings.</td></tr>
+<tr><td><code>Subtitle</code></td><td>The typographic role for secondary headings.</td></tr>
+<tr><td><code>Body</code></td><td>The typographic role for regular body text.</td></tr>
+<tr><td><code>Caption</code></td><td>The typographic role for small, supplementary text.</td></tr>
+<tr><td><code>Overline</code></td><td>The typographic role for small label text placed above content.</td></tr>
+</tbody>
+</table>
+<h3 id="UIThemeMode"><code>UIThemeMode</code></h3>
+<p>The two themes a surface can be forced into. <code>null</code> means &quot;inherit&quot; on a component and &quot;follow the platform&quot; on a session.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Light</code></td><td>Always uses the light theme.</td></tr>
+<tr><td><code>Dark</code></td><td>Always uses the dark theme.</td></tr>
+</tbody>
+</table>
+<h3 id="UIValidationPresentation"><code>UIValidationPresentation</code></h3>
+<p>Where a field&#39;s validation message goes: a line under the field, or a mark at its edge that speaks in a tooltip.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Auto</code></td><td>A line under the field, except where the field sits in a cell of a grid — a table&#39;s, a key-value row&#39;s — where it is a mark.</td></tr>
+<tr><td><code>Message</code></td><td>A line under the field, wherever the field is.</td></tr>
+<tr><td><code>Marker</code></td><td>A mark at the field&#39;s edge, the message in its tooltip; the field keeps its height.</td></tr>
+</tbody>
+</table>
+<h3 id="UIValidationSeverity"><code>UIValidationSeverity</code></h3>
+<p>What a validation message means: an error stops a submit, a warning and an info only say something.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Error</code></td><td>Blocks a submit and draws both the required marker and the field&#39;s edge.</td></tr>
+<tr><td><code>Warning</code></td><td>Colours the field&#39;s edge but never blocks a submit.</td></tr>
+<tr><td><code>Info</code></td><td>Speaks only under the field, without touching its edge or blocking a submit.</td></tr>
+</tbody>
+</table>
+<h3 id="UIValidationTrigger"><code>UIValidationTrigger</code></h3>
+<p>Defines when a UI validation rule is evaluated.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Change</code></td><td>The rule is evaluated whenever the value changes.</td></tr>
+<tr><td><code>Blur</code></td><td>The rule is evaluated when the input loses focus.</td></tr>
+<tr><td><code>Submit</code></td><td>The rule is evaluated when the form is submitted.</td></tr>
+</tbody>
+</table>
+<h3 id="UIVisibility"><code>UIVisibility</code></h3>
+<p>Defines what a component does with the room it was given: fills it, keeps it empty, or gives it back.</p>
+<table>
+<thead><tr><th>Member</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td><code>Visible</code></td><td>Drawn, and taking part in everything: layout, hit-testing, focus and assistive technology.</td></tr>
+<tr><td><code>Hidden</code></td><td>Not drawn, but still holding its place — the layout around it does not move.</td></tr>
+<tr><td><code>Collapsed</code></td><td>Gone from the layout as well: everything after it closes the gap.</td></tr>
+</tbody>
+</table>
+
+</article>
+        </main>
+    </div>
+
+    <footer class="site">
+        <span class="version">Documents 1.4.1</span> ·
+        <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">github.com/AkiEvansDev/NE.Standard.UI.Graph</a> ·
+        the Prosperity Public License 3.0.0 — free for noncommercial use. Issues are the way to report a bug or ask
+        for a change; the repository is a read-only mirror and takes no pull requests.
+    </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,219 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nodes — NE.Standard.UI.Graph</title>
+    <meta name="description" content="A canvas of typed nodes the viewer wires together.">
+    <link rel="stylesheet" href="../site.css">
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+    <script src="../site.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="site">
+        <a class="name" href="../index.html">NE.Standard.UI.Graph</a>
+        <button class="pages-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Pages</button>
+        <nav>
+            <a href="../node-canvas.html">Guides</a>
+            <a href="../components/index.html">Components</a>
+            <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <input class="nav-filter" type="search" placeholder="Filter pages" aria-label="Filter pages" autocomplete="off" hidden>
+            <h3>Guides</h3>
+            <ul>
+                <li><a href="../index.html" title="Three canvases for the NE.Standard UI framework: a node editor, a layered graph and a production graph.">Overview</a></li>
+                <li><a href="../node-canvas.html" title="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">The node canvas</a></li>
+                <li><a href="../node-kinds.html" title="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">Ready-made kinds</a></li>
+                <li><a href="../canvas.html" title="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">The canvas</a></li>
+                <li><a href="../layered-graph.html" title="A graph of the application&#39;s nodes and links, laid out in layers.">Layered graph</a></li>
+                <li><a href="../production-graph.html" title="Resources and the recipes between them, and a plan over the catalogue.">Production graph</a></li>
+                <li><a href="../inside.html" title="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">Inside the package</a></li>
+            </ul>
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="../components/index.html">All components</a></li>
+                <li><a href="../components/enums.html">Enums and value types</a></li>
+            </ul>
+            <h3>Graph</h3>
+            <ul>
+                <li><a href="../components/layered-graph.html" title="A graph of the application&#39;s nodes and the links between them, laid out in layers.">Layered graph</a></li>
+                <li class="current"><a href="../components/nodes.html" title="A canvas of typed nodes the viewer wires together.">Nodes</a></li>
+                <li><a href="../components/production-graph.html" title="A graph of resources and the crafts between them, laid out in layers.">Production graph</a></li>
+            </ul>
+        </aside>
+        <main>
+<article class="component">
+<h1>Nodes</h1>
+<p class="lead">A canvas of typed nodes the viewer wires together.</p>
+<p class="meta"><code>NodesComponent</code> · type key <code>graph.canvas.nodes</code> · Graph</p>
+<pre><code class="language-csharp">new NodesComponent("nodes")</code></pre>
+<h2 id="properties">Properties</h2>
+<div class="table-scroll">
+<table class="props">
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Binding</th><th>Description</th></tr></thead>
+<tbody>
+<tr class="group"><td colspan="5">Own</td></tr>
+<tr id="Catalog"><td><a class="anchor" href="#Catalog"><code>Catalog</code></a><br><small>SetCatalog</small></td><td><code>UINodeCatalog</code></td><td><code>null</code></td><td><span class="muted">—</span></td><td>The node kinds the picker offers and a saved document is read back through.<br><small>Render-time only: the catalogue is how the canvas is built.</small></td></tr>
+<tr id="ShowRunProgress"><td><a class="anchor" href="#ShowRunProgress"><code>ShowRunProgress</code></a><br><small>SetShowRunProgress · BindShowRunProgress</small></td><td><code>bool?</code></td><td><code>true</code></td><td>one-way</td><td>Whether a run&#39;s progress is drawn as a line along the canvas&#39;s top.<br><small>Needs <code>SetRunProgressEffect</code>s pushed by the runner, and shows from the first run on; its room along the top stays clear before it, so the corner&#39;s chrome and a fit do not move when it appears.</small></td></tr>
+<tr id="ShowRunPanel"><td><a class="anchor" href="#ShowRunPanel"><code>ShowRunPanel</code></a><br><small>SetShowRunPanel · BindShowRunPanel</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether the canvas carries Run, Run all and Stop in its top corner.<br><small>Run and Run all save under a run&#39;s reason (<code>UIGraphArguments.RunReason</code>) for <code>UINodeRuns</code>; Stop raises <code>GraphEvents.RunStop</code>.</small></td></tr>
+<tr id="ShowParameters"><td><a class="anchor" href="#ShowParameters"><code>ShowParameters</code></a><br><small>SetShowParameters · BindShowParameters</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether the canvas carries a parameters panel under its run panel, where the inputs set out from their rows&#39; menus are edited as well as on their nodes.<br><small>The set is the sheet&#39;s own, <code>UINodeDocument.Parameters</code>, saved with it. Only an input with a field of its own that no wire feeds can be one; wiring it takes it out.</small></td></tr>
+<tr class="group"><td colspan="5">From GraphCanvasComponentBase</td></tr>
+<tr id="ColorChoices"><td><a class="anchor" href="#ColorChoices"><code>ColorChoices</code></a><br><small>SetColorChoices</small></td><td><code>UIGraphColorChoice[]</code></td><td><code>null</code></td><td><span class="muted">—</span></td><td>The colours an item&#39;s or a group&#39;s menu offers, in their order.<br><small>Render-time only: the choices are how the menus are built.</small></td></tr>
+<tr id="EdgeShape"><td><a class="anchor" href="#EdgeShape"><code>EdgeShape</code></a><br><small>SetEdgeShape · BindEdgeShape</small></td><td><code><a href="enums.html#UIGraphEdgeShape">UIGraphEdgeShape</a>?</code></td><td><code>UIGraphEdgeShape.Orthogonal</code></td><td>one-way</td><td>The shape every edge is drawn in: stepped unless told otherwise, on every kind of canvas.</td></tr>
+<tr id="GridSize"><td><a class="anchor" href="#GridSize"><code>GridSize</code></a><br><small>SetGridSize · BindGridSize</small></td><td><code>double?</code></td><td><code>20</code></td><td>one-way</td><td>The step of the grid behind the canvas, in canvas units.</td></tr>
+<tr id="ShowGrid"><td><a class="anchor" href="#ShowGrid"><code>ShowGrid</code></a><br><small>SetShowGrid · BindShowGrid</small></td><td><code>bool?</code></td><td><code>true</code></td><td>one-way</td><td>Whether the grid is drawn.</td></tr>
+<tr id="ShowFocusRing"><td><a class="anchor" href="#ShowFocusRing"><code>ShowFocusRing</code></a><br><small>SetShowFocusRing · BindShowFocusRing</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether the canvas shows a ring when it takes the keyboard.</td></tr>
+<tr id="ShowMenuButton"><td><a class="anchor" href="#ShowMenuButton"><code>ShowMenuButton</code></a><br><small>SetShowMenuButton · BindShowMenuButton</small></td><td><code>bool?</code></td><td><code>true</code></td><td>one-way</td><td>Whether the canvas draws <code>GraphCanvasComponentBase.Menu</code> in its leading corner, for input without a right button.</td></tr>
+<tr id="ShowMinimap"><td><a class="anchor" href="#ShowMinimap"><code>ShowMinimap</code></a><br><small>SetShowMinimap · BindShowMinimap</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether the canvas draws a pressable overview map of the whole sheet in its corner, with the visible part marked. Off by default.</td></tr>
+<tr id="HighlightOnHover"><td><a class="anchor" href="#HighlightOnHover"><code>HighlightOnHover</code></a><br><small>SetHighlightOnHover · BindHighlightOnHover</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether hovering an item highlights what it connects to, dimming everything else. Off by default here; a layered graph turns it on.</td></tr>
+<tr id="AutoSave"><td><a class="anchor" href="#AutoSave"><code>AutoSave</code></a><br><small>SetAutoSave · BindAutoSave</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether every edit is saved as it is made, the save event raised with <code>UIGraphArguments.AutoSaveReason</code>.<br><small>For a page whose document is the application&#39;s at once rather than the viewer&#39;s until Ctrl+S. Off by default.</small></td></tr>
+<tr id="NodeActionBar"><td><a class="anchor" href="#NodeActionBar"><code>NodeActionBar</code></a><br><small>SetNodeActionBar</small></td><td><code>bool?</code></td><td><code>false</code></td><td><span class="muted">—</span></td><td>Whether a node carries an action bar: the node menu&#39;s entries marked <code>InActionBar</code> — pin, rename and delete, and an application&#39;s own — as icons in a bar above the node the reader pressed, centred on it, until a press elsewhere or Escape; the rest behind its &quot;…&quot;. Off by default.<br><small>Render-time only. The bar floats a small gap above the node at its size on screen, under it where the canvas leaves no room above, and stays over the node redrawn as the document changes. A read-only canvas, and one in the middle of a drag, shows none. A long press on a touch screen opens the node&#39;s menu with the bar&#39;s icons atop it.</small></td></tr>
+<tr id="NodeActionBarRepeatInMore"><td><a class="anchor" href="#NodeActionBarRepeatInMore"><code>NodeActionBarRepeatInMore</code></a><br><small>SetNodeActionBarRepeatInMore</small></td><td><code>bool?</code></td><td><code>false</code></td><td><span class="muted">—</span></td><td>Whether the menu a node bar&#39;s &quot;…&quot; opens repeats the entries the bar shows. Off by default: the &quot;…&quot; opens the rest of the node menu (colour, an application&#39;s own entries), and a right-click or a long press the whole of it.<br><small>Render-time only.</small></td></tr>
+<tr id="SnapToGrid"><td><a class="anchor" href="#SnapToGrid"><code>SnapToGrid</code></a><br><small>SetSnapToGrid · BindSnapToGrid</small></td><td><code>bool?</code></td><td><code>true</code></td><td>one-way</td><td>Whether a moved item&#39;s position, and a node&#39;s size on the node canvas, snap to the grid step. On by default.</td></tr>
+<tr id="MinZoom"><td><a class="anchor" href="#MinZoom"><code>MinZoom</code></a><br><small>BindMinZoom</small></td><td><code>double?</code></td><td><code>0.25</code></td><td>one-way</td><td>How far the canvas may be zoomed out.</td></tr>
+<tr id="MaxZoom"><td><a class="anchor" href="#MaxZoom"><code>MaxZoom</code></a><br><small>BindMaxZoom</small></td><td><code>double?</code></td><td><code>2.5</code></td><td>one-way</td><td>How far the canvas may be zoomed in.</td></tr>
+<tr id="CanvasHeight"><td><a class="anchor" href="#CanvasHeight"><code>CanvasHeight</code></a><br><small>SetCanvasHeight · BindCanvasHeight</small></td><td><code>double?</code></td><td><code>32</code></td><td>one-way</td><td>The least height the canvas stands at, in rem; a canvas given a height of its own — a fill — grows past it.</td></tr>
+<tr class="group"><td colspan="5">From InputComponentBase</td></tr>
+<tr id="Value"><td><a class="anchor" href="#Value"><code>Value</code></a><br><small>SetValue · BindValue</small></td><td><code>UINodeDocument</code></td><td><code>null</code></td><td>two-way</td><td>The input&#39;s current value, boxed to <code>Object</code>; a concrete input also exposes its own typed <code>Value</code> alongside this one.</td></tr>
+<tr id="IconColor"><td><a class="anchor" href="#IconColor"><code>IconColor</code></a><br><small>SetIconColor · BindIconColor</small></td><td><code><a href="enums.html#UIThemeColor">UIThemeColor</a>?</code></td><td><code>Primary</code></td><td>one-way</td><td>The leading icon&#39;s colour, defaulting to <code>ITextBaseModel.DefaultIconColor</code>.</td></tr>
+<tr id="TitleType"><td><a class="anchor" href="#TitleType"><code>TitleType</code></a><br><small>SetTitleType · BindTitleType</small></td><td><code><a href="enums.html#UITextAppearance">UITextAppearance</a>?</code></td><td><code>Caption</code></td><td>one-way</td><td>The primary text type.</td></tr>
+<tr id="BadgePlacement"><td><a class="anchor" href="#BadgePlacement"><code>BadgePlacement</code></a><br><small>SetBadgePlacement · BindBadgePlacement</small></td><td><code><a href="enums.html#UITextBadgePlacement">UITextBadgePlacement</a>?</code></td><td><code>UITextBadgePlacement.Trailing</code></td><td>one-way</td><td>Where badge content is placed.</td></tr>
+<tr id="IsReadOnly"><td><a class="anchor" href="#IsReadOnly"><code>IsReadOnly</code></a><br><small>SetIsReadOnly · BindIsReadOnly</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether the input can be seen but not edited; unlike <code>IVisualComponent.Enabled</code>, a read-only value still submits and stays focusable.<br><small>True by a static value or a controller binding, the server refuses a value the input sends and answers it with the value it holds. A guard against a stale or forged page, not the permission itself: who may change the value belongs in the setter.</small></td></tr>
+<tr id="FormId"><td><a class="anchor" href="#FormId"><code>FormId</code></a><br><small>SetFormId · BindFormId</small></td><td><code>string</code></td><td><code>null</code></td><td>one-way</td><td>The id of the form this input belongs to, used to scope Submit-trigger validation.</td></tr>
+<tr id="Validation"><td><a class="anchor" href="#Validation"><code>Validation</code></a><br><small>SetValidation · BindValidation</small></td><td><code><a href="enums.html#UIValidationMessage">UIValidationMessage</a>?</code></td><td><code>null</code></td><td>one-way</td><td>A message the controller puts on the field, beside whatever the client rules say; the strongest one shows.</td></tr>
+<tr id="ValidationPresentation"><td><a class="anchor" href="#ValidationPresentation"><code>ValidationPresentation</code></a><br><small>SetValidationPresentation</small></td><td><code><a href="enums.html#UIValidationPresentation">UIValidationPresentation</a>?</code></td><td><code>UIValidationPresentation.Auto</code></td><td><span class="muted">—</span></td><td>Where the message goes: a line under the field, or an edge mark with the message in a tooltip.<br><small>Decided once at render; <code>UIValidationPresentation.Auto</code> is the line except in a grid cell.</small></td></tr>
+<tr id="Icon"><td><a class="anchor" href="#Icon"><code>Icon</code></a><br><small>SetIcon · BindIcon</small></td><td><code>string</code></td><td><code>null</code></td><td>one-way</td><td>The icon shown before the title, by name from the registered icon font/set.</td></tr>
+<tr id="IconSize"><td><a class="anchor" href="#IconSize"><code>IconSize</code></a><br><small>SetIconSize · BindIconSize</small></td><td><code><a href="enums.html#UIIconSize">UIIconSize</a>?</code></td><td><code>null</code></td><td>one-way</td><td>The leading icon size; left unset the glyph is as tall as the title beside it.</td></tr>
+<tr id="IconShape"><td><a class="anchor" href="#IconShape"><code>IconShape</code></a><br><small>SetIconShape · BindIconShape</small></td><td><code><a href="enums.html#UIIconShape">UIIconShape</a>?</code></td><td><code>null</code></td><td>one-way</td><td>The shape a leading icon that is a picture is drawn in — <code>UIIconShape.Circle</code> for a person&#39;s avatar; a glyph keeps its own.</td></tr>
+<tr id="Title"><td><a class="anchor" href="#Title"><code>Title</code></a><br><small>SetTitle · BindTitle</small></td><td><code>UIPhrase</code></td><td><code>null</code></td><td>one-way</td><td>The label text drawn as the title; nothing renders when it is unset. <span class="tag">translatable</span><br><small>A string (an author&#39;s text) or a <code>UIPhrase</code>, as every text of the model contracts is — the description, the tooltip, the badge&#39;s text and tooltip, a select entry&#39;s value — so a moment can stand in it.</small></td></tr>
+<tr id="TitleColor"><td><a class="anchor" href="#TitleColor"><code>TitleColor</code></a><br><small>SetTitleColor · BindTitleColor</small></td><td><code><a href="enums.html#UIThemeColor">UIThemeColor</a>?</code></td><td><code>Default</code></td><td>one-way</td><td>The primary text colour, which also colours the icon and the description unless either is overridden by <code>ITextModel.DescriptionColor</code> or <code>IconColor</code>.</td></tr>
+<tr id="BadgeStyle"><td><a class="anchor" href="#BadgeStyle"><code>BadgeStyle</code></a><br><small>SetBadgeStyle · BindBadgeStyle</small></td><td><code><a href="enums.html#UIBadgeType">UIBadgeType</a>?</code></td><td><code>UIBadgeType.Info</code></td><td>one-way</td><td>The badge visual variant.</td></tr>
+<tr id="BadgeColor"><td><a class="anchor" href="#BadgeColor"><code>BadgeColor</code></a><br><small>SetBadgeColor · BindBadgeColor</small></td><td><code><a href="enums.html#UIThemeColor">UIThemeColor</a>?</code></td><td><code>null</code></td><td>one-way</td><td>The badge&#39;s own colour, overriding <code>IBadgeModel.BadgeStyle</code> when set — a tag or a category swatch, which the closed style enum cannot name.</td></tr>
+<tr id="BadgeIcon"><td><a class="anchor" href="#BadgeIcon"><code>BadgeIcon</code></a><br><small>SetBadgeIcon · BindBadgeIcon</small></td><td><code>string</code></td><td><code>null</code></td><td>one-way</td><td>The icon shown beside the badge text, by name from the registered icon font/set.</td></tr>
+<tr id="BadgeIconColor"><td><a class="anchor" href="#BadgeIconColor"><code>BadgeIconColor</code></a><br><small>SetBadgeIconColor · BindBadgeIconColor</small></td><td><code><a href="enums.html#UIThemeColor">UIThemeColor</a>?</code></td><td><code>Default</code></td><td>one-way</td><td>The badge icon&#39;s colour, defaulting to <code>IBadgeModel.DefaultBadgeIconColor</code>.</td></tr>
+<tr id="BadgeIconSize"><td><a class="anchor" href="#BadgeIconSize"><code>BadgeIconSize</code></a><br><small>SetBadgeIconSize · BindBadgeIconSize</small></td><td><code><a href="enums.html#UIIconSize">UIIconSize</a>?</code></td><td><code>null</code></td><td>one-way</td><td>The badge icon size. Left unset the glyph is as tall as the badge&#39;s own text.</td></tr>
+<tr id="BadgeText"><td><a class="anchor" href="#BadgeText"><code>BadgeText</code></a><br><small>SetBadgeText · BindBadgeText</small></td><td><code>UIPhrase</code></td><td><code>null</code></td><td>one-way</td><td>The short text drawn inside the badge, beside its icon. <span class="tag">translatable</span></td></tr>
+<tr id="BadgeTextType"><td><a class="anchor" href="#BadgeTextType"><code>BadgeTextType</code></a><br><small>SetBadgeTextType · BindBadgeTextType</small></td><td><code><a href="enums.html#UITextAppearance">UITextAppearance</a>?</code></td><td><code>Overline</code></td><td>one-way</td><td>The badge text&#39;s role, defaulting to <code>IBadgeModel.DefaultBadgeTextType</code>.</td></tr>
+<tr id="BadgeTooltip"><td><a class="anchor" href="#BadgeTooltip"><code>BadgeTooltip</code></a><br><small>SetBadgeTooltip · BindBadgeTooltip</small></td><td><code>UIPhrase</code></td><td><code>null</code></td><td>one-way</td><td>The tooltip for the badge content. <span class="tag">translatable</span></td></tr>
+<tr id="BadgeTooltipPlacement"><td><a class="anchor" href="#BadgeTooltipPlacement"><code>BadgeTooltipPlacement</code></a><br><small>SetBadgeTooltipPlacement · BindBadgeTooltipPlacement</small></td><td><code><a href="enums.html#UIPopupPlacement">UIPopupPlacement</a>?</code></td><td><code>UIPopupPlacement.Top</code></td><td>one-way</td><td>The side the badge&#39;s own tooltip prefers, placed against the badge rather than against the row.</td></tr>
+<tr id="Tooltip"><td><a class="anchor" href="#Tooltip"><code>Tooltip</code></a><br><small>SetTooltip · BindTooltip</small></td><td><code>UIPhrase</code></td><td><code>null</code></td><td>one-way</td><td>The tooltip shown on hover and focus; on an icon button with no title, it also names the control for screen readers. <span class="tag">translatable</span></td></tr>
+<tr id="TooltipPlacement"><td><a class="anchor" href="#TooltipPlacement"><code>TooltipPlacement</code></a><br><small>SetTooltipPlacement · BindTooltipPlacement</small></td><td><code><a href="enums.html#UIPopupPlacement">UIPopupPlacement</a>?</code></td><td><code>UIPopupPlacement.Top</code></td><td>one-way</td><td>The side the tooltip prefers; flips to the opposite side when there is no room for it there.</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="events">Events</h2>
+<dl class="members">
+<dt><code>OnSave(string command)</code></dt>
+<dd>Runs <code>command</code> on Ctrl+S or the menu&#39;s Save, after the document has reached the server.</dd>
+<dt><code>OnSave(string command, params KeyValuePair&lt;string, UIActionArgument&gt;[] arguments)</code></dt>
+<dd>Runs <code>command</code> on Ctrl+S or the menu&#39;s Save, after the document has reached the server.</dd>
+<dt><code>OnMenuEntry(string command, string argumentName = &quot;key&quot;)</code></dt>
+<dd>Runs <code>command</code> when an entry the application put into any of the canvas&#39;s menus is clicked; the entry&#39;s id is the command&#39;s key.<br><small>The canvas&#39;s own entries never reach it.</small></dd>
+<dt><code>OnMenuEntry(string command, params KeyValuePair&lt;string, UIActionArgument&gt;[] arguments)</code></dt>
+<dd>The same, naming what the command takes: <code>UIGraphArguments.Entry</code>, <code>UIGraphArguments.TargetKind</code> and <code>UIGraphArguments.Target</code>.<br><small>The target is named for an entry of an item&#39;s, a group&#39;s or an edge&#39;s menu.</small></dd>
+<dt><code>OnNodeClick(string command, string argumentName = &quot;node&quot;)</code></dt>
+<dd>Runs <code>command</code> when an item is clicked; the clicked item&#39;s id is the command&#39;s key.</dd>
+<dt><code>OnNodeClick(string command, params KeyValuePair&lt;string, UIActionArgument&gt;[] arguments)</code></dt>
+<dd>Runs <code>command</code> when an item is clicked; the clicked item&#39;s id is the command&#39;s key.</dd>
+<dt><code>OnImageUpload(string command)</code></dt>
+<dd>Runs <code>command</code> when a file chosen on a picture pin is uploaded, passing the node, pin, selection and file name (see <code>UIGraphArguments</code>).<br><small>The pin shows nothing until the command replies with a <code>SetNodeValueEffect</code> carrying the stored address; storage itself is the application&#39;s responsibility.</small></dd>
+<dt><code>OnStop(string command)</code></dt>
+<dd>Runs <code>command</code> when the run panel&#39;s Stop is pressed, a run being on — <code>UINodeRuns.Stop()</code> in it.</dd>
+<dt><code>OnImageUpload(string command, params KeyValuePair&lt;string, UIActionArgument&gt;[] arguments)</code></dt>
+<dd>Runs <code>command</code> when a file chosen on a picture pin is uploaded, passing the node, pin, selection and file name (see <code>UIGraphArguments</code>).<br><small>The pin shows nothing until the command replies with a <code>SetNodeValueEffect</code> carrying the stored address; storage itself is the application&#39;s responsibility.</small></dd>
+<dt><code>OnChange(string command)</code></dt>
+<dd>Registers a change event command.</dd>
+<dt><code>OnChange(string command, params KeyValuePair&lt;string, UIActionArgument&gt;[] arguments)</code></dt>
+<dd>Registers a change event command with action arguments.</dd>
+<dt><code>OnBlur(string command)</code></dt>
+<dd>Registers a blur event command.</dd>
+<dt><code>OnBlur(string command, params KeyValuePair&lt;string, UIActionArgument&gt;[] arguments)</code></dt>
+<dd>Registers a blur event command with action arguments.</dd>
+</dl>
+<h2 id="methods">Methods</h2>
+<dl class="members">
+<dt><code>AddMenuEntry(MenuItem entry)</code></dt>
+<dd>Appends an entry to the corner menu, under the built-in commands.</dd>
+<dt><code>AddMenuEntries(params MenuItem[] entries)</code></dt>
+<dd>Appends a separator and then the given entries to the corner menu.</dd>
+<dt><code>AddContextMenuEntries(params MenuItem[] entries)</code></dt>
+<dd>Appends a separator and then the given entries to the menu the right button opens on the empty surface.</dd>
+<dt><code>AddNodeMenuEntries(params MenuItem[] entries)</code></dt>
+<dd>Adds a separator and then the given entries to the menu the right button opens on an item, ahead of the rule over Delete, which stays last; the command hears which item.</dd>
+<dt><code>AddEdgeMenuEntries(params MenuItem[] entries)</code></dt>
+<dd>Appends a separator and then the given entries to the menu the right button opens on an edge; the command hears which edge.</dd>
+<dt><code>AddGroupMenuEntries(params MenuItem[] entries)</code></dt>
+<dd>Appends a separator and then the given entries to the menu the right button opens on a group&#39;s band; the command hears which group.</dd>
+<dt><code>SetCommandIcon(string command, string icon)</code></dt>
+<dd>Replaces the framework glyph of the canvas&#39;s own entries of one command with an application&#39;s icon, in every menu that has it.<br><small>See <code>UIGraphCommands</code> for the keys.</small></dd>
+<dt><code>SetZoomRange(double minZoom, double maxZoom)</code></dt>
+<dd>Sets how far the canvas may be zoomed out and in.</dd>
+<dt><code>AddValidation(UIValidationRule rule)</code></dt>
+<dd>Adds a validation rule; the input&#39;s own <code>Required</code>/<code>Regex</code>/<code>Validate</code> shorthands go through this.</dd>
+<dt><code>ConfigureTemplate(TTemplate? current, Action&lt;TTemplate&gt; configure, string what)</code></dt>
+<dd>Configures <code>current</code> when it is a <code>TTemplate</code>, throwing when a different one was set.</dd>
+<dt><code>ValidationInto(string componentId, UIProperty property)</code></dt>
+<dd>Sends this field&#39;s validation message to another component&#39;s property, leaving the field its edge colour alone.</dd>
+<dt><code>Required(string message, UIValidationTrigger trigger = UIValidationTrigger.Change, UIValidationSeverity severity = UIValidationSeverity.Error)</code></dt>
+<dd>Adds a required-value validation rule; its message is the author&#39;s text or a key.</dd>
+<dt><code>Required(UIPhrase message, UIValidationTrigger trigger = UIValidationTrigger.Change, UIValidationSeverity severity = UIValidationSeverity.Error)</code></dt>
+<dd>Adds a required-value validation rule whose message is a phrase, such as a key with its arguments.</dd>
+<dt><code>Regex(string pattern, string message, UIValidationTrigger trigger = UIValidationTrigger.Change, UIValidationSeverity severity = UIValidationSeverity.Error)</code></dt>
+<dd>Adds a regular-expression validation rule; its message is the author&#39;s text or a key.</dd>
+<dt><code>Regex(string pattern, UIPhrase message, UIValidationTrigger trigger = UIValidationTrigger.Change, UIValidationSeverity severity = UIValidationSeverity.Error)</code></dt>
+<dd>Adds a regular-expression validation rule whose message is a phrase, such as a key with its arguments.</dd>
+<dt><code>Validate(UIValidationTrigger trigger, UIComparisonOperator operator, object? value, string message, UIValidationSeverity severity = UIValidationSeverity.Error)</code></dt>
+<dd>Adds a validation rule; its message is the author&#39;s text or a key, looked up as a plain value on a translatable property is.</dd>
+<dt><code>Validate(UIValidationTrigger trigger, UIComparisonOperator operator, object? value, UIPhrase message, UIValidationSeverity severity = UIValidationSeverity.Error)</code></dt>
+<dd>Adds a validation rule whose message is a phrase: a key with its arguments — a limit&#39;s <code>{max}</code> — or <code>UIPhrase.Text</code>.</dd>
+</dl>
+<details class="common"><summary>Common properties (20) — layout, visibility, theme, and the rest every component shares</summary>
+<div class="table-scroll">
+<table class="props">
+<thead><tr><th>Property</th><th>Type</th><th>Default</th><th>Binding</th><th>Description</th></tr></thead>
+<tbody>
+<tr id="Visibility"><td><a class="anchor" href="#Visibility"><code>Visibility</code></a><br><small>SetVisibility · BindVisibility</small></td><td><code>UIResponsive&lt;<a href="enums.html#UIVisibility">UIVisibility</a>&gt;?</code></td><td><code>Visible</code></td><td>one-way</td><td>What the component does with the room it was given, optionally overridden per breakpoint (e.g. collapsed from a given width up).<br><small>Hidden at every width — by a static value or a controller binding — the server refuses a command or a value the component or anything inside it sends. That is a guard against a stale or forged page, not the permission itself: an interaction that hides it (<code>HiddenWhen</code>) lives on the client alone, so who may act belongs in the command or the setter.</small></td></tr>
+<tr id="Enabled"><td><a class="anchor" href="#Enabled"><code>Enabled</code></a><br><small>SetEnabled · BindEnabled</small></td><td><code>bool?</code></td><td><code>true</code></td><td>one-way</td><td>Whether the component responds to input; false dims it and marks it, and its subtree, inert.<br><small>False by a static value or a controller binding, the server refuses a command or a value the component or anything inside it sends. That is a guard against a stale or forged page, not the permission itself: an interaction that disables it (<code>EnabledWhen</code>) lives on the client alone, so who may act belongs in the command or the setter.</small></td></tr>
+<tr id="Theme"><td><a class="anchor" href="#Theme"><code>Theme</code></a><br><small>SetTheme · BindTheme</small></td><td><code><a href="enums.html#UIThemeMode">UIThemeMode</a>?</code></td><td><code>null</code></td><td>one-way</td><td>The theme mode forced on this component&#39;s subtree, or <code>null</code> to inherit the ambient theme.</td></tr>
+<tr id="HorizontalAlignment"><td><a class="anchor" href="#HorizontalAlignment"><code>HorizontalAlignment</code></a><br><small>SetHorizontalAlignment · BindHorizontalAlignment</small></td><td><code><a href="enums.html#UIAlignment">UIAlignment</a>?</code></td><td><code>UIAlignment.Stretch</code></td><td>one-way</td><td>Where the component sits within its grid cell along the horizontal axis.</td></tr>
+<tr id="VerticalAlignment"><td><a class="anchor" href="#VerticalAlignment"><code>VerticalAlignment</code></a><br><small>SetVerticalAlignment · BindVerticalAlignment</small></td><td><code><a href="enums.html#UIAlignment">UIAlignment</a>?</code></td><td><code>UIAlignment.Stretch</code></td><td>one-way</td><td>Where the component sits within its grid cell along the vertical axis.</td></tr>
+<tr id="Width"><td><a class="anchor" href="#Width"><code>Width</code></a><br><small>SetWidth · BindWidth</small></td><td><code>UIResponsive&lt;<a href="enums.html#UILayoutLength">UILayoutLength</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The component width, optionally overridden per breakpoint.</td></tr>
+<tr id="MinWidth"><td><a class="anchor" href="#MinWidth"><code>MinWidth</code></a><br><small>SetMinWidth · BindMinWidth</small></td><td><code>UIResponsive&lt;<a href="enums.html#UILayoutLength">UILayoutLength</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The component minimum width, optionally overridden per breakpoint.</td></tr>
+<tr id="MaxWidth"><td><a class="anchor" href="#MaxWidth"><code>MaxWidth</code></a><br><small>SetMaxWidth · BindMaxWidth</small></td><td><code>UIResponsive&lt;<a href="enums.html#UILayoutLength">UILayoutLength</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The component maximum width, optionally overridden per breakpoint.</td></tr>
+<tr id="Height"><td><a class="anchor" href="#Height"><code>Height</code></a><br><small>SetHeight · BindHeight</small></td><td><code>UIResponsive&lt;<a href="enums.html#UILayoutLength">UILayoutLength</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The component height, optionally overridden per breakpoint.</td></tr>
+<tr id="MinHeight"><td><a class="anchor" href="#MinHeight"><code>MinHeight</code></a><br><small>SetMinHeight · BindMinHeight</small></td><td><code>UIResponsive&lt;<a href="enums.html#UILayoutLength">UILayoutLength</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The component minimum height, optionally overridden per breakpoint.</td></tr>
+<tr id="MaxHeight"><td><a class="anchor" href="#MaxHeight"><code>MaxHeight</code></a><br><small>SetMaxHeight · BindMaxHeight</small></td><td><code>UIResponsive&lt;<a href="enums.html#UILayoutLength">UILayoutLength</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The component maximum height, optionally overridden per breakpoint.</td></tr>
+<tr id="ZIndex"><td><a class="anchor" href="#ZIndex"><code>ZIndex</code></a><br><small>SetZIndex · BindZIndex</small></td><td><code>int?</code></td><td><code>0</code></td><td>one-way</td><td>The stacking order within the visual tree.</td></tr>
+<tr id="Margin"><td><a class="anchor" href="#Margin"><code>Margin</code></a><br><small>SetMargin · BindMargin</small></td><td><code>UIResponsive&lt;<a href="enums.html#UIThickness">UIThickness</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The outer spacing around the component, optionally overridden per breakpoint.</td></tr>
+<tr id="Placement"><td><a class="anchor" href="#Placement"><code>Placement</code></a><br><small>SetPlacement · BindPlacement</small></td><td><code>UIResponsive&lt;<a href="enums.html#UIGridPlacement">UIGridPlacement</a>&gt;?</code></td><td><code>null</code></td><td>one-way</td><td>The grid placement, optionally overridden per breakpoint.</td></tr>
+<tr id="Loading"><td><a class="anchor" href="#Loading"><code>Loading</code></a><br><small>SetLoading · BindLoading</small></td><td><code>bool?</code></td><td><code>false</code></td><td>one-way</td><td>Whether the component is in loading state — a live state a controller turns on and off.<br><small>While it holds, by a static value or a controller binding, the server refuses a command or a value the component or anything inside it sends — as the page does.</small></td></tr>
+<tr id="ShowContextMenu"><td><a class="anchor" href="#ShowContextMenu"><code>ShowContextMenu</code></a><br><small>SetShowContextMenu · BindShowContextMenu</small></td><td><code>bool?</code></td><td><code>true</code></td><td>one-way</td><td>Whether a right-click opens the <code>IVisualComponent.ContextMenu</code>; on a host with rows, whether it opens any row&#39;s. Off, the menu stays in the tree and nothing opens it.</td></tr>
+<tr id="ActionBar"><td><a class="anchor" href="#ActionBar"><code>ActionBar</code></a><br><small>SetActionBar</small></td><td><code><a href="enums.html#UIActionBarAlignment">UIActionBarAlignment</a>?</code></td><td><code>null</code></td><td><span class="muted">—</span></td><td>How the component&#39;s action bar lines up with it, or <code>null</code> for none: the <code>IVisualComponent.ContextMenu</code>&#39;s entries marked for the bar (a menu item&#39;s <code>InActionBar</code>) as icons, and &quot;more&quot; opening the menu itself, floating above the component once the reader chooses it — a press, a tap, the keyboard&#39;s cursor — until a press elsewhere, Escape, or another chosen.<br><small>A quick view of the menu, not a second list: a press on an icon is that entry&#39;s press. Render-time only; a component with an action bar and no context menu is refused when the view compiles.</small></td></tr>
+<tr id="ActionBarRepeatInMore"><td><a class="anchor" href="#ActionBarRepeatInMore"><code>ActionBarRepeatInMore</code></a><br><small>SetActionBarRepeatInMore</small></td><td><code>bool?</code></td><td><code>true</code></td><td><span class="muted">—</span></td><td>Whether the menu the <code>IVisualComponent.ActionBar</code>&#39;s &quot;more&quot; opens repeats the entries the bar shows (the default), or holds the rest alone — no caption or rule left with nothing to stand over or between. A right-click and a long press open the whole menu either way, and a bar whose menu holds nothing more draws no &quot;more&quot;.<br><small>Render-time only.</small></td></tr>
+<tr id="ScrollGroup"><td><a class="anchor" href="#ScrollGroup"><code>ScrollGroup</code></a><br><small>SetScrollGroup · BindScrollGroup</small></td><td><code>string</code></td><td><code>null</code></td><td>one-way</td><td>The scroll group this component belongs to: every component sharing the name scrolls together.<br><small>Driven by whichever one the reader scrolls. Components that mark their shown source lines (e.g. a code field and a Markdown display) sync line-for-line; otherwise by scroll fraction.</small></td></tr>
+<tr id="TextSelectable"><td><a class="anchor" href="#TextSelectable"><code>TextSelectable</code></a><br><small>SetTextSelectable · BindTextSelectable</small></td><td><code>bool?</code></td><td><code>null</code></td><td>one-way</td><td>Whether the reader can select the words in this component and everything inside it: true lets them (a table whose cells are copied, a chat bubble), false keeps them out; unset, the place decides — a Text&#39;s and a Paragraph&#39;s words and a validation message select, unless they stand in a row, a menu or another control, and nothing else does. The nearest component that says wins.<br><small>A control&#39;s own words (a button&#39;s label, a tab, a menu entry, a field&#39;s caption), a surface the pointer drags (a row that drags by itself, a canvas, a grip) and, on a touch screen, anything a long press opens a menu on never select; a field&#39;s value always does.</small></td></tr>
+</tbody>
+</table>
+</div>
+</details>
+
+</article>
+        </main>
+    </div>
+
+    <footer class="site">
+        <span class="version">Documents 1.4.1</span> ·
+        <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">github.com/AkiEvansDev/NE.Standard.UI.Graph</a> ·
+        the Prosperity Public License 3.0.0 — free for noncommercial use. Issues are the way to report a bug or ask
+        for a change; the repository is a read-only mirror and takes no pull requests.
+    </footer>
+
+</div>
+</body>
+</html>

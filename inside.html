@@ -1,0 +1,79 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inside the package — NE.Standard.UI.Graph</title>
+    <meta name="description" content="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">
+    <link rel="stylesheet" href="site.css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <script src="site.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="site">
+        <a class="name" href="index.html">NE.Standard.UI.Graph</a>
+        <button class="pages-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Pages</button>
+        <nav>
+            <a href="node-canvas.html">Guides</a>
+            <a href="components/index.html">Components</a>
+            <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <input class="nav-filter" type="search" placeholder="Filter pages" aria-label="Filter pages" autocomplete="off" hidden>
+            <h3>Guides</h3>
+            <ul>
+                <li><a href="index.html" title="Three canvases for the NE.Standard UI framework: a node editor, a layered graph and a production graph.">Overview</a></li>
+                <li><a href="node-canvas.html" title="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">The node canvas</a></li>
+                <li><a href="node-kinds.html" title="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">Ready-made kinds</a></li>
+                <li><a href="canvas.html" title="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">The canvas</a></li>
+                <li><a href="layered-graph.html" title="A graph of the application&#39;s nodes and links, laid out in layers.">Layered graph</a></li>
+                <li><a href="production-graph.html" title="Resources and the recipes between them, and a plan over the catalogue.">Production graph</a></li>
+                <li class="current"><a href="inside.html" title="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">Inside the package</a></li>
+            </ul>
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="components/index.html">All components</a></li>
+                <li><a href="components/enums.html">Enums and value types</a></li>
+            </ul>
+            <h3>Graph</h3>
+            <ul>
+                <li><a href="components/layered-graph.html" title="A graph of the application&#39;s nodes and the links between them, laid out in layers.">Layered graph</a></li>
+                <li><a href="components/nodes.html" title="A canvas of typed nodes the viewer wires together.">Nodes</a></li>
+                <li><a href="components/production-graph.html" title="A graph of resources and the crafts between them, laid out in layers.">Production graph</a></li>
+            </ul>
+        </aside>
+        <main>
+<article class="guide">
+<h1>Inside the package</h1>
+<p>The canvas draws no mark of its own: a node's pin, a select's chevron, the file button, a list row's cross and the zoom bar's three
+are the framework's <code>ne-</code> glyphs (<code>UIGlyphs</code> on the server, <code>icons.apply</code> on the client for what a node builds in the browser), so
+they are the same drawing family as every field's chevron and cross. A choice pin's list is the framework's <code>UIChoice</code>, its
+captions come from <code>UINaming.Humanize</code>, and its stylesheet imports the framework's Less contract
+(<code>Client/plugin/ne-standard-ui.less</code> — the tokens and the mixins, copied like the TypeScript contract beside it) rather than
+restating the motion, the elevation or the dialog's entrance and exit; only the picker's veil names the colour the framework's
+dialog draws (<code>--ui-color-overlay</code>), which the contract carries no mixin for. The engine is a class started once per page from the framework's engine
+context, in the shape the framework's own engines take, and the status and display effects write through it.</p>
+<p>The three components are kinds over one canvas core (<code>GraphCanvasComponentBase&lt;T, TDocument&gt;</code> on the server): the view, the
+grid, the choice, the drags, the groups, reroute points, the undo history, the save and the menus are the core's and behave the
+same on all three, while a kind owns what an item looks like, what may be joined to what, and its own panels. The colour choices
+every kind's menus offer are <code>UIGraphColorChoice</code>.</p>
+
+</article>
+        </main>
+    </div>
+
+    <footer class="site">
+        <span class="version">Documents 1.4.1</span> ·
+        <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">github.com/AkiEvansDev/NE.Standard.UI.Graph</a> ·
+        the Prosperity Public License 3.0.0 — free for noncommercial use. Issues are the way to report a bug or ask
+        for a change; the repository is a read-only mirror and takes no pull requests.
+    </footer>
+
+</div>
+</body>
+</html>

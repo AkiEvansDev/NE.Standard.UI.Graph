@@ -1,0 +1,176 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The canvas — NE.Standard.UI.Graph</title>
+    <meta name="description" content="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">
+    <link rel="stylesheet" href="site.css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <script src="site.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="site">
+        <a class="name" href="index.html">NE.Standard.UI.Graph</a>
+        <button class="pages-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Pages</button>
+        <nav>
+            <a href="node-canvas.html">Guides</a>
+            <a href="components/index.html">Components</a>
+            <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <input class="nav-filter" type="search" placeholder="Filter pages" aria-label="Filter pages" autocomplete="off" hidden>
+            <h3>Guides</h3>
+            <ul>
+                <li><a href="index.html" title="Three canvases for the NE.Standard UI framework: a node editor, a layered graph and a production graph.">Overview</a></li>
+                <li><a href="node-canvas.html" title="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">The node canvas</a></li>
+                <li><a href="node-kinds.html" title="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">Ready-made kinds</a></li>
+                <li class="current"><a href="canvas.html" title="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">The canvas</a></li>
+                <li><a href="layered-graph.html" title="A graph of the application&#39;s nodes and links, laid out in layers.">Layered graph</a></li>
+                <li><a href="production-graph.html" title="Resources and the recipes between them, and a plan over the catalogue.">Production graph</a></li>
+                <li><a href="inside.html" title="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">Inside the package</a></li>
+            </ul>
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="components/index.html">All components</a></li>
+                <li><a href="components/enums.html">Enums and value types</a></li>
+            </ul>
+            <h3>Graph</h3>
+            <ul>
+                <li><a href="components/layered-graph.html" title="A graph of the application&#39;s nodes and the links between them, laid out in layers.">Layered graph</a></li>
+                <li><a href="components/nodes.html" title="A canvas of typed nodes the viewer wires together.">Nodes</a></li>
+                <li><a href="components/production-graph.html" title="A graph of resources and the crafts between them, laid out in layers.">Production graph</a></li>
+            </ul>
+        </aside>
+        <main>
+<article class="guide">
+<h1>The canvas</h1>
+<h2 id="the-canvas">The canvas</h2>
+<pre><code class="language-csharp">// On the controller: the effects further down address the canvas by its component id.
+public const string CanvasId = &quot;sheet&quot;;
+
+// In the view
+new NodesComponent(Controller.CanvasId)
+    .SetCatalog(typeof(OperationNode), typeof(NumberNode), typeof(ResultNode))
+    .SetCanvasHeight(34)
+    .BindValue(nameof(Controller.Sheet))
+    .OnSave(nameof(Controller.Save));
+</code></pre>
+<p><code>Value</code> is the whole document — the nodes, the edges and the groups — bound two-way. <strong>Nothing reaches the server
+until a save</strong>: Ctrl+S, or the menu's Save, commits the document and then raises <code>save</code>, so the command sees what
+the viewer built. A reload shows the saved sheet, and unsaved work is lost as it is in any editor. <code>save</code> is raised by every
+commit — Ctrl+S, the menu's Save, an edit saved as it is made (<code>AutoSave</code>), the run panel's Run and Run all, a
+<code>SaveDocumentEffect</code> — and its key is the save's reason (<code>UIGraphArguments.Reason</code>), empty for the viewer's own.</p>
+<p>Every document carries a <code>Key</code> — what the application calls it: a build's id, a file's name. The canvas sends it back as it
+was given, so an application that puts one document after another on one canvas (a tab a document) knows which one a save
+was made on, even when the save arrives after the viewer moved on. <code>WithKey(key)</code> names it; every other <code>With…</code> keeps it.</p>
+<p>The canvas itself: <code>SetGridSize(step)</code> for the grid behind it, <code>SetSnapToGrid(false)</code> to let go of the grid — it holds unless
+told otherwise, taking a moved node, and on the node canvas a node's size, to the grid's step as the pointer lets go —
+<code>SetZoomRange(min, max)</code> for how far it zooms out and in, and <code>SetEdgeShape(...)</code> for how an edge is drawn — stepped unless told
+otherwise, curved or straight on request. A stepped edge turns half way along its own run, and edges whose uprights would meet
+turn in lanes around that place instead of on one line, standing in the order that crosses least — so moving a node moves only
+the turns near it. On the node canvas, Arrange lays the sheet out as a layered graph is laid out, from left to right, lining up each wire's
+two pins so it runs straight, and leaves a gap after each column as wide as the lanes of the edges leaving it need; a layered
+graph keeps its own gaps. The canvas keeps each viewer's pan and zoom in the browser, under the component's id; a viewer it has
+kept none for, or whose kept view shows none of the sheet, sees the sheet whole, fitted as Arrange leaves it. A fit the viewer
+has not panned, zoomed or centred since is fitted again whenever the canvas takes another size — a window widened, a phone
+turned, a page opened on a phone after a visit on a desktop — while a view they moved stays where they left it. Fit leaves 48 px
+around the sheet, a twelfth of the width on a narrower canvas, and keeps the sheet clear of the canvas's own chrome along its top — the corner menu's
+switch, a folded side panel, the node canvas's run line and run panel — beside a corner's box or under it, whichever leaves the
+larger zoom. On a layered graph a card sets the edges of one side
+apart along it, in the order their other ends lie, so each edge leaves and enters at a point of its own and keeps a lane of its own;
+a circle's edges meet at its middle, and edges that share a point share its lane, a fork reading as a fork.</p>
+<p><code>SetCanvasHeight(rem)</code> is the least height the canvas stands at, and a canvas given a height of its own — <code>SetHeight(Fill)</code> in a
+page's row — grows past it. A container's star row shrinks to what the page has left and does not hold its child's floor, so a
+canvas in one gives the row the same floor — <code>UIGridUnit.Star(min: 24 * 16)</code> beside <code>SetCanvasHeight(24)</code> — or on a short screen
+the canvas runs over the rows under it; with the floor, the page scrolls instead.</p>
+<h2 id="what-the-viewer-can-do">What the viewer can do</h2>
+<p>Pan and zoom with the wheel — by how far it turns, so a trackpad and a mouse zoom alike — and a drag on the background; on a
+touch screen two fingers pinch the sheet, zooming around their midpoint and panning with it, within the wheel's zoom range, and the
+finger left down pans on; double-click the background for the picker; drag from a
+pin to wire, and pull an edge off an input to move or drop it — a new wire let go on the empty sheet opens the picker there,
+and the kind chosen takes the wire into its first input that accepts it, or stands unwired if none does; the picker's
+categories nest by their paths and fold behind a chevron until one is chosen, and one chosen shows what stands under it too; double-click an edge to add a reroute point; click,
+Ctrl+click or Ctrl+drag a band to choose; Delete removes; Ctrl+C and Ctrl+V copy and paste with the inner connections;
+Ctrl+Z and Ctrl+Y undo and redo, across saves, until the server sends another sheet; Ctrl+A chooses everything; right-click
+opens a menu for what it lands on. A node's fold and pin marks answer Enter and Space as they answer a press. The sheet's keys
+act from the sheet and from the canvas's own buttons — the zoom bar, the run panel, the corner's and the side panels' switches,
+the log's strip — so Fit then Delete still deletes; a key pressed on what a panel holds — a field, a parameter's or a log line's
+node name, a corner menu's entry — is the panel's, and a press on such a name keeps the keyboard on it; Ctrl+S saves from anywhere
+in the canvas. Enter or Escape in a node's field leaves the field and the sheet takes the keyboard back; in a side panel's field,
+the panel takes it. The picker's categories are one Tab stop walked by the arrows as a tree's, Tab goes round the picker and
+never out of it, a press on an entry or on the list's or the rail's empty room leaves the typing in the search, and closing it gives the keyboard back to what opened it, or to the sheet. The
+words a pin, a card or a craft says under the pointer wait as a hover does.</p>
+<p>Read-only (<code>SetIsReadOnly(true)</code>, or bound), the viewer still pans, zooms, fits, chooses, copies, reads the map and the log and
+runs the sheet — nothing that changes it: no drag, wire, fold, pin, paste, Delete, undo or redo, and no menu entry that would; an
+edit that reaches the sheet some other way (a drop under way as it turns read-only) is put back. Its root wears the family's mark,
+<code>ui-readonly</code>, which a stylesheet keys on; a node's fold and pin marks stay drawn, disabled the framework's way and still focusable.
+What the canvas would refuse does not promise it either: a pin under the pointer offers no wire, and a node, a frame or a reroute
+that will not move shows no move cursor — a pinned one neither, on any canvas. Disabled (<code>SetEnabled(false)</code>) or loading, the
+canvas keeps its tooltip and answers nothing else; the picker, if it was open, closes, as it does when the canvas turns read-only.</p>
+<p>A node is dragged wider and taller by its bottom-right corner — every kind's, unless it says <code>Resizable = false</code>; the kind's
+<code>MinWidth</code> is the floor for one and the contents' own height for the other. A picture drawn large, a display and a multi-line
+text take the height the node is dragged to; a text's field has no handle of its own. Folded, a node is its head alone: as wide as the
+head's own words, the size it was dragged to kept for when it opens again. While the grid holds, a node's far corner lands on it
+as its near one does — dragged there, or simply as wide and tall as its contents came to; folded, its width does and its height
+stays the head's own, so the title keeps the middle — and on a layered graph it is a
+node's middle the grid takes, so a chain of nodes of different heights stays one straight line. The canvas draws no ring when it takes the keyboard unless <code>ShowFocusRing</code> asks for
+it, since it takes the keyboard on every press.</p>
+<p>The menus are each the framework's own <code>MenuComponent</code>: the canvas's fixed entries first, and an application's under them, a
+rule between. <code>Menu</code>, the core's folding menu in the canvas's leading corner — folded to its switch, slid open over the sheet, and
+folded back once an entry is pressed — carries what is done to the sheet as a whole — Arrange, Fit to content, Save — and
+<code>AddMenuEntries</code> appends to it; adding to the sheet is the right button's. <code>CanvasMenu</code>, the right button's on the empty surface,
+carries what edits the sheet — Add node (and on the node canvas Add reroute), Group selection, Delete selection, Arrange, Fit
+to content — and
+<code>AddContextMenuEntries</code> appends to it; an entry that would act on nothing chosen, or on a read-only canvas, is disabled — in a
+menu already open, too, the moment the canvas turns read-only.
+<code>NodeMenu</code> and <code>GroupMenu</code>, the right button's on a node and on a group's band, pin it, rename it over its title (emptied, the
+name is its kind's again) and paint it one of <code>ColorChoices</code> — the theme's series by default, <code>SetColorChoices</code> for an
+application's own — a node's menu holding, last and under a rule of its own, <em>Delete</em>, which takes the node and whatever else is
+chosen, as the Delete key does (an application's entries go in ahead of that rule) —
+and take an application's entries through <code>AddNodeMenuEntries</code> and <code>AddGroupMenuEntries</code>; <code>EdgeMenu</code>, the
+right button's on an edge, takes them through <code>AddEdgeMenuEntries</code> on every canvas (the node canvas puts <em>Add reroute</em> first).
+The node canvas's pins have a menu of their own over the node's — its parameters and a reset of the pin, <em>The sheet's
+parameters</em> on the node canvas's page. A right press on something not chosen chooses it, and pin and colour act on
+every chosen item of that kind. Every built-in entry wears one of the framework's own glyphs (<code>UIGlyphs</code>), so a canvas needs
+no icon pack; <code>SetCommandIcon</code> replaces a command's glyph in every menu that has it. Every built-in entry is titled by one of
+<code>UIGraphWords</code>' keys, the default colour choices among them, whose English the web package carries (<code>GraphStrings</code>): an
+application translates them as it translates the framework's own words.</p>
+<p><code>SetNodeActionBar()</code> gives every node the framework's action bar: the node menu's entries marked <code>InActionBar</code> stand as icons
+in a bar above the node the reader pressed or tapped, centred on it, the rest behind its &quot;…&quot; — which opens under it as a menu
+button's list and holds the rest alone (a right-click or a long press opens the whole menu; <code>SetNodeActionBarRepeatInMore(true)</code>
+puts the whole menu behind the &quot;…&quot; too) —
+<em>Pin</em>, <em>Rename</em> and <em>Delete</em> are marked, the colour is not, and an application marks its own (<code>new MenuItem { …, InActionBar = true }</code> in <code>AddNodeMenuEntries</code>). The bar is a view of the menu: a press on an icon is the entry's press, and chooses
+the node as a right press does; the bar only showing chooses nothing. Never on hover: it shows on a press, and stays while
+that node is chosen — the node redrawn as the document changes keeps it — until a press elsewhere (the background, another
+node, the zoom buttons), Escape, or a drag of the node, after which it shows over the node where it was dropped. From the
+keyboard, the focus in a node's own part (a field, a mark) shows it; the canvas has no keyboard cursor over its nodes. It
+floats 10 px above the node's edge — 8 px clear of a chosen node's ring — at its size on screen whatever the zoom, follows a pan and a zoom, stands under a node the
+canvas leaves no room above, and hides while the node is out of the canvas's sight. A read-only or disabled canvas shows none
+(its menu still opens), and none appears in the middle of a drag. On a touch screen a tap on a node shows the bar, and a long
+press opens its menu with the bar's icons in a row atop it. A pin, a group's band and an edge have their
+menus alone.</p>
+<p>An application's entries, in whichever menu, are heard through one event: <code>OnMenuEntry(command)</code>, whose command takes the clicked
+entry's id — or, named, <code>UIGraphArguments.Entry</code>, <code>TargetKind</code> and <code>Target</code>: which entry, the kind of thing the menu was opened
+on (<code>UIGraphMenuTargets</code>: the sheet, a node, a group, an edge) and that thing's id. The canvas's own entries are done in the
+browser and never reach it. A node's click is <code>OnNodeClick(command)</code>, whose command takes the node's id.</p>
+
+</article>
+        </main>
+    </div>
+
+    <footer class="site">
+        <span class="version">Documents 1.4.1</span> ·
+        <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">github.com/AkiEvansDev/NE.Standard.UI.Graph</a> ·
+        the Prosperity Public License 3.0.0 — free for noncommercial use. Issues are the way to report a bug or ask
+        for a change; the repository is a read-only mirror and takes no pull requests.
+    </footer>
+
+</div>
+</body>
+</html>
