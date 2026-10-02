@@ -2,7 +2,7 @@
 // offers its kinds and the production graph its resources. The tree is one Tab stop walked by the arrows; one entry is current,
 // the keyboard's and the pointer's alike.
 
-import type { Icons, RovingFocus } from "ne-standard-ui";
+import type { Focus, Icons, RovingFocus } from "ne-standard-ui";
 
 /** What the picker shows of an entry, and the key it is handed back by. */
 export type PickerEntry = {
@@ -29,7 +29,7 @@ const PathSeparator = "/";
 const DepthProperty = "--ui-graph-picker-depth";
 // The canvas's own keyboard holder, which takes the keyboard back when what opened the picker is gone (a context menu's entry).
 const HomeSelector = ".ui-graph__viewport";
-// What takes the focus inside the panel: the search, its own clear, the categories (one Tab stop), the list and its entries.
+// What takes the focus of a press inside the panel: the search, its own clear, the categories, the list and its entries.
 const FocusableSelector = "input, button, [tabindex]";
 const EntryClass = "ui-graph__picker-entry";
 const CurrentClass = "ui-graph__picker-entry--current";
@@ -58,6 +58,7 @@ export class Picker<TEntry extends PickerEntry> {
     private readonly icons: Icons;
     private readonly ids: PickerIds;
     private readonly roving: RovingFocus;
+    private readonly focus: Focus;
     private readonly choose: (entry: TEntry) => void;
 
     private category = AllCategories;
@@ -72,7 +73,7 @@ export class Picker<TEntry extends PickerEntry> {
     private pointerX = Number.NaN;
     private pointerY = Number.NaN;
 
-    private constructor(panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, home: HTMLElement | null, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, choose: (entry: TEntry) => void) {
+    private constructor(panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, home: HTMLElement | null, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, focus: Focus, choose: (entry: TEntry) => void) {
         this.panel = panel;
         this.search = search;
         this.rail = rail;
@@ -84,6 +85,7 @@ export class Picker<TEntry extends PickerEntry> {
         this.icons = icons;
         this.ids = ids;
         this.roving = roving;
+        this.focus = focus;
         this.choose = choose;
 
         this.search.addEventListener("input", () => this.draw());
@@ -115,7 +117,7 @@ export class Picker<TEntry extends PickerEntry> {
         });
     }
 
-    public static create<TEntry extends PickerEntry>(root: HTMLElement, entries: () => readonly TEntry[], words: PickerWords, ids: PickerIds, icons: Icons, roving: RovingFocus, choose: (entry: TEntry) => void): Picker<TEntry> | null {
+    public static create<TEntry extends PickerEntry>(root: HTMLElement, entries: () => readonly TEntry[], words: PickerWords, ids: PickerIds, icons: Icons, roving: RovingFocus, focus: Focus, choose: (entry: TEntry) => void): Picker<TEntry> | null {
         const panel = root.querySelector<HTMLDialogElement>(PickerSelector);
         const search = panel?.querySelector<HTMLInputElement>(SearchSelector) ?? null;
         const rail = panel?.querySelector<HTMLElement>(RailSelector) ?? null;
@@ -133,7 +135,7 @@ export class Picker<TEntry extends PickerEntry> {
         // A scrolling box is a Tab stop of its own in Chrome; the list's entries are reached through the search.
         list.tabIndex = -1;
 
-        return new Picker(panel, search, rail, list, empty, root.querySelector<HTMLElement>(HomeSelector), entries, words, icons, ids, roving, choose);
+        return new Picker(panel, search, rail, list, empty, root.querySelector<HTMLElement>(HomeSelector), entries, words, icons, ids, roving, focus, choose);
     }
 
     public get isOpen(): boolean {
@@ -186,7 +188,8 @@ export class Picker<TEntry extends PickerEntry> {
         if (event.key !== "Tab" || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey)
             return;
 
-        const stops = [...this.panel.querySelectorAll<HTMLElement>(FocusableSelector)].filter(stop => stop.tabIndex >= 0 && !stop.matches(":disabled") && stop.getClientRects().length > 0);
+        // The core's reading of a modal's stops, as its own dialogs wrap round them: the rail's categories are one stop.
+        const stops = this.focus.stops(this.panel);
         const edge = event.shiftKey ? stops[0] : stops.at(-1);
 
         if (edge === undefined || document.activeElement !== edge)

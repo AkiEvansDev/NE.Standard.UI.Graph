@@ -140,6 +140,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
             )
             .AddChild(new TextComponent()
                 .BindTitle(nameof(DependenciesController.Status))
+                .SetTitleWrap(true)
                 .SetTitleType(UITextAppearance.Caption)
                 .SetTitleColor(UIThemeColor.FromStyle(UIColorStyle.Muted))
                 .SetPlacement(1, 4, 24, 1)

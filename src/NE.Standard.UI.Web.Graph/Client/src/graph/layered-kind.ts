@@ -146,6 +146,10 @@ export class LayeredKind implements CanvasKind {
         });
     }
 
+    public dispose(): void {
+        this.sheet.dispose();
+    }
+
     public itemsDrawn(): void {
         this.sheet.itemsDrawn();
     }

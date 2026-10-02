@@ -176,7 +176,8 @@
         left: -0.4375rem;
     }
 
-    // While a link is pulled, only the node it leaves keeps its handle: every other node shows where the link would enter it.
+    // While a link is pulled, only the node it leaves keeps its handle: every other node shows where the link would enter it. Not
+    // under the hover query: the handle is what a finger pulls a link from, and a tap's hover is what brings it up there.
     .ui-graph:not(.ui-graph--connecting) .ui-graph__node:hover > .ui-graph__handle,
     .ui-graph--connecting .ui-graph__node[data-ui-graph-link-source] > .ui-graph__handle {
         opacity: 1;
@@ -226,8 +227,10 @@
         transform: scale(1.3);
     }
 
-    .ui-graph__handle:hover {
-        transform: scale(1.3);
+    @media @ui-can-hover {
+        .ui-graph__handle:hover {
+            transform: scale(1.3);
+        }
     }
 
 // The node a pulled link would land on stands forward in the brand colour.

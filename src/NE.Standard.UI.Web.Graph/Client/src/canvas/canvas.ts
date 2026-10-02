@@ -4,7 +4,7 @@
 import type { ComponentStates, EffectContext, PluginEngineContext, WheelReading } from "ne-standard-ui";
 import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, KindDrag } from "./canvas-kind.ts";
-import { ChromeButtonSelector, CoreNames, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
+import { ChromeButtonSelector, CoreNames, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
 import { CanvasDocumentState } from "./canvas-document.ts";
 import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
@@ -12,6 +12,7 @@ import { CanvasRender } from "./canvas-render.ts";
 import { CanvasSelection, adds } from "./canvas-selection.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
+import { CanvasPinch } from "./pinch.ts";
 import { distanceToSegment, snap, WheelPagePixels, wheelZoom } from "./geometry.ts";
 
 /** On the root while the sheet is panned: the hand holds it. */
@@ -173,6 +174,7 @@ class Canvas {
     public readonly kind: CanvasKind;
 
     private drag: Drag | null = null;
+    private readonly pinch = new CanvasPinch();
     private pointerX = 0;
     private pointerY = 0;
     // Whether the sheet was last drawn read-only, so a class the engine toggles on the root beside the mark redraws nothing.
@@ -211,7 +213,7 @@ class Canvas {
             deleteSelection: () => this.deleteSelection()
         };
 
-        this.settings = new CanvasSettings(root);
+        this.settings = new CanvasSettings(root, context.names.readOnlyClass);
         this.drawnReadOnly = this.settings.readOnly;
         this.documentState = new CanvasDocumentState(root, valueElement, this.settings, value => definition.readDocument(value), {
             clearSelectionSets: () => this.selection.clearSets(),
@@ -319,6 +321,7 @@ class Canvas {
     public dispose(): void {
         this.render.dispose();
         this.view.dispose();
+        this.kind.dispose?.();
     }
 
     /**
@@ -376,7 +379,7 @@ class Canvas {
         this.viewport.addEventListener("pointerdown", event => this.pointerDown(event));
         this.viewport.addEventListener("pointermove", event => this.pointerMove(event));
         this.viewport.addEventListener("pointerup", event => this.pointerUp(event));
-        this.viewport.addEventListener("pointercancel", () => this.pointerCancel());
+        this.viewport.addEventListener("pointercancel", event => this.fingerTaken(event));
         // The item the pointer rests on: its edges stand out while it does, and nothing stands out while a drag is under way.
         this.viewport.addEventListener("pointerleave", () => this.render.setFocusItem(null));
         this.viewport.addEventListener("dblclick", event => this.doubleClick(event));
@@ -385,6 +388,7 @@ class Canvas {
 
         this.root.addEventListener("click", event => this.chrome(event));
         this.root.addEventListener(CoreNames.menuOpeningEvent, event => this.menuOpening(event));
+        passRootFocusToSheet(this.root, this.viewport);
     }
 
     /** Marks the entries for the menu key before the menu shows (a right press marked them on its press); a disabled canvas opens none of the sheet's. */
@@ -432,6 +436,14 @@ class Canvas {
     }
 
     private pointerDown(event: PointerEvent): void {
+        // A second finger: what the first began is let go as the browser taking the pointer lets it go, and the two pinch the sheet.
+        if (event.pointerType === "touch" && this.pinch.down(event.pointerId, this.view.toViewport(event), { zoom: this.view.zoom, panX: this.view.panX, panY: this.view.panY })) {
+            event.preventDefault();
+            this.pointerCancel();
+            this.viewport.setPointerCapture(event.pointerId);
+            return;
+        }
+
         if (event.button === 2) {
             // Where the menu opens is where what it adds goes — a reroute on a wire.
             const at = this.view.toViewport(event);
@@ -584,6 +596,16 @@ class Canvas {
     }
 
     private pointerMove(event: PointerEvent): void {
+        if (event.pointerType === "touch") {
+            const pinched = this.pinch.move(event.pointerId, this.view.toViewport(event), this.settings.minZoom, this.settings.maxZoom);
+
+            if (pinched !== null)
+                this.view.pinchTo(pinched);
+
+            if (this.pinch.pinching)
+                return;
+        }
+
         const drag = this.drag;
 
         if (drag === null) {
@@ -641,6 +663,9 @@ class Canvas {
     }
 
     private pointerUp(event: PointerEvent): void {
+        if (this.liftFinger(event))
+            return;
+
         const drag = this.drag;
 
         if (drag === null)
@@ -656,6 +681,27 @@ class Canvas {
         }
 
         this.recordMoved(drag);
+    }
+
+    private fingerTaken(event: PointerEvent): void {
+        if (!this.liftFinger(event))
+            this.pointerCancel();
+    }
+
+    /** A finger off the sheet: true where it ended a pinch, the finger left down panning on from where it stands. */
+    private liftFinger(event: PointerEvent): boolean {
+        if (event.pointerType !== "touch")
+            return false;
+
+        const { ended, left } = this.pinch.up(event.pointerId);
+
+        if (!ended)
+            return false;
+
+        if (left !== null)
+            this.drag = { kind: "pan", startX: left.x, startY: left.y, panX: this.view.panX, panY: this.view.panY };
+
+        return true;
     }
 
     /**
@@ -846,7 +892,8 @@ class Canvas {
         if (typing)
             return;
 
-        // A key in the action bar the framework draws over a node is the bar's — its arrows, its Escape — never the sheet's Delete.
+        // A key in a part that keeps its events to itself (an event boundary: the action bar the framework draws over a node, its
+        // arrows and its Escape) is that part's, never the sheet's Delete, copy or paste; the save above holds everywhere.
         if (event.target instanceof Element && event.target.closest(`[${this.context.names.eventBoundary}]`) !== null && this.onSheet(event.target))
             return;
 

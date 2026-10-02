@@ -14,7 +14,8 @@ namespace NE.Standard.UI.Graph;
 /// </summary>
 /// <remarks>
 /// A display is read, not kept: a whole file's text or a list of a million lines would otherwise cross the connection and stand in
-/// the page on every run. A value the canvas keeps — a node's state — is sent whole, by <see cref="Wire"/>.
+/// the page on every run. A value the canvas keeps — a node's state — is sent whole, by <see cref="Wire"/>, but for one JSON cannot
+/// write: that one goes as its text, cut at <see cref="MostCharacters"/> with the same <see cref="UIGraphWords.More"/> phrase.
 /// </remarks>
 internal static class UINodeDisplayValue
 {

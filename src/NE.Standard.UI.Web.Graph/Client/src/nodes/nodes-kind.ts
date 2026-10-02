@@ -60,6 +60,8 @@ export class NodesKind implements CanvasKind {
     // Whether the viewer had a view of this canvas kept before it was first drawn: the first draw keeps it rather than fitting.
     private readonly viewKept: boolean;
     private drawnOnce = false;
+    // Watches a canvas first drawn where it has no size yet, to fit it once it has one.
+    private sizeWatch: (() => void) | null = null;
 
     private clipboard: { nodes: DocumentNode[]; edges: DocumentEdge[] } | null = null;
     // What the pin menu was last opened on; its entries act on it.
@@ -189,15 +191,19 @@ export class NodesKind implements CanvasKind {
             return;
         }
 
-        const watch = new ResizeObserver(() => {
+        this.sizeWatch = this.services.context.observeSize(root, () => {
             if (root.offsetWidth === 0)
                 return;
 
-            watch.disconnect();
+            this.dispose();
             this.fitUnlessKept();
         });
+    }
 
-        watch.observe(root);
+    /** Lets go of the watch for a size to fit to; the canvas's root has left the page. */
+    public dispose(): void {
+        this.sizeWatch?.();
+        this.sizeWatch = null;
     }
 
     private fitUnlessKept(): void {

@@ -298,11 +298,26 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         if (entries.Length == 0)
             return Self;
 
-        IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
-
-        _ = NodeMenu.SetItems([.. items[..^2], Separator(), .. entries, .. items[^2..]]);
+        InsertAheadOfDelete([Separator(), .. entries]);
 
         return Self;
+    }
+
+    /// <summary>
+    /// Puts entries into the node menu ahead of Delete and the rule over it, found by Delete's command so a kind's own entries or a
+    /// removed Delete cannot shift them; at the end where the menu holds no Delete.
+    /// </summary>
+    private void InsertAheadOfDelete(MenuItem[] entries)
+    {
+        IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
+        var at = Array.FindIndex(items, static item => string.Equals(item.Id, UIGraphCommands.Delete, StringComparison.Ordinal));
+
+        if (at < 0)
+            at = items.Length;
+        else if (at > 0 && items[at - 1].Kind == UIMenuItemKind.Separator)
+            at--;
+
+        _ = NodeMenu.SetItems([.. items[..at], .. entries, .. items[at..]]);
     }
 
     /// <summary>
@@ -434,9 +449,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
-
-        _ = NodeMenu.SetItems([.. items[..^2], entry, .. items[^2..]]);
+        InsertAheadOfDelete([entry]);
     }
 
     /// <summary>A built-in entry a kind puts ahead of the shared ones in a menu, as the node canvas puts Add node.</summary>

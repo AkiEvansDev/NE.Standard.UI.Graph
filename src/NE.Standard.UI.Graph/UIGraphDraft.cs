@@ -19,12 +19,12 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
     /// <summary>
     /// Gets every node the viewer added or changed, as the viewer left it.
     /// </summary>
-    public UIGraphNodeDraft[] Nodes { get; } = nodes ?? [];
+    public UIGraphNodeDraft[] Nodes { get; } = UIGraphDraftSupport.Present(nodes);
 
     /// <summary>
     /// Gets the keys of the nodes the viewer removed.
     /// </summary>
-    public string[] Removed { get; } = removed ?? [];
+    public string[] Removed { get; } = UIGraphDraftSupport.Present(removed);
 
     /// <summary>
     /// Gets whether the viewer changed nothing.
@@ -43,10 +43,10 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 
         HashSet<string> removed = UIGraphDraftSupport.RemoveAll(nodes, Removed);
 
-        // The draft is the browser's: a node it sent as nothing, or with no key, is no node.
-        foreach (UIGraphNodeDraft? draft in Nodes)
+        // The draft is the browser's: a node it sent with no key is no node.
+        foreach (UIGraphNodeDraft draft in Nodes)
         {
-            if (string.IsNullOrEmpty(draft?.Id) || removed.Contains(draft.Id))
+            if (string.IsNullOrEmpty(draft.Id) || removed.Contains(draft.Id))
                 continue;
 
             UIGraphNode? node = UIGraphDraftSupport.Find(nodes, draft.Id);

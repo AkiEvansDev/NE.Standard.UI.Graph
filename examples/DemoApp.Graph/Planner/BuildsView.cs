@@ -29,7 +29,8 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
 
     /// <summary>
     /// The builds' captions — renamed by a double click, deleted by their cross, and all three plus a pin in the strip's own menu on a
-    /// right press — and the buttons that open another and move them through files.
+    /// right press — and the buttons that open another and move them through files: beside the strip from a tablet up, under it on a
+    /// phone, where a third of the width stacked them one over another.
     /// </summary>
     private static ContainerComponent CreateStrip()
         => new ContainerComponent()
@@ -43,7 +44,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                 // Held by the top, as the buttons are: the view's box is its strip plus the selected page's rule and air, so centring it
                 // would set the captions above the buttons' middle.
                 .SetVerticalAlignment(UIAlignment.Start)
-                .SetPlacement(1, 1, 16, 1)
+                .SetPlacement(1, 1, 24, 1, sm: UIGridPlacement.At(1, 1, 16, 1))
             )
             // Small, so each button is the strip's own height and its middle is the captions' middle, with no offset to keep in step.
             .AddChild(UILayout.Row(4,
@@ -53,7 +54,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                 )
                 .SetHorizontalAlignment(UIAlignment.End)
                 .SetVerticalAlignment(UIAlignment.Start)
-                .SetPlacement(17, 1, 8, 1)
+                .SetPlacement(1, 2, 24, 1, sm: UIGridPlacement.At(17, 1, 8, 1))
             );
 
     private static SurfaceComponent CreateEmpty()
@@ -68,6 +69,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                     .SetIconColor(UIThemeColor.Muted)
                     .SetTitle("planner.builds.empty")
                     .SetDescription("planner.builds.empty.description")
+                    .SetWrapMode(UITextWrapMode.Wrap)
                     .SetVerticalAlignment(UIAlignment.Center),
                 new LinkComponent()
                     .SetTitle("planner.builds.open-resources")

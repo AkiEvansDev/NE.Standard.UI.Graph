@@ -19,17 +19,17 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
     /// <summary>
     /// Gets every resource the viewer added or changed, as the viewer left it.
     /// </summary>
-    public UIResourceDraft[] Resources { get; } = resources ?? [];
+    public UIResourceDraft[] Resources { get; } = UIGraphDraftSupport.Present(resources);
 
     /// <summary>
     /// Gets every craft the viewer added or changed, as the viewer left it.
     /// </summary>
-    public UICraftDraft[] Crafts { get; } = crafts ?? [];
+    public UICraftDraft[] Crafts { get; } = UIGraphDraftSupport.Present(crafts);
 
     /// <summary>
     /// Gets the keys of the resources and crafts the viewer removed.
     /// </summary>
-    public string[] Removed { get; } = removed ?? [];
+    public string[] Removed { get; } = UIGraphDraftSupport.Present(removed);
 
     /// <summary>
     /// Gets whether the viewer changed nothing.
@@ -58,16 +58,16 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
 
         HashSet<string> removed = UIGraphDraftSupport.RemoveAll(entries, Removed);
 
-        // The draft is the browser's: an entry it sent as nothing, or with no key, is no entry.
-        foreach (UIResourceDraft? draft in Resources)
+        // The draft is the browser's: an entry it sent with no key is no entry.
+        foreach (UIResourceDraft draft in Resources)
         {
-            if (!string.IsNullOrEmpty(draft?.Id) && !removed.Contains(draft.Id))
+            if (!string.IsNullOrEmpty(draft.Id) && !removed.Contains(draft.Id))
                 draft.WriteTo(Take(entries, draft.Id, static id => new UIResource(id)));
         }
 
-        foreach (UICraftDraft? draft in Crafts)
+        foreach (UICraftDraft draft in Crafts)
         {
-            if (!string.IsNullOrEmpty(draft?.Id) && !removed.Contains(draft.Id))
+            if (!string.IsNullOrEmpty(draft.Id) && !removed.Contains(draft.Id))
                 draft.WriteTo(Take(entries, draft.Id, static id => new UICraft(id)));
         }
 
@@ -126,14 +126,14 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
         return added;
     }
 
-    /// <summary>The amounts whose resource is still there, or nothing when every one of them is; one the browser sent as nothing is none.</summary>
+    /// <summary>The amounts whose resource is still there, or nothing when every one of them is; one naming no resource is none.</summary>
     private static List<UICraftAmount>? Kept(IReadOnlyList<UICraftAmount> amounts, HashSet<string> resources)
     {
         List<UICraftAmount> kept = [];
 
-        foreach (UICraftAmount? amount in amounts)
+        foreach (UICraftAmount amount in amounts)
         {
-            if (amount?.Resource is { } resource && resources.Contains(resource))
+            if (amount.Resource is { } resource && resources.Contains(resource))
                 kept.Add(amount);
         }
 
@@ -235,10 +235,10 @@ public sealed class UICraftDraft(string id, string? title = null, string? icon =
     public string? Tooltip { get; } = tooltip;
 
     /// <summary>Gets what one run takes.</summary>
-    public UICraftAmount[] Ingredients { get; } = ingredients ?? [];
+    public UICraftAmount[] Ingredients { get; } = UIGraphDraftSupport.Present(ingredients);
 
     /// <summary>Gets what one run gives.</summary>
-    public UICraftAmount[] Products { get; } = products ?? [];
+    public UICraftAmount[] Products { get; } = UIGraphDraftSupport.Present(products);
 
     /// <summary>Gets how long one run lasts.</summary>
     public TimeSpan Time { get; } = time;

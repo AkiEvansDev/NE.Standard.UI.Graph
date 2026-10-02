@@ -4,10 +4,18 @@ using NE.Standard.UI.Abstractions.Binding;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>The overlay-by-key plumbing both drafts share: removing keys, finding an entry by key, comparing value lists.</summary>
+/// <summary>
+/// The overlay-by-key plumbing both drafts share: reading a list off the wire, removing keys, finding an entry by key, comparing
+/// value lists.
+/// </summary>
 /// <remarks>Each draft's own <c>ApplyTo</c> covers what differs between a node and a craft.</remarks>
 internal static class UIGraphDraftSupport
 {
+    /// <summary>The entries of a list as the wire may send it: none for none, and an entry sent as nothing left out.</summary>
+    public static TEntry[] Present<TEntry>(TEntry[]? entries)
+        where TEntry : class
+        => entries is null ? [] : Array.TrueForAll(entries, static entry => entry is not null) ? entries : Array.FindAll(entries, static entry => entry is not null);
+
     /// <summary>Takes every entry whose key the draft removed out of the list, from the end so the indexes hold.</summary>
     public static HashSet<string> RemoveAll<TEntry>(IList<TEntry> entries, string[] removed)
         where TEntry : IBindableItem

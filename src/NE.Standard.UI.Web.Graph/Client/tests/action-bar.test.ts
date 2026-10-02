@@ -1,7 +1,8 @@
 // The action bar above a node is the framework's view of the node's menu: the canvas brings the entries up to date for the node the
 // bar shows over without choosing it (the icon's press then asks as a right press does, choosing it), its own Delete stands in the
 // node's menu enabled whatever is chosen, every node it draws is marked and keyed for the bar, and a pan or a zoom is told as a
-// scroll of the viewport, which the bar follows as every anchored popup does.
+// scroll of the viewport, which the bar follows as every anchored popup does; the keyboard handed back to the canvas's root goes on
+// to the sheet, for the bar's Escape to come back to.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -11,6 +12,7 @@ import { FakeElement, fakeDocument, installFakeDom, real } from "./fake-dom.ts";
 installFakeDom({ CSS: { escape: (value: string) => value } });
 
 const { CanvasMenus, NodeMenuName } = await import("../src/canvas/canvas-menus.ts");
+const { passRootFocusToSheet } = await import("../src/canvas/canvas-dom.ts");
 const { CanvasSettings } = await import("../src/canvas/canvas-settings.ts");
 const { CanvasView } = await import("../src/canvas/canvas-view.ts");
 
@@ -113,13 +115,13 @@ test("on a read-only canvas the node's Delete is turned off", () => {
 });
 
 test("the canvas gives its nodes a bar only where the renderer said so", () => {
-    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph", { "data-ui-graph-node-action-bar": "" }))).nodeActionBar, true);
-    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph"))).nodeActionBar, false);
+    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph", { "data-ui-graph-node-action-bar": "" })), "ui-readonly").nodeActionBar, true);
+    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph")), "ui-readonly").nodeActionBar, false);
 });
 
 test("a node bar's more opens the rest of the node menu unless the renderer said to repeat the bar there", () => {
-    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph", { "data-ui-graph-node-action-bar": "" }))).nodeActionBarRepeats, false);
-    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph", { "data-ui-graph-node-action-bar": "", "data-ui-graph-node-action-bar-repeat": "" }))).nodeActionBarRepeats, true);
+    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph", { "data-ui-graph-node-action-bar": "" })), "ui-readonly").nodeActionBarRepeats, false);
+    assert.equal(new CanvasSettings(real(FakeElement.of("ui-graph", { "data-ui-graph-node-action-bar": "", "data-ui-graph-node-action-bar-repeat": "" })), "ui-readonly").nodeActionBarRepeats, true);
 });
 
 test("a pan or a zoom is told as a scroll of the viewport, for what floats over the sheet to follow it", () => {
@@ -142,4 +144,21 @@ test("a pan or a zoom is told as a scroll of the viewport, for what floats over 
 
     view.dispose();
     root.remove();
+});
+
+test("the keyboard handed back to the canvas's root goes on to the sheet, so the node bar's Escape has somewhere to bring it", () => {
+    const viewport = FakeElement.of("ui-graph__viewport", { tabindex: "0" });
+    const button = FakeElement.of("ui-graph__bar-button", { tabindex: "0" }, "button");
+    const root = FakeElement.of("ui-graph").append(viewport, button);
+
+    fakeDocument.body.append(root);
+    passRootFocusToSheet(real(root), real(viewport));
+
+    // As the framework returns the focus as a node's menu closes: the root made focusable for that one return.
+    root.focus();
+    assert.equal(fakeDocument.activeElement, viewport);
+
+    // A part of the canvas taking the keyboard keeps it.
+    button.focus();
+    assert.equal(fakeDocument.activeElement, button);
 });

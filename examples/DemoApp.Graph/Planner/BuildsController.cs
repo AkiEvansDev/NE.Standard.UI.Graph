@@ -86,7 +86,7 @@ internal sealed partial class BuildsController : UIControllerBase
         // As in a spreadsheet, there is always a sheet to write in: a first visit finds one waiting.
         if (builds.Count == 0)
         {
-            _ = Store.CreateBuild("Build 1");
+            _ = Store.CreateBuild(BuildName(1));
             builds = Store.ListBuilds();
         }
 
@@ -200,7 +200,7 @@ internal sealed partial class BuildsController : UIControllerBase
                 // A caption renamed to nothing gets a name back rather than a blank tab.
                 // A rename writes the viewer's text, a plain string.
                 if (string.IsNullOrWhiteSpace(tab.Title?.Key))
-                    tab.Title = "Build";
+                    tab.Title = BuildName(Builds.IndexOf(tab) + 1);
                 else
                     Store.RenameBuild(tab.Id, tab.Title.Key.Trim());
 
@@ -217,10 +217,15 @@ internal sealed partial class BuildsController : UIControllerBase
         }
     }
 
+    // A new build's name in the language of the session that made it: the name is the build's own from then on, renamed as text.
+    private string BuildName(int number)
+        => Context.Translator.Translate(Context.Handle.Session.Language, "planner.builds.default-name", new Dictionary<string, object?> { ["number"] = number })
+            ?? string.Create(CultureInfo.InvariantCulture, $"Build {number}");
+
     [UICommand]
     public void AddBuild()
     {
-        var name = string.Create(CultureInfo.InvariantCulture, $"Build {Builds.Count + 1}");
+        var name = BuildName(Builds.Count + 1);
         var id = Store.CreateBuild(name);
         var order = 0d;
 

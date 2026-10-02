@@ -1,7 +1,6 @@
 // The canvas's own attributes, read straight off the root — server-written only; every concern reads the same values rather
 // than caching its own copy.
 
-import { ReadOnlyClass } from "./canvas-dom.ts";
 import type { EdgeShape } from "./geometry.ts";
 
 export const EdgeShapeAttribute = "data-ui-graph-edge-shape";
@@ -27,13 +26,16 @@ const MaxZoomAttribute = "data-ui-graph-max-zoom";
 
 export class CanvasSettings {
     private readonly root: HTMLElement;
+    private readonly readOnlyClass: string;
 
-    public constructor(root: HTMLElement) {
+    /** `readOnlyClass` is the family's read-only mark on the root (`RenderIsReadOnlyMark`), the plugin surface's name for it. */
+    public constructor(root: HTMLElement, readOnlyClass: string) {
         this.root = root;
+        this.readOnlyClass = readOnlyClass;
     }
 
     public get readOnly(): boolean {
-        return this.root.classList.contains(ReadOnlyClass);
+        return this.root.classList.contains(this.readOnlyClass);
     }
 
     public get edgeShape(): EdgeShape {

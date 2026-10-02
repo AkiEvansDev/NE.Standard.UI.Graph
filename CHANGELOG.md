@@ -4,6 +4,39 @@ One section per release of this slice, headed `## X.Y.Z` and named by the tag �
 workflow cuts the matching section out to become the body of the GitHub release, and a tag with no section
 fails the release before anything is published.
 
+## 1.4.0
+
+- **Two fingers pinch the canvas.** On a touch screen they zoom the sheet around their midpoint and pan it with the midpoint's
+  move, within the wheel's zoom range; what a first finger began (a pan, a node's drag, a wire) is let go as the second lands,
+  and the finger left after the pinch pans on. One finger is unchanged.
+- **The node bar's Escape has somewhere to go.** After a node's "…" menu closed by Escape, the next Escape did nothing: the
+  framework had handed the keyboard back to the canvas's root, made focusable for that one return, and the bar's Escape tried to
+  give it back there. The root now passes it on to the sheet (the viewport), so Escape from "…" puts the keyboard on the sheet and
+  the bar goes.
+- **A kept fit opens fitted at any size.** The view kept in the browser carries the size its fit was made for; opened at another
+  (a phone after a visit on a desktop) the sheet is fitted again, where it stood cut at the right.
+- **A fit on a narrow canvas** leaves a twelfth of the width around the sheet rather than 48 px a side, and **on a phone the map
+  is a smaller box** (6 × 4 rem) at the zoom bar's end, where as wide as the bar it covered half the canvas.
+- **Run on the node canvas's run panel is drawn in the theme's primary ink** (`--ui-color-primary-ink`), 4.3:1 on the dark
+  panel where the brand's fill stood at 2.86:1.
+- **The demos:** the node sheets zoom out to a tenth (`SetZoomRange(0.1, 2.5)`, as the dependency graph does), so the
+  calculator's and the pictures' sheets fit a phone whole; the planner's build buttons stand under the tab strip on a phone,
+  where a third of the width stacked them beside it.
+- **A draft the browser sent with holes in it reads whole:** `UIGraphDraft`'s `Nodes` and `Removed`, `UIProductionDraft`'s
+  `Resources`, `Crafts` and `Removed` and a craft draft's `Ingredients` and `Products` leave out an entry sent as nothing, as
+  `UINodeDocument`'s lists do.
+- **A node menu's entries go in ahead of Delete, found by its command,** so a menu an application emptied or reordered takes a
+  kind's entry or `AddNodeMenuEntries` (at its end where it holds no Delete) rather than throwing.
+- **The demos:** the recipe's ingredient picker is the framework's new search — the chosen resource, icon and all, on the closed
+  field, the search field at the top of its list — and drops `SetSelectionDisplayMode`, which the framework no longer has.
+- **A finger's tap leaves no hover look behind:** an edge's thickened line, a node's resize corner, a link handle's and a pin's
+  growth are drawn only where the pointer can hover. A node's link handle still comes up under a tap, since it is what a finger
+  pulls a link from.
+- **A canvas waiting for a size lets go of its watch when it leaves the page,** laid out or not, through the framework's
+  `observeSize`; the read-only mark is read by the plugin surface's name for it.
+- **A parameter row's field is the framework's first focusable** (`focus.first`).
+- **Built on the framework's 1.4.0:** its copy of the plugin contract carries `focus.first(container)` and the new tokens and mixins (`@ui-tinted-fill`, `@ui-part-radius`, the `@ui-z-*` ladder, `.ui-picture-glass()`, `.ui-user-select()`).
+
 ## 1.4.0-rc.4
 
 - **An action bar above every node.** `SetNodeActionBar()` (`NodeActionBar`, on or off) gives every node of any canvas the

@@ -5,6 +5,9 @@
 
 // The map's own height, which the corner it stands in counts too.
 @ui-graph-minimap-height: 6.5rem;
+// On a phone the map is a smaller box at the zoom bar's end: as wide as the bar, it covered half the canvas's width.
+@ui-graph-minimap-phone-width: 6rem;
+@ui-graph-minimap-phone-height: 4rem;
 
 .ui-graph {
     --ui-graph-grid-size: 20;
@@ -126,11 +129,20 @@
 }
 
     // The line answers the pointer on its path, which is the element before it: as thick as a chosen one, so it reads as pressable.
-    .ui-graph__edge:hover + .ui-graph__edge-line,
     .ui-graph__edge-line[data-ui-graph-selected] {
-        stroke-width: 3;
-        filter: drop-shadow(0 0 3px var(--ui-graph-pin-color));
+        .ui-graph-edge-line-lit();
     }
+
+    @media @ui-can-hover {
+        .ui-graph__edge:hover + .ui-graph__edge-line {
+            .ui-graph-edge-line-lit();
+        }
+    }
+
+.ui-graph-edge-line-lit() {
+    stroke-width: 3;
+    filter: drop-shadow(0 0 3px var(--ui-graph-pin-color));
+}
 
     .ui-graph__edge-line--pending {
         stroke-dasharray: 6 4;
@@ -330,6 +342,17 @@
 
     .ui-graph[data-ui-graph-minimap] {
         --ui-graph-corner-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width) + @ui-graph-minimap-height + @ui-space-1);
+    }
+
+    @media (max-width: (@ui-breakpoint-sm - 0.02px)) {
+        .ui-graph__minimap {
+            width: @ui-graph-minimap-phone-width;
+            height: @ui-graph-minimap-phone-height;
+        }
+
+        .ui-graph[data-ui-graph-minimap] {
+            --ui-graph-corner-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width) + @ui-graph-minimap-phone-height + @ui-space-1);
+        }
     }
 
 .ui-graph__minimap-nodes {

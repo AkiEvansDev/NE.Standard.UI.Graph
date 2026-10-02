@@ -1,5 +1,6 @@
 // The view against the canvas's size: a fit the reader has not moved is fitted again when the canvas takes another size — a window
-// widened from a phone's to a desktop's — while a view they panned, zoomed or centred stays where they left it.
+// widened from a phone's to a desktop's, or a kept fit opened at a size it was not made for — while a view they panned, zoomed or
+// centred stays where they left it.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -162,12 +163,31 @@ test("a kept fit on a canvas drawn hidden stands at the size it is first shown a
     canvas.view.dispose();
 });
 
-test("the view keeps whether it is a fit, and lets go of the size watch with the canvas", async () => {
+test("a kept fit opened at another size than it was made for is fitted again; at its own it stands where it was kept", () => {
+    const phone = stage(390, 600, JSON.stringify({ zoom: 0.5, panX: 10, panY: 20, fitted: true, width: 1366, height: 600 }));
+
+    phone.view.restoreView();
+    phone.resize(390, 600);
+    assert.deepEqual(place(phone.view), fittedAt(390, 600));
+    phone.view.dispose();
+
+    const same = stage(1366, 600, JSON.stringify({ zoom: 0.5, panX: 10, panY: 20, fitted: true, width: 1366, height: 600 }));
+
+    same.view.restoreView();
+    same.resize(1366, 600);
+    assert.deepEqual(place(same.view), { zoom: 0.5, panX: 10, panY: 20 });
+    same.view.dispose();
+});
+
+test("the view keeps whether it is a fit and the size it was made for, and lets go of the size watch with the canvas", async () => {
     const canvas = stage(390, 600);
 
     canvas.view.fit();
     await new Promise(resolve => setTimeout(resolve, 300));
     assert.equal(keptFitted(canvas.stored()), true);
+    const kept = JSON.parse(canvas.stored() ?? "{}") as { width?: number; height?: number };
+
+    assert.deepEqual([kept.width, kept.height], [390, 600]);
 
     canvas.view.zoomBy(1.2, 100, 100);
     await new Promise(resolve => setTimeout(resolve, 300));

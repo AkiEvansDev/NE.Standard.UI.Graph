@@ -270,10 +270,12 @@
             linear-gradient(135deg, transparent 70%, var(--ui-color-border) 70%, var(--ui-color-border) 90%, transparent 90%);
     }
 
-    .ui-graph__node-resize:hover::after {
-        background:
-            linear-gradient(135deg, transparent 35%, var(--ui-color-primary) 35%, var(--ui-color-primary) 55%, transparent 55%),
-            linear-gradient(135deg, transparent 70%, var(--ui-color-primary) 70%, var(--ui-color-primary) 90%, transparent 90%);
+    @media @ui-can-hover {
+        .ui-graph__node-resize:hover::after {
+            background:
+                linear-gradient(135deg, transparent 35%, var(--ui-color-primary) 35%, var(--ui-color-primary) 55%, transparent 55%),
+                linear-gradient(135deg, transparent 70%, var(--ui-color-primary) 70%, var(--ui-color-primary) 90%, transparent 90%);
+        }
     }
 
 .ui-graph__node-unknown {
@@ -380,9 +382,14 @@
         transition: transform @ui-motion-fast @ui-motion-ease;
     }
 
-    .ui-graph__pin--filled::before,
-    @{ui-graph-pin-live}:hover::before {
+    .ui-graph__pin--filled::before {
         transform: scale(1);
+    }
+
+    @media @ui-can-hover {
+        @{ui-graph-pin-live}:hover::before {
+            transform: scale(1);
+        }
     }
 
     // Wired, the pin is one solid disc (grown over the ring and gap) so a carried edge reads at a glance; a ring with a disc inside is only the hover/aim preview.
@@ -419,8 +426,10 @@
         cursor: crosshair;
     }
 
-    @{ui-graph-pin-live}:hover {
-        transform: scale(1.2);
+    @media @ui-can-hover {
+        @{ui-graph-pin-live}:hover {
+            transform: scale(1.2);
+        }
     }
 
 // While a connection is pulled: unreachable pins step back, reachable ones get a colour halo, and the one it would land on grows and fills.
@@ -862,9 +871,10 @@ dialog.ui-graph__picker {
         top: calc(var(--ui-graph-run-height) + @ui-space-2);
     }
 
-    // Run speaks in the page's own colour, so the panel reads as the way to run the sheet rather than three marks alike.
+    // Run speaks in the page's own colour, so the panel reads as the way to run the sheet rather than three marks alike: its ink,
+    // which reads on the panel's ground in both themes, where the brand's own fill stood under 3:1 on a dark one.
     .ui-graph__run-panel > [data-ui-graph-run-once]:not([aria-disabled='true']) {
-        color: var(--ui-color-primary);
+        color: var(--ui-color-primary-ink);
     }
 
 // --- the parameters panel ---------------------------------------------------------------------------------------------------------

@@ -69,7 +69,7 @@ export class LayeredSheet {
     // What the last layout was laid for: a turned direction or another shape of node lays out again what it placed.
     private laidFor: string;
     // Watches a canvas drawn where it has no size yet, to lay it out once it has one.
-    private waiting: ResizeObserver | null = null;
+    private waiting: (() => void) | null = null;
     // The document's placements by id, for the ends of every edge to ask where their nodes stand; of the document and the list it was read off.
     private placements: { readonly nodes: readonly CanvasItem[]; readonly byId: Map<string, CanvasItem> } | null = null;
 
@@ -264,16 +264,19 @@ export class LayeredSheet {
         if (this.waiting !== null)
             return;
 
-        this.waiting = new ResizeObserver(() => {
+        this.waiting = this.services.context.observeSize(this.services.root, () => {
             if (this.services.root.offsetWidth === 0)
                 return;
 
-            this.waiting?.disconnect();
-            this.waiting = null;
+            this.dispose();
             this.placePending();
         });
+    }
 
-        this.waiting.observe(this.services.root);
+    /** Lets go of the watch for a size, laid out or not; the canvas's root has left the page. */
+    public dispose(): void {
+        this.waiting?.();
+        this.waiting = null;
     }
 
     /** Runs the layered layout, snapped to the grid; a long edge's via-points move with its source's snap so it sets out level — remembered positions tell laid-out nodes from hand-placed ones. */

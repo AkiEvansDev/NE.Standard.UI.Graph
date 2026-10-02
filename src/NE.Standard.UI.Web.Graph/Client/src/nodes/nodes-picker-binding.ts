@@ -26,7 +26,7 @@ export class NodesPickerBinding {
         // The picker offers what the picker may offer: a hidden kind is still drawn and run, it is just no longer added by hand.
         const offered = catalog.filter(type => type.hidden !== true);
 
-        this.picker = Picker.create(services.root, () => offered, context.strings, context.dom, context.icons, context.roving, type => this.addNode(type));
+        this.picker = Picker.create(services.root, () => offered, context.strings, context.dom, context.icons, context.roving, context.focus, type => this.addNode(type));
     }
 
     public open(): void {

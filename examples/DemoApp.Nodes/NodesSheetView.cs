@@ -69,6 +69,8 @@ internal abstract class NodesSheetView : NodesDemoView
                 .SetCanvasHeight(CanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetShowMinimap(true)
+                // Out past the default quarter: a sheet of three columns is wider than a phone's canvas at a quarter of its size.
+                .SetZoomRange(0.1, 2.5)
                 // Run, Run all and Stop in the canvas's top corner; the save command hands a run's save to the package's UINodeRuns.
                 .SetShowRunPanel(true)
                 // Under the run panel: the inputs set out from a pin's menu, edited there as well as on their nodes.
@@ -100,6 +102,7 @@ internal abstract class NodesSheetView : NodesDemoView
             .AddChild(UIText.Caption(string.Empty)
                 .Muted()
                 .BindTitle(nameof(NodesSheetController.Status))
+                .SetTitleWrap(true)
                 .SetPlacement(1, 4, 24, 1)
             )
         );

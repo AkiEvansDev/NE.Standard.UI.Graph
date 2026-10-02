@@ -313,10 +313,14 @@ declare module "ne-standard-ui" {
 
     /** Addresses judged by the framework's own rule, each read as the browser's URL parser reads it; a package keeps no copy of it. */
     export type Urls = {
-        /** Whether a picture may be fetched from an address: a path of this site, http(s) or an image data URL — never `//host`, `/\host` or `/<tab>/host`, which the browser reads as another site. */
+        /** Whether a picture may be fetched from an address: a path of this site, absolute or relative to the page (`img/x.png`), http(s) or an image data URL — never `//host`, `/\host` or `/<tab>/host`, which the browser reads as another site. */
         isImageSource(address: string): boolean;
         /** The address as the browser reads it: the controls and spaces at either end stripped, and every tab and line break inside. */
         asBrowserReads(address: string): string;
+        /** Whether an address may be written as a link target: relative, a fragment, or http(s), `mailto:` or `tel:` — no space or control character anywhere. */
+        isSafeLink(address: string): boolean;
+        /** Whether a link leaves the application, so it opens beside it: a web, mail or phone address, or one the browser reads as another host. */
+        isExternalLink(address: string): boolean;
     };
 
     /** Values as the framework reads and writes them: a root reads off its `data-ui-value-holder`, not a composed control's first field. */
@@ -443,6 +447,17 @@ declare module "ne-standard-ui" {
         applyTabIndex(items: readonly HTMLElement[], active: HTMLElement | null): void;
     };
 
+    /** The keyboard's reading of a package's container, as the framework's dialogs and popups read theirs. */
+    export type Focus = {
+        /** The first element inside the container the keyboard can stand on: focusable by its markup, laid out, and not inert. */
+        first(container: ParentNode): HTMLElement | null;
+        /**
+         * The places Tab stands on inside the container, in order — laid out, not inert, a radio group one stop, a `tabindex="-1"`
+         * control none; the focused element counts — what a modal surface wraps its Tab round.
+         */
+        stops(container: ParentNode): HTMLElement[];
+    };
+
     /** A table's columns: hidden by the viewer's word, else the author's tier; the root carries `data-ui-table-hidden` while any is. */
     export type TableColumns = {
         isColumnHidden(table: Element, key: string): boolean;
@@ -469,6 +484,14 @@ declare module "ne-standard-ui" {
     /** The one way a file leaves the browser, answering the id `IUIUploadService.GetSelectionAsync` reads; a POST of your own would drift. */
     export type FileUploads = {
         uploadAsync(files: Iterable<File>, onProgress?: (percent: number) => void): Promise<{ readonly selectionId: string }>;
+        /** Whether a file answers an `accept` list as the framework's file inputs judge a dropped one: a MIME family, a type, or an extension; empty takes any. */
+        accepts(accept: string, file: File): boolean;
+        /**
+         * The files within the root's size limit (`data-ui-file-max-size`, `NativeInputRendererBase.RenderMaxFileSize`); the rest are
+         * refused on its validation line in the file inputs' own words — named where `several` — written again at a language switch,
+         * and taken off by the next call that refuses nothing.
+         */
+        takeWithinSizeLimit(root: HTMLElement, files: readonly File[], several: boolean): File[];
     };
 
     /** Asks an items host, which owns the list, to change its chosen rows; `data-ui-no-row-select` keeps a plain row click from choosing. */
@@ -595,7 +618,7 @@ declare module "ne-standard-ui" {
         readonly sourceLine: "data-ui-source-line";
         /** What a popup a field opened is to a screen reader: a key landing in one is the popup's. */
         readonly popupSelector: "[role='listbox'], [role='menu'], [role='dialog']";
-        /** The control that opens a select's, a multi-select's or a search's list: a button in the first two, the field's row in a search. */
+        /** The control that opens a select's, a multi-select's or a search's list: a button, a focusable box in a multi-select. */
         readonly listTriggerSelector: ".ui-select__trigger";
         /** A table's row, its scrolling box, its header row and a column's resizer. */
         readonly tableRowClass: "ui-table__row";
@@ -648,6 +671,7 @@ declare module "ne-standard-ui" {
         readonly selection: ItemSelection;
         readonly popups: Popups;
         readonly roving: RovingFocus;
+        readonly focus: Focus;
         readonly states: ComponentStates;
         readonly validation: FieldValidation;
         readonly wheel: WheelReading;

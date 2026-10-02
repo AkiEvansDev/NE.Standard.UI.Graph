@@ -122,7 +122,7 @@ export class ProductionKind implements CanvasKind {
             pick: () => this.picker?.open(),
             show: id => this.show(id)
         });
-        this.picker = Picker.create(services.root, () => this.targetChoices(), services.context.strings, services.context.dom, services.context.icons, services.context.roving, entry => this.setTarget(entry.key, 1));
+        this.picker = Picker.create(services.root, () => this.targetChoices(), services.context.strings, services.context.dom, services.context.icons, services.context.roving, services.context.focus, entry => this.setTarget(entry.key, 1));
         this.refresh();
     }
 

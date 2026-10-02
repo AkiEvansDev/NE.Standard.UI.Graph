@@ -325,11 +325,13 @@ export function contains(outer: Rect, inner: Rect): boolean {
 /** How much of each side of the viewport a fit keeps clear, in the viewport's pixels. */
 type Insets = { readonly top: number; readonly right: number; readonly bottom: number; readonly left: number };
 
-type View = { zoom: number; panX: number; panY: number };
+export type View = { zoom: number; panX: number; panY: number };
 
 const NoInsets: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 /** The room a fit leaves around the sheet on every side. */
 const FitPadding = 48;
+/** A narrow canvas's room around the sheet, a share of its width: 48 px on each side would take a phone's canvas a quarter of its width. */
+const FitPaddingShare = 1 / 12;
 
 /**
  * The zoom and pan that put `content` in the middle of a viewport of `width` by `height`, with room around it — `padding` on every
@@ -379,8 +381,9 @@ export function fitClearOf(content: Rect, width: number, height: number, minZoom
             right = Math.max(right, width - box.x + gap);
     }
 
-    const beside = fitView(content, width, height, minZoom, maxZoom, FitPadding, { top: band, right, bottom: 0, left });
-    const below = fitView(content, width, height, minZoom, maxZoom, FitPadding, { top: under, right: 0, bottom: 0, left: 0 });
+    const padding = Math.min(FitPadding, width * FitPaddingShare);
+    const beside = fitView(content, width, height, minZoom, maxZoom, padding, { top: band, right, bottom: 0, left });
+    const below = fitView(content, width, height, minZoom, maxZoom, padding, { top: under, right: 0, bottom: 0, left: 0 });
 
     return below.zoom > beside.zoom ? below : beside;
 }
@@ -390,6 +393,18 @@ export function showsAny(rects: readonly Rect[], view: View, width: number, heig
     const seen = { x: -view.panX / view.zoom, y: -view.panY / view.zoom, width: width / view.zoom, height: height / view.zoom };
 
     return rects.some(rect => intersects(rect, seen));
+}
+
+/**
+ * Two fingers' view: the zoom as the start's times how far apart they are now against then, held to the wheel's limits, and the pan
+ * that keeps the point of the sheet under their first midpoint under their midpoint now — a pinch zooms around it and pans with it.
+ */
+export function pinchView(start: View, startMid: Point, startDistance: number, mid: Point, distance: number, minZoom: number, maxZoom: number): View {
+    const zoom = startDistance <= 0 ? start.zoom : Math.min(maxZoom, Math.max(minZoom, start.zoom * (distance / startDistance)));
+    const sceneX = (startMid.x - start.panX) / start.zoom;
+    const sceneY = (startMid.y - start.panY) / start.zoom;
+
+    return { zoom, panX: mid.x - sceneX * zoom, panY: mid.y - sceneY * zoom };
 }
 
 /** How far one wheel page goes, in pixels, for a wheel that counts in pages; the framework reads the rest (`context.wheel`). */

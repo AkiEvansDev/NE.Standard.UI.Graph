@@ -2,7 +2,7 @@
 // is read off here.
 
 import type { ClientStore, PluginEngineContext } from "ne-standard-ui";
-import type { Rect } from "./geometry.ts";
+import type { Rect, View } from "./geometry.ts";
 import { bounds, fitClearOf, showsAny } from "./geometry.ts";
 import type { CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
@@ -51,8 +51,8 @@ export class CanvasView {
     private panYValue = 0;
     private keepTimer: ReturnType<typeof setTimeout> | undefined;
     // A fit the reader has not panned, zoomed or centred since: fitted again for every new size of the canvas, where a view they
-    // moved stays as they left it. The size is the one it was fitted for; a fitted view kept from a visit before stands at the size
-    // it opens at, and follows the canvas from there.
+    // moved stays as they left it. The size is the one it was fitted for; a fitted view kept from a visit before stands where it
+    // opens at the size it was kept at, and is fitted again at any other (a phone's canvas, after a visit on a desktop).
     private fitted = false;
     private fittedWidth = 0;
     private fittedHeight = 0;
@@ -114,7 +114,7 @@ export class CanvasView {
     }
 
     public restoreView(): void {
-        const stored = this.store.readJson<{ zoom: number; panX: number; panY: number; fitted?: boolean }>(this.root, "view");
+        const stored = this.store.readJson<{ zoom: number; panX: number; panY: number; fitted?: boolean; width?: number; height?: number }>(this.root, "view");
 
         if (stored === null)
             return;
@@ -123,9 +123,10 @@ export class CanvasView {
         this.panXValue = Number(stored.panX) || 0;
         this.panYValue = Number(stored.panY) || 0;
         this.fitted = stored.fitted === true;
-        // The size a kept fit stands at; a canvas still hidden (no size) takes the one it is first shown at.
-        this.fittedWidth = this.fitted ? this.viewport.clientWidth : 0;
-        this.fittedHeight = this.fitted ? this.viewport.clientHeight : 0;
+        // The size a kept fit was made for; one kept before the size was, or a canvas still hidden (no size), takes the one it is
+        // first shown at.
+        this.fittedWidth = this.fitted ? Number(stored.width) || this.viewport.clientWidth : 0;
+        this.fittedHeight = this.fitted ? Number(stored.height) || this.viewport.clientHeight : 0;
     }
 
     public applyView(): void {
@@ -166,7 +167,7 @@ export class CanvasView {
     /** The view into the browser's store, and the grid's place for the boot script to paint before the engine starts. */
     private keepView(): void {
         this.keepTimer = undefined;
-        this.store.write(this.root, "view", JSON.stringify({ zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue, fitted: this.fitted }), {
+        this.store.write(this.root, "view", JSON.stringify({ zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue, fitted: this.fitted, width: this.fittedWidth, height: this.fittedHeight }), {
             selector: GridSelector,
             styles: {
                 "--ui-graph-zoom": String(this.zoomValue),
@@ -250,6 +251,18 @@ export class CanvasView {
         const rect = this.viewport.getBoundingClientRect();
 
         return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    }
+
+    /** A view a pinch made, its zoom already held to the limits. */
+    public pinchTo(view: View): void {
+        if (view.zoom === this.zoomValue && view.panX === this.panXValue && view.panY === this.panYValue)
+            return;
+
+        this.zoomValue = view.zoom;
+        this.panXValue = view.panX;
+        this.panYValue = view.panY;
+        this.fitted = false;
+        this.applyView();
     }
 
     /** A pan drag: the base pan it started from, plus how far the viewport point has moved since. */

@@ -1,6 +1,7 @@
 // The parameters panel under the run panel: the inputs set out as the sheet's parameters (`GraphDocument.parameters`), each with its
 // node's own field bound to the same value, so an edit in either shows in the other. The markup is the renderer's; rows are written here.
 
+import type { Focus } from "ne-standard-ui";
 import { CoreNames } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { SidePanelFold } from "../canvas/side-panel.ts";
@@ -26,7 +27,6 @@ const NodeNameClass = "ui-graph__parameter-node";
 const PinNameClass = "ui-graph__parameter-pin";
 const FieldClass = "ui-graph__parameter-field";
 // What the keyboard can stand on inside a field the panel clones: the field itself, or its own control.
-const FocusableSelector = "input, select, textarea, button, [tabindex]";
 
 /** What the panel asks of the node canvas it stands on. */
 export type NodesParametersHost = {
@@ -154,7 +154,7 @@ export class NodesParameters {
 
         const next = this.list.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? this.panel?.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`);
 
-        focusable(next ?? null)?.focus({ preventScroll: true });
+        focusable(next ?? null, this.services.context.focus)?.focus({ preventScroll: true });
     }
 
     /** Redraws the rows only when which parameters show changed (the focus kept on its part of a row); otherwise gives each field not under the caret its value. */
@@ -203,7 +203,7 @@ export class NodesParameters {
         if (focused === null || row === undefined)
             return;
 
-        focusable(row.querySelector<HTMLElement>(focused.part === RemoveAttribute ? `[${RemoveAttribute}]` : `.${focused.part}`))?.focus({ preventScroll: true });
+        focusable(row.querySelector<HTMLElement>(focused.part === RemoveAttribute ? `[${RemoveAttribute}]` : `.${focused.part}`), this.services.context.focus)?.focus({ preventScroll: true });
     }
 
     /** Writes a value into the parameter's field, unless the viewer is typing into it. */
@@ -303,6 +303,7 @@ export class NodesParameters {
 }
 
 /** What the keyboard stands on for a part of a row: the part itself, or the first control of a framework component's own. */
-function focusable(part: HTMLElement | null): HTMLElement | null {
-    return part === null || part.matches(FocusableSelector) ? part : part.querySelector<HTMLElement>(FocusableSelector);
+function focusable(part: HTMLElement | null, focus: Focus): HTMLElement | null {
+    // A part in the tab order by its markup (a button) is its own; a component's root, which is not, gives its first control.
+    return part === null || part.tabIndex >= 0 ? part : focus.first(part);
 }

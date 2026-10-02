@@ -193,3 +193,11 @@ test("snapping rounds to the step, and leaves the value alone when it is off", (
     assert.equal(snap(31, 20, true), 40);
     assert.equal(snap(23, 20, false), 23);
 });
+
+test("a fit on a narrow canvas leaves a share of its width around the sheet, not a desktop's 48 px", () => {
+    const phone = fitClearOf({ x: 0, y: 0, width: 1000, height: 200 }, 342, 548, 0.05, 1, []);
+
+    // 342 / 12 = 28.5 on each side: the sheet takes 285 px of the width.
+    assert.equal(phone.zoom, 0.285);
+    assert.deepEqual(fitClearOf({ x: 0, y: 0, width: 1000, height: 200 }, 1200, 548, 0.05, 1, []), fitView({ x: 0, y: 0, width: 1000, height: 200 }, 1200, 548, 0.05, 1));
+});

@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Icons, RovingFocus, RovingRequest } from "ne-standard-ui";
+import type { Focus, Icons, RovingFocus, RovingRequest } from "ne-standard-ui";
 import { FakeDialog, FakeElement, FakeEvent, FakeInput, FakeKeyboardEvent, fakeDocument, installFakeDom, real } from "./fake-dom.ts";
 import { Picker } from "../src/canvas/picker.ts";
 import type { PickerEntry } from "../src/canvas/picker.ts";
@@ -15,6 +15,12 @@ const Kinds: readonly PickerEntry[] = [
     { key: "round", title: "Round", category: "Maths/Rounding" },
     { key: "join", title: "Join", category: "Text" }
 ];
+
+/** The core's Tab stops as far as this page needs them: in the order, laid out, not disabled. */
+const focus: Focus = {
+    first: container => container.querySelector<HTMLElement>("input, button, [tabindex]"),
+    stops: container => [...container.querySelectorAll<HTMLElement>("input, button, [tabindex]")].filter(stop => stop.tabIndex >= 0 && !stop.matches(":disabled") && stop.getClientRects().length > 0)
+};
 
 /** Up and Down by one, stopping at the ends where the list does not wrap; Home and End; an unknown current enters at the near end. */
 const roving: RovingFocus = {
@@ -81,7 +87,7 @@ function scene(): Scene {
 
         return element.id;
     };
-    const picker = Picker.create(real(fakeDocument.body.children[0]), () => Kinds, { text: key => key }, { ensureId }, icons, roving, entry => chosen.push(entry));
+    const picker = Picker.create(real(fakeDocument.body.children[0]), () => Kinds, { text: key => key }, { ensureId }, icons, roving, focus, entry => chosen.push(entry));
 
     assert.ok(picker !== null);
 

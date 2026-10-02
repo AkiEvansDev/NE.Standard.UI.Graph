@@ -86,6 +86,8 @@ export type CanvasKind = {
     itemsDrawn(drawn: ReadonlySet<string>): void;
     /** The page's words changed, just before the sheet is drawn again: a panel the kind draws itself forgets what it last drew. */
     wordsChanged?(): void;
+    /** The canvas's root left the page: a watch the kind holds lets go, or it keeps the whole canvas alive. */
+    dispose?(): void;
     /** The colour an item wears on the map. */
     itemColor(item: CanvasItem): string;
     /** Where an edge starts and ends and how it is drawn, or nothing while either end is not drawn. */

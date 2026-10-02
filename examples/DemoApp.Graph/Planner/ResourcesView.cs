@@ -106,6 +106,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                     .SetIcon(MaterialIcons.Outlined(PlannerIcons.Resource))
                     .SetTitle("planner.resources.empty")
                     .SetDescription("planner.resources.empty.description")
+                    .SetWrapMode(UITextWrapMode.Wrap)
                 )
                 .SetPlacement(1, 3, 24, 1)
             );
@@ -120,6 +121,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 .SetIconColor(UIThemeColor.Muted)
                 .SetTitle("planner.resources.none-open")
                 .SetDescription("planner.resources.none-open.description")
+                .SetWrapMode(UITextWrapMode.Wrap)
                 .Muted()
                 .SetTextAlignment(UITextAlignment.Center)
                 .SetHorizontalAlignment(UIAlignment.Center)
@@ -230,7 +232,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .BindVisibility(nameof(ResourcesController.EditorVisibility))
             .AddChild(UILayout.Stack(4,
                     UIText.Title("planner.made-from"),
-                    UIText.Caption(string.Empty).BindTitle(nameof(ResourcesController.RecipeNote)).Muted()
+                    UIText.Caption(string.Empty).BindTitle(nameof(ResourcesController.RecipeNote)).SetTitleWrap(true).Muted()
                 )
                 .SetMargin(UIThickness.All(0, 0, 0, 16))
                 .SetPlacement(1, 1, 24, 1)
@@ -245,11 +247,9 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
     /// <summary>One ingredient in the recipe's two columns — which resource, how many a run — and a button that takes the row away.</summary>
     private static ContainerComponent CreateIngredient()
         => new ContainerComponent()
-            // A search over the catalogue rather than a list to scroll; Replace, so a left field shows the pick, icon and all, never a
-            // term typed to find it.
+            // A search over the catalogue rather than a list to scroll; closed, the field shows the pick, icon and all.
             .AddChild(new SearchComponent()
                 .SetPlaceholder("planner.recipe.pick-resource")
-                .SetSelectionDisplayMode(UISearchSelectionDisplayMode.ReplaceWithSelectedItem)
                 .BindOptions(nameof(ResourcesController.IngredientOptions))
                 .BindValue(nameof(AmountRow.Resource), UIBindingScope.Relative)
                 .OnChange(nameof(ResourcesController.SaveIngredients))

@@ -59,7 +59,7 @@ test("a marker in a cell is the page's word for what was left out", () => {
     assert.equal(displayText(marker, options), "+800");
 });
 
-test("an address a type calls a picture is this site's, the web's or an inline one, never a path naming another site", () => {
+test("an address a type calls a picture is this site's — a relative path included —, the web's or an inline one, never a path naming another site", () => {
     assert.equal(isPictureAddress("/_ne/content/abc", options), true);
     assert.equal(isPictureAddress("https://cdn.example/a.png", options), true);
     assert.equal(isPictureAddress("data:image/png;base64,AA==", options), true);
@@ -67,7 +67,7 @@ test("an address a type calls a picture is this site's, the web's or an inline o
     assert.equal(isPictureAddress("/\\elsewhere.example/a.png", options), false);
     assert.equal(isPictureAddress("/\t/elsewhere.example/a.png", options), false);
     assert.equal(isPictureAddress("\u0001//elsewhere.example/a.png", options), false);
-    assert.equal(isPictureAddress("in/a.png", options), false);
+    assert.equal(isPictureAddress("in/a.png", options), true);
     assert.equal(isPictureAddress("blob:https://this.example/5f1c", options), true);
 });
 

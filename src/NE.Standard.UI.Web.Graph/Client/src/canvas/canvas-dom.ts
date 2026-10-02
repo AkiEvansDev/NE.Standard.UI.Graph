@@ -1,7 +1,7 @@
 // The names the renderer and the canvas meet on, and the framework's that the plugin surface's `names` lacks, spelled once here
 // (GraphClientNamesSyncTests holds both sides).
 
-import type { DomNames, PluginEngineContext, Tooltips } from "ne-standard-ui";
+import type { PluginEngineContext, Tooltips } from "ne-standard-ui";
 
 export const RootSelector = ".ui-graph";
 /** On the root: which kind of canvas the renderer wrote, and so which kind the engine draws it with. */
@@ -66,9 +66,6 @@ export const TopChromeSelector = `[${MenuPanelAttribute}], [${SideAttribute}][${
 /** The canvas's own buttons over the sheet — the zoom bar, the run panel, the corner's and side panels' switches, the log's strip. */
 export const ChromeButtonSelector = `.ui-graph__bar-button, [${MenuPanelAttribute}] > * > [${CoreNames.collapseToggle}], [${SideAttribute}] > [${CoreNames.collapseToggle}], .ui-graph__log-head > button`;
 
-/** The family's read-only mark on the root (`RenderIsReadOnlyMark`), typed by the contract's name for it. */
-export const ReadOnlyClass: DomNames["readOnlyClass"] = "ui-readonly";
-
 /** A fresh copy of the framework component the renderer wrote as a template of the region (`RenderTemplate`); null when it wrote none. */
 export function cloneTemplate(root: ParentNode, region: string): HTMLElement | null {
     const template = root.querySelector<HTMLTemplateElement>(`template[${EditorTemplateAttribute}="${CSS.escape(region)}"]`);
@@ -86,4 +83,16 @@ export function percentText(context: Pick<PluginEngineContext, "strings" | "numb
 export function hoverTooltip(element: HTMLElement, words: string, tooltips: Tooltips): void {
     element.addEventListener("pointerenter", () => tooltips.show(element, words, { delay: true }));
     element.addEventListener("pointerleave", () => tooltips.hide());
+}
+
+/**
+ * The keyboard the framework hands back to the canvas's root — made focusable for that one return, as a node's menu closes — goes
+ * on to the sheet, which holds it on a canvas: the root gives up its tab stop as it loses the focus, so it is no place for the
+ * node bar's Escape to bring the keyboard back to.
+ */
+export function passRootFocusToSheet(root: HTMLElement, viewport: HTMLElement): void {
+    root.addEventListener("focusin", event => {
+        if (event.target === root)
+            viewport.focus({ preventScroll: true });
+    });
 }

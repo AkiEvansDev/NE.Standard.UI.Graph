@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ValueReading } from "ne-standard-ui";
 import { CanvasDocumentState } from "../src/canvas/canvas-document.ts";
-import { ReadOnlyClass } from "../src/canvas/canvas-dom.ts";
 import { CanvasSettings } from "../src/canvas/canvas-settings.ts";
 import { emptyDocument, readDocument } from "../src/nodes/model.ts";
 import type { GraphDocument } from "../src/nodes/model.ts";
+
+// The family's read-only mark, as the plugin surface names it.
+const ReadOnlyClass = "ui-readonly";
 
 /** A canvas's root as the document state reads it: its attributes and its classes, nothing drawn. */
 function canvasRoot(): { root: HTMLElement; classes: Set<string> } {
@@ -28,7 +30,7 @@ function documentState(root: HTMLElement): CanvasDocumentState<GraphDocument> {
     const value = { getAttribute: () => JSON.stringify(emptyDocument()) } as unknown as HTMLElement;
     const values = { read: () => null, hold: () => undefined, release: () => undefined } as unknown as ValueReading;
 
-    return new CanvasDocumentState(root, value, new CanvasSettings(root), readDocument, { clearSelectionSets: () => undefined, redraw: () => undefined, redrawEdges: () => undefined }, values);
+    return new CanvasDocumentState(root, value, new CanvasSettings(root, ReadOnlyClass), readDocument, { clearSelectionSets: () => undefined, redraw: () => undefined, redrawEdges: () => undefined }, values);
 }
 
 test("a read-only canvas takes no step back or forward, and keeps both for when it may be edited again", () => {
