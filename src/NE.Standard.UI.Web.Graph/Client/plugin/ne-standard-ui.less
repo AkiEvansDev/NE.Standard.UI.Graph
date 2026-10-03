@@ -34,6 +34,15 @@
 @ui-control-height-sm: 1.5rem;
 @ui-control-height-lg: 3rem;
 
+// The icon scale: every glyph's and icon's size is one of these whole pixels, in rem at the default 16 px root. At a fraction of its
+// text (1.25em of 14 px) an icon lands on half a pixel, where the icon fonts round their ascent and stand the glyph off centre.
+@ui-glyph-xs: 0.75rem; // 12px — a mark inside a field's own row: a stepper, a separator between crumbs
+@ui-glyph-sm: 0.875rem; // 14px — a field's trailing control: a select's chevron, a clear cross, a picker's toggle; a small icon
+@ui-glyph-md: 1rem; // 16px — a mark beside a line of text: a menu entry, an expander, a tree node; a small icon button's glyph
+@ui-glyph-md-lg: 1.125rem; // 18px — an icon-only control's glyph: a button, the theme switcher, an icon strip
+@ui-glyph-lg: 1.25rem; // 20px — a mark standing on its own, over a picture or in a corner; a medium icon, a rail's glyph
+@ui-glyph-xl: 1.5rem; // 24px — a large icon button's glyph, a large icon, a large rail's glyph
+
 // A line in a list that is scanned, not pressed - a menu entry, a breadcrumb step, a calendar cell: read-down height, not press-target.
 @ui-list-row-height: 1.75rem;
 
@@ -63,13 +72,15 @@
 // A side drawer over the page, its veil just under it.
 @ui-z-drawer-veil: 49;
 @ui-z-drawer: 50;
+// The shell's skip link while it holds the keyboard, over the bands and an open drawer.
+@ui-z-skip-link: 55;
 @ui-z-tooltip: 60;
 @ui-z-dialog: 100;
 @ui-z-notification: 200;
 
-// A range's track: a step of the text over whatever ground it stands on, so it reads on the page, a card and a dialog alike (the
-// raised ground it was is the dialog's own, where it vanished); on the page it is the raised step it was.
-@ui-range-track: ~"color-mix(in srgb, var(--ui-color-on-surface) 14%, transparent)";
+// A range's track: the mark, translucent text that reads 3:1 on the page, a card and a dialog alike — the track is what says a value
+// can be slid along it (a 14 % step of the text read 1.4:1).
+@ui-range-track: ~"var(--ui-color-mark)";
 
 // How close to the viewport's edge a popup may sit; must match anchored-popup.ts's own margin.
 @ui-popup-viewport-margin: 4px;
@@ -144,13 +155,9 @@
 
 // --- mixins/glyphs.less ---
 
-// The core's glyph font (fonts/NEGlyphs.woff2, from glyphs/build.mjs), so a host needs no icon pack. Sizes in rem, not em: a mark
-// on a fractional pixel rasterises unlike its twin.
+// The core's glyph font (fonts/NEGlyphs.woff2, from glyphs/build.mjs), so a host needs no icon pack. Sized from the icon scale
+// (`@ui-glyph-*`, tokens.less), never in em: a mark on a fractional pixel rasterises unlike its twin.
 @ui-glyph-font: "NE Glyphs";
-@ui-glyph-xs: 0.75rem; // 12px — a mark inside a field's own row: a stepper, a separator between crumbs
-@ui-glyph-sm: 0.875rem; // 14px — a field's trailing control: a select's chevron, a clear cross, a picker's toggle
-@ui-glyph-md: 1rem; // 16px — a mark beside a line of text: a menu entry, an expander, a tree node
-@ui-glyph-lg: 1.25rem; // 20px — a mark standing on its own, over a picture or in a corner
 
 // By codepoint, not ligature: the face has no letters. From MaterialSymbolsRounded's .codepoints; build.mjs holds the same set.
 @ui-glyph-chevron: "\e5cf"; // expand_more, drawn pointing down; the others turn it
@@ -286,6 +293,12 @@
 @ui-glyph-folder-zip: "\eb2c";
 @ui-glyph-audio-file: "\eb82";
 @ui-glyph-video-file: "\eb87";
+// Markdown's marks, for a format bar: bold, italic, struck through, a heading, a bulleted list.
+@ui-glyph-bold: "\e238"; // format_bold
+@ui-glyph-italic: "\e23f"; // format_italic
+@ui-glyph-strikethrough: "\e246"; // format_strikethrough
+@ui-glyph-heading: "\f85d"; // format_h1
+@ui-glyph-list-bulleted: "\e241"; // format_list_bulleted
 
 // The mark, on a pseudo-element: an em square, silent to a screen reader (`content`'s slash form), free of the host's text settings.
 .ui-glyph(@code; @size; @fill: 0) {
@@ -578,6 +591,20 @@
 // A row host holds the keyboard: `:focus`, since `:focus-within` lights a stale row and `:focus-visible` outlives a click.
 @ui-row-cursor-focus: ~":focus:not([data-ui-pointer-focus])";
 
+// A list's current option put there by the keyboard: `@ui-list-current` less the pointer's.
+@ui-list-keyboard: ~"[data-ui-active]:not([data-ui-pointer-focus])";
+
+// Where the keyboard stands in a list — a host's row, a menu's or a popup list's entry, a select's option: one look everywhere, a frame
+// inside the entry in the brand's ink, which reads 3:1 on either page (the focus ring's colour is a theme's own), and which the
+// pointer's mark never wears. The washes alone were lost against a stripe or a chosen ground. An outline, not a box-shadow, so a
+// row's separator and a chosen entry's mark stay. Forced colours draw their own dashed mark (core/preferences.less).
+.ui-keyboard-frame() {
+    @media (forced-colors: none) {
+        outline: 2px solid var(--ui-color-primary-ink);
+        outline-offset: -2px;
+    }
+}
+
 // --- mixins/drag-bar.less ---
 
 // The ::before line down a dragged bar's positioned hit area (splitter, column resizer): a hairline thickening under the pointer,
@@ -690,11 +717,15 @@
     }
 }
 
-// The keyboard's entry in a list, washed as the pointer's would be, but not the `@current` one (already marked). The pointer's own
-// wash stays off it, so two never stack to a press's strength and nothing changes as the pointer crosses it; a press still shows.
+// The keyboard's entry in a list: the keyboard's frame, on the `@current` one too, and washed as the pointer's would be but for the
+// current one (already marked). The pointer's own wash stays off it, so two never stack to a press's strength and nothing changes as
+// the pointer crosses it; a press still shows. The frame stands in for the focus ring.
 .ui-entry-keyboard(@current: ~"[aria-selected='true']") {
+    &@{ui-keyboard-focus} {
+        .ui-keyboard-frame();
+    }
+
     &@{ui-keyboard-focus}:not(@{current}) {
-        outline: none;
         background-image: linear-gradient(var(--ui-wash-hover), var(--ui-wash-hover));
     }
 
@@ -730,6 +761,46 @@
 .ui-popup-scroll() {
     max-height: calc(100dvh - 2 * @ui-popup-viewport-margin);
     overflow: auto;
+}
+
+// A short strip of icons floating over what it acts on — a row's action bar, a code field's format bar — placed as every popup is,
+// under the popups (a menu it opens stands over it). Drawn only while it is wanted, so it fades in and is gone at once. Never wider
+// than the window: its icons wrap rather than run off a phone's edge.
+.ui-icon-bar-surface() {
+    .ui-popup-surface(@ui-z-action-bar);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    max-width: calc(100vw - 2 * @ui-space-1);
+    padding: 2px;
+    // Its buttons' corner widened by its own padding, as a popup's is by its list's.
+    border-radius: calc(var(--ui-radius-button) + 2px);
+    opacity: 1;
+
+    @starting-style {
+        opacity: 0;
+    }
+}
+
+// An icon of such a strip, a small ghost button: a square, as the framework's icon-only button is, named by its `aria-label` alone —
+// a tooltip would be a popup over a popup. The keyboard's place wears the keyboard's frame, since a theme's focus ring may be none.
+.ui-icon-bar-button() {
+    aspect-ratio: 1;
+    padding: @ui-space-1;
+
+    > .ui-icon {
+        .ui-icon-bar-glyph();
+    }
+
+    &@{ui-keyboard-focus} {
+        .ui-keyboard-frame();
+    }
+}
+
+// A strip's glyph, an icon-only control's step of the icon scale: 18px also fills the square's content box exactly.
+.ui-icon-bar-glyph() {
+    font-size: @ui-glyph-md-lg;
 }
 
 // --- mixins/lift.less ---
@@ -992,8 +1063,10 @@
     flex: 0 0 auto;
     flex-direction: column;
     align-self: stretch;
-    // Gives back most of the field's right padding: the stepper's ruled edge doesn't need the breathing room text does.
-    margin: @ui-space-1 -0.5em @ui-space-1 0;
+    // Gives back most of the field's right padding: the stepper's ruled edge doesn't need the breathing room text does. A step from
+    // the box's outer edge, its border inside the step, so each arrow's half is even and its glyph centres on whole pixels: a step
+    // inside the border left both glyphs half a pixel off, rounded the same way, and the pair stood a pixel off the field's middle.
+    margin: calc(@ui-space-1 - var(--ui-border-width, 1px)) -0.5em calc(@ui-space-1 - var(--ui-border-width, 1px)) 0;
     border-left: 1px solid var(--ui-color-border);
     padding-left: 0.4em;
 }
@@ -1073,6 +1146,22 @@
 // the invalid/focus border but not this sizing, which would distort them.
 @ui-input-field: ~".ui-text-input__row, .ui-number-input__row, .ui-temporal-input__row, .ui-file-input__row, .ui-color-input__row, .ui-select__trigger";
 @ui-input-field-state: ~"@{ui-input-field}, .ui-field-box, .ui-image-input__surface";
+
+// A field standing where a value's text stood (a key-value row's editor, a grid cell's) is set back by `--ui-field-inset`, its own
+// border and start padding, so its first glyph lands on the value's: a fixed or capped set-back moved the text by the difference.
+// A host short of room narrows the inset with this, padding and variable together; Underline has no inset to narrow.
+.ui-field-narrow-inset(@inset) {
+    &:not(.ui-input--underline) {
+        --ui-field-inset: @inset;
+
+        > :is(@{ui-input-field}) {
+            padding-left: calc(@inset - var(--ui-border-width, 1px));
+        }
+    }
+}
+
+// A field showing any message, which colours its edge in the message's own colour (--ui-validation-color): an error, a warning, an info.
+@ui-validation-marked: ~".ui-invalid, .ui-validation--warning, .ui-validation--info";
 
 // --- mixins/selected.less ---
 
@@ -1205,14 +1294,22 @@
 }
 
 // The keyboard's row washes like the pointer's (not under a single choice, whose chosen row is the cursor); on a chosen row, as a
-// layer, so it still reads as chosen. `@via` the path from host to items host when not direct (a table's scroll box), ending in " > ".
+// layer, so it still reads as chosen. It also wears the keyboard's frame (`.ui-keyboard-frame()`), which the pointer's row never has.
+// `@via` the path from host to items host when not direct (a table's scroll box), ending in " > ".
 .ui-row-cursor(@host; @row; @via: ~"") {
     @{host}@{ui-row-cursor-focus}:not([data-ui-selection="one"]) > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]:not([data-ui-selected]) {
         .ui-row-hover();
+        .ui-keyboard-frame();
     }
 
     @{host}@{ui-row-cursor-focus}:not([data-ui-selection="one"]) > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
         .ui-row-cursor-layer();
+        .ui-keyboard-frame();
+    }
+
+    // A key moves the cursor at once, frame and wash together: the washes' fade trailed the frame, which has none.
+    @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row} {
+        transition: @ui-root-transition;
     }
 }
 

@@ -31,6 +31,11 @@ public sealed class NodesAppStartup : UIStartupBase
         // values — is content, so the missing-word report in Development names only words the demo has not translated.
         _ = application.ConfigureLocalization(options => options.KeyPrefixes.Add(NodesDemoWords.KeyPrefix));
 
+        // The focus ring in the brand's ink, as on every demo: the framework's default purple read 2.3:1 on the dark page.
+        _ = application.ConfigureTheme(theme => theme
+            .ConfigureLightPalette(static palette => palette with { FocusRing = palette.PrimaryInk })
+            .ConfigureDarkPalette(static palette => palette with { FocusRing = palette.PrimaryInk }));
+
         _ = application.Route<CommonNodesView, CommonNodesController>(NodesDemoView.NodesRoute);
         _ = application.Route<CalculatorNodesView, CalculatorNodesController>(NodesDemoView.CalculatorRoute);
         _ = application.Route<ImageNodesView, ImageNodesController>(NodesDemoView.ImageRoute);

@@ -66,9 +66,9 @@ internal abstract partial class NodesSheetController : UIControllerBase
     /// Ctrl+S, the menu's Save, or a save this controller asked for: the whole document has already landed on <see cref="Sheet"/>
     /// by the time this runs, and <paramref name="reason"/> says who asked — which is how Run gets the sheet the viewer is
     /// looking at rather than the one last committed. A background command: a run may go on for a while, and the tab sends Stop
-    /// and every other command while it does.
+    /// and every other command while it does — and the saves the viewer's edits make while a run goes on, so more than one at a time.
     /// </summary>
-    [UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background)]
+    [UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background, MaxConcurrent = 4)]
     public async Task<UICommandResult> SaveAsync(string reason, CancellationToken cancellationToken)
     {
         Status = UIPhrase.Of("nodes.status.saved", ("time", DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture)), ("nodes", Sheet.Nodes.Length), ("edges", Sheet.Edges.Length));

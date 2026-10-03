@@ -53,7 +53,7 @@ export class CanvasDrag {
                 moving.set(id, { x: node.x, y: node.y });
         }
 
-        return { kind: "nodes", startX: scene.x, startY: scene.y, moving };
+        return { kind: "nodes", nodeId, startX: scene.x, startY: scene.y, moving };
     }
 
     /** The items by id, read afresh: a document the server sends mid-drag replaces the objects, and the drag goes on over the new ones. */

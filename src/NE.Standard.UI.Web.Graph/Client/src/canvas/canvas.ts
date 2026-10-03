@@ -4,7 +4,7 @@
 import type { ComponentStates, EffectContext, PluginEngineContext, WheelReading } from "ne-standard-ui";
 import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, KindDrag } from "./canvas-kind.ts";
-import { ChromeButtonSelector, CoreNames, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
+import { ChromeButtonSelector, CoreNames, doubleClickAim, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
 import { CanvasDocumentState } from "./canvas-document.ts";
 import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
@@ -13,7 +13,7 @@ import { CanvasSelection, adds } from "./canvas-selection.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
 import { CanvasPinch } from "./pinch.ts";
-import { distanceToSegment, snap, WheelPagePixels, wheelZoom } from "./geometry.ts";
+import { distanceToSegment, pressedInPlace, snap, WheelPagePixels, wheelZoom } from "./geometry.ts";
 
 /** On the root while the sheet is panned: the hand holds it. */
 const PanningClass = "ui-graph--panning";
@@ -145,7 +145,7 @@ export function findCanvas(context: EffectContext, effect: { target?: { id?: unk
 
 export type Drag =
     | { kind: "pan"; startX: number; startY: number; panX: number; panY: number }
-    | { kind: "nodes"; startX: number; startY: number; moving: Map<string, Point> }
+    | { kind: "nodes"; nodeId: string; startX: number; startY: number; moving: Map<string, Point> }
     | { kind: "group"; startX: number; startY: number; groupId: string; origin: Point; moving: Map<string, Point> }
     | { kind: "marquee"; startX: number; startY: number }
     | { kind: "reroute"; edge: string; index: number }
@@ -681,6 +681,15 @@ class Canvas {
         }
 
         this.recordMoved(drag);
+
+        // A node let go where the mouse pressed it is clicked: the press captured the pointer, so the browser's click names the
+        // viewport. A finger's tap is clicked on what it tapped, and `click` hears it.
+        if (drag.kind === "nodes" && event.pointerType !== "touch") {
+            const at = this.view.toViewport(event);
+
+            if (pressedInPlace({ x: drag.startX, y: drag.startY }, this.view.toScene(at.x, at.y), this.view.zoom))
+                this.raiseNodeClick(drag.nodeId);
+        }
     }
 
     private fingerTaken(event: PointerEvent): void {
@@ -857,20 +866,34 @@ class Canvas {
         if (this.settings.readOnly || !(event.target instanceof Element))
             return;
 
-        const edge = event.target.closest<SVGElement>(`[${EdgeAttribute}]`);
+        // A press on an item captures the pointer to the viewport, which the browser then names the double click's target: what was
+        // double-clicked is what stands under the pointer.
+        const target = this.viewport.ownerDocument.elementFromPoint(event.clientX, event.clientY) ?? event.target;
+        const aim = doubleClickAim(target, element => this.isPanel(element));
 
-        if (edge !== null) {
-            const at = this.view.toViewport(event);
-
-            this.addReroute(edge.getAttribute(EdgeAttribute)!, this.view.toScene(at.x, at.y));
+        if (aim === null)
             return;
+
+        switch (aim.to) {
+            case "reroute": {
+                const at = this.view.toViewport(event);
+
+                this.addReroute(aim.id, this.view.toScene(at.x, at.y));
+                break;
+            }
+            case "rename":
+                this.renameNode(aim.id);
+                break;
+            case "sheet":
+                this.kind.backgroundDoubleClick();
+                break;
         }
+    }
 
-        // The canvas's chrome stands over the sheet: two quick presses on a zoom button are two zooms, not a request for an item.
-        if (this.isPanel(event.target) || event.target.closest(`[${NodeAttribute}], [${GroupAttribute}], .ui-graph__corner`) !== null)
-            return;
-
-        this.kind.backgroundDoubleClick();
+    /** The name the node menu's Rename would change, opened by a double click or F2, where the kind lets one be changed. */
+    private renameNode(id: string): void {
+        if (!this.settings.readOnly && this.kind.canEditItems())
+            this.menus.renameNode(id);
     }
 
     // --- the keyboard ------------------------------------------------------------------------------------------------------
@@ -929,6 +952,11 @@ class Canvas {
         else if (event.key === "Escape") {
             this.kind.escape();
             this.selection.clearSelection();
+        }
+        else if (event.key === "F2" && this.selection.nodeIds.size === 1) {
+            // As a tree's row and a tab take it: the one chosen node's name.
+            event.preventDefault();
+            this.renameNode(this.selection.nodeIds.values().next().value!);
         }
     }
 

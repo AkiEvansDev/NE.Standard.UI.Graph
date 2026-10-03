@@ -58,64 +58,9 @@ public abstract class GraphDemoView : UIViewBase
             .SetDarkIcon(MaterialIcons.Outlined(DarkIcon));
 
         return CreatePage().Code is { } code
-            ? PageHeader(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), new LanguageSwitcherComponent(), theme)
-            : PageHeader(Title, Description, new LanguageSwitcherComponent(), theme);
+            ? UIPage.Header(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), new LanguageSwitcherComponent(), theme)
+            : UIPage.Header(Title, Description, new LanguageSwitcherComponent(), theme);
     }
-
-    /// <summary>
-    /// The page band: the name with the switchers at the far end of its row at every width, and the muted line under them — on a phone
-    /// the name a title's size and the line one line, cut, so the band stays about a title's height and leaves the screen to the page;
-    /// from a medium screen the name in the display role and the line up to three lines.
-    /// </summary>
-    /// <remarks>
-    /// <c>UIPage.Header</c>'s band, kept on one row on a phone too: there the preset folds the far end under the line, which took a
-    /// third of a phone's height.
-    /// </remarks>
-    private static ContainerComponent PageHeader(string title, string description, params IVisualComponent[] trailing)
-        => new ContainerComponent()
-            .SetPadding(UIResponsive<UIThickness>.Create(UIThickness.All(24, 8, 16, 4), md: UIThickness.All(24, 20, 24, 4)))
-            .SetColumn(24, UIGridUnit.Auto())
-            // On a phone a name too long for its row wraps under itself rather than losing its end, its first line level with the
-            // switchers, which stand at the row's top.
-            .AddChild(PageTitle(title, UIResponsive<UIVisibility>.Create(UIVisibility.Visible, md: UIVisibility.Collapsed))
-                .AsTitle()
-                .SetTitleWrap(true)
-                .SetVerticalAlignment(UIAlignment.Start)
-                .SetMargin(UIThickness.All(0, PhoneTitleInset, 0, 0))
-            )
-            .AddChild(PageTitle(title, UIResponsive<UIVisibility>.Create(UIVisibility.Collapsed, md: UIVisibility.Visible)).AsDisplay())
-            .AddChild(PageDescription(description, 1, UIResponsive<UIVisibility>.Create(UIVisibility.Visible, md: UIVisibility.Collapsed)).SetPlacement(1, 2, 24, 1))
-            .AddChild(PageDescription(description, 3, UIResponsive<UIVisibility>.Create(UIVisibility.Collapsed, md: UIVisibility.Visible)).SetPlacement(1, 2, 23, 1))
-            .AddChild(new StackPanelComponent()
-                .SetOrientation(UIOrientation.Horizontal)
-                .SetSpacing(UIResponsive<double>.Create(8, md: 12))
-                .SetMargin(UIResponsive<UIThickness>.Create(UIThickness.All(8, 0, 0, 0), md: UIThickness.All(12, 0, 0, 0)))
-                .SetHorizontalAlignment(UIAlignment.End)
-                .SetVerticalAlignment(UIAlignment.Start)
-                .AddChildren(trailing)
-                .SetPlacement(24, 1, 1, 1)
-            );
-
-    // Half the switchers' 40 px less the name's 28 px line: a one-line name stands in their middle, a wrapped one's first line too.
-    private const double PhoneTitleInset = 6;
-
-    /// <summary>The page's name, where <paramref name="visibility"/> shows it.</summary>
-    private static TextComponent PageTitle(string title, UIResponsive<UIVisibility> visibility)
-        => new TextComponent()
-            .SetTitle(title)
-            .SetTitleColor(UIThemeColor.OnBackground)
-            .SetVerticalAlignment(UIAlignment.Center)
-            .SetVisibility(visibility)
-            .SetPlacement(1, 1, 23, 1);
-
-    /// <summary>The muted line under the name, at most <paramref name="lines"/> lines, where <paramref name="visibility"/> shows it.</summary>
-    private static ParagraphComponent PageDescription(string description, int lines, UIResponsive<UIVisibility> visibility)
-        => new ParagraphComponent()
-            .SetDescription(description)
-            .SetMaxLines(lines)
-            .SetDescriptionType(UITextAppearance.Body)
-            .SetDescriptionColor(UIThemeColor.Muted)
-            .SetVisibility(visibility);
 
     /// <summary>
     /// The <c>&lt;/&gt;</c> button and the popup it opens: the sample's source, read-only, with a copy button.

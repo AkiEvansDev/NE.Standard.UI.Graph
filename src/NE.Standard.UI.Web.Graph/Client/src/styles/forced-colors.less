@@ -3,11 +3,31 @@
 // for its own parts — which a package's rules cannot join. Imported last, so it outranks what it answers.
 
 @media (forced-colors: active) {
-    // A chosen node or frame: an outline in the selection colour, where the ring was a shadow.
+    // A chosen node or frame: a plain outline in the selection colour on its edge, where the glow was a shadow.
     .ui-graph__node[data-ui-graph-selected],
     .ui-graph__group[data-ui-graph-selected] {
         outline: 2px solid Highlight;
-        outline-offset: 2px;
+        outline-offset: 0;
+    }
+
+    // A plan target, whose success edge the mode paints over: a double outline in the text's colour, in the selection's when chosen.
+    .ui-graph__node[data-ui-graph-target] {
+        outline: 3px double CanvasText;
+        outline-offset: 0;
+    }
+
+    .ui-graph__node[data-ui-graph-selected][data-ui-graph-target] {
+        outline-color: Highlight;
+    }
+
+    // A node in conflict, whose warning edge the mode paints over: dashed in the text's colour, in the selection's when chosen.
+    .ui-graph__node[data-ui-graph-conflict] {
+        outline: 2px dashed CanvasText;
+        outline-offset: 0;
+    }
+
+    .ui-graph__node[data-ui-graph-selected][data-ui-graph-conflict] {
+        outline-color: Highlight;
     }
 
     // The picker's chosen category, as a chosen option is drawn; its current entry, the one Enter takes, dashed as an open list's is.
@@ -42,7 +62,7 @@
     // double edge of the text's colour.
     .ui-graph__node[data-ui-graph-state="running"] {
         outline: 2px dashed Highlight;
-        outline-offset: 2px;
+        outline-offset: 0;
     }
 
     .ui-graph__node[data-ui-graph-state="error"] {

@@ -47,9 +47,11 @@
 }
 
     // The theme's own brand colour, not its focus ring: a chosen node is not a focused one, and the ring belongs to the keyboard.
+    // On the node's own edge, head and body alike, with a soft glow outside: a ring standing clear of the edge ran round the pins.
+    // The glow says chosen and nothing else, always in the primary: a failure, a conflict or a target says itself on the edge.
     .ui-graph__node[data-ui-graph-selected] {
         border-color: var(--ui-color-primary);
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
+        box-shadow: 0 0 12px 1px color-mix(in srgb, var(--ui-color-primary) 55%, transparent);
     }
 
     .ui-graph__node[data-ui-graph-state="running"] {
@@ -58,11 +60,6 @@
 
     .ui-graph__node[data-ui-graph-state="error"] {
         border-color: var(--ui-color-danger);
-    }
-
-    // Chosen and failed: the ring takes the failure's colour, or the brand's ring would bury the one thin red edge.
-    .ui-graph__node[data-ui-graph-selected][data-ui-graph-state="error"] {
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-danger) 45%, transparent);
     }
 
     // Handed on from its last run rather than run: as quiet as done, told apart by a dotted edge.
@@ -798,6 +795,11 @@ dialog.ui-graph__picker {
 
     .ui-graph__picker-entry--current {
         .ui-selected-ground();
+    }
+
+    // Where the arrows or the list put it, the current entry wears the keyboard's frame; the pointer's, its ground alone.
+    .ui-graph__picker-entry--current:not(.ui-graph__picker-entry--pointed) {
+        .ui-keyboard-frame();
     }
 
 .ui-graph__picker-entry-icon {

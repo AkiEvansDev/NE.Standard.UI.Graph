@@ -66,6 +66,42 @@ export const TopChromeSelector = `[${MenuPanelAttribute}], [${SideAttribute}][${
 /** The canvas's own buttons over the sheet — the zoom bar, the run panel, the corner's and side panels' switches, the log's strip. */
 export const ChromeButtonSelector = `.ui-graph__bar-button, [${MenuPanelAttribute}] > * > [${CoreNames.collapseToggle}], [${SideAttribute}] > [${CoreNames.collapseToggle}], .ui-graph__log-head > button`;
 
+/** What a double click on the sheet asks for: a reroute point on an edge, a node's rename, or the kind's own on the bare sheet. */
+export type DoubleClickAim = { readonly to: "reroute" | "rename"; readonly id: string } | { readonly to: "sheet" } | null;
+
+/** A node drawn as a circle, and the face inside its ring: its name hangs under it and takes no pointer, so the circle stands for it. */
+const CircleSelector = ".ui-graph__bubble";
+const CircleFaceSelector = ".ui-graph__bubble-face";
+
+/**
+ * Where a double click lands: an edge takes a reroute point, a node's name (a circle's circle) its rename, the bare sheet the kind's
+ * own (the picker). The rest of a node, a group, and whatever stands over the sheet (`isPanel`: two quick presses on a zoom button)
+ * take nothing.
+ */
+export function doubleClickAim(target: Element, isPanel: (target: Element) => boolean): DoubleClickAim {
+    const edge = target.closest(`[${EdgeAttribute}]`);
+
+    if (edge !== null)
+        return { to: "reroute", id: edge.getAttribute(EdgeAttribute)! };
+
+    if (isPanel(target))
+        return null;
+
+    const node = target.closest(`[${NodeAttribute}]`);
+
+    if (node !== null)
+        return isNamePart(target, node) ? { to: "rename", id: node.getAttribute(NodeAttribute)! } : null;
+
+    return target.closest(`[${GroupAttribute}], .ui-graph__corner`) === null ? { to: "sheet" } : null;
+}
+
+function isNamePart(target: Element, node: Element): boolean {
+    if (target.closest(ItemTitleSelector) !== null)
+        return true;
+
+    return node.matches(CircleSelector) && (target === node || target.closest(CircleFaceSelector) !== null);
+}
+
 /** A fresh copy of the framework component the renderer wrote as a template of the region (`RenderTemplate`); null when it wrote none. */
 export function cloneTemplate(root: ParentNode, region: string): HTMLElement | null {
     const template = root.querySelector<HTMLTemplateElement>(`template[${EditorTemplateAttribute}="${CSS.escape(region)}"]`);

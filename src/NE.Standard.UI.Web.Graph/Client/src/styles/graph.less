@@ -245,15 +245,16 @@
 }
 
 // A node in conflict (server changed/dropped it, pending save): warning colour, dashed to read as a question rather than a
-// failure. Solid on a round node — a dashed circle staircases, which `mixins/arc.less` exists to avoid.
+// failure, on the node's own edge as a chosen one's is. Solid on a round node — a dashed circle staircases, which
+// `mixins/arc.less` exists to avoid.
 .ui-graph__node[data-ui-graph-conflict] {
-    outline: 2px dashed var(--ui-color-warning);
-    outline-offset: 3px;
+    border-color: var(--ui-color-warning);
+    border-style: dashed;
 }
 
 .ui-graph__bubble[data-ui-graph-conflict],
 .ui-graph__craft[data-ui-graph-conflict] {
-    outline-style: solid;
+    border-style: solid;
 }
 
 // A caption being edited: a chip centred on the edge's midpoint, in scene units, over the caption it replaces; the field lays

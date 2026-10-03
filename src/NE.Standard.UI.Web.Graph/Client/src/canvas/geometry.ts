@@ -235,7 +235,8 @@ function orthogonalCommands(stops: readonly Point[], turns: readonly (number | u
 /**
  * A backward edge's arc: a flat oval hugging the nodes, rising slightly more the further it spans, with handles leaning inward —
  * nearly half the span over a short gap, so it sets out low and stays under what its nodes wear on their tops (a production node's
- * chip, wider than the node), and no further than `ArcLean` over a long one, so it clears the nodes it passes over.
+ * chip, wider than the node), and no further than `ArcLean` over a long one, so it clears the nodes it passes over. Each handle is
+ * drawn in to a circle's, so a short arc stays round at that low angle.
  */
 function arcCommands(start: Point, end: Point): Command[] {
     const span = end.x - start.x;
@@ -245,8 +246,35 @@ function arcCommands(start: Point, end: Point): Command[] {
 
     return [
         { op: "M", points: [start] },
-        { op: "C", points: [{ x: start.x + lean, y: side }, { x: end.x - lean, y: side }, end] }
+        { op: "C", points: [roundHandle(start, end, { x: start.x + lean, y: side }), roundHandle(end, start, { x: end.x - lean, y: side }), end] }
     ];
+}
+
+/**
+ * A handle no longer than a circle's leaving `from` at the same angle to the chord: 2/3 of the chord over one plus that angle's
+ * cosine. Longer, the two handles of a short arc met near its middle and drew a peak.
+ */
+function roundHandle(from: Point, to: Point, handle: Point): Point {
+    const chordX = to.x - from.x;
+    const chordY = to.y - from.y;
+    const chord = Math.hypot(chordX, chordY);
+    const reachX = handle.x - from.x;
+    const reachY = handle.y - from.y;
+    const reach = Math.hypot(reachX, reachY);
+
+    if (chord === 0 || reach === 0)
+        return handle;
+
+    const cos = (reachX * chordX + reachY * chordY) / (chord * reach);
+    const round = (2 * chord) / 3;
+
+    // Compared multiplied out: a handle leaning back along the chord (cosine -1) has no circle to be drawn in to.
+    if (reach * (1 + cos) <= round)
+        return handle;
+
+    const scale = round / (reach * (1 + cos));
+
+    return { x: from.x + reachX * scale, y: from.y + reachY * scale };
 }
 
 /**
@@ -405,6 +433,14 @@ export function pinchView(start: View, startMid: Point, startDistance: number, m
     const sceneY = (startMid.y - start.panY) / start.zoom;
 
     return { zoom, panX: mid.x - sceneX * zoom, panY: mid.y - sceneY * zoom };
+}
+
+/** How far a press may wander, in the viewport's pixels, and still be a click rather than a drag. */
+const ClickSlop = 4;
+
+/** Whether a press from `from` let go at `to`, both on the sheet at `zoom`, stayed close enough to its place to be a click. */
+export function pressedInPlace(from: Point, to: Point, zoom: number): boolean {
+    return Math.hypot(to.x - from.x, to.y - from.y) * zoom <= ClickSlop;
 }
 
 /** How far one wheel page goes, in pixels, for a wheel that counts in pages; the framework reads the rest (`context.wheel`). */

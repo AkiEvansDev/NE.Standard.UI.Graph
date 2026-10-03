@@ -33,6 +33,8 @@ const HomeSelector = ".ui-graph__viewport";
 const FocusableSelector = "input, button, [tabindex]";
 const EntryClass = "ui-graph__picker-entry";
 const CurrentClass = "ui-graph__picker-entry--current";
+// On the current entry when the pointer made it so: only the arrows' and the list's own wear the keyboard's frame.
+const PointedClass = "ui-graph__picker-entry--pointed";
 // No clean path is a lone separator, so this cannot collide with a category — the uncategorized one is the empty path.
 const AllCategories = "/";
 
@@ -485,11 +487,12 @@ export class Picker<TEntry extends PickerEntry> {
     }
 
     /** The entry the arrows and Enter stand on: the class draws it, and the search field names it for whoever is listening. */
-    private setCurrent(entry: HTMLElement | null): void {
+    private setCurrent(entry: HTMLElement | null, pointed = false): void {
         for (const candidate of this.list.querySelectorAll<HTMLElement>(`.${EntryClass}`)) {
             const current = candidate === entry;
 
             candidate.classList.toggle(CurrentClass, current);
+            candidate.classList.toggle(PointedClass, current && pointed);
             candidate.setAttribute("aria-selected", String(current));
         }
 
@@ -555,7 +558,7 @@ export class Picker<TEntry extends PickerEntry> {
         const entry = event.target instanceof Element ? event.target.closest<HTMLElement>(`.${EntryClass}`) : null;
 
         if (entry !== null && !entry.classList.contains(CurrentClass))
-            this.setCurrent(entry);
+            this.setCurrent(entry, true);
     }
 
     private take(entry: HTMLElement | null): void {

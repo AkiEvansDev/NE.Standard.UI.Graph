@@ -38,9 +38,11 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 
         SetCanvasRegion(UIGraphMenus.Pin, pinMenu);
 
-        // The core's own field, not an input of the package's: the page's appearance, its clear button and its focus ring.
+        // The core's own field, not an input of the package's: its clear button and its focus ring; Tonal, since the picker's
+        // popup frames it, as a node frames its fields.
         PickerSearch = new TextInputComponent()
             .SetType(UITextInputType.Search)
+            .SetAppearance(UIInputAppearance.Tonal)
             .SetPrefixIcon(UIGlyphs.Search)
             .SetPlaceholder(UIGraphWords.SearchKinds)
             .SetShowClearButton();
@@ -117,8 +119,14 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         {
             foreach (UINodePin pin in type.Inputs)
             {
-                if (CreateEditor(pin) is IVisualComponent editor)
-                    SetCanvasRegion(UIGraphRegions.Editor(type.Key, pin.Name), editor);
+                if (CreateEditor(pin) is not IVisualComponent editor)
+                    continue;
+
+                // A node frames its fields itself: the fill alone, without a Filled field's line, which only adds weight there.
+                if (editor is IFieldInputComponent field)
+                    field.Appearance = UIInputAppearance.Tonal;
+
+                SetCanvasRegion(UIGraphRegions.Editor(type.Key, pin.Name), editor);
             }
         }
     }

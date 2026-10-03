@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bounds, contains, drawEdge, edgePath, fitClearOf, fitView, intersects, showsAny, snap, wheelZoom } from "../src/canvas/geometry.ts";
+import { bounds, contains, drawEdge, edgePath, fitClearOf, fitView, intersects, pressedInPlace, showsAny, snap, wheelZoom } from "../src/canvas/geometry.ts";
 
 // The framework's notch, which `context.wheel.notch` carries: its reading turns lines and pages into pixels before the zoom sees them.
 const Notch = 100;
@@ -71,12 +71,34 @@ test("a backward edge arcs beside its two ends, away from the nodes between them
     // Lifted 20 plus a tenth of the 300 it spans above the higher of the two ends, its handles leaning 64 inwards, the most they lean.
     assert.equal(arc, "M300,100 C236,50 64,50 0,100");
 
-    // Over a short gap the handles lean nearly half of it, so the arc sets out low.
-    assert.equal(drawEdge("bezier", { x: 100, y: 100 }, { x: 0, y: 100 }, [], { back: true }).path, "M100,100 C55,70 45,70 0,100");
+    // Over a short gap the handles lean nearly half of it, so the arc sets out low, and are drawn in to a circle's: round, not peaked.
+    assert.equal(drawEdge("bezier", { x: 100, y: 100 }, { x: 0, y: 100 }, [], { back: true }).path, "M100,100 C69.72,79.81 30.28,79.81 0,100");
 
     const bent = drawEdge("straight", { x: 300, y: 100 }, { x: 0, y: 100 }, [{ x: 150, y: 300 }], { back: true }).path;
 
     assert.equal(bent, "M300,100 L150,300 L0,100");
+});
+
+test("a short backward arc follows a circle through its ends, so it reads round rather than peaked", () => {
+    const [x0, y0, x1, y1, x2, y2, x3, y3] = drawEdge("bezier", { x: 124, y: 0 }, { x: 0, y: 0 }, [], { back: true }).path.match(/-?[\d.]+/g)!.map(Number);
+    const at = (t: number): [number, number] => {
+        const rest = 1 - t;
+
+        return [
+            rest ** 3 * x0 + 3 * rest * rest * t * x1 + 3 * rest * t * t * x2 + t ** 3 * x3,
+            rest ** 3 * y0 + 3 * rest * rest * t * y1 + 3 * rest * t * t * y2 + t ** 3 * y3
+        ];
+    };
+    // The circle through both ends and the top: its centre on the ends' bisector, as far from the top as from an end.
+    const [, top] = at(0.5);
+    const centre = (top * top - 62 * 62) / (2 * top);
+    const radius = Math.abs(centre - top);
+
+    for (let step = 1; step < 10; step++) {
+        const [x, y] = at(step / 10);
+
+        assert.ok(Math.abs(Math.hypot(x - 62, y - centre) - radius) < radius * 0.005, `t=${step / 10}`);
+    }
 });
 
 test("a node's edge to itself rises well over the node, its handles reaching out past its sides, and arrives into the side it enters by", () => {
@@ -200,4 +222,13 @@ test("a fit on a narrow canvas leaves a share of its width around the sheet, not
     // 342 / 12 = 28.5 on each side: the sheet takes 285 px of the width.
     assert.equal(phone.zoom, 0.285);
     assert.deepEqual(fitClearOf({ x: 0, y: 0, width: 1000, height: 200 }, 1200, 548, 0.05, 1, []), fitView({ x: 0, y: 0, width: 1000, height: 200 }, 1200, 548, 0.05, 1));
+});
+
+test("a press let go within four of the viewport's pixels of its place is a click; one dragged further is not, at any zoom", () => {
+    assert.equal(pressedInPlace({ x: 10, y: 10 }, { x: 10, y: 10 }, 1), true);
+    assert.equal(pressedInPlace({ x: 10, y: 10 }, { x: 13, y: 10 }, 1), true);
+    assert.equal(pressedInPlace({ x: 10, y: 10 }, { x: 15, y: 10 }, 1), false);
+    // Five units on a sheet zoomed to half are two and a half pixels under the hand; at twice, ten.
+    assert.equal(pressedInPlace({ x: 0, y: 0 }, { x: 5, y: 0 }, 0.5), true);
+    assert.equal(pressedInPlace({ x: 0, y: 0 }, { x: 5, y: 0 }, 2), false);
 });

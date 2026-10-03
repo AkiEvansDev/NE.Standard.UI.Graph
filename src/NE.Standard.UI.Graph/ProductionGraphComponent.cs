@@ -41,8 +41,10 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         // The plan panel's controls are the core's own fields, carried as regions: the engine reads and writes their values.
         PlanPeriod = PlanSelect(UIGraphWords.Period, (nameof(UIProductionPeriod.Once), UIGraphWords.PeriodOnce), (nameof(UIProductionPeriod.Minute), UIGraphWords.PeriodMinute), (nameof(UIProductionPeriod.Hour), UIGraphWords.PeriodHour));
         PlanObjective = PlanSelect(UIGraphWords.Objective, (nameof(UIProductionObjective.LeastRaw), UIGraphWords.LeastRaw), (nameof(UIProductionObjective.LeastTime), UIGraphWords.LeastTime), (nameof(UIProductionObjective.LeastCost), UIGraphWords.LeastCost));
+        // Tonal, as a node's fields are: the picker's popup frames it.
         PickerSearch = new TextInputComponent()
             .SetType(UITextInputType.Search)
+            .SetAppearance(UIInputAppearance.Tonal)
             .SetPrefixIcon(UIGlyphs.Search)
             .SetPlaceholder(UIGraphWords.SearchResources)
             .SetShowClearButton();
@@ -62,7 +64,8 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         foreach ((var id, var word) in options)
             items.Add(new OptionItem { Id = id, Title = word });
 
-        return new SelectComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(title).SetOptions(items);
+        // Tonal: the plan panel on the canvas frames its fields, as a node does.
+        return new SelectComponent().SetSize(UIInputSize.Small).SetAppearance(UIInputAppearance.Tonal).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(title).SetOptions(items);
     }
 
     /// <summary>

@@ -168,7 +168,7 @@
     transition: opacity @ui-motion-fast @ui-motion-ease;
 }
 
-// A chosen node wears its ring outside its edge: the node's action bar stands 8px clear of the ring, not of the edge under it.
+// A chosen node glows round its edge: the node's action bar stands clear of the glow's dense part, not on it.
 .ui-graph__node {
     --ui-action-bar-gap: 10px;
 }
@@ -282,6 +282,12 @@
     z-index: 1;
     color: inherit;
 }
+
+    // The selected name in a step of the ground's own colour — a node's head, a group's band: the page's brand-coloured selection
+    // stood on a coloured head as a block of another colour.
+    .ui-graph__rename::selection {
+        background: color-mix(in srgb, var(--ui-graph-node-ink, var(--ui-graph-group-color, var(--ui-color-primary))) 50%, transparent);
+    }
 
 // A colour choice in a node's or a group's menu leads with the colour it paints; the one taking the colour away is a ring.
 .ui-graph .ui-menu-item[data-ui-graph-swatch]::before {

@@ -39,15 +39,15 @@
     color: var(--ui-text-muted);
 }
 
-// A plan target: an offset ring in the success colour, since primary is taken by selection and warning by conflict.
+// A plan target: its own edge in the accent's ink, since primary is taken by selection and warning by conflict; the ink, as the
+// accent itself reads under 3:1 on a dark sheet. No glow: the glow says chosen alone, and a chosen target keeps this edge under it.
 .ui-graph__node[data-ui-graph-target] {
-    outline: 2px solid var(--ui-color-success);
-    outline-offset: 3px;
+    border-color: var(--ui-color-accent-ink);
 }
 
-    // Lifted by the ring's own reach, so the badge stands on the ring as it stands on a plain circle's edge rather than hiding it.
-    .ui-graph[data-ui-graph-kind="production"] .ui-graph__node[data-ui-graph-target] .ui-graph__bubble-badge {
-        top: calc(-0.5rem - 5px);
+    // In conflict as well: the edge is the conflict's.
+    .ui-graph__node[data-ui-graph-conflict][data-ui-graph-target] {
+        border-color: var(--ui-color-warning);
     }
 
 // --- the plan panel -------------------------------------------------------------------------------------------------------------

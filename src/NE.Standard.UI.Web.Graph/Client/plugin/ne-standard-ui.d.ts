@@ -51,7 +51,10 @@ declare module "ne-standard-ui" {
         readonly read: (element: Element) => unknown;
     };
 
-    /** One item of a collection change: its key, where it sits in the source order, and the value the server sent. */
+    /**
+     * One item of a collection change: its key, where it sits in the source order, and the value the server sent — without its
+     * nulls and empty collections, at every depth: read a property through `rows.readPath`, or take one it does not carry as null.
+     */
     export type CollectionChangeItem = {
         readonly key: string | null;
         /** On a replace: the key the item had before, when it changed. */
@@ -391,14 +394,18 @@ declare module "ne-standard-ui" {
 
     export type PopupOptions = {
         readonly placement: PopupPlacement;
-        /** Distance between anchor and popup along the main axis, in pixels. */
-        readonly gap: number;
+        /** Distance between anchor (or `surface`) and popup along the main axis, in pixels; unset, the framework's own (4 px). */
+        readonly gap?: number;
         /** Makes the popup at least as wide as the anchor before measuring, wider when its content asks, for dropdown-shaped popups. */
         readonly minAnchorWidth?: boolean;
         /** Aligns the popup along the cross axis to this element instead of the anchor. */
         readonly crossAnchor?: Element;
         /** The popup draws an arrow, so it may shift along the cross axis for the arrow to reach a small anchor's centre. */
         readonly arrow?: boolean;
+        /** The box whose room the side is chosen in, where the popup belongs (a field's scrolling text), rather than the window's alone. */
+        readonly boundary?: Element;
+        /** The popup or bar the anchor stands in (a format bar whose button opens a menu): the gap is kept from its edge, not the anchor's. */
+        readonly surface?: Element;
         /** The component whose state decides whether the popup stays; unset, the anchor — or the popup itself for a non-HTML anchor. */
         readonly owner?: HTMLElement;
         /** Told when the framework itself closes the popup, and why; a caller's own `close()` does not raise it. */
@@ -467,13 +474,21 @@ declare module "ne-standard-ui" {
         columnOrder(table: Element): string[];
     };
 
-    /** An items host's rows, whether the server painted them or the client built them. */
+    /**
+     * An items host's rows, whether the server painted them or the client built them. A row's item carries what the host reads off it —
+     * its templates' bindings, its rules, keys and abilities, and the paths it names with `AddItemReads` — less a value that reads the
+     * same as an absent key; a package that reads more off a row marks its host `ReadsWholeItems()` on the server, and the item travels
+     * whole. A host that draws no rows (a collection sink's) is sent its items whole.
+     */
     export type ItemRows = {
         /** The item the row stands for, or undefined when the element is not a row. */
         itemOf(row: Element): unknown;
         /** A virtualized host's items as its rules order and filter them, for a total; null where the page's rows or a window's source answer. */
         itemsOf(host: Element): readonly unknown[] | null;
-        /** An item's value at a dotted path, read as a binding reads it (CLR name, camel case, any case); undefined at a missing step. */
+        /**
+         * An item's value at a dotted path, read as a binding reads it (CLR name, camel case, any case): null for a property the item
+         * does not carry (the wire leaves a null out), undefined where a step cannot be taken.
+         */
         readPath(item: unknown, path: string): unknown;
         /** Draws a variant template against the row's item, for a part drawn only when wanted (a cell editor); `values.write` sets it. */
         renderVariant(row: Element, componentId: number, variantKey: string): Element | null;
@@ -524,10 +539,29 @@ declare module "ne-standard-ui" {
     /** A mark's words: a key filled from `args`, or an author's `{ text }` read as `strings.resolveText` reads it. */
     export type ValidationWords = { readonly key: string; readonly args?: Readonly<Record<string, unknown>> | null } | { readonly text: string };
 
+    /** What a component's rules say of a value: the strongest one it fails. */
+    export type ValidationVerdict = {
+        readonly severity: ValidationSeverity;
+        readonly words: ValidationWords;
+    };
+
     /** A package's field marked through the framework's validation engine, weighed with its other messages; it gates no submit. */
     export type FieldValidation = {
-        /** Marks a field's root, rendered or drawn in the framework's classes; a null severity takes the package's mark off. */
+        /**
+         * Marks a field's root, rendered or drawn in the framework's classes; a null severity takes the package's mark off. A root holding
+         * a `validationMessage` element speaks through it as a field does — in a table's cell, a mark with its tooltip.
+         */
         mark(field: Element, severity: ValidationSeverity | null, words?: ValidationWords | null): void;
+        /**
+         * Judges a value by a component's rules — every trigger's — showing nothing: for an editor drawn only while it edits (a grid's
+         * cell), whose closed cell wears the verdict through `mark`. Null where the value passes them all.
+         */
+        judge(componentId: number, value: unknown): ValidationVerdict | null;
+        /**
+         * Judges a field as a submit would — its bounds and every rule against the value it holds — and shows the verdict; true while an
+         * error stands, so the value is not to be taken. A warning or a note only speaks.
+         */
+        refuses(field: Element): boolean;
     };
 
     /** How far a wheel event turned on each axis, in pixels, signed as its deltas are. */
@@ -541,6 +575,12 @@ declare module "ne-standard-ui" {
         readonly notch: 100;
         /** The event's turn in pixels; a page counts `pagePixels`, a line unless the caller says. */
         pixels(event: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode">, pagePixels?: number): WheelPixels;
+    };
+
+    /** A key chord in the reader's platform's words, as the framework's menus and tooltips write one. */
+    export type ShortcutWords = {
+        /** An authored chord (`Ctrl+B`) as the reader's platform writes it — `Ctrl+B`, and `⌘B` on macOS; null for one naming no key. */
+        words(chord: string): string | null;
     };
 
     /** Names the framework writes and a package reads, spelled once so a rename reaches the package. */
@@ -565,7 +605,7 @@ declare module "ne-standard-ui" {
         readonly valueHolder: "data-ui-value-holder";
         /** The binding a value is written through, on the element carrying the value. */
         readonly bindValue: "data-ui-bind-value";
-        /** A part of a row whose double click is its own, not the row's open. */
+        /** A part of a row whose press is its own: its double click is not the row's open, nor is its control the row the keyboard presses. */
         readonly noRowOpen: "data-ui-no-row-open";
         /** A part of a row a press in never drags the row by (a grid's open detail), where the host's rows drag. */
         readonly noRowDrag: "data-ui-no-row-drag";
@@ -614,6 +654,8 @@ declare module "ne-standard-ui" {
         readonly textInputClass: "ui-text-input";
         /** On a field whose value was refused (a validation error). */
         readonly invalidClass: "ui-invalid";
+        /** A field's message, which the validation engine writes: a line under it, or a mark with a tooltip in a table's cell. */
+        readonly validationMessage: "data-ui-validation-message";
         /** A rendered line's number in its source (a Markdown block), which a scroll group follows. */
         readonly sourceLine: "data-ui-source-line";
         /** What a popup a field opened is to a screen reader: a key landing in one is the popup's. */
@@ -675,6 +717,7 @@ declare module "ne-standard-ui" {
         readonly states: ComponentStates;
         readonly validation: FieldValidation;
         readonly wheel: WheelReading;
+        readonly shortcuts: ShortcutWords;
         readonly names: DomNames;
     };
 
