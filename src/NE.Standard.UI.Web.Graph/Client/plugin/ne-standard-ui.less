@@ -519,15 +519,22 @@
 
 // --- mixins/responsive.less ---
 
+// A responsive value's tier chain, widest first, read through a lookup: `.ui-responsive-chain(--ui-x; 0px)[@value]`, ending at
+// @default (none when it is left out). It reads the widest tier written, so the element carrying the tiers fences them.
+.ui-responsive-chain(@variable; @default: ~"") {
+    @fallback: if((@default = ~""), ~"", ~", @{default}");
+    @value: ~"var(@{variable}-xxl, var(@{variable}-xl, var(@{variable}-md, var(@{variable}-sm, var(@{variable}@{fallback})))))";
+}
+
 // One authoring property through a five-tier var() chain, widest first; a flat literal on the same element would win the cascade.
 .ui-responsive-property(@property, @variable, @default) {
-    @{property}: var(~"@{variable}-xxl", var(~"@{variable}-xl", var(~"@{variable}-md", var(~"@{variable}-sm", var(~"@{variable}", @default)))));
+    @{property}: .ui-responsive-chain(@variable; @default)[@value];
 }
 
 // A component's default floor (a min-width, a min-height) that yields to the authored size it bounds: a floor wins over a smaller
 // width in CSS, so without the min() a Width below the floor would be silently ignored. An authored floor still wins over both.
 .ui-responsive-floor(@property, @variable, @floor, @size-variable) {
-    @size: ~"var(@{size-variable}-xxl, var(@{size-variable}-xl, var(@{size-variable}-md, var(@{size-variable}-sm, var(@{size-variable}, @{floor})))))";
+    @size: .ui-responsive-chain(@size-variable; @floor)[@value];
     .ui-responsive-property(@property, @variable, ~"min(@{floor}, @{size})");
 }
 
@@ -561,12 +568,51 @@
     }
 }
 
-.ui-responsive-reset-infix(@prefix, @suffix) {
-    @{prefix}-@{suffix}: initial;
-    @{prefix}-sm-@{suffix}: initial;
-    @{prefix}-md-@{suffix}: initial;
-    @{prefix}-xl-@{suffix}: initial;
-    @{prefix}-xxl-@{suffix}: initial;
+// A component's own size and margin tiers, reset on whatever wears a component's layout: a component's root, a dialog's panel.
+.ui-responsive-layout-reset() {
+    .ui-responsive-reset(--ui-width);
+    .ui-responsive-reset(--ui-min-width);
+    .ui-responsive-reset(--ui-max-width);
+    .ui-responsive-reset(--ui-height);
+    .ui-responsive-reset(--ui-min-height);
+    .ui-responsive-reset(--ui-max-height);
+    .ui-responsive-reset(--ui-margin);
+    .ui-responsive-reset(--ui-margin-x);
+    .ui-responsive-reset(--ui-margin-y);
+}
+
+// @rules once per tier inside that tier's own width band and no other, for a rule CSS cannot undo (`display: none`): with @tier naming
+// the tier and @name its entry of @names, the five full names narrowest first, written whole so the hook guard can read them.
+.ui-responsive-bands(@names; @rules) {
+    @media (max-width: (@ui-breakpoint-sm - 0.02px)) {
+        @tier: base;
+        @name: extract(@names, 1);
+        @rules();
+    }
+
+    @media (min-width: @ui-breakpoint-sm) and (max-width: (@ui-breakpoint-md - 0.02px)) {
+        @tier: sm;
+        @name: extract(@names, 2);
+        @rules();
+    }
+
+    @media (min-width: @ui-breakpoint-md) and (max-width: (@ui-breakpoint-xl - 0.02px)) {
+        @tier: md;
+        @name: extract(@names, 3);
+        @rules();
+    }
+
+    @media (min-width: @ui-breakpoint-xl) and (max-width: (@ui-breakpoint-xxl - 0.02px)) {
+        @tier: xl;
+        @name: extract(@names, 4);
+        @rules();
+    }
+
+    @media (min-width: @ui-breakpoint-xxl) {
+        @tier: xxl;
+        @name: extract(@names, 5);
+        @rules();
+    }
 }
 
 // --- mixins/focus.less ---
@@ -879,6 +925,18 @@
     align-items: center;
 }
 
+// A child's column span at the viewport's tier, into @into, for a host that lines its children up rather than placing them; its tiers
+// reset and fenced on the child, as a placed child's are. With no span set the value is invalid, and the basis falls back to auto.
+.ui-placement-span(@into) {
+    .ui-responsive-reset(--ui-placement-column-span);
+    @{into}: .ui-responsive-chain(--ui-placement-column-span)[@value];
+}
+
+// A line's item as @span of the twenty-four columns its host's row would have, its @gap subtracted as a placement host's columns do.
+.ui-placement-span-basis(@span, @gap) {
+    flex-basis: calc((100% - 23 * var(@gap, 0px)) / 24 * var(@span) + (var(@span) - 1) * var(@gap, 0px));
+}
+
 // --- mixins/field.less ---
 
 // Mixins rather than rules on ui-input.less's shared list, which imports after each field's own file and would override its differences.
@@ -892,8 +950,11 @@
     --ui-field-hover: color-mix(in srgb, var(--ui-color-on-surface) 16%, var(--ui-field-ground));
     // Outline's and Underline's border on hover; a control that doesn't lift (a code field) sets it to its rest.
     --ui-field-hover-accent: color-mix(in srgb, var(--ui-color-primary) 60%, transparent);
-    border: var(--ui-border-width, 1px) solid var(--ui-field-rest);
-    border-radius: var(--ui-radius-input);
+    border-style: solid;
+    border-color: var(--ui-field-rest);
+    // The width and the corners through their chains: an authored BorderThickness and BorderRadius (BorderStyleRenderer) win.
+    .ui-responsive-property(border-width, --ui-border-thickness, ~"var(--ui-border-width, 1px)");
+    .ui-responsive-property(border-radius, --ui-border-radius, var(--ui-radius-input));
     background: var(--ui-field-rest);
     transition: border-color @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;
 }
