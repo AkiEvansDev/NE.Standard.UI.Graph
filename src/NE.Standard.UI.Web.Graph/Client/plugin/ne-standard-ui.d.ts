@@ -4,7 +4,7 @@
 
 declare module "ne-standard-ui" {
     /** The contract's version, moved by a breaking change: a package checks `GlobalApi.contractVersion` first, so a stale copy fails loudly. */
-    export type ContractVersion = 2;
+    export type ContractVersion = 4;
 
     /** One DOM operation of a bound property, as the compiled metadata carries it; a package's own kind arrives by its name. */
     export type DomOperation = {
@@ -15,6 +15,7 @@ declare module "ne-standard-ui" {
         readonly condition?: string | number | null;
         readonly value?: string | null;
         readonly optional?: boolean | null;
+        readonly convertsNull?: boolean | null;
     };
 
     export type DomOperationContext = {
@@ -113,6 +114,8 @@ declare module "ne-standard-ui" {
         readonly root: ParentNode;
         /** Hands a DOM event to the pipeline as if a listener of the event's name had caught it. */
         readonly dispatch: (domEvent: Event) => void;
+        /** The listener options the registration names (`EventRegistration.options`); capturing unless they say otherwise. */
+        readonly options?: AddEventListenerOptions;
     };
 
     /** What became of the command an event raised, told to the registration that asked to hear it. */
@@ -136,6 +139,11 @@ declare module "ne-standard-ui" {
         readonly submitsForm?: boolean;
         /** The keys the command carries, named by the engine in place of the `data-ui-key` chain above the target; null keeps the chain. */
         dynamicParameters?(context: EventDispatchContext<TEvent>): readonly unknown[] | null;
+        /**
+         * Told, as the event is dispatched, that a command or an interaction runs for it — `completed` follows whatever happens; an event
+         * nothing takes is told neither.
+         */
+        started?(context: EventDispatchContext<TEvent>): void;
         /** Told what became of the command this event raised, whatever happened — never sent, failed, or cut by a dropped connection. */
         completed?(context: EventCompletionContext<TEvent>): void;
         attach?(context: EventAttachContext): void;
@@ -265,6 +273,12 @@ declare module "ne-standard-ui" {
         readCulture(element: Element): NumberCulturePack;
         /** A format outside the subset throws; no format is the value as it is, in the culture's separator and sign. */
         format(value: number, format: string | null | undefined, culture: NumberCulturePack): string;
+        /**
+         * A text as the server's invariant reading takes a number (`double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture)`):
+         * blanks either side, a sign, digits with one point, an exponent; null for any other text, a hex, a grouping, `Infinity`, or a
+         * value past a double.
+         */
+        parseInvariant(text: string): number | null;
     };
 
     /** What `WebTemporalCulturePack` carries — the month and day names, the AM and PM words — as `data-ui-temporal-culture` holds it. */
@@ -336,6 +350,8 @@ declare module "ne-standard-ui" {
         release(element: Element): void;
         /** Writes a value into a bound element as its binding writes a push, a `rows.renderVariant` part included; false where none writes. */
         write(element: Element, value: unknown): boolean;
+        /** Resolves once the value the element's component sent last is answered and the answer's changes are on the page; at once with none in flight. */
+        whenSettled(element: Element): Promise<void>;
     };
 
     /** Sets a core component's property the package's renderer exposed (`RenderRegion`) as a push does; false, warned, for one not exposed. */
@@ -351,12 +367,17 @@ declare module "ne-standard-ui" {
     export type TooltipShowOptions = {
         /** Waits as a hover does, for words following a passing pointer (a crosshair); unset, at once. A shown target's words change in place. */
         readonly delay?: boolean;
+        /** The words as written, not inline markup: a name or a value of the package's own (a series called `p*q`). */
+        readonly plain?: boolean;
     };
 
     /** The page's one tooltip, for a picture with no element per thing: words against a target, closed by `hide` or pointing elsewhere. */
     export type Tooltips = {
         show(target: Element, words: string, options?: TooltipShowOptions): void;
         hide(): void;
+        /** A caption or a value made safe to stand among words a tooltip reads as inline markup — a series' name in a point's words, written
+         * into `data-ui-tooltip` or shown — so hover and tap read it as written; `UIInlineMarkup.Escape`'s twin. */
+        escape(text: string): string;
     };
 
     export type InlineRenameOptions = {
@@ -408,8 +429,25 @@ declare module "ne-standard-ui" {
         readonly surface?: Element;
         /** The component whose state decides whether the popup stays; unset, the anchor — or the popup itself for a non-HTML anchor. */
         readonly owner?: HTMLElement;
+        /** A list or a menu, one stop of the Tab order: Tab inside it closes it, choosing nothing, and goes on from its opener; unset, a panel's Tab walks its controls. */
+        readonly closesOnTab?: boolean;
+        /**
+         * A list or a menu that, below the small breakpoint (640 px), opens as one sheet from the bottom as the framework's lists do —
+         * modal over a veil, swiped down to close; unset, it stays beside its anchor.
+         */
+        readonly sheetOnPhone?: boolean;
         /** Told when the framework itself closes the popup, and why; a caller's own `close()` does not raise it. */
         readonly onDismiss: (reason: PopupDismissReason) => void;
+    };
+
+    /** A list of choices to open: its entries in order, and the one chosen now. */
+    export type ChoiceListOptions = PopupOptions & {
+        readonly entries: readonly HTMLElement[];
+        /** The entry it opens on, the value chosen; with none, the near end, or the far one where `fromEnd`. */
+        readonly checked: HTMLElement | null;
+        readonly fromEnd?: boolean;
+        /** False leaves the keyboard where it stands — a text's caret under a bar the pointer pressed; by default it goes into the list. */
+        readonly focus?: boolean;
     };
 
     /** What opening a popup hands back. */
@@ -427,6 +465,18 @@ declare module "ne-standard-ui" {
          * One per owner: a second replaces the first without its `onDismiss`. An owner that cannot keep it gets `onDismiss("owner")`.
          */
         open(anchor: Element, popup: HTMLElement, options: PopupOptions): PopupHandle;
+        /**
+         * Opens a list of choices as the framework's (a language's, a page size's, a heading's level): one stop of the Tab order, the
+         * keyboard on its checked entry, Tab closing it; walk it with `listKey`, and let the pointer lead with `followPointer`.
+         */
+        openList(anchor: Element, list: HTMLElement, options: ChoiceListOptions): PopupHandle;
+        /**
+         * A key in an open list: the arrows, Home and End move its current entry round its ends, as a menu's do, a typed character to the
+         * next entry its words begin with (taken whether or not one does); true where the key was the list's, the arrows even at an end.
+         */
+        listKey(event: KeyboardEvent, entries: readonly HTMLElement[]): boolean;
+        /** The pointer on an entry makes it the current one, so the arrows go on from where it rests, as in a native menu. */
+        followPointer(entry: HTMLElement, entries: readonly HTMLElement[]): void;
         /**
          * Where the focus goes back as a package's surface closes or goes: the opener, the nearest focusable around it, else its
          * component's root, made focusable for that one return — never the body; null where nothing of the opener is left.
@@ -446,7 +496,17 @@ declare module "ne-standard-ui" {
         readonly loop?: boolean;
     };
 
-    /** Arrowing among a package's entries as the framework's lists do: the axis's arrows, Home and End; hidden or disabled ones skipped. */
+    /**
+     * Arrowing among a package's entries as the framework's lists do: the axis's arrows, Home and End; hidden or disabled ones skipped.
+     * The framework's one keyboard standard, which a package's widget follows by its kind:
+     * - Menus, tab strips, radio-like groups and toolbars wrap (`loop` true); lists, grids, trees, listboxes, calendars and time columns
+     *   stop at their ends (`loop: false`). PageUp and PageDown are a list's page, a value's big step.
+     * - A plain arrow navigates (`shortcuts.isPlainKey`); Alt with an arrow moves the thing where it moves (a row, a tab, a column), else
+     *   it is the browser's Back and Forward; type-ahead (`typeAhead`) in menus and lists of choices only.
+     * - In a host of rows Enter does, opens or commits and Space chooses or toggles; elsewhere both press. Delete removes only where the
+     *   application wired a removal, F2 renames or edits in place, Escape closes the innermost thing first (`shortcuts.isEscapeClaimed`).
+     * - One Tab stop per widget; Tab from an open list closes it (`popups.openList`), a modal layer keeps it inside (`focus.trapTab`).
+     */
     export type RovingFocus = {
         /** The entry the key moves to (an unknown current enters at the near end); null for a key that is no move. */
         target(request: RovingRequest): HTMLElement | null;
@@ -463,6 +523,22 @@ declare module "ne-standard-ui" {
          * control none; the focused element counts — what a modal surface wraps its Tab round.
          */
         stops(container: ParentNode): HTMLElement[];
+        /**
+         * Gives the keyboard back from a field or an editor let go of, as Enter and Escape do from a field: to the holder around the
+         * element — a row host, its cursor moved to the element's row and cell (`names.cellFocus`), a dialog, a `focusHolder` layer.
+         * Nothing moves where the focus already stands elsewhere; call it while the element is still on the page.
+         */
+        giveBack(element: Element): void;
+        /** Keeps a Tab inside a package's modal layer (a chooser over a backdrop) round from one end to the other; swallowed where it holds no stop. */
+        trapTab(container: HTMLElement, event: KeyboardEvent): void;
+    };
+
+    /** Type-ahead as the framework's menus and lists of choices take it: what is typed without a pause is one prefix, and one letter again walks the entries it begins. */
+    export type TypeAhead = {
+        /** The character a key types, or null: a named key, a space, a chord, or a key composing a character. */
+        character(event: KeyboardEvent): string | null;
+        /** The entry the character reaches from `current`, by the words each shows (case and accents aside, in the page's language); null where none begins with them. */
+        entry(entries: readonly HTMLElement[], current: HTMLElement | null, character: string): HTMLElement | null;
     };
 
     /** A table's columns: hidden by the viewer's word, else the author's tier; the root carries `data-ui-table-hidden` while any is. */
@@ -492,8 +568,32 @@ declare module "ne-standard-ui" {
         readPath(item: unknown, path: string): unknown;
         /** Draws a variant template against the row's item, for a part drawn only when wanted (a cell editor); `values.write` sets it. */
         renderVariant(row: Element, componentId: number, variantKey: string): Element | null;
-        /** Whether the row keyboard answers a key here: the host or its rows, not its chrome; a row's own control is the caller's call. */
+        /**
+         * Whether the row keyboard answers a key here: the host or its rows — not its chrome, a row's own control (a field, a button), or
+         * a box that owns its keys (`names.ownsKeys`).
+         */
         isKeyTarget(target: Element): boolean;
+        /**
+         * A row's cells as the keyboard's cell cursor walks them, in a table acting as a grid (its rows chosen or pressed): in the order
+         * the viewer sees the columns, a hidden column's left out, an element owning its keys (an editor over a cell) aside; empty in a
+         * host whose cursor walks rows (a list, a tree, a table that is only read).
+         */
+        cellsOf(row: Element): HTMLElement[];
+        /**
+         * Puts the host's cursor on the row — and on `cell` where the host walks cells, else in the column it stood in — as an arrow does,
+         * choosing nothing: the root names it (`aria-activedescendant`), and it is scrolled into view clear of pinned cells.
+         */
+        moveCursor(row: Element, cell?: Element | null): void;
+    };
+
+    /**
+     * What `names.cellKey` carries: the cursor's cell, the key about to act on it (Enter, F2, or the character typed) and the keydown
+     * itself, whose default the taker decides — left, a typed character lands in a field the taker focuses.
+     */
+    export type CellKey = {
+        readonly cell: HTMLElement;
+        readonly key: string;
+        readonly keyboard: KeyboardEvent;
     };
 
     /** The one way a file leaves the browser, answering the id `IUIUploadService.GetSelectionAsync` reads; a POST of your own would drift. */
@@ -577,10 +677,41 @@ declare module "ne-standard-ui" {
         pixels(event: Pick<WheelEvent, "deltaX" | "deltaY" | "deltaMode">, pagePixels?: number): WheelPixels;
     };
 
-    /** A key chord in the reader's platform's words, as the framework's menus and tooltips write one. */
+    /** The theme's categorical colours, which a chart's series and a graph's pin types wear, cycled by the count the theme names. */
+    export type SeriesColors = {
+        /** How many series colours the theme names where `element` stands. */
+        count(element: Element): number;
+        /** The colour at a place in the run, counted from zero and cycled by `count`: a `var()` of the theme's. */
+        color(index: number, count: number): string;
+    };
+
+    /** A key chord as the framework's own shortcuts take one: matched, written in the reader's platform's words, and told from a composition. */
     export type ShortcutWords = {
         /** An authored chord (`Ctrl+B`) as the reader's platform writes it — `Ctrl+B`, and `⌘B` on macOS; null for one naming no key. */
         words(chord: string): string | null;
+        /** Whether a key is the authored chord: by physical key, every modifier exact, an authored Ctrl answering to ⌘ on macOS. */
+        matches(event: KeyboardEvent, chord: string): boolean;
+        /** Whether a key is part of an input method's composition — Safari's composing Enter included — and so no key of the package's. */
+        isComposing(event: KeyboardEvent): boolean;
+        /**
+         * Whether a key is the field's it landed in — one that types, moves the caret or deletes in a field that takes typing, and its own
+         * select-all, clipboard, undo and redo — and so no host's: not Tab, Escape, a single-line field's Enter, a function key, or a chord
+         * the field has no use for.
+         */
+        isFieldKey(event: KeyboardEvent): boolean;
+        /** Whether a key is one navigation answers: no Ctrl or ⌘, no Alt and no Shift — each unless allowed — and no composition. */
+        isPlainKey(event: KeyboardEvent, allow?: PlainKeyAllowance): boolean;
+        /**
+         * Whether something nearer the focus takes this Escape — a composition, a rename field, a field cancelling on it, a box owning its
+         * keys (`names.ownsKeys`) — so a package's own closer around it leaves the key alone; the claimant's own listener does not ask.
+         */
+        isEscapeClaimed(event: KeyboardEvent): boolean;
+    };
+
+    /** The modifiers a plain key may carry all the same: Shift where it extends a selection, Alt on a combobox's Down and Up. */
+    export type PlainKeyAllowance = {
+        readonly shift?: boolean;
+        readonly alt?: boolean;
     };
 
     /** Names the framework writes and a package reads, spelled once so a rename reaches the package. */
@@ -599,6 +730,14 @@ declare module "ne-standard-ui" {
         readonly unselectable: "data-ui-unselectable";
         /** The row the keyboard is on in a host with rows. */
         readonly rowFocus: "data-ui-row-focus";
+        /** The cell the keyboard's cursor stands on, in a table acting as a grid: arrows walk every cell, read-only ones included. */
+        readonly cellFocus: "data-ui-cell-focus";
+        /**
+         * Raised on the cursor's cell (a `CustomEvent<CellKey>`, bubbling, cancelable) before Enter, F2 or a typed character acts on it:
+         * a package that edits the cell cancels it and opens its editor. Uncancelled, Enter and Space press the cell's one control, F2
+         * moves the focus into the cell, and Enter on a cell with nothing of its own is the row's.
+         */
+        readonly cellKey: "ui-cell-key";
         /** The element an items host draws its rows into. */
         readonly itemsHost: "data-ui-items-host";
         /** The one element a composed control keeps its value on. */
@@ -613,6 +752,12 @@ declare module "ne-standard-ui" {
         readonly eventBoundary: "data-ui-event-boundary";
         /** A focusable layer a package draws (a canvas, a panel over it) that takes the keyboard back from a field in it on Enter or Escape. */
         readonly focusHolder: "data-ui-focus-holder";
+        /**
+         * On an element whose keys are its own while the focus is inside it (a grid's cell editor, its whole box): no host it stands in
+         * acts on them — a row cursor, a list — and no popup, dialog, side drawer or action bar closes on its Escape; the element's own
+         * listener answers them.
+         */
+        readonly ownsKeys: "data-ui-owns-keys";
         /** A component's tooltip words, and where they show. */
         readonly tooltip: "data-ui-tooltip";
         readonly tooltipPlacement: "data-ui-tooltip-placement";
@@ -658,6 +803,8 @@ declare module "ne-standard-ui" {
         readonly validationMessage: "data-ui-validation-message";
         /** A rendered line's number in its source (a Markdown block), which a scroll group follows. */
         readonly sourceLine: "data-ui-source-line";
+        /** On a text's root while its description shows: the text stands on two lines. */
+        readonly textDescription: "data-ui-text-description";
         /** What a popup a field opened is to a screen reader: a key landing in one is the popup's. */
         readonly popupSelector: "[role='listbox'], [role='menu'], [role='dialog']";
         /** The control that opens a select's, a multi-select's or a search's list: a button, a focusable box in a multi-select. */
@@ -713,10 +860,12 @@ declare module "ne-standard-ui" {
         readonly selection: ItemSelection;
         readonly popups: Popups;
         readonly roving: RovingFocus;
+        readonly typeAhead: TypeAhead;
         readonly focus: Focus;
         readonly states: ComponentStates;
         readonly validation: FieldValidation;
         readonly wheel: WheelReading;
+        readonly colors: SeriesColors;
         readonly shortcuts: ShortcutWords;
         readonly names: DomNames;
     };

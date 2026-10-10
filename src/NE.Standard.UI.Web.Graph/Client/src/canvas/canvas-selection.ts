@@ -6,11 +6,13 @@ import type { Rect } from "./geometry.ts";
 import { intersects } from "./geometry.ts";
 import { GroupAttribute, SelectedAttribute } from "./canvas-dom.ts";
 
-/** What the selection reaches on the coordinator: the items a band chooses among, and the redraw its own change asks for. */
+/** What the selection reaches on the coordinator: the items a band chooses among, the redraw its own change asks for, and who hears it. */
 export type SelectionHost = {
     items(): readonly CanvasItem[];
     nodeRect(id: string): Rect | null;
     drawEdges(): void;
+    /** Told after every change whether anything stands chosen, a node, a group or an edge. */
+    chosenChanged(any: boolean): void;
 };
 
 export class CanvasSelection {
@@ -43,8 +45,9 @@ export class CanvasSelection {
         return this.selectedEdges;
     }
 
-    public get edgeSize(): number {
-        return this.selectedEdges.size;
+    /** Whether anything is chosen, a node, a group or an edge. */
+    public get any(): boolean {
+        return this.selection.size + this.selectedEdges.size > 0;
     }
 
     public has(id: string): boolean {
@@ -61,6 +64,12 @@ export class CanvasSelection {
             if (!drawn.has(id))
                 this.selection.delete(id);
         }
+
+        this.changed();
+    }
+
+    private changed(): void {
+        this.host.chosenChanged(this.any);
     }
 
     public select(id: string, add: boolean): void {
@@ -87,6 +96,7 @@ export class CanvasSelection {
     public clearSets(): void {
         this.selection.clear();
         this.selectedEdges.clear();
+        this.changed();
     }
 
     /** Chooses one item alone, as a left press does — a menu or a log line's node jumped to, on an item not already chosen. */
@@ -105,6 +115,8 @@ export class CanvasSelection {
 
         for (const id of ids)
             this.selection.add(id);
+
+        this.changed();
     }
 
     public selectAll(ids: Iterable<string>): void {
@@ -120,6 +132,8 @@ export class CanvasSelection {
 
         for (const element of this.groupLayer.querySelectorAll<HTMLElement>(`[${GroupAttribute}]`))
             element.toggleAttribute(SelectedAttribute, this.selection.has(element.getAttribute(GroupAttribute)!));
+
+        this.changed();
     }
 
     public toggleEdge(id: string, add: boolean): void {
@@ -130,6 +144,8 @@ export class CanvasSelection {
             this.selectedEdges.delete(id);
         else
             this.selectedEdges.add(id);
+
+        this.changed();
     }
 
     public beginMarquee(): void {

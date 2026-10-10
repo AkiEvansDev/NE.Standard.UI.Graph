@@ -11,7 +11,7 @@
     max-width: 18rem;
     padding: @ui-space-2 @ui-space-3 @ui-space-2 calc(@ui-space-3 + 3px);
     cursor: move;
-    user-select: none;
+    .ui-user-select(none);
 }
 
     // The node's colour as a strip down the leading edge, inside the frame, so a chosen card's primary frame still reads.
@@ -64,7 +64,7 @@
     border: 2px solid var(--ui-graph-node-ink);
     border-radius: 50%;
     cursor: move;
-    user-select: none;
+    .ui-user-select(none);
 }
 
 .ui-graph__bubble-face {
@@ -227,7 +227,7 @@
         transform: scale(1.3);
     }
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         .ui-graph__handle:hover {
             transform: scale(1.3);
         }

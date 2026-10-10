@@ -23,6 +23,8 @@ const FocusClass = "ui-graph--edge-focus";
 const RelatedAttribute = "data-ui-graph-related";
 // Where along its edge a label may stand, nearest the middle first: the first that covers no node is taken.
 const LabelPlaces = [0.5, 0.38, 0.62, 0.26, 0.74];
+// The air between two labels a crowded middle sets side by side.
+const LabelGap = 4;
 
 export class CanvasRender {
     private readonly context: PluginEngineContext;
@@ -365,13 +367,23 @@ export class CanvasRender {
     }
 
     /**
-     * Places every label half way along its edge, or near there where the middle would put it on a node. Every chip is measured and
-     * every place found before any chip moves: a move between two measures would lay the page out once a label.
+     * Places every label half way along its edge, or near there where the middle would put it on a node or on a label placed before
+     * it (two edges between one pair run side by side). Every chip is measured and every place found before any chip moves: a move
+     * between two measures would lay the page out once a label.
      */
     private placeLabels(labels: readonly DrawnLabel[]): void {
         // Measured once it stands on the sheet: the scene's zoom is a transform, which leaves a box's own size as it was laid out.
         const sizes = labels.map(({ chip }) => ({ width: chip.offsetWidth, height: chip.offsetHeight }));
-        const places = labels.map(({ path }, index) => this.labelPlace(path, sizes[index].width, sizes[index].height));
+        const placed: Rect[] = [];
+        const places = labels.map(({ path }, index) => {
+            const { width, height } = sizes[index];
+            const corner = this.labelPlace(path, width, height, placed);
+
+            if (width > 0)
+                placed.push({ ...corner, width, height });
+
+            return corner;
+        });
 
         labels.forEach(({ chip }, index) => {
             chip.style.left = `${places[index].x}px`;
@@ -379,21 +391,20 @@ export class CanvasRender {
         });
     }
 
-    /** A label's corner at the first of its places along its edge where it covers no node; nowhere clear, it stands in the middle. */
-    private labelPlace(path: SVGPathElement, width: number, height: number): Point {
+    /** A label's corner at the first of its places along its edge where it covers no node and no label placed; nowhere clear, it stands in the middle. */
+    private labelPlace(path: SVGPathElement, width: number, height: number, placed: readonly Rect[]): Point {
         const length = path.getTotalLength();
 
         for (const place of LabelPlaces) {
             const point = place === 0.5 ? pathMiddle(path) : path.getPointAtLength(length * place);
             const corner = { x: point.x - width / 2, y: point.y - height / 2 };
+            const box = { ...corner, width, height };
 
-            if (width === 0 || !this.coversNode({ ...corner, width, height }))
+            if (width === 0 || (!this.coversNode(box) && !placed.some(other => intersects(box, other))))
                 return corner;
         }
 
-        const middle = pathMiddle(path);
-
-        return { x: middle.x - width / 2, y: middle.y - height / 2 };
+        return this.stepAcross(path, width, height, placed);
     }
 
     /** Whether a label's box would stand on a node; the nodes' boxes are read once a draw of the edges, not once a label. */
@@ -401,6 +412,33 @@ export class CanvasRender {
         this.labelObstacles ??= [...this.nodeElements.keys()].map(id => this.nodeRect(id)).filter((rect): rect is Rect => rect !== null);
 
         return this.labelObstacles.some(rect => intersects(box, rect));
+    }
+
+    /**
+     * A label nowhere clear along its edge — two short edges between one pair, side by side — stands at the middle, stepped across
+     * its edge until it covers no label placed before it: sideways off an edge running up or down, up or down off one running along.
+     */
+    private stepAcross(path: SVGPathElement, width: number, height: number, placed: readonly Rect[]): Point {
+        const length = path.getTotalLength();
+        const middle = pathMiddle(path);
+        const before = path.getPointAtLength(Math.max(0, length / 2 - 1));
+        const after = path.getPointAtLength(Math.min(length, length / 2 + 1));
+        const sideways = Math.abs(after.y - before.y) >= Math.abs(after.x - before.x);
+        const box = { x: middle.x - width / 2, y: middle.y - height / 2, width, height };
+
+        for (let step = 0; step < placed.length; step++) {
+            const other = placed.find(candidate => intersects(box, candidate));
+
+            if (other === undefined)
+                break;
+
+            if (sideways)
+                box.x = box.x + width / 2 < other.x + other.width / 2 ? other.x - width - LabelGap : other.x + other.width + LabelGap;
+            else
+                box.y = box.y + height / 2 < other.y + other.height / 2 ? other.y - height - LabelGap : other.y + other.height + LabelGap;
+        }
+
+        return { x: box.x, y: box.y };
     }
 
     /** A temporary edge while one is being pulled: painted only, since nothing answers the pointer on it. */

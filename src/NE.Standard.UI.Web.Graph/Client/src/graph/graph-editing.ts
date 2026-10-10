@@ -2,6 +2,7 @@
 // changed or removed. Every change goes into the document's draft, by key, and nothing reaches the application until the save.
 
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
+import type { Point } from "../canvas/canvas-model.ts";
 import { freeKey, takenKeys } from "./draft.ts";
 import { beginLinkDrag, edgeMiddle, openChipField } from "./link-drag.ts";
 import type { GraphDocument, GraphEdge, GraphNode, GraphNodeDraft } from "./model.ts";
@@ -14,6 +15,8 @@ export type GraphEditingHost = {
     node(id: string): GraphNode | undefined;
     serverNode(id: string): GraphNode | undefined;
     link(id: string): GraphEdge | undefined;
+    /** An added node's place, where the viewer asked for it; the sheet settles it on the grid once drawn. */
+    placeAt(id: string, at: Point): void;
 };
 
 export class GraphEditing {
@@ -85,7 +88,7 @@ export class GraphEditing {
             baseline: null
         });
 
-        this.document.nodes.push({ id, x: at.x, y: at.y, pinned: false });
+        this.host.placeAt(id, at);
         this.services.selection.selectOnly(id);
         this.services.documentState.edited();
         this.services.renameItem(id);

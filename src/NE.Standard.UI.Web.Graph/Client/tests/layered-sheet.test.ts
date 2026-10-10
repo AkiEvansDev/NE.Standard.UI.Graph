@@ -24,3 +24,13 @@ test("a node's link to itself leaves by the side facing the next layer and comes
     assert.deepEqual(edgeSides(seed, seed, "right", true, true), { start: { x: 60, y: 21 }, end: { x: 0, y: 21 } });
     assert.deepEqual(edgeSides(seed, seed, "left", true, true), { start: { x: 0, y: 21 }, end: { x: 60, y: 21 } });
 });
+
+test("in a vertical layout an edge meeting a node's bottom ends under what the node wears there, a circle's name", () => {
+    const below = { x: 0, y: 200, width: 60, height: 60 };
+    const feet = { from: 38, to: 38 };
+
+    assert.deepEqual(edgeSides(seed, below, "down", false, false, feet), { start: { x: 30, y: 98 }, end: { x: 30, y: 200 } });
+    assert.deepEqual(edgeSides(below, seed, "up", false, false, feet), { start: { x: 30, y: 200 }, end: { x: 30, y: 98 } });
+    assert.deepEqual(edgeSides(below, seed, "down", true, false, feet), { start: { x: 21, y: 200 }, end: { x: 21, y: 98 } });
+    assert.deepEqual(edgeSides(seed, plant, "right", false, false, feet), { start: { x: 60, y: 30 }, end: { x: 200, y: 30 } }, "a side is met at the node's own middle");
+});

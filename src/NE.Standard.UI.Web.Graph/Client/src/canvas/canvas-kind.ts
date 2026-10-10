@@ -109,13 +109,16 @@ export type CanvasKind = {
     copy(ids: ReadonlySet<string>): void;
     /** What the last copy became once pasted, by the new items' ids; nothing when there was nothing to paste. */
     paste(): readonly string[] | null;
-    /** The chosen items and edges taken out of the document, and whatever of the kind's own hangs on them. */
-    remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): void;
+    /**
+     * The chosen items and edges taken out of the document, and whatever of the kind's own hangs on them; `false` where the kind
+     * refuses them — the document stays as it was.
+     */
+    remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean;
     /** Where Arrange puts each moving item, by id. */
     arrange(sizes: ReadonlyMap<string, { width: number; height: number }>, only: ReadonlySet<string> | undefined): Map<string, Point>;
     /** A menu entry of the kind's own, with what the menu was opened on; `false` for a key it does not know. */
     runCommand(key: string, target: MenuTarget | null): boolean;
-    /** Whether an item's own name and colour may be changed from its menu, beside its pin, which is the layout's. */
+    /** Whether an item's own name and colour may be changed from its menu, and the item and its edges removed, beside its pin, which is the layout's. */
     canEditItems(): boolean;
     /** An item renamed from its menu: `true` when the kind keeps the name itself, `false` for the core to write it on the item. */
     renameItem(id: string, title: string | null): boolean;
@@ -123,6 +126,11 @@ export type CanvasKind = {
     paintItem(id: string, color: string | null): boolean;
     /** Whether the grid snaps an item by its middle rather than its corner; a line of differently-sized nodes needs middles snapped to keep the line. */
     readonly snapsByCenter?: boolean;
+    /**
+     * The tops at which one of an item's wires to an item not `moving` with it runs level: a drop near one settles there rather than on
+     * the grid's line, so a place set level by hand or by Arrange can be reached again. Unset, the grid alone.
+     */
+    levelTops?(id: string, moving: ReadonlySet<string>): readonly number[];
     /** Whether a right press on an edge opens the canvas's edge menu. */
     hasEdgeMenu(): boolean;
     /** The kind's own menu entries as the canvas stands now, with what the menu about to show was opened on. */

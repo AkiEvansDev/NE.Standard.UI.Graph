@@ -9,6 +9,9 @@
        consumers. -->
   <Import Project="$(MSBuildProjectDirectory)/buildTransitive/*.props" Condition="Exists('$(MSBuildProjectDirectory)/buildTransitive')" />
 
+  <!-- A project's browser client, built and tested with it; the file travels beside this one to every mirror. -->
+  <Import Project="$(MSBuildThisFileDirectory)WebClient.targets" />
+
   <!-- What this project and everything it references name, for a referencing demo to collect. -->
   <Target Name="GetNEStandardUIUsings" Returns="@(_NEStandardUIUsingsOut)">
     <MSBuild Projects="@(ProjectReference)" Targets="GetNEStandardUIUsings" SkipNonexistentTargets="true" Condition="'@(ProjectReference)' != ''">

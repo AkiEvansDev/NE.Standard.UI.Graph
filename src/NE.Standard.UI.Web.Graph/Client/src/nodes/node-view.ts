@@ -4,7 +4,7 @@
 
 import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormatting, Tooltips, Urls } from "ne-standard-ui";
 import { CollapsedAttribute, CoreNames, FoldAttribute, hoverTooltip, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
-import { joinList, MoreKey, renderDisplayValue } from "./display.ts";
+import { joinList, MoreKey, showDisplayValue } from "./display.ts";
 import type { DisplayOptions } from "./display.ts";
 import type { DocumentNode, NodeType, Pin } from "./model.ts";
 import { asText, isPinVisible } from "./model.ts";
@@ -389,6 +389,7 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
         head.append(caption(pin, "ui-graph__row-label"));
         head.append(add);
         row.append(head);
+        row.classList.add("ui-graph__row--headed");
     }
     else if (!captionInField(pin)) {
         row.append(caption(pin, "ui-graph__row-label"));
@@ -575,7 +576,7 @@ function displayEditor(pin: Pin, options: NodeViewOptions): HTMLElement {
     box.className = "ui-graph__editor ui-graph__editor--display";
     box.setAttribute(ValueAttribute, pin.name);
     box.setAttribute(DisplayAttribute, "");
-    box.append(renderDisplayValue(null, displayOptions(pin, options)));
+    showDisplayValue(box, null, displayOptions(pin, options));
 
     return box;
 }

@@ -208,6 +208,9 @@ public static class UIGraphRegions
 /// </summary>
 public static class UIGraphWords
 {
+    /// <summary>The corner menu's head while the sheet is given no name of its own.</summary>
+    public const string Sheet = "ui.graph.sheet";
+
     /// <summary>The menus' entry that lays the sheet out.</summary>
     public const string Arrange = "ui.graph.arrange";
 

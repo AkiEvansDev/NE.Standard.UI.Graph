@@ -58,55 +58,38 @@ public abstract class GraphDemoView : UIViewBase
             .SetDarkIcon(MaterialIcons.Outlined(DarkIcon));
 
         return CreatePage().Code is { } code
-            ? UIPage.Header(Title, Description, CreateCodeFlyout(code).SetVerticalAlignment(UIAlignment.Center), new LanguageSwitcherComponent(), theme)
+            ? UIPage.Header(Title, Description, CreateCodeFlyout(code), new LanguageSwitcherComponent(), theme)
             : UIPage.Header(Title, Description, new LanguageSwitcherComponent(), theme);
     }
 
     /// <summary>
     /// The <c>&lt;/&gt;</c> button and the popup it opens: the sample's source, read-only, with a copy button.
     /// </summary>
-    /// <remarks>A copy of the framework demo's own (<c>DemoUI</c>): every demo carries its shell whole rather than share a package for it.</remarks>
+    /// <remarks>
+    /// A copy of the framework demo's own (<c>DemoUI</c>, which a sample's controller tab adds to): every demo carries its shell whole
+    /// rather than share a package for it, and <c>DemoShellCopiesTests</c> holds the copies to it.
+    /// </remarks>
     private static FlyoutComponent CreateCodeFlyout(string expression)
     {
-        var source = FormatSource(expression);
-        var lines = source.Count(static c => c == '\n') + 1;
+        var view = FormatSource(expression);
+        var rows = Math.Clamp(CountLines(view) + 1, 3, 24);
 
         return new FlyoutComponent()
             .SetFlyoutPlacement(UIPopupPlacement.BottomEnd)
             .SetHorizontalAlignment(UIAlignment.End)
-            .SetVerticalAlignment(UIAlignment.Start)
+            .SetVerticalAlignment(UIAlignment.Center)
+            // Smaller than a small button's 28px, to fit the title row a group without the button has.
             .SetAnchor(new ButtonComponent()
                 .SetType(UIButtonType.Ghost)
                 .SetSize(UIButtonSize.Small)
+                .SetMinHeight(UILayoutLength.Absolute(24))
+                .SetPadding(UIThickness.Uniform(2))
                 .SetIcon(MaterialIcons.Outlined(CodeIcon))
                 .SetTooltip("planner.code")
             )
             .SetContent(new ContainerComponent()
                 .SetWidth(UILayoutLength.Absolute(640))
-                .AddChild(new CodeInputComponent()
-                    .SetLanguage(UICodeLanguages.CSharp)
-                    .SetValue(source)
-                    .SetIsReadOnly(true)
-                    .SetStatusBar(false)
-                    .SetSearch(false)
-                    .SetCompletions(false)
-                    // One row over the text's own: a long line brings a horizontal scrollbar, which would cover the last one.
-                    .SetRows(Math.Clamp(lines + 1, 3, 24))
-                    .SetPlacement(1, 1, 24, 1)
-                )
-                // A literal rather than the field's value: the text is fixed, and a literal needs no id unique across the page.
-                .AddChild(new ButtonComponent()
-                    .SetType(UIButtonType.Ghost)
-                    .SetSize(UIButtonSize.Small)
-                    .SetIcon(MaterialIcons.Outlined(CopyIcon))
-                    .SetTooltip("planner.copy")
-                    .SetHorizontalAlignment(UIAlignment.End)
-                    .SetVerticalAlignment(UIAlignment.Start)
-                    // Clear of the text's vertical scrollbar, which runs down the same edge once the source is longer than the box.
-                    .SetMargin(UIThickness.All(4, 4, 16, 4))
-                    .InteractOn(EventNames.Click, CopyToClipboardEffect.Literal(source))
-                    .SetPlacement(1, 1, 24, 1)
-                )
+                .AddChild(CreateCodePane(view, rows))
             );
     }
 
@@ -194,6 +177,38 @@ public abstract class GraphDemoView : UIViewBase
 
         return depth;
     }
+
+    private static int CountLines(string source)
+        => source.Count(static c => c == '\n') + 1;
+
+    /// <summary>One source in the framework's code field, read-only, with its own copy button.</summary>
+    private static ContainerComponent CreateCodePane(string source, int rows)
+        => new ContainerComponent()
+            .AddChild(new CodeInputComponent()
+                .SetLanguage(UICodeLanguages.CSharp)
+                .SetValue(source)
+                .SetIsReadOnly(true)
+                .SetStatusBar(false)
+                .SetSearch(false)
+                .SetCompletions(false)
+                // One row over the text's own: a long line brings a horizontal scrollbar, which would cover the last one.
+                .SetRows(rows)
+                .SetPlacement(1, 1, 24, 1)
+            )
+            // A literal rather than the field's value: the text is fixed, and a literal needs no id unique across the page.
+            .AddChild(new ButtonComponent()
+                .SetType(UIButtonType.Ghost)
+                .SetSize(UIButtonSize.Small)
+                .SetIcon(MaterialIcons.Outlined(CopyIcon))
+                .SetTooltip("planner.copy")
+                .SetHorizontalAlignment(UIAlignment.End)
+                .SetVerticalAlignment(UIAlignment.Start)
+                // Clear of the text's vertical scrollbar, which runs down the same edge once the source is longer than the box.
+                .SetMargin(UIThickness.All(4, 4, 16, 4))
+                .InteractOn(EventNames.Click, CopyToClipboardEffect.Literal(source))
+                .SetPlacement(1, 1, 24, 1)
+            )
+            .SetPlacement(1, 1, 24, 1);
 
     /// <summary>The sidebar every page wears: the pages under their headings, the one being read marked.</summary>
     protected override IVisualComponent? CreateLeftSide()

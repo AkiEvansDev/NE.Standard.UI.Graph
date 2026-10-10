@@ -105,6 +105,7 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string PlanAtOnce = "ui.graph.plan-at-once";
     public const string PerMinute = "ui.graph.per-minute";
     public const string PerHour = "ui.graph.per-hour";
+    public const string Sheet = UIGraphWords.Sheet;
     public const string Arrange = UIGraphWords.Arrange;
     public const string Save = UIGraphWords.Save;
     public const string GroupSelection = UIGraphWords.GroupSelection;
@@ -232,6 +233,7 @@ public sealed partial class GraphStrings : IUIStringsSource
         [PlanAtOnce] = "{count} at once",
         [PerMinute] = "/min",
         [PerHour] = "/h",
+        [Sheet] = "Sheet",
         [Arrange] = "Arrange",
         [Save] = "Save",
         [GroupSelection] = "Group selection",

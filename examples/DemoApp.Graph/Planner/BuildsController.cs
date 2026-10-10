@@ -50,6 +50,10 @@ internal sealed partial class BuildsController : UIControllerBase
     [RecursiveMember]
     public partial UIProductionDocument Plan { get; set; } = UIProductionDocument.Empty;
 
+    /// <summary>The open build's name, which names the plan's sheet in its corner menu.</summary>
+    [RecursiveMember]
+    public partial UIPhrase? OpenName { get; set; }
+
     /// <summary>Shown while the catalogue has nothing to plan with.</summary>
     [RecursiveMember]
     public partial UIVisibility EmptyVisibility { get; set; } = UIVisibility.Collapsed;
@@ -119,6 +123,7 @@ internal sealed partial class BuildsController : UIControllerBase
     private void OpenBuild(string id)
     {
         _openId = id;
+        OpenName = FindTab(id)?.Title;
 
         List<UIProductionTarget> targets = [];
         BuildRecord? open = null;
@@ -203,6 +208,9 @@ internal sealed partial class BuildsController : UIControllerBase
                     tab.Title = BuildName(Builds.IndexOf(tab) + 1);
                 else
                     Store.RenameBuild(tab.Id, tab.Title.Key.Trim());
+
+                if (tab.Id == _openId)
+                    OpenName = tab.Title;
 
                 break;
             case nameof(TabItem.Pinned):

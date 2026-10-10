@@ -14,7 +14,7 @@ import type { PickerEntry } from "../canvas/picker.ts";
 import { renderCard } from "../graph/card-view.ts";
 import type { DraftConflict } from "../graph/draft.ts";
 import { resolveConflict } from "../graph/draft.ts";
-import { circleBox, NodesAttribute } from "../graph/layered-kind.ts";
+import { CaptionRoom, circleBox, NodesAttribute } from "../graph/layered-kind.ts";
 import { applyCollectionChange } from "../graph/keyed-list.ts";
 import { LayeredSheet } from "../graph/layered-sheet.ts";
 import { HandleAttribute, openChipField } from "../graph/link-drag.ts";
@@ -97,7 +97,8 @@ export class ProductionKind implements CanvasKind {
             craftEdge: (id: string) => this.links.find(link => link.craft === id)?.id,
             entry: id => this.entryById.get(id),
             serverEntry: id => this.serverById.get(id),
-            edge: id => this.linkById.get(id)
+            edge: id => this.linkById.get(id),
+            placeAt: (id, at) => this.sheet.placeAt(id, at)
         });
         this.sheet = new LayeredSheet(services, {
             nodeIds: () => this.drawn.map(entry => entry.id),
@@ -106,7 +107,11 @@ export class ProductionKind implements CanvasKind {
             layoutKey: () => (this.reading === null ? this.shape : `${this.shape}|${this.drawn.map(entry => entry.id).join(",")}`),
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
             // next layer's circles.
-            nodeBox: (width, height, widest) => (this.shape === "icon" ? circleBox(width, height, widest) : { width, height })
+            nodeBox: (_id, width, height, widest) => (this.shape === "icon" ? circleBox(width, height, widest) : { width, height }),
+            // A resource's card is long enough to set its edges apart along, as a layered graph's; a craft's pill and a circle meet
+            // their edges at the middle.
+            spreadsEnds: id => this.shape === "card" && this.entryById.get(id)?.kind !== "craft",
+            footRoom: id => (this.shape === "icon" && this.entryById.get(id)?.kind !== "craft" ? CaptionRoom : 0)
         }, { nodeGap: NodeGap, layerGap: LayerGap });
         this.panel = new PlanPanel(services, {
             request: () => this.document.plan,
@@ -119,10 +124,11 @@ export class ProductionKind implements CanvasKind {
                 return entry?.kind === "craft" ? entry : undefined;
             },
             change: next => this.changePlan(next),
+            target: (resource, amount) => this.setTarget(resource, amount),
             pick: () => this.picker?.open(),
             show: id => this.show(id)
         });
-        this.picker = Picker.create(services.root, () => this.targetChoices(), services.context.strings, services.context.dom, services.context.icons, services.context.roving, services.context.focus, entry => this.setTarget(entry.key, 1));
+        this.picker = Picker.create(services.root, () => this.targetChoices(), services.context.strings, services.context.dom, services.context.icons, services.context.roving, services.context.focus, services.context.shortcuts, entry => this.setTarget(entry.key, 1));
         this.refresh();
     }
 
@@ -256,6 +262,7 @@ export class ProductionKind implements CanvasKind {
         }, {
             icons: this.services.context.icons,
             tooltips: this.services.context.tooltips,
+            urls: this.services.context.urls,
             shape: this.shape,
             connectable: this.editable,
             conflict
@@ -273,6 +280,11 @@ export class ProductionKind implements CanvasKind {
 
     public itemsDrawn(): void {
         this.sheet.itemsDrawn();
+    }
+
+    /** Lets go of the sheet's watch for a size; the canvas's root has left the page. */
+    public dispose(): void {
+        this.sheet.dispose();
     }
 
     public itemColor(item: CanvasItem): string {
@@ -423,12 +435,14 @@ export class ProductionKind implements CanvasKind {
         return null;
     }
 
-    public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): void {
+    public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean {
         if (!this.editable)
-            return;
+            return false;
 
         this.editing.removeEdges(edgeIds);
         this.editing.removeEntries(itemIds);
+
+        return true;
     }
 
     public canEditItems(): boolean {

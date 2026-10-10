@@ -51,7 +51,7 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
 
         SetCanvasRegion(UIGraphRegions.PlanPeriod, PlanPeriod);
         SetCanvasRegion(UIGraphRegions.PlanObjective, PlanObjective);
-        SetCanvasRegion(UIGraphRegions.PlanAmount, new NumberInputComponent().SetSize(UIInputSize.Small).SetMin(0));
+        SetCanvasRegion(UIGraphRegions.PlanAmount, new NumberInputComponent().SetSize(UIInputSize.Small).SetAppearance(UIInputAppearance.Tonal).SetMin(0));
         SetCanvasRegion(UIGraphRegions.PlanRemove, new ButtonComponent().SetType(UIButtonType.Ghost).SetSize(UIButtonSize.Small).SetIcon(UIGlyphs.Close).SetTooltip(UIGraphWords.Remove));
         SetCanvasRegion(UIGraphRegions.PlanAdd, new ButtonComponent().SetType(UIButtonType.Ghost).SetSize(UIButtonSize.Small).SetIcon(UIGlyphs.Add).SetTitle(UIGraphWords.AddTarget));
         SetCanvasRegion(UIGraphRegions.PickerSearch, PickerSearch);

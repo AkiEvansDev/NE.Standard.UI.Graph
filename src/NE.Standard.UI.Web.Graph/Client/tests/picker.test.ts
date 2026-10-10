@@ -17,9 +17,22 @@ const Kinds: readonly PickerEntry[] = [
 ];
 
 /** The core's Tab stops as far as this page needs them: in the order, laid out, not disabled. */
+const stops = (container: ParentNode): HTMLElement[] => [...container.querySelectorAll<HTMLElement>("input, button, [tabindex]")].filter(stop => stop.tabIndex >= 0 && !stop.matches(":disabled") && stop.getClientRects().length > 0);
+
+/** The core's modal Tab: past an end, round to the other; between them, the browser's own move. */
 const focus: Focus = {
     first: container => container.querySelector<HTMLElement>("input, button, [tabindex]"),
-    stops: container => [...container.querySelectorAll<HTMLElement>("input, button, [tabindex]")].filter(stop => stop.tabIndex >= 0 && !stop.matches(":disabled") && stop.getClientRects().length > 0)
+    stops,
+    giveBack: () => undefined,
+    trapTab: (container, event) => {
+        const all = stops(container);
+        const edge = event.shiftKey ? all[0] : all.at(-1);
+
+        if (edge !== undefined && document.activeElement === edge) {
+            event.preventDefault();
+            (event.shiftKey ? all.at(-1) : all[0])?.focus();
+        }
+    }
 };
 
 /** Up and Down by one, stopping at the ends where the list does not wrap; Home and End; an unknown current enters at the near end. */
@@ -59,6 +72,7 @@ type Scene = {
     readonly search: FakeInput;
     readonly rail: FakeElement;
     readonly list: FakeElement;
+    readonly railToggle: FakeElement;
     readonly chosen: PickerEntry[];
 };
 
@@ -69,13 +83,14 @@ function scene(): Scene {
     const search = new FakeInput();
     const rail = FakeElement.of("ui-graph__picker-rail", { "data-ui-graph-picker-rail": "", role: "tree" });
     const list = FakeElement.of("ui-graph__picker-list", { "data-ui-graph-picker-list": "", role: "listbox" });
+    const railToggle = FakeElement.of("ui-graph__picker-rail-toggle", { "data-ui-graph-picker-rail-toggle": "", "aria-expanded": "false" }, "button").append(FakeElement.of("ui-graph__picker-rail-caption"));
     const chosen: PickerEntry[] = [];
     let ids = 0;
 
     dialog.setAttribute("data-ui-graph-picker", "");
     dialog.append(
         FakeElement.of("ui-graph__picker-search", { "data-ui-graph-picker-search": "" }).append(search),
-        FakeElement.of("ui-graph__picker-main").append(rail, list, FakeElement.of("", { "data-ui-graph-picker-empty": "" }))
+        FakeElement.of("ui-graph__picker-main").append(railToggle, rail, list, FakeElement.of("", { "data-ui-graph-picker-empty": "" }))
     );
 
     fakeDocument.body.children.length = 0;
@@ -87,11 +102,11 @@ function scene(): Scene {
 
         return element.id;
     };
-    const picker = Picker.create(real(fakeDocument.body.children[0]), () => Kinds, { text: key => key }, { ensureId }, icons, roving, focus, entry => chosen.push(entry));
+    const picker = Picker.create(real(fakeDocument.body.children[0]), () => Kinds, { text: key => key }, { ensureId }, icons, roving, focus, { words: () => null, matches: () => false, isComposing: event => event.isComposing, isFieldKey: () => false, isPlainKey: (event, allow) => !event.ctrlKey && !event.metaKey && !event.altKey && (allow?.shift === true || !event.shiftKey) && !event.isComposing, isEscapeClaimed: event => event.isComposing }, entry => chosen.push(entry));
 
     assert.ok(picker !== null);
 
-    return { picker, viewport, opener, dialog, search, rail, list, chosen };
+    return { picker, viewport, opener, dialog, search, rail, list, railToggle, chosen };
 }
 
 function opened(): Scene {
@@ -234,6 +249,45 @@ test("a press on a category, the search or the backdrop is left to the browser",
     assert.equal(press(category(page, "Maths")!).defaultPrevented, false);
     assert.equal(press(page.search).defaultPrevented, false);
     assert.equal(press(page.dialog).defaultPrevented, false);
+});
+
+test("only a click pressed on the backdrop closes the picker, not one pressed inside and let go outside", () => {
+    const page = opened();
+
+    page.search.dispatchEvent(new FakeEvent("pointerdown"));
+    click(page.dialog, 1);
+    assert.equal(page.dialog.open, true, "a press in the search let go past the panel lands on the dialog, and keeps it");
+
+    page.dialog.dispatchEvent(new FakeEvent("pointerdown"));
+    click(page.dialog, 1);
+    assert.equal(page.dialog.open, false);
+});
+
+test("the first entry stands current on opening without the keyboard's frame, which typing and the arrows bring", () => {
+    const page = opened();
+    const first = page.list.children[0];
+
+    assert.equal(first.classList.contains("ui-graph__picker-entry--current"), true);
+    assert.equal(first.classList.contains("ui-graph__picker-entry--pointed"), true, "opened by a press or a tap, the keyboard's place is not drawn");
+
+    page.search.value = "r";
+    page.search.dispatchEvent(new FakeEvent("input"));
+    assert.equal(page.list.children[0].classList.contains("ui-graph__picker-entry--pointed"), false, "typing is the keyboard's");
+});
+
+test("on a phone the rail's row names the chosen category, unfolds the tree with a tap and folds it once one is chosen", () => {
+    const page = opened();
+
+    assert.equal(page.railToggle.children[0].textContent, "ui.graph.all-kinds");
+    assert.equal(page.railToggle.getAttribute("aria-expanded"), "false");
+
+    click(page.railToggle, 1);
+    assert.equal(page.railToggle.getAttribute("aria-expanded"), "true");
+
+    click(category(page, "Text")!, 1);
+    assert.equal(page.railToggle.getAttribute("aria-expanded"), "false");
+    assert.equal(page.railToggle.children[0].textContent, "Text");
+    assert.deepEqual(entries(page), ["join"]);
 });
 
 test("an entry's click takes it, and the keyboard goes back to what opened the picker", () => {

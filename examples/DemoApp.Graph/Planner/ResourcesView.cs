@@ -11,9 +11,11 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
 {
     private const string SearchId = "planner-resource-search";
 
-    // The heights of the panes that fill the page's height side by side, when they stand one above the other instead.
+    // The list's height where the panes stand one above the other instead of filling the page's height side by side.
     private const double StackedListHeight = 360;
-    private const double StackedRecipeHeight = 420;
+
+    // The recipe canvas's least height, in rem; its row holds the same floor in pixels, and stacked the pane is its heading and that.
+    private const double RecipeCanvasHeight = 22;
 
     // The air between the panes: before a pane beside the one before it, above one under it.
     private static readonly UIResponsive<UIThickness> PaneGap = UIResponsive<UIThickness>.Create(UIThickness.All(0, 24, 0, 0), xl: UIThickness.All(24, 0, 0, 0));
@@ -63,8 +65,10 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             // words, since a share of the pane squeezed them; the field takes the rest.
             .AddChild(new ContainerComponent()
                 .SetColumn(24, UIGridUnit.Auto())
+                // Tonal: a lone field beside its own button.
                 .AddChild(new TextInputComponent(SearchId)
                     .SetType(UITextInputType.Search)
+                    .SetAppearance(UIInputAppearance.Tonal)
                     .SetPlaceholder("planner.search")
                     .SetPrefixIcon(MaterialIcons.Outlined(PlannerIcons.Search))
                     .SetShowClearButton()
@@ -226,9 +230,9 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
     /// <summary>What the open resource is made from, all the way down, read-only beside the form: the form is where it is changed.</summary>
     private static ContainerComponent CreateRecipe()
         => new ContainerComponent()
-            .SetHeight(Filled(UILayoutLength.Absolute(StackedRecipeHeight)))
+            .SetHeight(Filled(UILayoutLength.Auto()))
             .SetRow(1, UIGridUnit.Auto())
-            .AddRow(UIGridUnit.Star())
+            .AddRow(UIGridUnit.Star(min: RecipeCanvasHeight * 16))
             .BindVisibility(nameof(ResourcesController.EditorVisibility))
             .AddChild(UILayout.Stack(4,
                     UIText.Title("planner.made-from"),
@@ -240,6 +244,8 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .AddChild(new ProductionGraphComponent("planner-preview")
                 .BindItems(nameof(ResourcesController.Preview))
                 .SetIsReadOnly(true)
+                .BindSheetName(nameof(ResourcesController.Name))
+                .SetCanvasHeight(RecipeCanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetPlacement(1, 2, 24, 1)
             );

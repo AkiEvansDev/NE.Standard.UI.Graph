@@ -7,7 +7,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://localhost:5700"
+      "applicationUrl": "http://localhost:5150"
     },
     "DemoApp.Nodes.Web (LAN)": {
       "commandName": "Project",
@@ -15,7 +15,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://0.0.0.0:5700"
+      "applicationUrl": "http://0.0.0.0:5150"
     }
   }
 }

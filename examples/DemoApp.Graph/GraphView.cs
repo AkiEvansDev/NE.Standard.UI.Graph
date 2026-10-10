@@ -33,7 +33,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             // Even columns that wrap, each list's caption inside its field so the set stays one line tall: at a narrow width the
-            // switches and the button go under, and the lines never stagger.
+            // switches and the button go under, and the lines never stagger. Tonal, as a toolbar's fields are.
             .AddChild(new WrapPanelComponent()
                 .SetSpacing(16)
                 .SetLineSpacing(8)
@@ -42,6 +42,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                     new SelectComponent()
                         .SetTitle("planner.graph.layers")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphDirection.LeftToRight), Title = "planner.graph.left-to-right" },
                             new OptionItem { Id = nameof(UIGraphDirection.TopToBottom), Title = "planner.graph.top-to-bottom" },
@@ -53,6 +54,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                     new SelectComponent()
                         .SetTitle("planner.graph.edges")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "planner.graph.curved" },
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "planner.graph.straight" },
@@ -63,6 +65,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                     new SelectComponent()
                         .SetTitle("planner.graph.nodes")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphNodeShape.Card), Title = "planner.graph.cards" },
                             new OptionItem { Id = nameof(UIGraphNodeShape.Icon), Title = "planner.graph.circles" }
@@ -89,6 +92,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
             )
             .AddChild(new LayeredGraphComponent(DependenciesController.CanvasId)
                 .BindItems(nameof(DependenciesController.Modules))
+                .SetSheetName("planner.graph.sheet")
                 .SetCanvasHeight(CanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetShowMinimap(true)
@@ -108,17 +112,19 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                 .OnNodeClick(nameof(DependenciesController.ModuleClicked))
                 .SetPlacement(1, 2, 24, 1)
             )
-            // Wraps as the toolbar does: at a narrow width the buttons go under the two fields.
+            // Wraps as the toolbar does: at a narrow width the buttons go under the two fields. Tonal: a lone row of fields beside its button.
             .AddChild(UILayout.Row(12,
                     new TextInputComponent()
                         .SetTitle("planner.graph.module")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
                         .BindValue(nameof(DependenciesController.NewModule))
                         .SetWidth(UILayoutLength.Absolute(200))
                         .SetVerticalAlignment(UIAlignment.Center),
                     new SelectComponent()
                         .SetTitle("planner.graph.built-on")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions(DependenciesController.Choices.Select(static choice => new OptionItem { Id = choice.Id, Title = choice.Title, IsContent = true }))
                         .BindValue(nameof(DependenciesController.UsedModule))
                         .SetWidth(UILayoutLength.Absolute(220))

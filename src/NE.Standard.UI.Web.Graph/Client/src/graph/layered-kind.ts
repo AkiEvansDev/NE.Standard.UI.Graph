@@ -22,8 +22,11 @@ import { draftConflicts, graphEdges, overlayDraft, readGraphDocument, readGraphN
 export const NodesAttribute = "data-ui-graph-nodes";
 
 const NodeGap = 32;
-/** What a circle's name takes under it, and how wide it may run: the layout keeps this much room around every circle. */
-const CaptionRoom = 34;
+/**
+ * What a circle's name takes under it — the gap and two lines (`.ui-graph__bubble-title`) — and how wide it may run: the layout keeps
+ * this much room around every circle, and an edge meeting a circle's bottom ends under it.
+ */
+export const CaptionRoom = 38;
 const CaptionWidth = 96;
 
 /** A circle's room on the sheet: its name's under it, its edges meet it at the circle's middle, and it stands in the middle of the widest. */
@@ -68,17 +71,19 @@ export class LayeredKind implements CanvasKind {
             serverNodes: () => this.server,
             node: id => this.nodeById.get(id),
             serverNode: id => this.serverById.get(id),
-            link: id => this.linkById.get(id)
+            link: id => this.linkById.get(id),
+            placeAt: (id, at) => this.sheet.placeAt(id, at)
         });
         this.sheet = new LayeredSheet(services, {
             nodeIds: () => this.nodes.map(node => node.id),
             links: () => this.links,
             layoutKey: () => this.shape,
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
-            // next layer's circles.
-            nodeBox: (width, height, widest) => (this.shape === "icon" ? circleBox(width, height, widest) : { width, height }),
+            // next layer's circles. A node's own shape outranks the sheet's, as its card is drawn by it.
+            nodeBox: (id, width, height, widest) => (this.shapeOf(id) === "icon" ? circleBox(width, height, widest) : { width, height }),
             // A card's side is long enough to set its edges apart along; a circle's edges meet at its middle.
-            spreadsEnds: id => (this.nodeById.get(id)?.shape ?? this.shape) === "card"
+            spreadsEnds: id => this.shapeOf(id) === "card",
+            footRoom: id => (this.shapeOf(id) === "icon" ? CaptionRoom : 0)
         }, { nodeGap: NodeGap });
         this.refresh();
     }
@@ -94,6 +99,11 @@ export class LayeredKind implements CanvasKind {
 
     private get shape(): GraphNodeShape {
         return readShape(this.services.root.getAttribute(NodeShapeAttribute)) ?? "card";
+    }
+
+    /** The shape a node is drawn in: its own, or the sheet's. */
+    private shapeOf(id: string): GraphNodeShape {
+        return this.nodeById.get(id)?.shape ?? this.shape;
     }
 
     /** A change to the bound collection, the initial reset and insert among them: the cards are drawn again, and a new node placed. */
@@ -140,6 +150,7 @@ export class LayeredKind implements CanvasKind {
         return renderCard(item, node, {
             icons: this.services.context.icons,
             tooltips: this.services.context.tooltips,
+            urls: this.services.context.urls,
             shape: this.shape,
             connectable: this.editable,
             conflict: this.conflicts.get(node.id) ?? null
@@ -214,12 +225,14 @@ export class LayeredKind implements CanvasKind {
         return null;
     }
 
-    public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): void {
+    public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean {
         if (!this.editable)
-            return;
+            return false;
 
         this.editing.removeLinks(edgeIds);
         this.editing.removeNodes(itemIds);
+
+        return true;
     }
 
     public canEditItems(): boolean {

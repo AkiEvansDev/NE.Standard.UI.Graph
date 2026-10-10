@@ -7,7 +7,6 @@ import { cloneTemplate, CoreNames, NodeAttribute } from "../canvas/canvas-dom.ts
 import { enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
 import { newId, readJson } from "../canvas/canvas-model.ts";
-import { snap } from "../canvas/geometry.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
@@ -57,11 +56,8 @@ export class NodesKind implements CanvasKind {
     private readonly upload: NodesImageUpload;
     private readonly runPanel: NodesRunPanel;
     private readonly parameters: NodesParameters;
-    // Whether the viewer had a view of this canvas kept before it was first drawn: the first draw keeps it rather than fitting.
-    private readonly viewKept: boolean;
-    private drawnOnce = false;
-    // Watches a canvas first drawn where it has no size yet, to fit it once it has one.
-    private sizeWatch: (() => void) | null = null;
+    // Whether the sheet was opened whole yet: once, by the first draw with a node on it.
+    private fittedOnce = false;
 
     private clipboard: { nodes: DocumentNode[]; edges: DocumentEdge[] } | null = null;
     // What the pin menu was last opened on; its entries act on it.
@@ -71,9 +67,7 @@ export class NodesKind implements CanvasKind {
         const catalog = readCatalog(services.root.getAttribute(CatalogAttribute));
 
         this.services = services;
-        this.seriesColors = readSeriesColorCount(services.root);
-        // Read before the first draw: the core writes the view to the store as it draws.
-        this.viewKept = services.context.store.readJson(services.root, "view") !== null;
+        this.seriesColors = services.context.colors.count(services.root);
 
         for (const type of catalog) {
             this.types.set(type.key, type);
@@ -172,43 +166,16 @@ export class NodesKind implements CanvasKind {
     }
 
     /**
-     * A sheet the viewer has no kept view of opens whole, as Arrange leaves one and as the layered sheet opens; a returning viewer's
-     * kept view stands while it shows some of the sheet. A canvas drawn while hidden fits once it is shown.
+     * The first document that holds a node opens whole, as Arrange leaves one and as the layered sheet opens (`CanvasView.fitSheet`:
+     * a returning viewer's kept view stands, a hidden canvas fits once shown). An empty first document fits nothing, so a sheet
+     * pushed into it later still opens whole.
      */
     private fitFirstDraw(): void {
-        if (this.drawnOnce)
+        if (this.fittedOnce || this.document.nodes.length === 0)
             return;
 
-        this.drawnOnce = true;
-
-        if (this.document.nodes.length === 0)
-            return;
-
-        const root = this.services.root;
-
-        if (root.offsetWidth > 0) {
-            this.fitUnlessKept();
-            return;
-        }
-
-        this.sizeWatch = this.services.context.observeSize(root, () => {
-            if (root.offsetWidth === 0)
-                return;
-
-            this.dispose();
-            this.fitUnlessKept();
-        });
-    }
-
-    /** Lets go of the watch for a size to fit to; the canvas's root has left the page. */
-    public dispose(): void {
-        this.sizeWatch?.();
-        this.sizeWatch = null;
-    }
-
-    private fitUnlessKept(): void {
-        if (!this.viewKept || !this.services.view.showsAnyItem())
-            this.services.view.fit();
+        this.fittedOnce = true;
+        this.services.view.fitSheet();
     }
 
     public itemColor(item: CanvasItem): string {
@@ -299,9 +266,7 @@ export class NodesKind implements CanvasKind {
             return "var(--ui-text-muted)";
 
         const known: Record<string, number> = { image: 1, array: 2, number: 3, boolean: 4, text: 5, date: 8, time: 8, datetime: 8 };
-        const index = ((known[type] ?? hash(type) + 1) - 1) % this.seriesColors + 1;
-
-        return `var(--ui-color-series-${index})`;
+        return this.services.context.colors.color((known[type] ?? hash(type) + 1) - 1, this.seriesColors);
     }
 
     // --- values ------------------------------------------------------------------------------------------------------------------
@@ -481,18 +446,45 @@ export class NodesKind implements CanvasKind {
         return copy.nodes.map(node => node.id);
     }
 
-    public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): void {
+    public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean {
         const document = this.document;
 
         document.nodes = document.nodes.filter(node => !itemIds.has(node.id));
         document.edges = document.edges.filter(edge => !edgeIds.has(edge.id) && !itemIds.has(edge.fromNode) && !itemIds.has(edge.toNode));
         this.parameters.forget(itemIds);
+
+        return true;
     }
 
     public arrange(sizes: ReadonlyMap<string, { width: number; height: number }>, only: ReadonlySet<string> | undefined): Map<string, Point> {
         const settings = this.services.settings;
 
         return arrange(this.document, { sizes, only, pinOffset: (nodeId, pinName, direction) => this.pinOffset(nodeId, pinName, direction), gridSize: settings.snapping ? settings.gridSize : 0 });
+    }
+
+    public levelTops(id: string, moving: ReadonlySet<string>): number[] {
+        const tops: number[] = [];
+
+        for (const edge of this.document.edges) {
+            const out = edge.fromNode === id;
+
+            if (!out && edge.toNode !== id)
+                continue;
+
+            const partner = this.document.nodes.find(node => node.id === (out ? edge.toNode : edge.fromNode));
+
+            // A wire to a node moving with it keeps its slope whatever the drop; a wire looping back to the node has no level.
+            if (partner === undefined || partner.id === id || moving.has(partner.id))
+                continue;
+
+            const own = out ? this.pinOffset(id, edge.fromPin, "out") : this.pinOffset(id, edge.toPin, "in");
+            const across = out ? this.pinOffset(partner.id, edge.toPin, "in") : this.pinOffset(partner.id, edge.fromPin, "out");
+
+            if (own !== null && across !== null)
+                tops.push(partner.y + across - own);
+        }
+
+        return tops;
     }
 
     /** How far below its node's top a pin's middle stands, in canvas units, off the page as the node is drawn now — folded, its pins sit on its head. */
@@ -574,10 +566,12 @@ export class NodesKind implements CanvasKind {
         if (this.services.settings.readOnly || edge === undefined || type === undefined || input === undefined || output === undefined)
             return;
 
-        const settings = this.services.settings;
         const at = this.services.pointerScene();
-        const node = createNode(type, snap(at.x - RerouteHalfWidth, settings.gridSize, settings.snapping), snap(at.y - RerouteHalfHeight, settings.gridSize, settings.snapping));
+        const node = createNode(type, at.x - RerouteHalfWidth, at.y - RerouteHalfHeight);
+        const place = this.services.snapPlace(node.id, node);
 
+        node.x = place.x;
+        node.y = place.y;
         this.document.nodes.push(node);
 
         if (edge !== null) {
@@ -680,13 +674,6 @@ function readCatalog(value: string | null): NodeType[] {
     const read = readJson(value);
 
     return Array.isArray(read) ? (read as NodeType[]) : [];
-}
-
-/** How many series colours the theme has, off the root; the theme writes it beside the colours, and eight is the palette's own count. */
-function readSeriesColorCount(root: Element): number {
-    const value = Number(getComputedStyle(root).getPropertyValue("--ui-color-series-count"));
-
-    return Number.isFinite(value) && value >= 1 ? Math.floor(value) : 8;
 }
 
 function hash(value: string): number {

@@ -86,6 +86,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
         => new ProductionGraphComponent("planner-plan")
             .BindItems(nameof(BuildsController.Catalogue))
             .SetMode(UIProductionMode.Plan)
+            .BindSheetName(nameof(BuildsController.OpenName))
             .SetAutoSave(true)
             .SetFormId(BuildsController.PlanForm)
             .BindValue(nameof(BuildsController.Plan), mode: UIBindingMode.OnSubmit)

@@ -24,7 +24,7 @@
     display: flex;
     flex-direction: column;
     gap: @ui-space-1;
-    min-width: 0;
+    .ui-responsive-property(min-width, --ui-min-width, 0);
 }
 
 // The canvas's height is its least: a component given a height of its own — a fill in a page's row — grows the viewport to it.
@@ -42,13 +42,13 @@
     outline: none;
     touch-action: none;
     // A drag on the canvas moves nodes and draws bands; only an editor's own text is selectable.
-    user-select: none;
+    .ui-user-select(none);
     cursor: grab;
 }
 
     .ui-graph__viewport input,
     .ui-graph__viewport textarea {
-        user-select: text;
+        .ui-user-select(text);
     }
 
     // While a connection is pulled, the crosshair stays regardless of what's underneath (a node, an editor, a button), since the aim is a pin, not whatever it crosses.
@@ -133,7 +133,7 @@
         .ui-graph-edge-line-lit();
     }
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         .ui-graph__edge:hover + .ui-graph__edge-line {
             .ui-graph-edge-line-lit();
         }
@@ -209,7 +209,7 @@
     white-space: nowrap;
     pointer-events: auto;
     cursor: pointer;
-    user-select: none;
+    .ui-user-select(none);
 }
 
 .ui-graph__reroute {
@@ -250,7 +250,7 @@
     font-weight: var(--ui-text-title-font-weight);
     color: var(--ui-graph-group-color);
     cursor: move;
-    user-select: none;
+    .ui-user-select(none);
 }
 
 // What a drag will not move stops saying it will: every part of a read-only sheet, and a pinned item or frame. A press there still
@@ -397,22 +397,31 @@
         display: none;
     }
 
+    // A floating panel's look, as the framework's own popups have, its ground handed on to what stands in it.
     .ui-graph__menu-panel > .ui-menu {
         padding: @ui-space-1;
-        border: var(--ui-border-width) solid var(--ui-color-border);
-        border-radius: var(--ui-radius-card);
-        background: var(--ui-color-surface);
+        .ui-popup-look();
         overflow: hidden;
-        .ui-elevation-1();
-    }
-
-    // Open, the switch stands at the head of the list it folds, where the burger was before it slid out.
-    .ui-graph__menu-panel > .ui-menu > .ui-collapsible__toggle {
-        align-self: flex-start;
     }
 
     .ui-graph__menu-panel > .ui-menu:not([data-ui-folding]) > .ui-menu__host {
         overflow-y: auto;
+    }
+
+    // The switch keeps the burger's corner with the sheet's name (GraphCanvasComponentBase.SheetTitle) after it, rather than sliding
+    // to the head's end as the menu opens; the name stands the core bar's gap past the switch's wash, as content beside every
+    // collapsible's switch does. First by its order, not by a reversed row: a row narrower than its content in the slide spills past
+    // its end, which a reversed row puts on the switch's side, pushing the switch out of its corner.
+    // It is one box open and folded — the folded block's whole square, in the frame's corner — so neither its wash nor its glyph
+    // moves at any frame of the slide. Open, it reaches out over the frame's padding at the corner; its margin box is the bar's
+    // switch, so the name keeps the bar's middle and gap.
+    .ui-graph__menu-panel > .ui-menu > .ui-collapsible__bar > .ui-collapsible__toggle {
+        order: -1;
+        width: calc(1.75rem + 2 * @ui-space-1);
+        height: calc(1.75rem + 2 * @ui-space-1);
+        margin-block: -@ui-space-1;
+        margin-inline-start: -@ui-space-1;
+        border-radius: ~"calc(@{ui-popup-radius} - var(--ui-border-width))";
     }
 
     // Folded, the menu is its switch alone: no rail of icons over the sheet, since a command with no icon would leave a blank square.
@@ -421,14 +430,12 @@
     }
 
     // Folded, the switch is the whole block — the frame's padding taken into it, the block no bigger — so the wash under the pointer
-    // reaches the frame rather than stopping short of it.
+    // reaches the frame rather than stopping short of it. The padding and the margin go together, so the switch stays where it was.
     .ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding]) {
         padding: 0;
 
-        > .ui-collapsible__toggle {
-            width: calc(1.75rem + 2 * @ui-space-1);
-            height: calc(1.75rem + 2 * @ui-space-1);
-            border-radius: calc(var(--ui-radius-card) - var(--ui-border-width));
+        > .ui-collapsible__bar > .ui-collapsible__toggle {
+            margin: 0;
         }
     }
 
@@ -441,7 +448,7 @@
     padding: @ui-space-1;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-button);
-    background: var(--ui-color-surface);
+    .ui-graph-surface-ground();
 }
 
 .ui-graph__zoom {
@@ -449,7 +456,7 @@
     color: var(--ui-text-muted);
     font-size: var(--ui-text-caption-font-size);
     text-align: center;
-    user-select: none;
+    .ui-user-select(none);
 }
 
 // Both words stand in the markup and the canvas's state picks one: unsaved until the save answers, nothing once the server has it.
@@ -457,7 +464,7 @@
     display: none;
     color: var(--ui-text-muted);
     font-size: var(--ui-text-caption-font-size);
-    user-select: none;
+    .ui-user-select(none);
 }
 
     .ui-graph--dirty .ui-graph__state,
@@ -484,6 +491,15 @@
 }
 
 // --- a button that is only what it holds -------------------------------------------------------------------------------------
+
+// A panel standing over the sheet on the surface, which it hands on: a field inside mixes its fill into it, muted ink fades its
+// own ink, a part cut out of it paints it — not the ground the canvas itself stands on.
+.ui-graph-surface-ground() {
+    background: var(--ui-color-surface);
+    --ui-ground: var(--ui-color-surface);
+    --ui-surface-fill: var(--ui-color-surface);
+    --ui-faint-base: initial;
+}
 
 // The browser's own frame, ground, type, margin and padding taken off a button, which answers the pointer with its hand; each use
 // adds what it is — a head mark, a picker's entry, a panel's switch, a log line's node.
@@ -512,11 +528,11 @@
     gap: 0;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
-    background: var(--ui-color-surface);
+    .ui-graph-surface-ground();
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
     cursor: default;
-    user-select: text;
+    .ui-user-select(text);
     .ui-elevation-1();
 
     // Folded, and the slide over: the body goes, and the framework's own rule has the panel as wide as its switch.
@@ -544,19 +560,32 @@
 
     // The keyboard's focus takes the brand's colour; the ring is the framework's own (reset.less).
     &@{ui-keyboard-focus} {
-        color: var(--ui-color-primary);
+        color: var(--ui-color-primary-ink);
     }
 }
 
-// The switch's chevron points down while the panel is open, and along the switch once folded.
+// The switch's chevron points down while the panel is open, and along the switch once folded. The switch answers the pointer as an
+// expander's header does: the chevron's ink comes up, as a wash would fill the band the panel already frames.
 .ui-graph-side-chevron(@panel) {
     .ui-glyph-host();
     font-size: @ui-glyph-sm;
+    color: var(--ui-text-muted);
     transform: rotate(90deg);
-    transition: transform @ui-motion-fast @ui-motion-ease;
+    transition: transform @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
     @{panel}[data-ui-collapsed] & {
         transform: none;
+    }
+
+    @media @{ui-can-hover} {
+        @{panel} > :hover > & {
+            color: var(--ui-color-on-surface);
+        }
+    }
+
+    // The keyboard's focus takes the whole switch in the brand's colour.
+    @{panel} > @{ui-keyboard-focus} > & {
+        color: inherit;
     }
 }
 

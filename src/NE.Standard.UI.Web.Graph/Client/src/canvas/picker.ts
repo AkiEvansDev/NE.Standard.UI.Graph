@@ -2,7 +2,7 @@
 // offers its kinds and the production graph its resources. The tree is one Tab stop walked by the arrows; one entry is current,
 // the keyboard's and the pointer's alike.
 
-import type { Focus, Icons, RovingFocus } from "ne-standard-ui";
+import type { Focus, Icons, RovingFocus, ShortcutWords } from "ne-standard-ui";
 
 /** What the picker shows of an entry, and the key it is handed back by. */
 export type PickerEntry = {
@@ -19,6 +19,8 @@ const PickerSelector = "[data-ui-graph-picker]";
 // The core's text field in the picker's head, carried as a region: the input is the field's own.
 const SearchSelector = "[data-ui-graph-picker-search] input";
 const RailSelector = "[data-ui-graph-picker-rail]";
+// The row standing for the rail on a phone: the chosen category, which unfolds the rail's tree above the list.
+const RailToggleSelector = "[data-ui-graph-picker-rail-toggle]";
 const ListSelector = "[data-ui-graph-picker-list]";
 const EmptySelector = "[data-ui-graph-picker-empty]";
 const KindAttribute = "data-ui-graph-kind";
@@ -51,6 +53,7 @@ export class Picker<TEntry extends PickerEntry> {
     private readonly panel: HTMLDialogElement;
     private readonly search: HTMLInputElement;
     private readonly rail: HTMLElement;
+    private readonly railToggle: HTMLElement | null;
     private readonly list: HTMLElement;
     private readonly empty: HTMLElement;
     private readonly home: HTMLElement | null;
@@ -61,6 +64,7 @@ export class Picker<TEntry extends PickerEntry> {
     private readonly ids: PickerIds;
     private readonly roving: RovingFocus;
     private readonly focus: Focus;
+    private readonly shortcuts: ShortcutWords;
     private readonly choose: (entry: TEntry) => void;
 
     private category = AllCategories;
@@ -74,11 +78,14 @@ export class Picker<TEntry extends PickerEntry> {
     // pointer did.
     private pointerX = Number.NaN;
     private pointerY = Number.NaN;
+    // Whether the last press began on the backdrop, which alone lets its click close the picker.
+    private pressedBackdrop = false;
 
-    private constructor(panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, home: HTMLElement | null, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, focus: Focus, choose: (entry: TEntry) => void) {
+    private constructor(panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, home: HTMLElement | null, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, focus: Focus, shortcuts: ShortcutWords, choose: (entry: TEntry) => void) {
         this.panel = panel;
         this.search = search;
         this.rail = rail;
+        this.railToggle = panel.querySelector<HTMLElement>(RailToggleSelector);
         this.list = list;
         this.empty = empty;
         this.home = home;
@@ -88,14 +95,15 @@ export class Picker<TEntry extends PickerEntry> {
         this.ids = ids;
         this.roving = roving;
         this.focus = focus;
+        this.shortcuts = shortcuts;
         this.choose = choose;
 
-        this.search.addEventListener("input", () => this.draw());
+        this.search.addEventListener("input", () => this.draw(true));
         // The field's clear button is the core's, and it says so with a change rather than an input. A change also comes as the field
         // loses the focus (a Tab, a category's press), which is no new search: the list drawn for it stands.
         this.search.addEventListener("change", () => {
             if (this.search.value !== this.drawnTerms)
-                this.draw();
+                this.draw(false);
         });
         this.search.addEventListener("keydown", event => this.key(event));
         // Escape closes the picker from anywhere in it — the search too, whose Escape the framework's field keys would otherwise take
@@ -104,12 +112,17 @@ export class Picker<TEntry extends PickerEntry> {
         this.panel.addEventListener("keydown", event => this.tab(event));
         this.panel.addEventListener("mousedown", event => this.press(event));
         this.rail.addEventListener("click", event => this.rails(event));
+        this.railToggle?.addEventListener("click", () => this.showRail(this.railToggle?.getAttribute("aria-expanded") !== "true"));
         this.rail.addEventListener("keydown", event => this.railKey(event));
         this.list.addEventListener("click", event => this.click(event));
         this.list.addEventListener("pointermove", event => this.point(event));
-        // A click on the dialog itself is a click on its backdrop: the panel's own content stops it before it gets here.
+        // A press on the dialog itself is one on its backdrop, the panel's own content standing over the rest of it. Only a click whose
+        // press began there closes the picker: one pressed inside and let go outside lands on the dialog too, as their common ancestor.
+        this.panel.addEventListener("pointerdown", event => {
+            this.pressedBackdrop = event.target === this.panel;
+        });
         this.panel.addEventListener("click", event => {
-            if (event.target === this.panel)
+            if (event.target === this.panel && this.pressedBackdrop)
                 this.close();
         });
         // However the dialog closed — Escape closes it natively, past close() — the field no longer controls an open list.
@@ -119,7 +132,7 @@ export class Picker<TEntry extends PickerEntry> {
         });
     }
 
-    public static create<TEntry extends PickerEntry>(root: HTMLElement, entries: () => readonly TEntry[], words: PickerWords, ids: PickerIds, icons: Icons, roving: RovingFocus, focus: Focus, choose: (entry: TEntry) => void): Picker<TEntry> | null {
+    public static create<TEntry extends PickerEntry>(root: HTMLElement, entries: () => readonly TEntry[], words: PickerWords, ids: PickerIds, icons: Icons, roving: RovingFocus, focus: Focus, shortcuts: ShortcutWords, choose: (entry: TEntry) => void): Picker<TEntry> | null {
         const panel = root.querySelector<HTMLDialogElement>(PickerSelector);
         const search = panel?.querySelector<HTMLInputElement>(SearchSelector) ?? null;
         const rail = panel?.querySelector<HTMLElement>(RailSelector) ?? null;
@@ -136,8 +149,9 @@ export class Picker<TEntry extends PickerEntry> {
         search.setAttribute("aria-expanded", "false");
         // A scrolling box is a Tab stop of its own in Chrome; the list's entries are reached through the search.
         list.tabIndex = -1;
+        panel.querySelector(RailToggleSelector)?.setAttribute("aria-controls", ids.ensureId(rail, "ui-graph-picker-rail"));
 
-        return new Picker(panel, search, rail, list, empty, root.querySelector<HTMLElement>(HomeSelector), entries, words, icons, ids, roving, focus, choose);
+        return new Picker(panel, search, rail, list, empty, root.querySelector<HTMLElement>(HomeSelector), entries, words, icons, ids, roving, focus, shortcuts, choose);
     }
 
     public get isOpen(): boolean {
@@ -148,8 +162,9 @@ export class Picker<TEntry extends PickerEntry> {
         this.search.value = "";
         this.category = AllCategories;
         this.railStop = AllCategories;
+        this.showRail(false);
         this.drawRail();
-        this.draw();
+        this.draw(false);
 
         if (!this.panel.open)
             this.panel.showModal();
@@ -165,12 +180,17 @@ export class Picker<TEntry extends PickerEntry> {
             this.panel.close();
     }
 
+    /** On a phone, unfolds or folds the rail's tree above the list under the row naming the chosen category; beside the list it stands always. */
+    private showRail(shown: boolean): void {
+        this.railToggle?.setAttribute("aria-expanded", String(shown));
+    }
+
     public contains(target: EventTarget | null): boolean {
         return target instanceof Node && this.panel.contains(target);
     }
 
     private escape(event: KeyboardEvent): void {
-        if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || !this.isOpen)
+        if (event.key !== "Escape" || event.defaultPrevented || this.shortcuts.isEscapeClaimed(event) || !this.isOpen)
             return;
 
         event.preventDefault();
@@ -185,20 +205,10 @@ export class Picker<TEntry extends PickerEntry> {
             this.home.focus({ preventScroll: true });
     }
 
-    /** Tab walks the panel round and round: a modal's Tab past its last stop would leave for the browser's own chrome. */
+    /** Tab walks the panel round and round, as the core's dialogs wrap: a modal's Tab past its last stop would leave for the browser's chrome. */
     private tab(event: KeyboardEvent): void {
-        if (event.key !== "Tab" || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey)
-            return;
-
-        // The core's reading of a modal's stops, as its own dialogs wrap round them: the rail's categories are one stop.
-        const stops = this.focus.stops(this.panel);
-        const edge = event.shiftKey ? stops[0] : stops.at(-1);
-
-        if (edge === undefined || document.activeElement !== edge)
-            return;
-
-        event.preventDefault();
-        (event.shiftKey ? stops.at(-1) : stops[0])?.focus({ preventScroll: true });
+        if (event.key === "Tab" && !event.defaultPrevented && this.shortcuts.isPlainKey(event, { shift: true }))
+            this.focus.trapTab(this.panel, event);
     }
 
     /**
@@ -250,6 +260,9 @@ export class Picker<TEntry extends PickerEntry> {
         const lines: RailLine[] = [{ category: AllCategories, caption: this.words.text("ui.graph.all-kinds"), depth: 0, folds: false }];
 
         this.listRail(roots, 0, lines);
+        const chosen = nodes.get(this.category);
+
+        this.showChosen(chosen === undefined ? lines[0].caption : chosen.path.length === 0 ? this.words.text("ui.graph.uncategorized") : chosen.name);
 
         const drawn = new Map<string, HTMLElement>();
 
@@ -306,6 +319,14 @@ export class Picker<TEntry extends PickerEntry> {
             if (folds && this.unfolded.has(node.path))
                 this.listRail(node.children, depth + 1, lines);
         }
+    }
+
+    /** The chosen category's name on the row that stands for the rail on a phone. */
+    private showChosen(caption: string): void {
+        const text = this.railToggle?.firstElementChild ?? null;
+
+        if (text !== null && text.textContent !== caption)
+            text.textContent = caption;
     }
 
     private railEntry(line: RailLine): HTMLElement {
@@ -370,8 +391,9 @@ export class Picker<TEntry extends PickerEntry> {
 
             this.category = category;
             this.railStop = category;
+            this.showRail(false);
             this.drawRail();
-            this.draw();
+            this.draw(event.detail === 0);
         }
 
         if (event.detail > 0)
@@ -385,7 +407,7 @@ export class Picker<TEntry extends PickerEntry> {
     private railKey(event: KeyboardEvent): void {
         const current = event.target instanceof Element ? event.target.closest<HTMLElement>(`[${CategoryAttribute}]`) : null;
 
-        if (current === null || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey)
+        if (current === null || event.defaultPrevented || !this.shortcuts.isPlainKey(event))
             return;
 
         const category = current.getAttribute(CategoryAttribute) ?? AllCategories;
@@ -428,7 +450,11 @@ export class Picker<TEntry extends PickerEntry> {
             this.unfolded.delete(category);
     }
 
-    private draw(): void {
+    /**
+     * Lists the entries the search and the category leave, the first one current. It wears the keyboard's frame only where the keyboard
+     * drew the list (typing, a key on the rail): the keyboard's place is drawn only for the keyboard, not on opening by a press or a tap.
+     */
+    private draw(byKeyboard: boolean): void {
         this.drawnTerms = this.search.value;
 
         const terms = this.search.value.trim().toLowerCase();
@@ -483,7 +509,7 @@ export class Picker<TEntry extends PickerEntry> {
             this.list.append(entry);
         }
 
-        this.setCurrent(this.list.querySelector<HTMLElement>(`.${EntryClass}`));
+        this.setCurrent(this.list.querySelector<HTMLElement>(`.${EntryClass}`), !byKeyboard);
     }
 
     /** The entry the arrows and Enter stand on: the class draws it, and the search field names it for whoever is listening. */
@@ -514,7 +540,7 @@ export class Picker<TEntry extends PickerEntry> {
 
     private key(event: KeyboardEvent): void {
         // An Enter that confirms a composed character is the IME's, not a choice of entry.
-        if (event.isComposing)
+        if (this.shortcuts.isComposing(event))
             return;
 
         if (event.key === "Enter") {

@@ -4,7 +4,8 @@
 import type { PluginEngineContext } from "ne-standard-ui";
 import { CoreNames, percentText } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
-import { renderDisplayValue } from "./display.ts";
+import { focusAfterRemoval } from "../canvas/side-panel.ts";
+import { showDisplayValue } from "./display.ts";
 import { findPin, showsPicture } from "./model.ts";
 import type { GraphDocument, NodeType } from "./model.ts";
 import { DisplayAttribute, displayOptions, NodeStateAttribute, ValueAttribute } from "./node-view.ts";
@@ -151,7 +152,11 @@ export class NodesLog {
     }
 
     private applyDisplay(nodeId: string, pinName: string, value: unknown): void {
-        const box = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${DisplayAttribute}][${ValueAttribute}="${CSS.escape(pinName)}"]`);
+        const box = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${DisplayAttribute}][${ValueAttribute}="${CSS.escape(pinName)}"]`) ?? null;
+
+        if (box === null)
+            return;
+
         const sheet = this.services.documentState.document;
         const node = sheet.nodes.find(candidate => candidate.id === nodeId);
         const pin = findPin(node === undefined ? undefined : this.types.get(node.type), pinName, false);
@@ -164,7 +169,7 @@ export class NodesLog {
         });
 
         // A picture by the pin's type, read off the sheet as it stands: the wire says nothing of what a text is.
-        box?.replaceChildren(renderDisplayValue(value, { ...options, picture: pin !== undefined && showsPicture(sheet, this.types, nodeId, pin) }));
+        showDisplayValue(box, value, { ...options, picture: pin !== undefined && showsPicture(sheet, this.types, nodeId, pin) });
     }
 
     /** A number as the page writes one: the pin's own format against the culture the page carries. */
@@ -299,7 +304,7 @@ export class NodesLog {
             line.remove();
 
         if (held)
-            (next?.querySelector<HTMLElement>(`[${LogNodeAttribute}]`) ?? this.logToggle)?.focus({ preventScroll: true });
+            focusAfterRemoval(next?.querySelector<HTMLElement>(`[${LogNodeAttribute}]`) ?? null, this.logToggle, this.context.focus);
     }
 
     /** Opens or folds the log; a viewer's own choice is kept in the browser beside the view, so the log opens as they left it. */

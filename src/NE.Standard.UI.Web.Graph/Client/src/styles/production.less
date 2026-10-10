@@ -17,7 +17,7 @@
     line-height: 1.25rem;
     white-space: nowrap;
     cursor: move;
-    user-select: none;
+    .ui-user-select(none);
 }
 
 // A resource's self-said badge is centred over its circle, not on the rim like the graph's plain count badge — a longer
@@ -147,7 +147,7 @@
 
     // The name is what the keyboard stands on for its row: it takes the brand's colour, as the row does under the pointer.
     &@{ui-keyboard-focus} {
-        color: var(--ui-color-primary);
+        color: var(--ui-color-primary-ink);
     }
 
     > span:last-child {
@@ -178,7 +178,7 @@
     }
 
     .ui-graph__plan-message[data-ui-graph-plan-failed] {
-        color: var(--ui-color-danger);
+        color: var(--ui-color-danger-ink);
     }
 
 .ui-graph__plan-section {
@@ -222,9 +222,9 @@
         cursor: pointer;
     }
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         tbody tr:hover > th {
-            color: var(--ui-color-primary);
+            color: var(--ui-color-primary-ink);
         }
     }
 }

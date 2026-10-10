@@ -36,6 +36,17 @@ export const MoreKey = "ui.graph.more";
 const Yes = "✓";
 const No = "✕";
 
+// On a display's panel while it shows one picture drawn at no size of its own, which fills the panel rather than sizing it.
+const PanelPictureClass = "ui-graph__display--picture";
+
+/** Shows a value in a display's panel, marking the panel while a lone picture fills it. */
+export function showDisplayValue(panel: HTMLElement, value: unknown, options: DisplayOptions): void {
+    const shown = renderDisplayValue(value, options);
+
+    panel.replaceChildren(shown);
+    panel.classList.toggle(PanelPictureClass, shown.classList.contains("ui-graph__display-image") && !shown.classList.contains("ui-graph__display-image--sized"));
+}
+
 /** The element a value is shown as. */
 export function renderDisplayValue(value: unknown, options: DisplayOptions): HTMLElement {
     if (value === null || value === undefined || value === "")
@@ -129,8 +140,12 @@ function picture(address: string, width: number | null, height: number | null): 
     }
     image.src = address;
     image.alt = "";
-    // A type names a picture, not that it is still there — one gone from its store — so one that does not draw becomes its own text.
-    image.addEventListener("error", () => image.replaceWith(line(address, "ui-graph__display-text")), { once: true });
+    // A type names a picture, not that it is still there — one gone from its store — so one that does not draw becomes its own text,
+    // and a panel it filled alone holds no picture.
+    image.addEventListener("error", () => {
+        image.parentElement?.classList.remove(PanelPictureClass);
+        image.replaceWith(line(address, "ui-graph__display-text"));
+    }, { once: true });
 
     return image;
 }

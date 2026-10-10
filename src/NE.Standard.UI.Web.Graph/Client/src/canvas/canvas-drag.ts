@@ -140,12 +140,14 @@ export class CanvasDrag {
 
     /** The size asked for, then the size it actually came to: the kind's least width and the contents' height have the last word. */
     public resizeNode(nodeId: string, width: number, height: number): void {
-        const node = this.host.items().find(candidate => candidate.id === nodeId);
+        const node = this.itemsById().get(nodeId);
         const element = this.host.nodeElements.get(nodeId);
 
-        if (node === undefined || element === undefined)
-            return;
+        if (node !== undefined && element !== undefined)
+            this.resizeItem(node, element, width, height);
+    }
 
+    private resizeItem(node: CanvasItem, element: HTMLElement, width: number, height: number): void {
         element.style.setProperty("--ui-graph-node-w", String(Math.max(1, Math.round(width))));
         element.style.setProperty("--ui-graph-node-h", String(Math.max(1, Math.round(height))));
 
@@ -159,21 +161,37 @@ export class CanvasDrag {
     public snapNodes(ids: Iterable<string>): void {
         // Read once: the grid size is a computed style, and a selection of many nodes would ask for it twice per node.
         const gridSize = this.settings.gridSize;
-        const items = this.host.items();
+        const items = this.itemsById();
+        const moving = new Set(ids);
 
-        for (const id of ids) {
-            const node = items.find(candidate => candidate.id === id);
+        for (const id of moving) {
+            const node = items.get(id);
 
             if (node === undefined)
                 continue;
 
             const place = this.snapPlace(id, node, gridSize);
 
+            node.y = this.levelTop(id, node.y, moving, gridSize) ?? place.y;
             node.x = place.x;
-            node.y = place.y;
 
             this.placeNode(id, node);
         }
+    }
+
+    /**
+     * The top nearest the drop at which one of the node's wires runs level, within half a grid step of it, else null: the kind's pins
+     * stand at depths no grid step divides, so a level wire is off the grid, and the grid alone could never set it level again.
+     */
+    private levelTop(id: string, dropped: number, moving: ReadonlySet<string>, gridSize: number): number | null {
+        let nearest: number | null = null;
+
+        for (const top of this.host.kind().levelTops?.(id, moving) ?? []) {
+            if (Math.abs(top - dropped) <= gridSize / 2 && (nearest === null || Math.abs(top - dropped) < Math.abs(nearest - dropped)))
+                nearest = top;
+        }
+
+        return nearest;
     }
 
     /** Where the grid puts an item standing at a point: by its corner, or — on a kind that says so — by its middle. */
@@ -187,7 +205,7 @@ export class CanvasDrag {
 
     /** Rounds a resized node's box to the grid step, growing to the next step where the kind's minimum width or content height won't fit. */
     public snapSize(nodeId: string): void {
-        const node = this.host.items().find(candidate => candidate.id === nodeId);
+        const node = this.itemsById().get(nodeId);
         const element = this.host.nodeElements.get(nodeId);
 
         if (node === undefined || element === undefined)
@@ -195,7 +213,7 @@ export class CanvasDrag {
 
         const gridSize = this.settings.gridSize;
 
-        this.resizeNode(nodeId, snap(element.offsetWidth, gridSize, true), snap(element.offsetHeight, gridSize, true));
+        this.resizeItem(node, element, snap(element.offsetWidth, gridSize, true), snap(element.offsetHeight, gridSize, true));
         snapBox(element, gridSize);
 
         node.width = element.offsetWidth;

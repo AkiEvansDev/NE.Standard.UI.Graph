@@ -1,10 +1,9 @@
 // The parameters panel under the run panel: the inputs set out as the sheet's parameters (`GraphDocument.parameters`), each with its
 // node's own field bound to the same value, so an edit in either shows in the other. The markup is the renderer's; rows are written here.
 
-import type { Focus } from "ne-standard-ui";
 import { CoreNames } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
-import { SidePanelFold } from "../canvas/side-panel.ts";
+import { focusablePart, focusAfterRemoval, SidePanelFold } from "../canvas/side-panel.ts";
 import type { DocumentNode, DocumentParameter, GraphDocument, NodeType, Pin } from "./model.ts";
 import { dropParameter, findPin, isParameterAllowed } from "./model.ts";
 import { captionInField } from "./node-view.ts";
@@ -152,9 +151,7 @@ export class NodesParameters {
         if (!focused || this.list === null || this.list.contains(document.activeElement))
             return;
 
-        const next = this.list.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? this.panel?.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`);
-
-        focusable(next ?? null, this.services.context.focus)?.focus({ preventScroll: true });
+        focusAfterRemoval(this.list.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? null, this.panel?.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`) ?? null, this.services.context.focus);
     }
 
     /** Redraws the rows only when which parameters show changed (the focus kept on its part of a row); otherwise gives each field not under the caret its value. */
@@ -203,7 +200,7 @@ export class NodesParameters {
         if (focused === null || row === undefined)
             return;
 
-        focusable(row.querySelector<HTMLElement>(focused.part === RemoveAttribute ? `[${RemoveAttribute}]` : `.${focused.part}`), this.services.context.focus)?.focus({ preventScroll: true });
+        focusablePart(row.querySelector<HTMLElement>(focused.part === RemoveAttribute ? `[${RemoveAttribute}]` : `.${focused.part}`), this.services.context.focus)?.focus({ preventScroll: true });
     }
 
     /** Writes a value into the parameter's field, unless the viewer is typing into it. */
@@ -300,10 +297,4 @@ export class NodesParameters {
 
         return row;
     }
-}
-
-/** What the keyboard stands on for a part of a row: the part itself, or the first control of a framework component's own. */
-function focusable(part: HTMLElement | null, focus: Focus): HTMLElement | null {
-    // A part in the tab order by its markup (a button) is its own; a component's root, which is not, gives its first control.
-    return part === null || part.tabIndex >= 0 ? part : focus.first(part);
 }

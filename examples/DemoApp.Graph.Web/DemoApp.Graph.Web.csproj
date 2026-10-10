@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- A demo's footprint over throughput under load: see docs/PROJECT.md on the GC mode. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <!-- The application, and the slice's own rendering beside it. -->

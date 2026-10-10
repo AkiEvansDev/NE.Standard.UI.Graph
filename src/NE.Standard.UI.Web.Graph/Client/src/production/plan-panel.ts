@@ -3,13 +3,13 @@
 
 import { cloneTemplate, CoreNames } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
-import { SidePanelFold } from "../canvas/side-panel.ts";
+import { focusAfterRemoval, SidePanelFold } from "../canvas/side-panel.ts";
 import type { Craft, ProductionDocument, Resource } from "./model.ts";
 import { broughtIn } from "./plan.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
 import { rateSuffix } from "./plan-view.ts";
 import type { PlanReading } from "./plan-view.ts";
-import { formatTime, numberWriter } from "./craft-view.ts";
+import { formatTime, numberWriter, parsePositive } from "./craft-view.ts";
 import type { NumberWriter } from "./craft-view.ts";
 
 const PanelSelector = "[data-ui-graph-plan]";
@@ -33,6 +33,8 @@ export type PlanPanelHost = {
     craft(id: string): Craft | undefined;
     /** Another request: written into the document as the viewer's edit. */
     change(next: PlanRequest): void;
+    /** A target's amount, as the chip over its node sets it too: a number above zero is the target, nothing takes it off. */
+    target(resource: string, amount: number | null): void;
     /** The picker of resources to plan for. */
     pick(): void;
     /** A row pressed: the item it names is chosen and brought into view. */
@@ -121,29 +123,34 @@ export class PlanPanel {
         if (button === null || removed === null || removed === undefined)
             return false;
 
-        const request = this.host.request();
-        const at = request.targets.findIndex(entry => entry.resource === removed);
-        const focused = button.contains(document.activeElement);
-
-        this.host.change({ ...request, targets: request.targets.filter(entry => entry.resource !== removed) });
-
-        if (focused)
-            this.focusAfterRemoval(at);
+        this.removeTarget(removed, button);
 
         return true;
     }
 
-    /** The focus a removed target's button held goes to the next target's remove, else to the panel's switch, rather than to the page. */
-    private focusAfterRemoval(at: number): void {
-        const list = this.panel?.querySelector<HTMLElement>(TargetsSelector);
+    /**
+     * A target taken off; the focus its row held — its remove, or the next stop of its field just emptied, which the field's change
+     * meets in passing — goes to the next target's remove, else to the panel's switch, rather than to the page.
+     */
+    private removeTarget(resource: string, part: HTMLElement): void {
+        const at = this.host.request().targets.findIndex(entry => entry.resource === resource);
+        const active = document.activeElement;
+        const held = active === null || active === document.body || (part.closest(`${TargetsSelector} > *`) ?? part).contains(active);
 
-        if (this.panel === null || (list?.contains(document.activeElement) ?? false))
+        this.host.target(resource, null);
+
+        if (!held)
             return;
 
-        const next = list?.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? this.panel.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`);
-        const control = next === null || next.matches("button") ? next : next.querySelector<HTMLElement>("button");
+        // The rows are drawn again with the canvas's next draw: the focus is handed on once the row has gone, if it went with it.
+        requestAnimationFrame(() => {
+            const list = this.panel?.querySelector<HTMLElement>(TargetsSelector) ?? null;
 
-        control?.focus({ preventScroll: true });
+            if (this.panel === null || (document.activeElement !== null && document.activeElement !== document.body))
+                return;
+
+            focusAfterRemoval(list?.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? null, this.panel.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`), this.services.context.focus);
+        });
     }
 
     /** The panel as the request and the plan stand now, when either changed; the targets' rows only when which targets there are did. */
@@ -258,14 +265,22 @@ export class PlanPanel {
         return row;
     }
 
-    /** An amount typed over a target: a number above zero is the new target, anything else leaves the old one standing. */
+    /**
+     * An amount typed over a target, read as the chip over its node reads one: a number above zero is the new target, an emptied field
+     * takes the target off, anything else leaves the old one standing.
+     */
     private setAmount(resource: string, field: HTMLElement, value: unknown): void {
-        const amount = typeof value === "number" ? value : Number(String(value ?? "").replace(",", "."));
-        const request = this.host.request();
+        if (typeof value !== "number" && String(value ?? "").trim().length === 0) {
+            this.removeTarget(resource, field);
+            return;
+        }
 
-        if (!Number.isFinite(amount) || amount <= 0) {
+        const decimalSeparator = this.services.context.numbers.readCulture(this.services.root).decimalSeparator;
+        const amount = typeof value === "number" ? value > 0 ? value : null : parsePositive(String(value), decimalSeparator);
+
+        if (amount === null) {
             // The field is put back to what the plan still says.
-            const standing = request.targets.find(entry => entry.resource === resource);
+            const standing = this.host.request().targets.find(entry => entry.resource === resource);
 
             if (standing !== undefined)
                 this.services.context.properties.set(field, "Value", standing.amount);
@@ -273,7 +288,7 @@ export class PlanPanel {
             return;
         }
 
-        this.host.change({ ...request, targets: request.targets.map(entry => (entry.resource === resource ? { ...entry, amount } : entry)) });
+        this.host.target(resource, amount);
     }
 
     private drawMessage(request: PlanRequest, reading: PlanReading | null): void {

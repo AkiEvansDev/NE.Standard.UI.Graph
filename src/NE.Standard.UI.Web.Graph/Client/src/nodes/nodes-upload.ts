@@ -11,6 +11,9 @@ import { UploadAttribute, ValueAttribute } from "./node-view.ts";
 /** The event a finished upload is raised as; its keys name the node, the pin, the selection and the file. */
 export const UploadEventName = "image-upload";
 
+/** What a picture pin takes: the chooser's filter, and the judge of a file picked past it under "All files". */
+const PictureAccept = "image/*";
+
 export class NodesImageUpload {
     private readonly root: HTMLElement;
     private readonly context: PluginEngineContext;
@@ -32,11 +35,12 @@ export class NodesImageUpload {
         const input = document.createElement("input");
 
         input.type = "file";
-        input.accept = "image/*";
+        input.accept = PictureAccept;
         input.addEventListener("change", () => {
             const file = input.files?.[0];
 
-            if (file !== undefined)
+            // A file of another type is not sent, as the framework's picture field takes none.
+            if (file !== undefined && this.context.uploads.accepts(PictureAccept, file))
                 void this.uploadImage(nodeId, pinName, file);
         });
 

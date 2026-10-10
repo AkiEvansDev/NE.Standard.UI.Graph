@@ -28,7 +28,6 @@
   <ItemGroup>
     <None Remove="Client\dist\**" />
     <Content Remove="Client\dist\**" />
-    <None Remove="Client\node_modules\**" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -36,29 +35,15 @@
     <GraphClientCss>$(MSBuildProjectDirectory)\Client\dist\ui-graph.css</GraphClientCss>
   </PropertyGroup>
 
-  <!-- The client builds as part of dotnet build, as the framework's own does: a type error or a failing test fails the build. -->
-  <!-- Installed again whenever the lockfile is newer than the install, not only when there is none: a dependency added
-       later (a linter, a bumped tool) would otherwise be missing from a clone that had restored before it. -->
-  <Target Name="RestoreGraphClientPackages" Condition="'$(SkipWebClientBuild)' != 'true'" Inputs="$(MSBuildProjectDirectory)\Client\package-lock.json" Outputs="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json">
-    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\Client" Command="npm install" />
-    <Touch Files="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json" AlwaysCreate="true" />
-  </Target>
+  <!-- The client builds as part of dotnet build (WebClient.targets, imported from Directory.Build.targets). -->
+  <PropertyGroup>
+    <BuildsWebClient>true</BuildsWebClient>
+  </PropertyGroup>
 
-  <Target Name="BuildGraphClientAssets" BeforeTargets="PrepareResources" DependsOnTargets="RestoreGraphClientPackages" Condition="'$(SkipWebClientBuild)' != 'true'">
-    <!-- Tests run here rather than from `npm run build`, as the framework's client does: a mirror builds, it
-         does not test. -->
-    <Exec
-      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
-      Command="npm test"
-      Condition="'$(InMonorepo)' == 'true'" />
-
-    <Exec
-      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
-      Command="npm run build" />
-
-    <Error Condition="!Exists('$(GraphClientJs)')" Text="Graph client script was not generated: $(GraphClientJs)" />
-    <Error Condition="!Exists('$(GraphClientCss)')" Text="Graph client stylesheet was not generated: $(GraphClientCss)" />
-  </Target>
+  <ItemGroup>
+    <WebClientOutput Include="$(GraphClientJs)" />
+    <WebClientOutput Include="$(GraphClientCss)" />
+  </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="$(GraphClientJs)" LogicalName="NE.Standard.UI.Web.Graph.Client.dist.ui-graph.js" />

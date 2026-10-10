@@ -16,6 +16,9 @@ internal abstract class NodesSheetView : NodesDemoView
     /// <summary>The page's canvas, by the id its controller addresses it with.</summary>
     protected abstract string CanvasId { get; }
 
+    /// <summary>The sheet's name in the canvas's corner menu.</summary>
+    protected abstract string SheetName { get; }
+
     /// <summary>The kinds the page's canvas offers and draws a sheet with.</summary>
     protected abstract UINodeCatalog Kinds { get; }
 
@@ -30,7 +33,7 @@ internal abstract class NodesSheetView : NodesDemoView
             .AddRow(UIGridUnit.Auto())
             // Every control in the row is one line tall and centred on the same line: a caption above a field would raise that
             // field's middle above its neighbours', so the select wears its caption inside it, as one line. The set wraps in even
-            // columns, so a narrow page takes the switches and the button under it.
+            // columns, so a narrow page takes the switches and the button under it. Tonal, as a toolbar's fields are.
             .AddChild(new WrapPanelComponent()
                 .SetSpacing(16)
                 .SetLineSpacing(8)
@@ -39,6 +42,7 @@ internal abstract class NodesSheetView : NodesDemoView
                     new SelectComponent()
                         .SetTitle("nodes.edges")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "nodes.edges.curved" },
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "nodes.edges.straight" },
@@ -66,6 +70,7 @@ internal abstract class NodesSheetView : NodesDemoView
             )
             .AddChild(new NodesComponent(CanvasId)
                 .SetCatalog(Kinds)
+                .SetSheetName(SheetName)
                 .SetCanvasHeight(CanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetShowMinimap(true)

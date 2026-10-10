@@ -210,7 +210,9 @@ class Canvas {
             drawEdges: () => this.render.drawEdges(),
             drawGroups: () => this.render.drawGroups(),
             drawMinimap: () => this.view.drawMinimap(),
-            deleteSelection: () => this.deleteSelection()
+            deleteSelection: () => this.deleteSelection(),
+            // While something stands chosen the sheet's Escape is its own, letting go of it: a dialog or a drawer around the canvas stays.
+            chosenChanged: (any: boolean) => this.viewport.toggleAttribute(context.names.ownsKeys, any)
         };
 
         this.settings = new CanvasSettings(root, context.names.readOnlyClass);
@@ -365,9 +367,14 @@ class Canvas {
             return;
 
         const document = this.documentState.document;
+        const groups = document.groups.length;
 
         document.groups = document.groups.filter(group => !itemIds.has(group.id));
-        this.kind.remove(itemIds, edgeIds);
+
+        // What the kind refuses (a structure it does not let change, a plan) leaves the selection, and the document unedited.
+        if (!this.kind.remove(itemIds, edgeIds) && document.groups.length === groups)
+            return;
+
         this.selection.clearSets();
         this.documentState.edited();
     }
@@ -899,14 +906,16 @@ class Canvas {
     // --- the keyboard ------------------------------------------------------------------------------------------------------
 
     private key(event: KeyboardEvent): void {
-        if (event.defaultPrevented || event.isComposing)
+        if (event.defaultPrevented || this.context.shortcuts.isComposing(event))
             return;
 
-        // A key typed into an editor is the editor's, except the save, which is the canvas's wherever the focus is.
-        const typing = event.target instanceof Element && (event.target.closest("input, textarea, select") !== null || this.kind.isEditor(event.target));
-        const command = event.ctrlKey || event.metaKey;
+        // A key a field keeps — typing, its caret, its own clipboard and undo — is the field's, and any key in an editor of the kind's;
+        // the save is the canvas's wherever the focus is.
+        const typing = this.context.shortcuts.isFieldKey(event) || (event.target instanceof Element && this.kind.isEditor(event.target));
+        // A chord is the framework's: every modifier exact, so a page's Ctrl+Shift+A or an AltGr letter is never the sheet's.
+        const chord = (shortcut: string): boolean => this.context.shortcuts.matches(event, shortcut);
 
-        if (command && !event.altKey && !event.shiftKey && event.code === "KeyS") {
+        if (chord("Ctrl+S")) {
             event.preventDefault();
             this.documentState.save();
             return;
@@ -925,35 +934,40 @@ class Canvas {
         if (!this.onSheet(event.target) && !(event.target instanceof Element && event.target.matches(ChromeButtonSelector)))
             return;
 
-        if (event.key === "Delete" || event.key === "Backspace") {
+        // By the key rather than its place, so the keypad's Delete counts; a command held with it is another key's.
+        if ((event.key === "Delete" || event.key === "Backspace") && this.context.shortcuts.isPlainKey(event, { shift: true })) {
             event.preventDefault();
             this.deleteSelection();
         }
-        else if (command && event.code === "KeyC") {
+        else if (chord("Ctrl+C")) {
             event.preventDefault();
             this.copy();
         }
-        else if (command && event.code === "KeyV") {
+        else if (chord("Ctrl+V")) {
             event.preventDefault();
             this.paste();
         }
-        else if (command && event.code === "KeyZ" && !event.shiftKey) {
+        else if (chord("Ctrl+Z")) {
             event.preventDefault();
             this.replay(this.documentState.undo());
         }
-        else if (command && (event.code === "KeyY" || (event.code === "KeyZ" && event.shiftKey))) {
+        else if (chord("Ctrl+Y") || chord("Ctrl+Shift+Z")) {
             event.preventDefault();
             this.replay(this.documentState.redo());
         }
-        else if (command && event.code === "KeyA") {
+        else if (chord("Ctrl+A")) {
             event.preventDefault();
             this.selection.selectAll(this.kind.items().map(node => node.id));
         }
         else if (event.key === "Escape") {
+            // Spent where it let go of a choice, which claimed it (`chosenChanged`), as each step of the framework's Escape is.
+            if (this.selection.any)
+                event.preventDefault();
+
             this.kind.escape();
             this.selection.clearSelection();
         }
-        else if (event.key === "F2" && this.selection.nodeIds.size === 1) {
+        else if (chord("F2") && this.selection.nodeIds.size === 1) {
             // As a tree's row and a tab take it: the one chosen node's name.
             event.preventDefault();
             this.renameNode(this.selection.nodeIds.values().next().value!);
@@ -992,13 +1006,16 @@ class Canvas {
         if (this.kind.chrome(event.target))
             return;
 
+        // About the middle of what is seen of the sheet, so an open plan panel does not slide the view along at every press.
+        const visible = this.view.visibleRect();
+
         if (event.target.closest("[data-ui-graph-zoom-in]") !== null) {
-            this.view.zoomBy(1.2, this.viewport.clientWidth / 2, this.viewport.clientHeight / 2);
+            this.view.zoomBy(1.2, visible.width / 2, visible.height / 2);
             return;
         }
 
         if (event.target.closest("[data-ui-graph-zoom-out]") !== null) {
-            this.view.zoomBy(1 / 1.2, this.viewport.clientWidth / 2, this.viewport.clientHeight / 2);
+            this.view.zoomBy(1 / 1.2, visible.width / 2, visible.height / 2);
             return;
         }
 

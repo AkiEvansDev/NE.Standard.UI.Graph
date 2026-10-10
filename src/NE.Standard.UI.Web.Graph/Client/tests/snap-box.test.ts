@@ -1,10 +1,13 @@
 // A node's box brought onto the grid: rounded up, so the kind's least width and the contents' own height are never cut, and left
-// alone where it stands on the grid already.
+// alone where it stands on the grid already. A dropped node settles on the grid's line, or on a level wire's top near the drop.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { snapBoxes } from "../src/canvas/canvas-drag.ts";
+import type { CanvasSelection } from "../src/canvas/canvas-selection.ts";
+import type { CanvasSettings } from "../src/canvas/canvas-settings.ts";
+import type { DragHost } from "../src/canvas/canvas-drag.ts";
+import { CanvasDrag, snapBoxes } from "../src/canvas/canvas-drag.ts";
 
 function box(width: number, height: number, folded = false): { element: HTMLElement; written: Map<string, string> } {
     const written = new Map<string, string>();
@@ -43,4 +46,34 @@ test("a box that stands on the grid is left alone, and so is every box while the
 
     assert.equal(standing.written.size, 0);
     assert.equal(loose.written.size, 0);
+});
+
+/** A node dropped at `y` on a grid of 20, whose kind says its wires run level at `levels`; answers where it settles. */
+function drop(y: number, levels: readonly number[]): { x: number; y: number; asked: ReadonlySet<string>[] } {
+    const node = { id: "n", x: 47, y };
+    const asked: ReadonlySet<string>[] = [];
+    const host = {
+        nodeElements: new Map(),
+        items: () => [node],
+        kind: () => ({
+            levelTops: (_id: string, moving: ReadonlySet<string>) => {
+                asked.push(moving);
+
+                return levels;
+            }
+        })
+    };
+
+    new CanvasDrag({} as CanvasSelection, host as unknown as DragHost, { gridSize: 20 } as CanvasSettings).snapNodes(["n"]);
+
+    return { x: node.x, y: node.y, asked };
+}
+
+test("a dropped node settles on a level wire's top within half a step of the drop, else on the grid's line", () => {
+    assert.deepEqual([drop(190, [193]).x, drop(190, [193]).y], [40, 193]);
+    // Nearer than the grid's own line does not matter: within half a step, the level wins, and the nearest level of several.
+    assert.equal(drop(200, [209, 193]).y, 193);
+    assert.equal(drop(200, [211]).y, 200);
+    assert.equal(drop(188, []).y, 180);
+    assert.deepEqual([...drop(190, []).asked[0]], ["n"]);
 });

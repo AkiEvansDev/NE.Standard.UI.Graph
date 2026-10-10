@@ -53,6 +53,13 @@
 // entries): two thirds of a button's, 4 px to its 6, so a theme's shape scales both and a list reads finer than its buttons.
 @ui-list-entry-radius: ~"calc(var(--ui-radius-button) * 2 / 3)";
 
+// How far past its element the keyboard's frame reaches where it is drawn outside (its 2 px gap and its 2 px line: a link, a toggle's
+// row): the room a clipping panel leaves its children past its edge. A link among running words keeps closer (core/keyboard.less).
+@ui-keyboard-frame-reach: 4px;
+
+// The keyboard's frame's corner, one everywhere it is drawn: a button's, so a theme's shape scales it with the controls.
+@ui-keyboard-frame-radius: var(--ui-radius-button);
+
 // A popup's corner: its entries' widened by the list's padding, so the two curves run parallel — 8 px by default.
 @ui-popup-radius: ~"calc(var(--ui-radius-button) * 2 / 3 + @{ui-space-1})";
 
@@ -72,8 +79,6 @@
 // A side drawer over the page, its veil just under it.
 @ui-z-drawer-veil: 49;
 @ui-z-drawer: 50;
-// The shell's skip link while it holds the keyboard, over the bands and an open drawer.
-@ui-z-skip-link: 55;
 @ui-z-tooltip: 60;
 @ui-z-dialog: 100;
 @ui-z-notification: 200;
@@ -434,6 +439,7 @@
 }
 
 // Hides the native control visually while keeping it in the tab order and accessibility tree, which display: none would not.
+// Its parent is positioned: placed by a far ancestor, a focusable one is scrolled to where it landed when it takes the focus.
 .ui-visually-hidden() {
     position: absolute;
     width: 1px;
@@ -458,7 +464,7 @@
         transition: background-color @ui-motion-fast @ui-motion-ease;
     }
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &:hover {
             background-color: var(--ui-wash-hover);
         }
@@ -469,16 +475,21 @@
     }
 }
 
-// A button that answers the pointer: not disabled or loading, nor owning a popup the pointer is in (`:hover` holds on ancestors).
-// State rules and take-backs all spell it, so they tie (the popup part weighs nothing); never inside another `:has()`, dropped whole.
-@ui-button-live: ~":not(.ui-disabled):not(.ui-loading):not(:disabled):where(:not(:has([role='menu']:hover, [role='listbox']:hover)))";
+// A button that answers the pointer: not disabled or loading, nor holding a popup the pointer is in (`:hover` holds on ancestors;
+// owned-popup.ts marks the owner). State rules and take-backs all spell it, so they tie (the popup part weighs nothing).
+@ui-button-live: ~":not(.ui-disabled):not(.ui-loading):not(:disabled):where(:not([data-ui-popup-hover]))";
 
 // A field root that answers the pointer: not disabled or read-only (a read-only one keeps its focus edge, but lifts nothing).
 @ui-field-live: ~":not(.ui-disabled):not(.ui-readonly)";
 
+// A filled ground (a primary, accent or danger button's) answers the pointer darkened by a black tint, 16% under a press, in either
+// palette: the washes are the text's colour, light on a dark palette, and would lighten it.
+@ui-filled-hover-shade: ~"color-mix(in srgb, black 10%, transparent)";
+@ui-filled-active-shade: ~"color-mix(in srgb, black 16%, transparent)";
+
 // Takes .ui-reveal-hover() off an element reacting another way; the selector chain must match the ghost button's for equal specificity.
 .ui-reveal-hover-off(@rules: {}) {
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &@{ui-button-live}:hover {
             background: none;
             @rules();
@@ -511,6 +522,28 @@
 }
 
 // --- mixins/color.less ---
+
+// A filled ground (a filled button, a badge, a chosen day or segment): its fill, its ink, and both handed on — `--ui-faint-base`, so
+// muted words and a link read in the ink rather than the page's, and `--ui-ground`, which a part cut out of it paints (STYLING.md).
+// `@property` is `background-color` where a picture under the ground must stay.
+.ui-filled-ground(@fill; @on; @property: background) {
+    @{property}: @fill;
+    color: @on;
+    --ui-faint-base: @on;
+    --ui-ground: @fill;
+}
+
+// A raw colour as words that read on its own tint (a badge's, tinted or outlined), its hue kept: in linear light, scaled down to the
+// theme's `--ui-ink-luminance-max`, or up to its `-min` as far as the colour goes and on toward white for the rest. WebThemeCssBuilder
+// works the two out per palette, from its own grounds, against the deepest tint any colour lays; no theme around, the colour stays.
+.ui-raw-ink(@property; @color) {
+    @y: ~"(0.2126 * r + 0.7152 * g + 0.0722 * b)";
+    // The scale: down to the max, or up to the min until a channel is full.
+    @f: ~"min(1 / max(r, g, b, 0.0001), max(min(1, var(--ui-ink-luminance-max, 1) / max(@{y}, 0.0001)), var(--ui-ink-luminance-min, 0) / max(@{y}, 0.0001)))";
+    // What the scale leaves short of the min, made up toward white.
+    @t: ~"clamp(0, (var(--ui-ink-luminance-min, 0) - @{y} * @{f}) / max(1 - @{y} * @{f}, 0.0001), 1)";
+    @{property}: ~"color(from @{color} srgb-linear calc(r * @{f} + (1 - r * @{f}) * @{t}) calc(g * @{f} + (1 - g * @{f}) * @{t}) calc(b * @{f} + (1 - b * @{f}) * @{t}))";
+}
 
 // Hover brightens via a filter, not a mix: currentColor in a color declaration reads the inherited value, so color-mix produced grey.
 .ui-brighten-hover() {
@@ -624,13 +657,17 @@
 }
 
 // The predicates every keyboard mark is drawn under: none lights for a focus popup-focus.ts marks as the pointer's (a caret field
-// is never marked). Those with a `:has()` never go inside another `:has()`, which the browser drops whole.
+// is never marked).
 
 // A focus a key gave, on the element itself: a list's keyboard entry, a bar's line, a ring.
 @ui-keyboard-focus: ~":focus-visible:not([data-ui-pointer-focus])";
 
-// A focus a field's edge answers: any in it but a marked one. In :where(), so it weighs a bare `:focus-within` and the ladder stands.
-@ui-field-focus: ~":focus-within:where(:not([data-ui-pointer-focus], :has([data-ui-pointer-focus]:focus)))";
+// A focus a field's edge answers: any in it but a marked one, on the field or below it (`data-ui-focus-within`, up to its component
+// root). In :where(), so it weighs a bare `:focus-within` and the ladder stands.
+@ui-field-focus: ~":focus-within:where(:not([data-ui-pointer-focus], [data-ui-focus-within='pointer']))";
+
+// A focus a key gave below the element, which popup-focus.ts marks up to the focus's component root: a list's entry, a chip's cross.
+@ui-keyboard-within: ~"[data-ui-focus-within='keyboard']";
 
 // The ring (reset.less): any focus but a marked one, weightless, so a component taking it off ties and wins by order.
 @ui-ring-focus: ~":focus-visible:where(:not([data-ui-pointer-focus]))";
@@ -648,11 +685,35 @@
 // inside the entry in the brand's ink, which reads 3:1 on either page (the focus ring's colour is a theme's own), and which the
 // pointer's mark never wears. The washes alone were lost against a stripe or a chosen ground. An outline, not a box-shadow, so a
 // row's separator and a chosen entry's mark stay. Forced colours draw their own dashed mark (core/preferences.less).
-.ui-keyboard-frame() {
+// One shape wherever it is drawn: a 2 px line whose corners are `@ui-keyboard-frame-radius`. An outline's corner is its host's widened
+// by its offset, so the host's corner while it is framed (`@host`) and the offset together keep the one radius: a host whose own corner
+// is smaller or none (a row, a cell, an entry) takes the frame's for the while (`@takes: true`, `chain` through the border chain on a
+// root an author's corners are written on), the frame on its edge; a host whose corner is the frame's (a button) keeps its own
+// (`@takes: false`). `@ink` the words' own colour on a filled ground, where the brand's ink would vanish into the brand's fill.
+.ui-keyboard-frame(@ink: var(--ui-color-primary-ink); @host: @ui-keyboard-frame-radius; @takes: true; @offset: -2px) {
     @media (forced-colors: none) {
-        outline: 2px solid var(--ui-color-primary-ink);
-        outline-offset: -2px;
+        outline: 2px solid @ink;
+        outline-offset: @offset;
     }
+
+    & when (@takes = true) {
+        border-radius: @host;
+    }
+
+    & when (@takes = chain) {
+        .ui-responsive-property(border-radius, --ui-border-radius, @host);
+    }
+}
+
+// Inside a host whose own corner, `@host`, is larger than the frame's (a card's): the frame stands in from it until concentric.
+.ui-keyboard-frame-inside(@host; @ink: var(--ui-color-primary-ink)) {
+    .ui-keyboard-frame(@ink: @ink; @takes: false; @offset: ~"calc(@{ui-keyboard-frame-radius} - @{host} - 2px)");
+}
+
+// Outside a host with no room in it, round a row with no padding (a toggle's) or words with no box of their own (a link): `@gap` off
+// it, 2 px by default, the host taking the corner that keeps the frame's one radius.
+.ui-keyboard-frame-outside(@gap: 2px) {
+    .ui-keyboard-frame(@host: ~"calc(@{ui-keyboard-frame-radius} - 2px - @{gap})"; @offset: @gap);
 }
 
 // What a drop target wears while something it takes is over it (runtime.less, a field's box in ui-input.less): a dashed edge inside
@@ -702,7 +763,7 @@
         background: color-mix(in srgb, var(--ui-color-on-surface) 32%, transparent);
     };
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &@{live}:hover::before {
             @thick();
         }
@@ -777,16 +838,16 @@
 // The keyboard's entry in a list: the keyboard's frame, on the `@current` one too, and washed as the pointer's would be but for the
 // current one (already marked). The pointer's own wash stays off it, so two never stack to a press's strength and nothing changes as
 // the pointer crosses it; a press still shows. The frame stands in for the focus ring.
-.ui-entry-keyboard(@current: ~"[aria-selected='true']") {
+.ui-entry-keyboard(@current: ~"[aria-selected='true']"; @takes: true) {
     &@{ui-keyboard-focus} {
-        .ui-keyboard-frame();
+        .ui-keyboard-frame(@takes: @takes);
     }
 
     &@{ui-keyboard-focus}:not(@{current}) {
         background-image: linear-gradient(var(--ui-wash-hover), var(--ui-wash-hover));
     }
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &@{ui-keyboard-focus}:not(@{current}):hover:not(:active) {
             background-color: transparent;
         }
@@ -794,10 +855,11 @@
 }
 
 // A list whose entry follows the pointer: while the keyboard stands on an entry, the resting pointer's entry stays quiet, so two
-// never look current. `@entry` the entries (`~"> .x"`), `@live` their hover guard, `@current` the one keeping its ground.
+// never look current. `@entry` the entries (`~"> .x"`), `@live` their hover guard, `@current` the one keeping its ground. Called on
+// the list or an element between it and its component root, which carry the focus's mark.
 .ui-entry-quiet(@entry; @live: ~""; @current: ~"[aria-selected='true']") {
-    @media @ui-can-hover {
-        &:has(@{entry}@{ui-keyboard-focus}) @{entry}@{live}:not(@{ui-keyboard-focus}, @{current}):hover:not(:active) {
+    @media @{ui-can-hover} {
+        &@{ui-keyboard-within} @{entry}@{live}:not(@{ui-keyboard-focus}, @{current}):hover:not(:active) {
             background-color: transparent;
         }
     }
@@ -818,6 +880,17 @@
 .ui-popup-scroll() {
     max-height: calc(100dvh - 2 * @ui-popup-viewport-margin);
     overflow: auto;
+}
+
+// A list of entries floating over the page — a context menu, a split button's, a collapsed menu's flyout, a tab strip's overflow, the
+// language and the page size lists: above the field popups, capped to the window, closed until its open rule shows it, and padded
+// round its entries.
+.ui-popup-list(@min-width: 10rem) {
+    .ui-popup-surface(@ui-z-list);
+    .ui-popup-scroll();
+    .ui-popup-closed();
+    min-width: @min-width;
+    padding: @ui-space-1;
 }
 
 // A short strip of icons floating over what it acts on — a row's action bar, a code field's format bar — placed as every popup is,
@@ -851,7 +924,7 @@
     }
 
     &@{ui-keyboard-focus} {
-        .ui-keyboard-frame();
+        .ui-keyboard-frame(@takes: false);
     }
 }
 
@@ -906,6 +979,37 @@
 
 .ui-dialog-backdrop-exit() {
     .ui-dialog-exit();
+}
+
+// A sheet from the bottom — a list shown as a phone's sheet, a dialog's bottom sheet — has its top corners rounded, so every one looks
+// alike.
+.ui-sheet-edge() {
+    border-radius: var(--ui-radius-card) var(--ui-radius-card) 0 0;
+}
+
+// A sheet a swipe puts away follows the finger (`--ui-sheet-drag`, sheet-swipe.ts), at once while dragged; its own transitions take
+// it back or out.
+.ui-sheet-follow() {
+    transform: translateY(var(--ui-sheet-drag, 0px));
+
+    &[data-ui-sheet-dragging] {
+        transition: none;
+    }
+}
+
+// A sheet's grab handle, drawn as its `::before`: a list shown as a phone's sheet and a dialog's bottom sheet, which sheet-swipe.ts
+// lets a press there drag down; `@margin` the room round it.
+.ui-sheet-handle(@margin: @ui-space-2 auto) {
+    content: "";
+    display: block;
+    flex: none;
+    align-self: center;
+    width: 2rem;
+    height: 0.25rem;
+    margin: @margin;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.3;
 }
 
 // --- mixins/placement.less ---
@@ -1014,7 +1118,7 @@
     .ui-interactive-base();
     transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &@{ui-adornment-live}:hover {
             color: var(--ui-color-on-surface);
         }
@@ -1138,7 +1242,8 @@
     // Gives back most of the field's right padding: the stepper's ruled edge doesn't need the breathing room text does. A step from
     // the box's outer edge, its border inside the step, so each arrow's half is even and its glyph centres on whole pixels: a step
     // inside the border left both glyphs half a pixel off, rounded the same way, and the pair stood a pixel off the field's middle.
-    margin: calc(@ui-space-1 - var(--ui-border-width, 1px)) -0.5em calc(@ui-space-1 - var(--ui-border-width, 1px)) 0;
+    // An underlined field has no top edge (`--ui-field-top-edge`), so its step starts from the box's top itself.
+    margin: calc(@ui-space-1 - var(--ui-field-top-edge, var(--ui-border-width, 1px))) -0.5em calc(@ui-space-1 - var(--ui-border-width, 1px)) 0;
     border-left: 1px solid var(--ui-color-border);
     padding-left: 0.4em;
 }
@@ -1159,10 +1264,16 @@
     .ui-interactive-base();
     transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &:hover {
             color: var(--ui-color-on-surface);
         }
+    }
+
+    // Stronger than the hover, and the one answer a finger sees: the ink and the pressed wash under the arrow.
+    &:active {
+        color: var(--ui-color-on-surface);
+        background-color: var(--ui-wash-active);
     }
 
     &::before {
@@ -1203,7 +1314,7 @@
 
 // The states of an own field-shaped control on `.ui-field-ground()`: hover, and the active edge on a field's focus or an open popup.
 .ui-field-states(@hover: var(--ui-field-hover)) {
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &@{ui-button-live}:hover {
             .ui-field-edge-hover(@hover);
         }
@@ -1294,9 +1405,9 @@
     .ui-selected-mark();
 }
 
-// A row that answers the pointer: neither it nor its template root (as `isItemDisabled` reads it) disabled or loading. In :where(),
-// so the chosen row's ground still wins; never inside another `:has()`, which the browser drops whole.
-@ui-row-live: ~":where(:not(.ui-disabled, .ui-loading):not(:has(> [data-ui-id]:is(.ui-disabled, .ui-loading), > :not([data-ui-id]) > [data-ui-id]:is(.ui-disabled, .ui-loading))))";
+// A row that answers the pointer: neither it nor its template root (as `isItemDisabled` reads it; `data-ui-row-idle`, which the render
+// writes and row-idle.ts keeps) disabled or loading. In :where(), so the chosen row's ground still wins.
+@ui-row-live: ~":where(:not(.ui-disabled, .ui-loading, [data-ui-row-idle]))";
 
 // A row at rest: its wash fenced from nested hosts and faded both ways (`--ui-row-wash` is registered, ui-table.less); a row may be
 // a component's root, so the root's fade leads the list.
@@ -1306,40 +1417,45 @@
     transition: @ui-root-transition, background-color @ui-motion-fast @ui-motion-ease, --ui-row-wash @ui-motion-fast @ui-motion-ease, --ui-row-cursor-wash @ui-motion-fast @ui-motion-ease;
 }
 
+// The floating layers a row may hold — its action bar, a right-click menu, a control's popup in its template. They stand on their own
+// ground, so the row's quiet-button rules stop at them: reaching in, they took every hover off a chosen row's bar and menu.
+@ui-row-floating: ~".ui-action-bar, .ui-context-menu, .ui-split-button__menu, .ui-menu__submenu, .ui-flyout__content, .ui-select__popup, .ui-temporal-input__popup, .ui-color-input__popup";
+@ui-row-own: ~":not(:is(@{ui-row-floating}) *)";
+
 // A row under the pointer: a wash, since the host may have no surface of its own. A quiet button in it brightens instead of a second
 // wash (a filter: its ink is already the row's); its press, stronger than any hover, takes the pressed wash.
 .ui-row-hover() {
     background-color: var(--ui-wash-hover);
     --ui-row-wash: var(--ui-wash-hover);
 
-    .ui-button--ghost {
+    .ui-button--ghost@{ui-row-own} {
         .ui-reveal-hover-off({ color: var(--ui-color-on-surface); });
     }
 
-    .ui-button--outline {
+    .ui-button--outline@{ui-row-own} {
         .ui-reveal-hover-off({ border-color: color-mix(in srgb, currentColor 48%, transparent); });
     }
 
-    .ui-button--link {
+    .ui-button--link@{ui-row-own} {
         .ui-reveal-hover-off();
     }
 
-    @media @ui-can-hover {
-        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:hover,
-        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
+    @media @{ui-can-hover} {
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-row-own}@{ui-button-live}:hover,
+        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
             background-color: transparent;
         }
 
         // The parts, never a root (a split button's hovered part alone): a filter makes the root the containing block of a popup
         // inside it, which would jump.
-        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
-        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-row-own}@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
+        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
             .ui-brighten-hover();
         }
     }
 
-    :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-button-live}:active,
-    .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):active {
+    :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-row-own}@{ui-button-live}:active,
+    .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):active {
         background-color: var(--ui-wash-active);
     }
 }
@@ -1354,7 +1470,7 @@
 .ui-entry-hover(@current: ~"[aria-selected='true']") {
     transition: background-color @ui-motion-fast @ui-motion-ease;
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &:not(@{current}):hover {
             background-color: var(--ui-wash-hover);
         }
@@ -1365,16 +1481,41 @@
     }
 }
 
-// The keyboard's row washes like the pointer's (not under a single choice, whose chosen row is the cursor); on a chosen row, as a
-// layer, so it still reads as chosen. It also wears the keyboard's frame (`.ui-keyboard-frame()`), which the pointer's row never has.
+// An entry of a short list of choices (a language, a page size): one line at the list's row height, the pointer's and the keyboard's
+// marks a list's, and the chosen one (`aria-checked`) on the chosen ground.
+.ui-choice-entry() {
+    display: flex;
+    align-items: center;
+    min-height: @ui-list-row-height;
+    padding: @ui-space-1 @ui-space-2;
+    border: 0;
+    border-radius: @ui-list-entry-radius;
+    background: none;
+    color: inherit;
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    .ui-interactive-base();
+    .ui-entry-hover(~"[aria-checked='true']");
+    .ui-entry-keyboard(~"[aria-checked='true']");
+
+    &[aria-checked="true"] {
+        .ui-selected-ground();
+        .ui-selected-ink();
+    }
+}
+
+// The keyboard's row washes like the pointer's; on a chosen row, as a layer, so it still reads as chosen. It also wears the keyboard's
+// frame (`.ui-keyboard-frame()`), which the pointer's row never has — under a single choice too, whose chosen row the arrows move: left
+// out there, a list holding the keyboard looked the same as one a pointer had chosen in.
 // `@via` the path from host to items host when not direct (a table's scroll box), ending in " > ".
 .ui-row-cursor(@host; @row; @via: ~"") {
-    @{host}@{ui-row-cursor-focus}:not([data-ui-selection="one"]) > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]:not([data-ui-selected]) {
+    @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]:not([data-ui-selected]) {
         .ui-row-hover();
         .ui-keyboard-frame();
     }
 
-    @{host}@{ui-row-cursor-focus}:not([data-ui-selection="one"]) > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
+    @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
         .ui-row-cursor-layer();
         .ui-keyboard-frame();
     }
@@ -1385,18 +1526,17 @@
     }
 }
 
-// The row an action bar stands over (action-bar-engine.ts) washes as the keyboard's row does, so the bar says whose it is when no
-// pointer is on the row — a finger lifted, the keyboard; on a chosen row, as the cursor's layer. `SelectionStyle.ActionBarBackground`
-// (`--ui-selected-bar-ground`) gives it another ground, or none for a row its own card covers. `@bar` is the path from the row to the
-// bar, which stands in its host: the row itself or a part of it.
-.ui-row-bar(@host; @row; @via: ~""; @bar: ~"> [data-ui-action-bar] > .ui-action-bar") {
-    @{host} > @{via}[data-ui-items-host] > @{row}:not([data-ui-selected]):has(@{bar}) {
+// The row an action bar stands over (`data-ui-row-bar`, which action-bar-engine.ts writes as it shows the bar) washes as the keyboard's
+// row does, so the bar says whose it is when no pointer is on the row — a finger lifted, the keyboard; on a chosen row, as the cursor's
+// layer. `SelectionStyle.ActionBarBackground` (`--ui-selected-bar-ground`) gives it another ground, or none for a row its own card covers.
+.ui-row-bar(@host; @row; @via: ~"") {
+    @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-bar]:not([data-ui-selected]) {
         .ui-row-hover();
         background-color: var(--ui-selected-bar-ground, var(--ui-wash-hover));
         --ui-row-wash: var(--ui-selected-bar-ground, var(--ui-wash-hover));
     }
 
-    @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-selected]:has(@{bar}) {
+    @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-bar][data-ui-selected] {
         --ui-row-cursor-wash: var(--ui-selected-bar-ground, var(--ui-wash-hover));
     }
 }
@@ -1439,9 +1579,27 @@
     text-underline-offset: 0.15em;
     transition: filter @ui-motion-fast @ui-motion-ease;
 
-    @media @ui-can-hover {
+    @media @{ui-can-hover} {
         &:hover {
             .ui-brighten-hover();
+        }
+    }
+}
+
+// A link's words, a Link's and a Link button's alike: underlined under the pointer, the line always there and only its colour coming,
+// so it fades in with the ink; on a filled ground, where the word is the ground's ink, the line stays (`@ui-link-rest-underline`).
+.ui-link-underline(@root) {
+    @{root} .ui-text__title {
+        text-decoration-line: underline;
+        text-decoration-color: @ui-link-rest-underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.15em;
+        transition: text-decoration-color @ui-motion-fast @ui-motion-ease;
+    }
+
+    @media @{ui-can-hover} {
+        @{root}@{ui-button-live}:hover .ui-text__title {
+            text-decoration-color: currentColor;
         }
     }
 }

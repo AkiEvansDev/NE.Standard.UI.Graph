@@ -163,9 +163,13 @@ export class CanvasMenus {
         this.enableEntries("graph:arrange", editable);
         this.enableEntries("graph:save", editable);
         this.enableEntries("graph:group-selection", editable && chosenNode);
-        this.enableEntries("graph:delete-selection", editable && (this.selection.size > 0 || this.selection.edgeSize > 0));
+        // A group is the canvas's own to remove; a node and an edge are the kind's to allow, as their name and colour are.
+        const removable = this.host.kind().canEditItems();
+        const chosenGroup = this.documentState.document.groups.some(group => this.selection.has(group.id));
+
+        this.enableEntries("graph:delete-selection", editable && (chosenGroup || (removable && this.selection.any)));
         // A node's own delete takes the node it was opened on, chosen or not.
-        this.enableEntries("graph:delete", editable);
+        this.enableEntries("graph:delete", editable && removable);
 
         for (const name of [NodeMenuName, GroupMenuName]) {
             const menu = this.root.querySelector<HTMLElement>(`[${this.context.names.contextMenu}="${name}"]`);

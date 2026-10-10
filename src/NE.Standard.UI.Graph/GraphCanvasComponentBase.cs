@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using NE.Standard.UI.Abstractions.Styling;
 using NE.Standard.UI.Authoring.BuiltIns.Models;
 using NE.Standard.UI.Authoring.Components;
+using NE.Standard.UI.Components.BuiltIns.Contents;
 using NE.Standard.UI.Components.BuiltIns.Models;
 using NE.Standard.UI.Components.BuiltIns.Navigation;
 using NE.Standard.UI.Components.Foundation.Inputs;
 using NE.Standard.UI.Primitives.Annotations;
+using NE.Standard.UI.Primitives.Binding;
 using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
 
@@ -14,7 +16,7 @@ namespace NE.Standard.UI.Graph;
 
 /// <summary>The base for a canvas component whose value is the whole document, committed by a save.</summary>
 /// <remarks>Provides the view settings, menus and colour choices every kind of canvas shares; item drawing is the kind's own.</remarks>
-public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent
+public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent, IFormSubmittingComponent
     where T : GraphCanvasComponentBase<T, TDocument>, IUIComponentDefinition
 {
     // The theme's own series, named for the hues the default theme gives them: an application whose theme paints them otherwise
@@ -49,6 +51,13 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
                 Separator(),
                 Entry(UIGraphCommands.Save, UIGraphWords.Save, UIGlyphs.Save, "Ctrl+S")
             ]);
+
+        // The sheet's name beside the menu's switch, read as a menu's group caption is; unnamed, the package's word for a sheet.
+        SheetTitle = new TextComponent()
+            .SetTitle(UIGraphWords.Sheet)
+            .SetTitleType(UITextAppearance.Overline)
+            .SetTitleColor(UIThemeColor.Muted);
+        _ = Menu.SetToggleContent(SheetTitle);
 
         // What a right press on the empty surface offers is editing the sheet: a run or a save is the corner menu's.
         CanvasMenu = new MenuComponent().AddItems(
@@ -130,6 +139,37 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// click on one raises <see cref="GraphEvents.MenuEntry"/>, naming the entry and what the menu was opened on.
     /// </remarks>
     public MenuComponent Menu { get; }
+
+    /// <summary>
+    /// Gets the sheet's name in the head of <see cref="Menu"/>, beside its switch while it is open: <see cref="SheetName"/>, or the
+    /// package's word for a sheet while none is given.
+    /// </summary>
+    public TextComponent SheetTitle { get; }
+
+    /// <summary>
+    /// Gets the name given to the sheet with <see cref="SetSheetName"/>; <see langword="null"/> while it is unnamed or its name is bound.
+    /// </summary>
+    public string? SheetName { get; private set; }
+
+    /// <summary>
+    /// Names the sheet in the corner menu's head, translated as a title is: a key where the application's prefixes say so.
+    /// </summary>
+    public T SetSheetName(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        SheetName = name;
+        _ = SheetTitle.SetTitle(name);
+        return Self;
+    }
+
+    /// <summary>Binds the sheet's name in the corner menu's head to a path.</summary>
+    public T BindSheetName(string path, UIBindingScope scope = UIBindingScope.Root, UIBindingMode mode = UIBindingMode.OneWay)
+    {
+        SheetName = null;
+        _ = SheetTitle.BindTitle(path, scope, mode);
+        return Self;
+    }
 
     /// <summary>
     /// Gets the menu the right button opens on the canvas's empty surface — the commands that edit the sheet.
@@ -499,4 +539,8 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// <summary>A line between two groups of a menu's entries.</summary>
     protected static MenuItem Separator()
         => new() { Id = Guid.NewGuid().ToString("N"), Kind = UIMenuItemKind.Separator };
+
+    /// <summary>Its save submits its form, so an <c>OnSubmit</c> document goes before the command (<c>graph.ts</c> registers it so).</summary>
+    public bool SubmitsForm(string eventName)
+        => eventName == GraphEvents.Save;
 }

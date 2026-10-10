@@ -4,7 +4,7 @@
 import type { ContractVersion, GlobalApi } from "ne-standard-ui";
 
 // The contract this package was compiled against; typed by the copy of the declaration, so a copy that moves on fails the build here.
-const contractVersion: ContractVersion = 2;
+const contractVersion: ContractVersion = 4;
 
 /** The framework's global API, which its module installs before any package module runs; refused when it speaks another contract. */
 export function frameworkApi(): GlobalApi {

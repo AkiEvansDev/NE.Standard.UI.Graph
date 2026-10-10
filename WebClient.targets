@@ -1,0 +1,35 @@
+<Project>
+
+  <!-- A project's browser client, built as part of dotnet build: a type error, a lint or a failing test fails the build. A project
+       opts in with `BuildsWebClient` and names what the build must leave (`WebClientOutput`); `SkipWebClientBuild` leaves the
+       committed or last-built outputs in place for a machine without Node. Imported from Directory.Build.targets, which every
+       mirror's manifest carries, with this file beside it. -->
+
+  <ItemGroup Condition="'$(BuildsWebClient)' == 'true'">
+    <None Remove="Client\node_modules\**" />
+  </ItemGroup>
+
+  <!-- Installed again whenever the lockfile is newer than the install, not only when there is none: a dependency added
+       later (a linter, a bumped tool) would otherwise be missing from a clone that had restored before it. -->
+  <Target Name="RestoreWebClientPackages" Condition="'$(BuildsWebClient)' == 'true' and '$(SkipWebClientBuild)' != 'true'" Inputs="$(MSBuildProjectDirectory)\Client\package-lock.json" Outputs="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\Client" Command="npm install" />
+    <Touch Files="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="BuildWebClientAssets" BeforeTargets="PrepareResources" DependsOnTargets="RestoreWebClientPackages" Condition="'$(BuildsWebClient)' == 'true' and '$(SkipWebClientBuild)' != 'true'">
+    <!-- The client's tests read the parity corpora under eng/, which is never mirrored, so they run here and not from
+         `npm run build` - the same rule the .NET tests follow: a mirror builds, it does not test. A client with no tests says
+         so with `WebClientTests`. -->
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
+      Command="npm test"
+      Condition="'$(InMonorepo)' == 'true' and '$(WebClientTests)' != 'false'" />
+
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)\Client"
+      Command="npm run build" />
+
+    <Error Condition="!Exists('%(WebClientOutput.Identity)')" Text="The web client's output was not generated: %(WebClientOutput.Identity)" />
+  </Target>
+
+</Project>

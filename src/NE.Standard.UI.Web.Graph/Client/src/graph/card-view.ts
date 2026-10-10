@@ -1,7 +1,7 @@
 // One graph node as a card (icon or picture, title, subtitle, badge) or a circle (picture or icon, titled under it and in its
 // tooltip). The title carries the rename field's class; the root the attribute every canvas finds an item by.
 
-import type { Icons, Tooltips } from "ne-standard-ui";
+import type { Icons, Tooltips, Urls } from "ne-standard-ui";
 import { CoreNames, hoverTooltip, ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "./draft.ts";
@@ -11,6 +11,8 @@ import type { GraphNode, GraphNodeShape } from "./model.ts";
 export type CardViewOptions = {
     readonly icons: Icons;
     readonly tooltips: Tooltips;
+    /** The framework's address rule, which a picture is fetched by only where it holds, as the picker and the panel read it. */
+    readonly urls: Urls;
     /** The graph's shape, for a node that names none of its own. */
     readonly shape: GraphNodeShape;
     /** Whether the node wears the handle a link is pulled out of. */
@@ -76,8 +78,9 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
 /** The node's picture when it has one, else its icon; a circle with neither still draws its face, in the node's colour. */
 function renderFace(node: GraphNode, className: string, options: CardViewOptions): HTMLElement | null {
     const round = className === "ui-graph__bubble-face";
+    const image = node.image !== null && options.urls.isImageSource(node.image) ? node.image : null;
 
-    if (node.image === null && node.icon === null && !round)
+    if (image === null && node.icon === null && !round)
         return null;
 
     const face = document.createElement("span");
@@ -85,10 +88,10 @@ function renderFace(node: GraphNode, className: string, options: CardViewOptions
     face.className = className;
     face.setAttribute("aria-hidden", "true");
 
-    if (node.image !== null) {
+    if (image !== null) {
         const picture = document.createElement("img");
 
-        picture.src = node.image;
+        picture.src = image;
         picture.alt = "";
         picture.draggable = false;
         face.setAttribute("data-ui-graph-picture", "");

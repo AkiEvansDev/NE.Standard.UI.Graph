@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Binding.Properties;
+using NE.Standard.UI.Abstractions.Identity;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Compiled.Models;
 using NE.Standard.UI.Graph;
@@ -83,6 +84,10 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
 
     /// <summary>The value kind the document is read by, and the custom operation a pushed one arrives through.</summary>
     public const string ValueKind = "graph-document";
+
+    // The framework client's mark (`data-ui-tooltip-mark`): a control speaking through the tooltip of a part inside it, which says
+    // nothing while that part is not laid out. The framework's web abstractions name no constant for it.
+    private const string TooltipMarkAttribute = "data-ui-tooltip-mark";
 
     // The wire's conventions, so the text a render writes is the text a patch would: camel-cased, an enum by its name.
     protected static readonly JsonSerializerOptions WireJson = WebWireJson.CreateOptions();
@@ -236,6 +241,25 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             {
                 _ = main.Class($"{ClassName}__picker-main");
 
+                // On a phone the rail folds into this row over the list: the chosen category, which the engine writes, unfolding the
+                // tree with one tap so the entries keep the whole width. Beside the list the stylesheet hides it.
+                _ = main.Element("button", fold =>
+                {
+                    _ = fold.Class($"{ClassName}__picker-rail-toggle");
+                    _ = fold.Attribute("type", "button");
+                    _ = fold.Attribute("aria-expanded", "false");
+                    _ = fold.Attribute("data-ui-graph-picker-rail-toggle");
+
+                    _ = fold.Element("span", caption => _ = caption.Class($"{ClassName}__picker-rail-caption"));
+
+                    _ = fold.Element("span", mark =>
+                    {
+                        _ = mark.Class($"{ClassName}__picker-rail-chevron");
+                        _ = mark.Attribute("aria-hidden", "true");
+                        IconValueRenderer.RenderIcon(mark, UIGlyphs.ChevronRight);
+                    });
+                });
+
                 _ = main.Element("div", rail =>
                 {
                     _ = rail.Class($"{ClassName}__picker-rail");
@@ -244,20 +268,26 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                     _ = rail.Attribute("data-ui-graph-picker-rail");
                 });
 
-                _ = main.Element("div", list =>
+                // The list's column: with nothing matching, the line saying so stands where the entries were, the rail beside it.
+                _ = main.Element("div", results =>
                 {
-                    _ = list.Class($"{ClassName}__picker-list");
-                    _ = list.Attribute("role", "listbox");
-                    _ = list.Attribute("data-ui-graph-picker-list");
-                });
-            });
+                    _ = results.Class($"{ClassName}__picker-results");
 
-            _ = picker.Element("div", empty =>
-            {
-                _ = empty.Class($"{ClassName}__picker-empty");
-                _ = empty.Attribute("hidden");
-                _ = empty.Attribute("data-ui-graph-picker-empty");
-                WebWords.Write(context, empty, null, emptyKey);
+                    _ = results.Element("div", empty =>
+                    {
+                        _ = empty.Class($"{ClassName}__picker-empty");
+                        _ = empty.Attribute("hidden");
+                        _ = empty.Attribute("data-ui-graph-picker-empty");
+                        WebWords.Write(context, empty, null, emptyKey);
+                    });
+
+                    _ = results.Element("div", list =>
+                    {
+                        _ = list.Class($"{ClassName}__picker-list");
+                        _ = list.Attribute("role", "listbox");
+                        _ = list.Attribute("data-ui-graph-picker-list");
+                    });
+                });
             });
         });
     }
@@ -476,7 +506,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     /// collapsible slides it and the engine remembers the viewer's fold per canvas (<c>SidePanelFold</c>), against
     /// <paramref name="folded"/> as the panel's own default. Its parts are named after <paramref name="part"/> and drawn by the
     /// stylesheet's <c>.ui-graph-side-panel()</c>. With <paramref name="foldedIcon"/>, folded it is that icon alone, so its switch
-    /// carries the panel's word as its name and tooltip.
+    /// carries the panel's word as its name, and as a tooltip while folded.
     /// </remarks>
     protected void RenderSidePanel(WebRenderContext context, IHtmlElementBuilder viewport, string part, string wordKey, string marker, string? foldedIcon, bool folded, Action<IHtmlElementBuilder> renderBody)
     {
@@ -509,12 +539,15 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 if (foldedIcon is not null)
                 {
                     WebWords.Write(context, toggle, "aria-label", wordKey);
-                    WebWords.Write(context, toggle, WebAttributes.Tooltip, wordKey);
+                    // The switch speaks through its icon, so the word shows as a tooltip only while folded: open, the icon is not laid
+                    // out and the word stands on the switch itself.
+                    _ = toggle.Attribute(TooltipMarkAttribute);
 
                     _ = toggle.Element("span", icon =>
                     {
                         _ = icon.Class($"{ClassName}__{part}-icon");
                         _ = icon.Attribute("aria-hidden", "true");
+                        WebWords.Write(context, icon, WebAttributes.Tooltip, wordKey);
                         IconValueRenderer.RenderIcon(icon, foldedIcon);
                     });
                 }
@@ -551,7 +584,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         {
             _ = button.Class($"{ClassName}__bar-button ui-button ui-button--ghost ui-button--small");
             _ = button.Attribute("type", "button");
-            _ = button.Attribute(IconOnlyButtonAttribute);
+            _ = button.Attribute(WebAttributes.TextIcon);
             WebWords.Write(context, button, WebAttributes.Tooltip, wordKey);
             WebWords.Write(context, button, "aria-label", wordKey);
             _ = button.Attribute(attribute);

@@ -19,15 +19,23 @@ export type LayeredSheetHost = {
     nodeIds(): readonly string[];
     /**
      * The room a node takes beyond its box (a caption's), as wide as the `widest` node's extra so a layer's circles align and its
-     * chips clear the gap — and where in it the edges meet the node, when not at the middle.
+     * chips clear the gap — and where in it the edges meet the node, when not at the middle. Asked per node: a node may wear a
+     * shape of its own.
      */
-    nodeBox?(width: number, height: number, widest: number): { width: number; height: number; anchor?: Point };
+    nodeBox?(id: string, width: number, height: number, widest: number): { width: number; height: number; anchor?: Point };
     links(): readonly LayeredEdge[];
     /** What the layout is laid for beside its direction — how nodes are drawn — so a change lays out again what it placed. */
     layoutKey(): string;
     /** Whether a node's edges leave and enter at points of their own along its side, rather than all at its middle — a card's. */
     spreadsEnds?(id: string): boolean;
+    /** What a node wears under its box (a circle's name): an edge meeting its bottom ends below it rather than through it. */
+    footRoom?(id: string): number;
 };
+
+/** Below each of an edge's two nodes, the room an edge meeting its bottom stands clear of. */
+export type EdgeFeet = { readonly from: number; readonly to: number };
+
+const NoFeet: EdgeFeet = { from: 0, to: 0 };
 
 /** How far along its side, as a share, a backward edge meets a node: high up, clear of the forward edges at the middle. */
 const SideHigh = 0.35;
@@ -54,10 +62,9 @@ export class LayeredSheet {
     private backEdges = new Set<string>();
     // The nodes drawn before the document placed them: laid out once their boxes can be measured.
     private readonly pending = new Set<string>();
+    // The nodes the viewer added at a point: put on the grid by their middle once drawn, as only a drawn box has one.
+    private readonly settling = new Set<string>();
     private placing = false;
-    // Whether the viewer had a view of this canvas kept before it was first drawn: the first layout keeps it rather than fitting.
-    private readonly viewKept: boolean;
-    private placedOnce = false;
     private turned = false;
     // Where the last layout put each node and routed each edge; a route is kept only while both ends stand where the layout left them.
     private laidAt = new Map<string, Point>();
@@ -77,8 +84,6 @@ export class LayeredSheet {
         this.services = services;
         this.host = host;
         this.options = options;
-        // Read before the first draw: the core writes the view to the store as it draws.
-        this.viewKept = services.context.store.readJson(services.root, "view") !== null;
         this.laidFor = this.layoutFor;
     }
 
@@ -138,6 +143,13 @@ export class LayeredSheet {
         });
     }
 
+    /** A node the viewer added, standing where they asked for it and settled on the grid once drawn. */
+    public placeAt(id: string, at: Point): void {
+        this.document.nodes.push({ id, x: at.x, y: at.y, pinned: false });
+        this.placements = null;
+        this.settling.add(id);
+    }
+
     /** A route per link, taken from the document or added to it, so a reroute point dropped on an edge lands in the document. */
     public edges(): CanvasEdge[] {
         // The edges are about to be drawn again, over nodes that may have moved: the lanes and the ends' places are worked out afresh
@@ -172,7 +184,7 @@ export class LayeredSheet {
                 this.pending.add(id);
         }
 
-        if (this.pending.size === 0 || this.placing)
+        if ((this.pending.size === 0 && this.settling.size === 0) || this.placing)
             return;
 
         // After the draw that is under way: a node is measured once it stands on the page, and drawing again from inside a draw
@@ -191,6 +203,7 @@ export class LayeredSheet {
             return;
         }
 
+        const settled = this.settleAdded();
         const items = this.items();
 
         // If every existing node is still exactly where the layout put it, new nodes trigger a full relayout rather than being placed
@@ -202,8 +215,12 @@ export class LayeredSheet {
 
         const fresh = items.filter(item => this.pending.has(item.id));
 
-        if (fresh.length === 0)
+        if (fresh.length === 0) {
+            if (settled)
+                this.services.draw();
+
             return;
+        }
 
         const layout = this.layout(this.measure());
         const taken: Rect[] = items.filter(item => !this.pending.has(item.id)).map(item => this.services.nodeRect(item.id)).filter((rect): rect is Rect => rect !== null);
@@ -250,13 +267,31 @@ export class LayeredSheet {
         this.pending.clear();
         this.services.draw();
 
-        // A freshly laid-out sheet is shown whole (Fit), except the first time a returning viewer opens it — their kept view stands
-        // while it shows some of the sheet.
-        if ((everything || this.turned) && (this.placedOnce || !this.viewKept || !this.services.view.showsAnyItem()))
-            this.services.view.fit();
+        // A freshly laid-out sheet is shown whole, as the view opens a sheet (a returning viewer's kept view stands the first time).
+        if (everything || this.turned)
+            this.services.view.fitSheet();
 
-        this.placedOnce = true;
         this.turned = false;
+    }
+
+    /** Puts the nodes the viewer added at a point on the grid, by their middle as the kind snaps; whether any was there to put. */
+    private settleAdded(): boolean {
+        if (this.settling.size === 0)
+            return false;
+
+        for (const placement of this.document.nodes) {
+            if (!this.settling.has(placement.id))
+                continue;
+
+            const place = this.services.snapPlace(placement.id, placement);
+
+            placement.x = place.x;
+            placement.y = place.y;
+        }
+
+        this.settling.clear();
+
+        return true;
     }
 
     /** Lays out what is pending once the canvas is shown; one watch at a time, let go as soon as it has done its work. */
@@ -289,7 +324,7 @@ export class LayeredSheet {
                 widest = Math.max(widest, this.services.nodeExtent(size.id)?.width ?? 0);
         }
 
-        const boxes = sizes.map(size => ({ id: size.id, ...this.box(size.width, size.height, widest) }));
+        const boxes = sizes.map(size => ({ id: size.id, ...this.box(size.id, size.width, size.height, widest) }));
         const result = layered(boxes, this.host.links(), { direction: this.direction, nodeGap: this.options.nodeGap, layerGap: this.options.layerGap });
         const moved = new Map<string, Point>();
 
@@ -328,8 +363,8 @@ export class LayeredSheet {
     }
 
     /** A node's box as the layout sees it: its own, or what the kind draws around it. */
-    private box(width: number, height: number, widest: number): { width: number; height: number; anchor?: Point } {
-        return this.host.nodeBox === undefined ? { width, height } : this.host.nodeBox(width, height, widest);
+    private box(id: string, width: number, height: number, widest: number): { width: number; height: number; anchor?: Point } {
+        return this.host.nodeBox === undefined ? { width, height } : this.host.nodeBox(id, width, height, widest);
     }
 
     /** Where Arrange puts each moving node: the whole layout, remembered as the one edges keep their routes by. */
@@ -478,7 +513,8 @@ export class LayeredSheet {
         const direction = this.direction;
         const back = this.backEdges.has(link.id);
         const self = link.from === link.to;
-        const { start, end } = edgeSides(from, to, direction, back, self);
+        const feet = this.host.footRoom === undefined ? NoFeet : { from: this.host.footRoom(link.from), to: this.host.footRoom(link.to) };
+        const { start, end } = edgeSides(from, to, direction, back, self, feet);
 
         return { from: start, to: end, axis: direction === "down" || direction === "up" ? "vertical" : "horizontal", back, loop: back && self, via: this.routeOf(link), reversed: direction === "left" || direction === "up" };
     }
@@ -508,19 +544,21 @@ export class LayeredSheet {
     }
 }
 
-/** Where an edge leaves its source and enters its target, given the two boxes and the way the layers run. */
-export function edgeSides(from: Rect, to: Rect, direction: LayeredDirection, back: boolean, self: boolean): { start: Point; end: Point } {
+/** Where an edge leaves its source and enters its target, given the two boxes, the way the layers run and what each wears under it. */
+export function edgeSides(from: Rect, to: Rect, direction: LayeredDirection, back: boolean, self: boolean, feet: EdgeFeet = NoFeet): { start: Point; end: Point } {
     const down = direction === "down" || direction === "up";
     // The layers run back the other way: an edge then leaves by the side that faces the next layer there, which is the other one.
     const turned = direction === "left" || direction === "up";
+    const fromBottom = from.y + from.height + feet.from;
+    const toBottom = to.y + to.height + feet.to;
 
     if (!back) {
         return {
             start: down
-                ? { x: from.x + from.width / 2, y: turned ? from.y : from.y + from.height }
+                ? { x: from.x + from.width / 2, y: turned ? from.y : fromBottom }
                 : { x: turned ? from.x : from.x + from.width, y: from.y + from.height / 2 },
             end: down
-                ? { x: to.x + to.width / 2, y: turned ? to.y + to.height : to.y }
+                ? { x: to.x + to.width / 2, y: turned ? toBottom : to.y }
                 : { x: turned ? to.x + to.width : to.x, y: to.y + to.height / 2 }
         };
     }
@@ -534,10 +572,10 @@ export function edgeSides(from: Rect, to: Rect, direction: LayeredDirection, bac
 
     return {
         start: down
-            ? { x: from.x + from.width * SideHigh, y: leaving ? from.y + from.height : from.y }
+            ? { x: from.x + from.width * SideHigh, y: leaving ? fromBottom : from.y }
             : { x: leaving ? from.x + from.width : from.x, y: from.y + from.height * SideHigh },
         end: down
-            ? { x: to.x + to.width * SideHigh, y: entering ? to.y + to.height : to.y }
+            ? { x: to.x + to.width * SideHigh, y: entering ? toBottom : to.y }
             : { x: entering ? to.x + to.width : to.x, y: to.y + to.height * SideHigh }
     };
 }

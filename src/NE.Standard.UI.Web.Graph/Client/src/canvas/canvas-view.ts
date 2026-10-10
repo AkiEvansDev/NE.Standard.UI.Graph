@@ -57,6 +57,12 @@ export class CanvasView {
     private fittedWidth = 0;
     private fittedHeight = 0;
     private readonly stopSizeWatch: () => void;
+    // Whether the viewer had a view of this canvas kept before it was first drawn, read before a draw writes one: the sheet's
+    // first fit leaves it standing.
+    private readonly viewKept: boolean;
+    private opened = false;
+    // Watches a canvas asked to fit while it has no size yet, to fit it once it has one.
+    private stopOpenWatch: (() => void) | null = null;
 
     public constructor(root: HTMLElement, settings: CanvasSettings, context: PluginEngineContext, host: CanvasViewHost) {
         this.root = root;
@@ -72,6 +78,7 @@ export class CanvasView {
         this.minimapNodes = root.querySelector<HTMLElement>("[data-ui-graph-map-nodes]");
         this.minimapView = root.querySelector<HTMLElement>("[data-ui-graph-map-view]");
         this.stopSizeWatch = context.observeSize(this.viewport, () => this.viewportResized());
+        this.viewKept = context.store.readJson(root, "view") !== null;
     }
 
     /** The canvas took another size: a fit the reader left alone is made again for it; a canvas with no size (hidden) waits. */
@@ -92,9 +99,11 @@ export class CanvasView {
         this.fit();
     }
 
-    /** Lets go of the watch on the canvas's size; the canvas is leaving the page. */
+    /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
     public dispose(): void {
         this.stopSizeWatch();
+        this.stopOpenWatch?.();
+        this.stopOpenWatch = null;
     }
 
     public get zoom(): number {
@@ -184,7 +193,36 @@ export class CanvasView {
     public showsAnyItem(): boolean {
         const rects = this.host.items().flatMap(item => this.host.nodeRect(item.id) ?? []);
 
-        return showsAny(rects, { zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue }, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight);
+        const visible = this.visibleRect();
+
+        return showsAny(rects, { zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue }, visible.width, visible.height);
+    }
+
+    /**
+     * Shows the sheet whole (Fit), at once where the canvas is shown and else as soon as it is — except the first time a returning
+     * viewer opens it: the view they kept stands while it shows some of the sheet. Every later call fits.
+     */
+    public fitSheet(): void {
+        if (this.root.offsetWidth > 0) {
+            this.fitUnlessKept();
+            return;
+        }
+
+        this.stopOpenWatch ??= this.context.observeSize(this.root, () => {
+            if (this.root.offsetWidth === 0)
+                return;
+
+            this.stopOpenWatch?.();
+            this.stopOpenWatch = null;
+            this.fitUnlessKept();
+        });
+    }
+
+    private fitUnlessKept(): void {
+        if (this.opened || !this.viewKept || !this.showsAnyItem())
+            this.fit();
+
+        this.opened = true;
     }
 
     public fit(): void {
@@ -193,9 +231,9 @@ export class CanvasView {
         if (content === null)
             return;
 
-        const width = this.viewport.clientWidth - this.sideWidth();
+        const visible = this.visibleRect();
         // Never past its own size: a sheet of three nodes blown up to fill the view reads as a mistake, not as the whole of it.
-        const view = fitClearOf(content, width, this.viewport.clientHeight, this.settings.minZoom, Math.min(1, this.settings.maxZoom), this.topChrome());
+        const view = fitClearOf(content, visible.width, visible.height, this.settings.minZoom, Math.min(1, this.settings.maxZoom), this.topChrome());
 
         this.zoomValue = view.zoom;
         this.panXValue = view.panX;
@@ -219,11 +257,15 @@ export class CanvasView {
         });
     }
 
-    /** How much of the viewport's trailing side an open side panel (e.g. a production graph's plan) covers; Fit and centering keep to what's left. */
-    private sideWidth(): number {
+    /**
+     * What of the viewport the sheet is seen through, in its own pixels: all of it but the trailing side an open side panel (a
+     * production graph's plan) covers. Fit, centring, the zoom buttons and the minimap's frame all keep to it.
+     */
+    public visibleRect(): Rect {
         const side = this.viewport.querySelector<HTMLElement>(`[${SideAttribute}]:not([${FoldedControlAttribute}])`);
+        const covered = side === null || side.offsetWidth === 0 ? 0 : this.viewport.clientWidth - side.offsetLeft;
 
-        return side === null || side.offsetWidth === 0 ? 0 : this.viewport.clientWidth - side.offsetLeft;
+        return { x: 0, y: 0, width: this.viewport.clientWidth - covered, height: this.viewport.clientHeight };
     }
 
     public zoomBy(factor: number, atX: number, atY: number): void {
@@ -282,7 +324,7 @@ export class CanvasView {
      * the press left it — a panel's name keeps its keys off the sheet.
      */
     public centerOnRect(rect: Rect, topOffset: number, bottomOffset: number): void {
-        this.panXValue = (this.viewport.clientWidth - this.sideWidth()) / 2 - (rect.x + rect.width / 2) * this.zoomValue;
+        this.panXValue = this.visibleRect().width / 2 - (rect.x + rect.width / 2) * this.zoomValue;
         this.panYValue = topOffset + (this.viewport.clientHeight - topOffset - bottomOffset) / 2 - (rect.y + rect.height / 2) * this.zoomValue;
         this.fitted = false;
         this.applyView();
@@ -362,13 +404,24 @@ export class CanvasView {
         this.placeMinimapView();
     }
 
-    /** Where the content sits inside the map: one scale for both axes, and the drawing centred in what is left. */
+    /**
+     * Where the content sits inside the map: one scale for both axes, and the drawing centred in what its padding leaves, so no box
+     * touches the map's edge or its rounded corners. Offsets count from the map's padding box, where its layers stand.
+     */
     private minimapPlacement(content: Rect): MinimapPlacement {
-        const width = this.minimap?.clientWidth ?? 0;
-        const height = this.minimap?.clientHeight ?? 0;
+        const minimap = this.minimap;
+
+        if (minimap === null)
+            return { scale: 0, offsetX: 0, offsetY: 0 };
+
+        const style = getComputedStyle(minimap);
+        const left = Number.parseFloat(style.paddingLeft) || 0;
+        const top = Number.parseFloat(style.paddingTop) || 0;
+        const width = minimap.clientWidth - left - (Number.parseFloat(style.paddingRight) || 0);
+        const height = minimap.clientHeight - top - (Number.parseFloat(style.paddingBottom) || 0);
         const scale = Math.min(width / Math.max(1, content.width), height / Math.max(1, content.height));
 
-        return { scale, offsetX: (width - content.width * scale) / 2, offsetY: (height - content.height * scale) / 2 };
+        return { scale, offsetX: left + (width - content.width * scale) / 2, offsetY: top + (height - content.height * scale) / 2 };
     }
 
     /** The part of the sheet now on screen, over the map. Follows every pan and zoom, which is all a pan has to redraw. */
@@ -381,7 +434,7 @@ export class CanvasView {
         const view: Rect = {
             x: -this.panXValue / this.zoomValue,
             y: -this.panYValue / this.zoomValue,
-            width: this.viewport.clientWidth / this.zoomValue,
+            width: this.visibleRect().width / this.zoomValue,
             height: this.viewport.clientHeight / this.zoomValue
         };
 
@@ -398,13 +451,16 @@ export class CanvasView {
         if (this.minimap === null || this.minimapContent === null || map === null)
             return;
 
+        // The placement counts from the padding box, inside the map's border.
         const box = this.minimap.getBoundingClientRect();
-        const x = this.minimapContent.x + (event.clientX - box.left - map.offsetX) / map.scale;
-        const y = this.minimapContent.y + (event.clientY - box.top - map.offsetY) / map.scale;
+        const x = this.minimapContent.x + (event.clientX - box.left - this.minimap.clientLeft - map.offsetX) / map.scale;
+        const y = this.minimapContent.y + (event.clientY - box.top - this.minimap.clientTop - map.offsetY) / map.scale;
+
+        const visible = this.visibleRect();
 
         // In the middle of what an open side panel leaves in view, as Fit and centring keep to.
-        this.panXValue = (this.viewport.clientWidth - this.sideWidth()) / 2 - x * this.zoomValue;
-        this.panYValue = this.viewport.clientHeight / 2 - y * this.zoomValue;
+        this.panXValue = visible.width / 2 - x * this.zoomValue;
+        this.panYValue = visible.height / 2 - y * this.zoomValue;
         this.fitted = false;
         this.applyView();
     }

@@ -14,6 +14,8 @@ internal sealed class CommonNodesView : NodesSheetView, IUIViewDefinition
 
     protected override string CanvasId => CommonNodesController.CanvasId;
 
+    protected override string SheetName => "nodes.sheet.common";
+
     protected override UINodeCatalog Kinds => CommonNodesController.Kinds;
 }
 
@@ -31,6 +33,8 @@ internal sealed class CalculatorNodesView : NodesSheetView, IUIViewDefinition
 
     protected override string CanvasId => CalculatorNodesController.CanvasId;
 
+    protected override string SheetName => "nodes.sheet.calculator";
+
     protected override UINodeCatalog Kinds => CalculatorNodesController.Kinds;
 }
 
@@ -47,6 +51,8 @@ internal sealed class ImageNodesView : NodesSheetView, IUIViewDefinition
         => "nodes.page.image.description";
 
     protected override string CanvasId => ImageNodesController.CanvasId;
+
+    protected override string SheetName => "nodes.sheet.image";
 
     protected override UINodeCatalog Kinds => ImageNodesController.Kinds;
 }

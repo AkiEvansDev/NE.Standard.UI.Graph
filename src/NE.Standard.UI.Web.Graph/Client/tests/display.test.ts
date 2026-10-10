@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Urls } from "ne-standard-ui";
-import { displayText, isPictureAddress, joinList, renderDisplayValue, sharedColumns, splitMore } from "../src/nodes/display.ts";
+import { displayText, isPictureAddress, joinList, renderDisplayValue, sharedColumns, showDisplayValue, splitMore } from "../src/nodes/display.ts";
 import type { DisplayOptions } from "../src/nodes/display.ts";
 import { FakeElement, installFakeDom } from "./fake-dom.ts";
 
@@ -81,6 +81,23 @@ test("a text is a picture only when the pin's type says so, never by what it loo
     assert.equal(drawn("/_ne/content/abc", true).tagName.toLowerCase(), "img");
     // Typed a picture, an address naming another site is still its text.
     assert.equal(drawn("//elsewhere.example/a.png", true).tagName.toLowerCase(), "div");
+});
+
+test("a display's panel is marked while one picture at no size of its own fills it, and not for a sized one, a list or text", () => {
+    const panel = new FakeElement();
+    const show = (value: unknown, picture?: boolean): boolean => {
+        showDisplayValue(panel as unknown as HTMLElement, value, { ...options, picture });
+
+        return panel.classList.contains("ui-graph__display--picture");
+    };
+
+    assert.equal(show("/_ne/content/abc", true), true);
+    assert.equal(panel.children.length, 1);
+    assert.equal(show({ $picture: "/_ne/content/a", width: 40, height: 30 }), false);
+    assert.equal(show({ $picture: "/_ne/content/a" }), true);
+    assert.equal(show([{ $picture: "/_ne/content/a" }], true), false);
+    assert.equal(show("/_ne/content/abc"), false);
+    assert.equal(show(null), false);
 });
 
 test("a picture the server marked is drawn at its size, alone, in a record and in a list; a field that only looks like one is text", () => {

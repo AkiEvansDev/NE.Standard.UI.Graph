@@ -5,7 +5,6 @@ import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { newId } from "../canvas/canvas-model.ts";
 import type { Point } from "../canvas/canvas-model.ts";
 import { Picker } from "../canvas/picker.ts";
-import { snap } from "../canvas/geometry.ts";
 import { canConnect, createNode, isPinVisible } from "./model.ts";
 import type { DocumentNode, GraphDocument, NodeType } from "./model.ts";
 
@@ -26,7 +25,7 @@ export class NodesPickerBinding {
         // The picker offers what the picker may offer: a hidden kind is still drawn and run, it is just no longer added by hand.
         const offered = catalog.filter(type => type.hidden !== true);
 
-        this.picker = Picker.create(services.root, () => offered, context.strings, context.dom, context.icons, context.roving, context.focus, type => this.addNode(type));
+        this.picker = Picker.create(services.root, () => offered, context.strings, context.dom, context.icons, context.roving, context.focus, context.shortcuts, type => this.addNode(type));
     }
 
     public open(): void {
@@ -54,8 +53,12 @@ export class NodesPickerBinding {
             return;
 
         const at = wire?.at ?? this.services.pointerScene();
-        const node = createNode(type, snap(at.x, settings.gridSize, settings.snapping), snap(at.y, settings.gridSize, settings.snapping));
+        const node = createNode(type, at.x, at.y);
+        const place = this.services.snapPlace(node.id, node);
         const document = this.services.documentState.document;
+
+        node.x = place.x;
+        node.y = place.y;
 
         document.nodes.push(node);
 

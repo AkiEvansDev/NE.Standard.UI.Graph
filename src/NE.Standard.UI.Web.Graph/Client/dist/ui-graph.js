@@ -15,7 +15,7 @@ var e = ".ui-graph", t = "data-ui-graph-document", n = "data-ui-graph-group", r 
 	badgeWarningClass: "ui-badge-style--warning",
 	badgeSurfaceClass: "ui-badge-style--surface"
 }, g = h.collapsed, _ = `[${p}], [${m}][${g}], [data-ui-graph-run], .ui-graph__run-panel`, v = `.ui-graph__bar-button, [${p}] > * > [${h.collapseToggle}], [${m}] > [${h.collapseToggle}], .ui-graph__log-head > button`, y = ".ui-graph__bubble", ee = ".ui-graph__bubble-face";
-function b(e, t) {
+function te(e, t) {
 	let n = e.closest(`[${i}]`);
 	if (n !== null) return {
 		to: "reroute",
@@ -23,39 +23,39 @@ function b(e, t) {
 	};
 	if (t(e)) return null;
 	let r = e.closest(`[${o}]`);
-	return r === null ? e.closest("[data-ui-graph-group], .ui-graph__corner") === null ? { to: "sheet" } : null : te(e, r) ? {
+	return r === null ? e.closest("[data-ui-graph-group], .ui-graph__corner") === null ? { to: "sheet" } : null : ne(e, r) ? {
 		to: "rename",
 		id: r.getAttribute(o)
 	} : null;
 }
-function te(e, t) {
+function ne(e, t) {
 	return e.closest(".ui-graph__node-title") !== null || t.matches(y) && (e === t || e.closest(ee) !== null);
 }
-function x(e, t) {
+function b(e, t) {
 	let n = e.querySelector(`template[data-ui-graph-editor="${CSS.escape(t)}"]`)?.content.firstElementChild?.cloneNode(!0);
 	return n instanceof HTMLElement ? n : null;
 }
-function ne(e, t, n) {
+function re(e, t, n) {
 	return e.strings.format("ui.graph.percent", { value: e.numbers.format(n, null, e.numbers.readCulture(t)) });
 }
-function S(e, t, n) {
+function x(e, t, n) {
 	e.addEventListener("pointerenter", () => n.show(e, t, { delay: !0 })), e.addEventListener("pointerleave", () => n.hide());
 }
-function re(e, t) {
+function ie(e, t) {
 	e.addEventListener("focusin", (n) => {
 		n.target === e && t.focus({ preventScroll: !0 });
 	});
 }
 //#endregion
 //#region src/canvas/history.ts
-var ie = 100, ae = class {
+var ae = 100, oe = class {
 	read;
 	depth;
 	past = [];
 	future = [];
 	present;
 	saved;
-	constructor(e, t, n = ie) {
+	constructor(e, t, n = ae) {
 		this.read = t, this.depth = n, this.present = JSON.stringify(e), this.saved = this.present;
 	}
 	get canUndo() {
@@ -75,9 +75,9 @@ var ie = 100, ae = class {
 		this.present = e;
 	}
 	commit(e) {
-		for (let t = 0; t < this.past.length; t++) this.past[t] = oe(this.past[t], e);
-		for (let t = 0; t < this.future.length; t++) this.future[t] = oe(this.future[t], e);
-		this.saved = oe(this.saved, e);
+		for (let t = 0; t < this.past.length; t++) this.past[t] = se(this.past[t], e);
+		for (let t = 0; t < this.future.length; t++) this.future[t] = se(this.future[t], e);
+		this.saved = se(this.saved, e);
 	}
 	revert(e) {
 		return JSON.stringify(e) === this.present ? null : this.read(JSON.parse(this.present));
@@ -97,16 +97,16 @@ var ie = 100, ae = class {
 		return e === void 0 ? null : (this.past.push(this.present), this.present = e, this.read(JSON.parse(e)));
 	}
 };
-function oe(e, t) {
+function se(e, t) {
 	let n = JSON.parse(e);
 	return t(n), JSON.stringify(n);
 }
 //#endregion
 //#region src/canvas/canvas-model.ts
-function se(e) {
+function ce(e) {
 	return typeof e.key == "string" ? e.key : null;
 }
-function C(e) {
+function S(e) {
 	if (e === null || e.length === 0) return null;
 	try {
 		return JSON.parse(e);
@@ -114,17 +114,17 @@ function C(e) {
 		return null;
 	}
 }
-function ce(e) {
+function le(e) {
 	let t = Number(e);
 	return Number.isFinite(t) && t > 0 ? t : null;
 }
-function le(e) {
+function ue(e) {
 	return (e ?? []).map((e) => ({
 		x: Number(e.x) || 0,
 		y: Number(e.y) || 0
 	}));
 }
-function ue(e) {
+function de(e) {
 	return {
 		id: String(e.id),
 		x: Number(e.x) || 0,
@@ -136,12 +136,12 @@ function ue(e) {
 		pinned: e.pinned === !0
 	};
 }
-function w(e) {
+function C(e) {
 	return `${e}-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
 }
 //#endregion
 //#region src/canvas/canvas-document.ts
-var de = "auto", fe = class {
+var fe = "auto", pe = class {
 	root;
 	valueElement;
 	settings;
@@ -155,7 +155,7 @@ var de = "auto", fe = class {
 	saves = 0;
 	sentId = 0;
 	constructor(e, n, r, i, a, o) {
-		this.root = e, this.valueElement = n, this.settings = r, this.callbacks = a, this.values = o, this.documentValue = i(C(this.valueElement.getAttribute(t))), this.history = new ae(this.documentValue, i);
+		this.root = e, this.valueElement = n, this.settings = r, this.callbacks = a, this.values = o, this.documentValue = i(S(this.valueElement.getAttribute(t))), this.history = new oe(this.documentValue, i);
 	}
 	get document() {
 		return this.documentValue;
@@ -173,7 +173,7 @@ var de = "auto", fe = class {
 			return;
 		}
 		let t = this.history.record(this.documentValue);
-		this.version++, this.showDirty(), e ? this.callbacks.redraw() : this.callbacks.redrawEdges(), this.settings.autoSave && t && queueMicrotask(() => this.save(de));
+		this.version++, this.showDirty(), e ? this.callbacks.redraw() : this.callbacks.redrawEdges(), this.settings.autoSave && t && queueMicrotask(() => this.save(fe));
 	}
 	refuseEdit() {
 		let e = this.history.revert(this.documentValue);
@@ -181,12 +181,12 @@ var de = "auto", fe = class {
 	}
 	committed(e, t = !0) {
 		let n = !this.history.dirty;
-		e(this.documentValue), this.version++, this.history.commit(e), this.history.absorb(JSON.stringify(this.documentValue)), this.sent === null ? n && this.history.markSaved() : this.sent = oe(this.sent, e), this.showDirty(), t && this.callbacks.redraw();
+		e(this.documentValue), this.version++, this.history.commit(e), this.history.absorb(JSON.stringify(this.documentValue)), this.sent === null ? n && this.history.markSaved() : this.sent = se(this.sent, e), this.showDirty(), t && this.callbacks.redraw();
 	}
 	save(e = "") {
 		if (this.settings.readOnly) return;
 		if (this.sent !== null) {
-			(this.queuedSave === null || !pe(this.queuedSave) || pe(e)) && (this.queuedSave = e);
+			(this.queuedSave === null || !me(this.queuedSave) || me(e)) && (this.queuedSave = e);
 			return;
 		}
 		let n = JSON.stringify(this.documentValue);
@@ -230,25 +230,25 @@ var de = "auto", fe = class {
 		return this.settings.readOnly ? null : this.history.redo();
 	}
 	replay(e) {
-		this.documentValue = e, this.version++, this.showDirty(), this.callbacks.redraw(), this.settings.autoSave && this.history.dirty && queueMicrotask(() => this.save(de));
+		this.documentValue = e, this.version++, this.showDirty(), this.callbacks.redraw(), this.settings.autoSave && this.history.dirty && queueMicrotask(() => this.save(fe));
 	}
 };
-function pe(e) {
-	return e !== "" && e !== de;
+function me(e) {
+	return e !== "" && e !== fe;
 }
-var me = 6;
-function he(e, t = {}) {
+var he = 6;
+function ge(e, t = {}) {
 	let n = t.spacing ?? 14, r = t.margin ?? 14, i = e.filter((e) => Math.abs(e.from.across - e.to.across) > .5 && e.to.along - e.from.along >= 48).sort((e, t) => e.from.along - t.from.along || e.from.across - t.from.across), a = /* @__PURE__ */ new Map();
-	for (let e of ge(i, n, r)) {
-		let t = De(Se(e.legs)), { middle: i, step: o } = be(e, t.length, n, r);
+	for (let e of _e(i, n, r)) {
+		let t = Oe(Ce(e.legs)), { middle: i, step: o } = xe(e, t.length, n, r);
 		t.forEach((e, n) => {
 			for (let r of e.legs) a.set(r.id, i + (n - (t.length - 1) / 2) * o);
 		});
 	}
 	return a;
 }
-function ge(e, t, n) {
-	let r = e.map((e) => ye({
+function _e(e, t, n) {
+	let r = e.map((e) => be({
 		legs: [e],
 		low: e.from.along,
 		high: e.to.along,
@@ -258,35 +258,35 @@ function ge(e, t, n) {
 		from: 0,
 		to: 0
 	}, t, n));
-	for (let e = 0; e < r.length; e++) for (let i = 0; i < r.length; i++) i !== e && _e(r[e], r[i], t) && (ve(r[e], r[i], t, n), r.splice(i, 1), i < e && e--, i = -1);
+	for (let e = 0; e < r.length; e++) for (let i = 0; i < r.length; i++) i !== e && ve(r[e], r[i], t) && (ye(r[e], r[i], t, n), r.splice(i, 1), i < e && e--, i = -1);
 	return r;
 }
-function _e(e, t, n) {
+function ve(e, t, n) {
 	return e.top <= t.bottom + n && t.top <= e.bottom + n && Math.max(e.low, t.low) < Math.min(e.high, t.high) && e.from < t.to + n && t.from < e.to + n;
 }
-function ve(e, t, n, r) {
-	e.legs.push(...t.legs), e.low = Math.max(e.low, t.low), e.high = Math.min(e.high, t.high), e.top = Math.min(e.top, t.top), e.bottom = Math.max(e.bottom, t.bottom), e.turns += t.turns, ye(e, n, r);
+function ye(e, t, n, r) {
+	e.legs.push(...t.legs), e.low = Math.max(e.low, t.low), e.high = Math.min(e.high, t.high), e.top = Math.min(e.top, t.top), e.bottom = Math.max(e.bottom, t.bottom), e.turns += t.turns, be(e, n, r);
 }
-function ye(e, t, n) {
-	let r = xe(e.legs), { middle: i, step: a } = be(e, r, t, n), o = (r - 1) / 2 * a;
+function be(e, t, n) {
+	let r = Se(e.legs), { middle: i, step: a } = xe(e, r, t, n), o = (r - 1) / 2 * a;
 	return e.from = i - o, e.to = i + o, e;
 }
-function be(e, t, n, r) {
+function xe(e, t, n, r) {
 	let i = Math.max(0, e.high - e.low - r * 2), a = t > 1 ? Math.min(n, i / (t - 1)) : 0, o = (t - 1) / 2 * a, s = e.low + r + o, c = e.high - r - o, l = e.turns / e.legs.length;
 	return {
 		middle: s <= c ? Math.min(Math.max(l, s), c) : (e.low + e.high) / 2,
 		step: a
 	};
 }
-function xe(e) {
-	let t = Ce(e), n = /* @__PURE__ */ new Set();
-	for (let r of e) n.add(we(r, t));
+function Se(e) {
+	let t = we(e), n = /* @__PURE__ */ new Set();
+	for (let r of e) n.add(Te(r, t));
 	return n.size;
 }
-function Se(e) {
-	let t = Ce(e), n = /* @__PURE__ */ new Map();
+function Ce(e) {
+	let t = we(e), n = /* @__PURE__ */ new Map();
 	for (let r of e) {
-		let e = we(r, t), i = n.get(e);
+		let e = Te(r, t), i = n.get(e);
 		i === void 0 ? n.set(e, [r]) : i.push(r);
 	}
 	return [...n.values()].map((e) => {
@@ -300,21 +300,21 @@ function Se(e) {
 		};
 	});
 }
-function Ce(e) {
+function we(e) {
 	let t = /* @__PURE__ */ new Map();
 	for (let n of e) {
-		let e = Ee(n).from;
+		let e = De(n).from;
 		t.set(e, (t.get(e) ?? 0) + 1);
 	}
 	return t;
 }
-function we(e, t) {
-	let n = Ee(e);
+function Te(e, t) {
+	let n = De(e);
 	return (t.get(n.from) ?? 0) > 1 ? n.fromLane : n.toLane;
 }
-var Te = /* @__PURE__ */ new WeakMap();
-function Ee(e) {
-	let t = Te.get(e);
+var Ee = /* @__PURE__ */ new WeakMap();
+function De(e) {
+	let t = Ee.get(e);
 	if (t === void 0) {
 		let n = `${e.source}@${Math.round(e.from.across)}`, r = `${e.target}@${Math.round(e.to.across)}`;
 		t = {
@@ -322,44 +322,44 @@ function Ee(e) {
 			to: r,
 			fromLane: `from:${n}`,
 			toLane: `to:${r}`
-		}, Te.set(e, t);
+		}, Ee.set(e, t);
 	}
 	return t;
 }
-function De(e) {
+function Oe(e) {
 	let t = [...e].sort((e, t) => e.mean - t.mean || e.min - t.min);
-	if (t.length < 2 || t.length > me) return t;
-	let n = t.map((e) => t.map((t) => e === t ? 0 : Oe(e, t))), r = (e) => {
+	if (t.length < 2 || t.length > he) return t;
+	let n = t.map((e) => t.map((t) => e === t ? 0 : ke(e, t))), r = (e) => {
 		let t = 0;
 		for (let r = 0; r < e.length; r++) for (let i = r + 1; i < e.length; i++) t += n[e[r]][e[i]];
 		return t;
 	}, i = t.map((e, t) => t), a = r(i);
-	for (let e of Ae(i)) {
+	for (let e of je(i)) {
 		let t = r(e);
 		t < a && (i = e, a = t);
 	}
 	return i.map((e) => t[e]);
 }
-function Oe(e, t) {
+function ke(e, t) {
 	let n = 0;
-	for (let r of e.legs) n += +!!ke(r.to.across, t);
-	for (let r of t.legs) n += +!!ke(r.from.across, e);
+	for (let r of e.legs) n += +!!Ae(r.to.across, t);
+	for (let r of t.legs) n += +!!Ae(r.from.across, e);
 	return n;
 }
-function ke(e, t) {
+function Ae(e, t) {
 	return e > t.min + .5 && e < t.max - .5;
 }
-function* Ae(e) {
+function* je(e) {
 	if (e.length <= 1) {
 		yield [...e];
 		return;
 	}
-	for (let t = 0; t < e.length; t++) for (let n of Ae([...e.slice(0, t), ...e.slice(t + 1)])) yield [e[t], ...n];
+	for (let t = 0; t < e.length; t++) for (let n of je([...e.slice(0, t), ...e.slice(t + 1)])) yield [e[t], ...n];
 }
 //#endregion
 //#region src/canvas/geometry.ts
-var je = 4, Me = 12, Ne = 64, Pe = 56, Fe = 16, Ie = 9, Le = 7;
-function Re(e, t, n, r = [], i = {}) {
+var Me = 4, Ne = 12, Pe = 64, Fe = 56, Ie = 16, Le = 9, Re = 7;
+function ze(e, t, n, r = [], i = {}) {
 	let a = i.axis === "vertical", o = i.reversed === !0 ? -1 : 1, s = (e) => a ? {
 		x: e.y * o,
 		y: e.x
@@ -376,17 +376,17 @@ function Re(e, t, n, r = [], i = {}) {
 		t,
 		...r,
 		n
-	].map(s), u = (i.back === !0 && r.length === 0 ? i.loop === !0 ? Xe(l[0], l[1]) : Je(l[0], l[1]) : e === "straight" ? We(l) : e === "orthogonal" ? qe(l, (i.turns ?? []).map((e) => e === void 0 ? void 0 : e * o)) : Ge(l)).map((e) => ({
+	].map(s), u = (i.back === !0 && r.length === 0 ? i.loop === !0 ? Ze(l[0], l[1]) : Ye(l[0], l[1]) : e === "straight" ? Ge(l) : e === "orthogonal" ? Je(l, (i.turns ?? []).map((e) => e === void 0 ? void 0 : e * o)) : Ke(l)).map((e) => ({
 		op: e.op,
 		points: e.points.map(c)
 	}));
 	return {
-		path: Be(u),
-		pieces: ze(u) ? null : Ve(u),
-		arrow: i.arrow === !0 ? Ze(u) : null
+		path: Ve(u),
+		pieces: Be(u) ? null : He(u),
+		arrow: i.arrow === !0 ? Qe(u) : null
 	};
 }
-function ze(e) {
+function Be(e) {
 	let t = null;
 	for (let n of e) {
 		let e = n.points[n.points.length - 1];
@@ -395,23 +395,23 @@ function ze(e) {
 	}
 	return !0;
 }
-function Be(e) {
-	return e.map((e) => `${e.op}${e.points.map((e) => `${T(e.x)},${T(e.y)}`).join(" ")}`).join(" ");
-}
 function Ve(e) {
+	return e.map((e) => `${e.op}${e.points.map((e) => `${w(e.x)},${w(e.y)}`).join(" ")}`).join(" ");
+}
+function He(e) {
 	let t = [], n = null;
 	for (let r of e) {
 		if (r.op === "M") {
 			n = r.points[0];
 			continue;
 		}
-		let e = r.op === "C" && n !== null ? He(n, r.points) : [r.points[r.points.length - 1]];
-		for (let r of e) n !== null && Ue(t, n, r), n = r;
+		let e = r.op === "C" && n !== null ? Ue(n, r.points) : [r.points[r.points.length - 1]];
+		for (let r of e) n !== null && We(t, n, r), n = r;
 	}
 	return t;
 }
-function He(e, [t, n, r]) {
-	let i = Math.hypot(t.x - e.x, t.y - e.y) + Math.hypot(n.x - t.x, n.y - t.y) + Math.hypot(r.x - n.x, r.y - n.y), a = Math.max(1, Math.ceil(i / je)), o = [];
+function Ue(e, [t, n, r]) {
+	let i = Math.hypot(t.x - e.x, t.y - e.y) + Math.hypot(n.x - t.x, n.y - t.y) + Math.hypot(r.x - n.x, r.y - n.y), a = Math.max(1, Math.ceil(i / Me)), o = [];
 	for (let i = 1; i <= a; i++) {
 		let s = i / a, c = 1 - s, l = c * c * c, u = 3 * c * c * s, d = 3 * c * s * s, f = s * s * s;
 		o.push({
@@ -421,7 +421,7 @@ function He(e, [t, n, r]) {
 	}
 	return o;
 }
-function Ue(e, t, n) {
+function We(e, t, n) {
 	if (t.x === n.x && t.y === n.y) return;
 	let r = e.length === 0 ? null : e[e.length - 1], i = r === null ? 0 : r.along + Math.hypot(r.x2 - r.x1, r.y2 - r.y1);
 	e.push({
@@ -432,19 +432,19 @@ function Ue(e, t, n) {
 		along: i
 	});
 }
-function We(e) {
+function Ge(e) {
 	return e.map((e, t) => ({
 		op: t === 0 ? "M" : "L",
 		points: [e]
 	}));
 }
-function Ge(e) {
+function Ke(e) {
 	let t = [{
 		op: "M",
 		points: [e[0]]
 	}];
 	for (let n = 1; n < e.length; n++) {
-		let r = e[n - 1], i = e[n], a = Ke(r, i);
+		let r = e[n - 1], i = e[n], a = qe(r, i);
 		t.push({
 			op: "C",
 			points: [
@@ -462,11 +462,11 @@ function Ge(e) {
 	}
 	return t;
 }
-function Ke(e, t) {
+function qe(e, t) {
 	let n = t.x - e.x;
 	return n >= 0 ? Math.min(Math.max(n * .5, 24), 160) : Math.min(Math.max(-n * .6 + 40, 60), 220);
 }
-function qe(e, t) {
+function Je(e, t) {
 	let n = [{
 		op: "M",
 		points: [e[0]]
@@ -474,15 +474,15 @@ function qe(e, t) {
 		n.push({
 			op: "L",
 			points: [{
-				x: T(e),
-				y: T(t)
+				x: w(e),
+				y: w(t)
 			}]
 		});
 	};
 	for (let n = 1; n < e.length; n++) {
 		let i = e[n - 1], a = e[n];
 		if (a.x - i.x >= 48) {
-			let e = Math.min(a.x - Me, Math.max(i.x + Me, t[n - 1] ?? (i.x + a.x) / 2));
+			let e = Math.min(a.x - Ne, Math.max(i.x + Ne, t[n - 1] ?? (i.x + a.x) / 2));
 			r(e, i.y), r(e, a.y), r(a.x, a.y);
 		} else {
 			let e = i.x + 24, t = a.x - 24, n = (i.y + a.y) / 2;
@@ -491,19 +491,19 @@ function qe(e, t) {
 	}
 	return n;
 }
-function Je(e, t) {
-	let n = t.x - e.x, r = Math.min(96, 20 + Math.abs(n) * .1), i = Math.min(e.y, t.y) - r, a = Math.sign(n) * Math.min(Math.abs(n) * .45, Ne);
+function Ye(e, t) {
+	let n = t.x - e.x, r = Math.min(96, 20 + Math.abs(n) * .1), i = Math.min(e.y, t.y) - r, a = Math.sign(n) * Math.min(Math.abs(n) * .45, Pe);
 	return [{
 		op: "M",
 		points: [e]
 	}, {
 		op: "C",
 		points: [
-			Ye(e, t, {
+			Xe(e, t, {
 				x: e.x + a,
 				y: i
 			}),
-			Ye(t, e, {
+			Xe(t, e, {
 				x: t.x - a,
 				y: i
 			}),
@@ -511,7 +511,7 @@ function Je(e, t) {
 		]
 	}];
 }
-function Ye(e, t, n) {
+function Xe(e, t, n) {
 	let r = t.x - e.x, i = t.y - e.y, a = Math.hypot(r, i), o = n.x - e.x, s = n.y - e.y, c = Math.hypot(o, s);
 	if (a === 0 || c === 0) return n;
 	let l = (o * r + s * i) / (a * c), u = 2 * a / 3;
@@ -522,8 +522,8 @@ function Ye(e, t, n) {
 		y: e.y + s * d
 	};
 }
-function Xe(e, t) {
-	let n = Math.min(e.y, t.y) - Pe, r = Math.sign(e.x - t.x) * Fe;
+function Ze(e, t) {
+	let n = Math.min(e.y, t.y) - Fe, r = Math.sign(e.x - t.x) * Ie;
 	return [{
 		op: "M",
 		points: [e]
@@ -542,18 +542,18 @@ function Xe(e, t) {
 		]
 	}];
 }
-function Ze(e) {
+function Qe(e) {
 	let t = e[e.length - 1], n = t.points[t.points.length - 1], r = t.points.length > 1 ? t.points[t.points.length - 2] : e.length > 1 ? e[e.length - 2].points[e[e.length - 2].points.length - 1] : null;
 	if (r === null) return null;
 	let i = n.x - r.x, a = n.y - r.y, o = Math.hypot(i, a);
 	if (o === 0) return null;
-	let s = i / o, c = a / o, l = n.x - s * Ie, u = n.y - c * Ie, d = Le / 2;
-	return `M${T(n.x)},${T(n.y)} L${T(l - c * d)},${T(u + s * d)} L${T(l + c * d)},${T(u - s * d)} Z`;
+	let s = i / o, c = a / o, l = n.x - s * Le, u = n.y - c * Le, d = Re / 2;
+	return `M${w(n.x)},${w(n.y)} L${w(l - c * d)},${w(u + s * d)} L${w(l + c * d)},${w(u - s * d)} Z`;
 }
-function T(e) {
+function w(e) {
 	return Math.round(e * 100) / 100;
 }
-function Qe(e) {
+function $e(e) {
 	if (e.length === 0) return null;
 	let t = Infinity, n = Infinity, r = -Infinity, i = -Infinity;
 	for (let a of e) t = Math.min(t, a.x), n = Math.min(n, a.y), r = Math.max(r, a.x + a.width), i = Math.max(i, a.y + a.height);
@@ -564,7 +564,7 @@ function Qe(e) {
 		height: i - n
 	};
 }
-function $e(e, t) {
+function T(e, t) {
 	return e.x < t.x + t.width && e.x + e.width > t.x && e.y < t.y + t.height && e.y + e.height > t.y;
 }
 function et(e, t) {
@@ -616,7 +616,7 @@ function ot(e, t, n, r) {
 		width: n / t.zoom,
 		height: r / t.zoom
 	};
-	return e.some((e) => $e(e, i));
+	return e.some((e) => T(e, i));
 }
 function st(e, t, n, r, i, a, o) {
 	let s = n <= 0 ? e.zoom : Math.min(o, Math.max(a, e.zoom * (i / n))), c = (t.x - e.panX) / e.zoom, l = (t.y - e.panY) / e.zoom;
@@ -673,8 +673,8 @@ var mt = class {
 	get edgeIds() {
 		return this.selectedEdges;
 	}
-	get edgeSize() {
-		return this.selectedEdges.size;
+	get any() {
+		return this.selection.size + this.selectedEdges.size > 0;
 	}
 	has(e) {
 		return this.selection.has(e);
@@ -684,6 +684,10 @@ var mt = class {
 	}
 	pruneNodes(e) {
 		for (let t of [...this.selection]) e.has(t) || this.selection.delete(t);
+		this.changed();
+	}
+	changed() {
+		this.host.chosenChanged(this.any);
 	}
 	select(e, t) {
 		t || this.selection.clear(), t && this.selection.has(e) ? this.selection.delete(e) : this.selection.add(e), this.selectedEdges.clear(), this.markSelection();
@@ -692,7 +696,7 @@ var mt = class {
 		this.selection.clear(), this.selectedEdges.clear(), this.markSelection(), this.host.drawEdges();
 	}
 	clearSets() {
-		this.selection.clear(), this.selectedEdges.clear();
+		this.selection.clear(), this.selectedEdges.clear(), this.changed();
 	}
 	chooseForMenu(e) {
 		this.select(e, !1);
@@ -703,6 +707,7 @@ var mt = class {
 	selectOnlyMany(e) {
 		this.selection.clear();
 		for (let t of e) this.selection.add(t);
+		this.changed();
 	}
 	selectAll(e) {
 		for (let t of e) this.selection.add(t);
@@ -711,9 +716,10 @@ var mt = class {
 	markSelection() {
 		for (let [e, t] of this.nodeElements) t.toggleAttribute(r, this.selection.has(e));
 		for (let e of this.groupLayer.querySelectorAll(`[${n}]`)) e.toggleAttribute(r, this.selection.has(e.getAttribute(n)));
+		this.changed();
 	}
 	toggleEdge(e, t) {
-		t || this.selectedEdges.clear(), this.selectedEdges.has(e) ? this.selectedEdges.delete(e) : this.selectedEdges.add(e);
+		t || this.selectedEdges.clear(), this.selectedEdges.has(e) ? this.selectedEdges.delete(e) : this.selectedEdges.add(e), this.changed();
 	}
 	beginMarquee() {
 		this.beforeMarquee = new Set(this.selection), this.marquee.hidden = !1;
@@ -731,7 +737,7 @@ var mt = class {
 		this.marquee.hidden = !1, this.marquee.style.setProperty("--ui-graph-marquee-x", String(i.x)), this.marquee.style.setProperty("--ui-graph-marquee-y", String(i.y)), this.marquee.style.setProperty("--ui-graph-marquee-width", String(i.width)), this.marquee.style.setProperty("--ui-graph-marquee-height", String(i.height));
 		for (let e of this.host.items()) {
 			let t = this.host.nodeRect(e.id);
-			t !== null && ($e(i, t) || this.beforeMarquee.has(e.id) ? this.selection.add(e.id) : this.selection.delete(e.id));
+			t !== null && (T(i, t) || this.beforeMarquee.has(e.id) ? this.selection.add(e.id) : this.selection.delete(e.id));
 		}
 		this.markSelection();
 	}
@@ -823,17 +829,25 @@ var ht = class {
 		i !== void 0 && (i.x = e.origin.x + n, i.y = e.origin.y + r), this.moveNodes(e.moving, n, r), this.host.drawGroups();
 	}
 	resizeNode(e, t, n) {
-		let r = this.host.items().find((t) => t.id === e), i = this.host.nodeElements.get(e);
-		r !== void 0 && i !== void 0 && (i.style.setProperty("--ui-graph-node-w", String(Math.max(1, Math.round(t)))), i.style.setProperty("--ui-graph-node-h", String(Math.max(1, Math.round(n)))), r.width = i.offsetWidth, r.height = i.offsetHeight, this.host.drawEdges(), this.host.drawMinimap());
+		let r = this.itemsById().get(e), i = this.host.nodeElements.get(e);
+		r !== void 0 && i !== void 0 && this.resizeItem(r, i, t, n);
+	}
+	resizeItem(e, t, n, r) {
+		t.style.setProperty("--ui-graph-node-w", String(Math.max(1, Math.round(n)))), t.style.setProperty("--ui-graph-node-h", String(Math.max(1, Math.round(r)))), e.width = t.offsetWidth, e.height = t.offsetHeight, this.host.drawEdges(), this.host.drawMinimap();
 	}
 	snapNodes(e) {
-		let t = this.settings.gridSize, n = this.host.items();
-		for (let r of e) {
-			let e = n.find((e) => e.id === r);
-			if (e === void 0) continue;
-			let i = this.snapPlace(r, e, t);
-			e.x = i.x, e.y = i.y, this.placeNode(r, e);
+		let t = this.settings.gridSize, n = this.itemsById(), r = new Set(e);
+		for (let e of r) {
+			let i = n.get(e);
+			if (i === void 0) continue;
+			let a = this.snapPlace(e, i, t);
+			i.y = this.levelTop(e, i.y, r, t) ?? a.y, i.x = a.x, this.placeNode(e, i);
 		}
+	}
+	levelTop(e, t, n, r) {
+		let i = null;
+		for (let a of this.host.kind().levelTops?.(e, n) ?? []) Math.abs(a - t) <= r / 2 && (i === null || Math.abs(a - t) < Math.abs(i - t)) && (i = a);
+		return i;
 	}
 	snapPlace(e, t, n = this.settings.gridSize) {
 		let r = this.host.kind().snapsByCenter === !0 ? this.host.nodeElements.get(e) : void 0, i = (r?.offsetWidth ?? 0) / 2, a = (r?.offsetHeight ?? 0) / 2;
@@ -843,10 +857,10 @@ var ht = class {
 		};
 	}
 	snapSize(e) {
-		let t = this.host.items().find((t) => t.id === e), n = this.host.nodeElements.get(e);
+		let t = this.itemsById().get(e), n = this.host.nodeElements.get(e);
 		if (t === void 0 || n === void 0) return;
 		let r = this.settings.gridSize;
-		this.resizeNode(e, E(n.offsetWidth, r, !0), E(n.offsetHeight, r, !0)), gt(n, r), t.width = n.offsetWidth, t.height = n.offsetHeight;
+		this.resizeItem(t, n, E(n.offsetWidth, r, !0), E(n.offsetHeight, r, !0)), gt(n, r), t.width = n.offsetWidth, t.height = n.offsetHeight;
 	}
 	settleGroup(e) {
 		let t = this.findGroup(e.groupId);
@@ -929,7 +943,9 @@ var vt = "data-ui-graph-colors", yt = "graph-node-menu", bt = "graph-group-menu"
 	}
 	syncMenus() {
 		let e = !this.settings.readOnly, t = this.host.kind().items().some((e) => this.selection.has(e.id));
-		this.host.kind().syncMenus(e, this.menuTarget), this.enableEntries("graph:arrange", e), this.enableEntries("graph:save", e), this.enableEntries("graph:group-selection", e && t), this.enableEntries("graph:delete-selection", e && (this.selection.size > 0 || this.selection.edgeSize > 0)), this.enableEntries("graph:delete", e);
+		this.host.kind().syncMenus(e, this.menuTarget), this.enableEntries("graph:arrange", e), this.enableEntries("graph:save", e), this.enableEntries("graph:group-selection", e && t);
+		let n = this.host.kind().canEditItems(), r = this.documentState.document.groups.some((e) => this.selection.has(e.id));
+		this.enableEntries("graph:delete-selection", e && (r || n && this.selection.any)), this.enableEntries("graph:delete", e && n);
 		for (let t of [yt, bt]) {
 			let n = this.root.querySelector(`[${this.context.names.contextMenu}="${t}"]`), r = this.menuItem(t);
 			if (n === null) continue;
@@ -1058,9 +1074,9 @@ var vt = "data-ui-graph-colors", yt = "graph-node-menu", bt = "graph-group-menu"
 			let n = this.host.nodeRect(t);
 			n !== null && e.push(n);
 		}
-		let t = Qe(e);
+		let t = $e(e);
 		t !== null && (this.documentState.document.groups.push({
-			id: w("g"),
+			id: C("g"),
 			x: t.x - 24,
 			y: t.y - 24 - 24,
 			width: t.width + 48,
@@ -1085,7 +1101,7 @@ var vt = "data-ui-graph-colors", yt = "graph-node-menu", bt = "graph-group-menu"
 	}
 };
 function Et(e) {
-	let t = C(e);
+	let t = S(e);
 	return Array.isArray(t) ? t.map((e) => String(e)) : [];
 }
 function Dt(e, t, n, r) {
@@ -1135,7 +1151,7 @@ var Mt = "center", j = "http://www.w3.org/2000/svg", Nt = "ui-graph--edge-focus"
 	.62,
 	.26,
 	.74
-], Ft = class {
+], Ft = 4, It = class {
 	context;
 	scene;
 	nodeLayer;
@@ -1180,11 +1196,11 @@ var Mt = "center", j = "http://www.w3.org/2000/svg", Nt = "ui-graph--edge-focus"
 		this.selection.pruneNodes(n), e.itemsDrawn(t), this.watchSizes(), this.markFocus();
 	}
 	watchSizes() {
-		for (let [e, t] of this.nodeElements) this.nodeBoxes.set(e, Lt(t));
+		for (let [e, t] of this.nodeElements) this.nodeBoxes.set(e, Rt(t));
 		for (let [e, t] of this.nodeElements) this.nodeWatchers.push(this.context.observeSize(t, () => this.nodeResized(e, t)));
 	}
 	nodeResized(e, t) {
-		let n = Lt(t);
+		let n = Rt(t);
 		this.nodeBoxes.get(e) !== n && (this.nodeBoxes.set(e, n), !this.edgesQueued && (this.edgesQueued = !0, queueMicrotask(() => {
 			this.edgesQueued = !1, this.drawEdges(), this.view.drawMinimap();
 		})));
@@ -1223,7 +1239,7 @@ var Mt = "center", j = "http://www.w3.org/2000/svg", Nt = "ui-graph--edge-focus"
 			if (l === null) continue;
 			let u = [], d = n !== null && n.has(c.id);
 			this.edgeParts.set(c.id, u);
-			let f = e.edgeColor(c), p = c.points.length === 0 && l.via !== void 0 ? l.via : c.points, m = Re(this.settings.edgeShape, l.from, l.to, p, {
+			let f = e.edgeColor(c), p = c.points.length === 0 && l.via !== void 0 ? l.via : c.points, m = ze(this.settings.edgeShape, l.from, l.to, p, {
 				axis: l.axis,
 				back: l.back,
 				loop: l.loop,
@@ -1232,7 +1248,7 @@ var Mt = "center", j = "http://www.w3.org/2000/svg", Nt = "ui-graph--edge-focus"
 				turns: c.points.length === 0 ? l.turns : void 0
 			}), h = document.createElementNS(j, "path");
 			h.setAttribute("d", m.path), h.setAttribute("class", l.back === !0 ? "ui-graph__edge ui-graph__edge--back" : "ui-graph__edge"), h.setAttribute(i, c.id), h.style.setProperty("--ui-graph-pin-color", f), this.selection.hasEdge(c.id) && h.setAttribute(r, ""), l.conflict === !0 && h.setAttribute("data-ui-graph-conflict", "changed"), t && h.setAttribute(this.context.names.contextMenuUse, xt), h.toggleAttribute(M, d), this.edgeLayer.append(h), u.push(h);
-			let g = l.back === !0 ? "ui-graph__edge-line ui-graph__edge-line--back" : "ui-graph__edge-line", _ = `${m.path}|${f}|${g}`, v = this.paintedEdges.get(c.id), y = v !== void 0 && v.from === _ ? v.group : It(m, f, g);
+			let g = l.back === !0 ? "ui-graph__edge-line ui-graph__edge-line--back" : "ui-graph__edge-line", _ = `${m.path}|${f}|${g}`, v = this.paintedEdges.get(c.id), y = v !== void 0 && v.from === _ ? v.group : Lt(m, f, g);
 			if (s.set(c.id, {
 				from: _,
 				group: y
@@ -1258,35 +1274,55 @@ var Mt = "center", j = "http://www.w3.org/2000/svg", Nt = "ui-graph--edge-focus"
 		let t = e.map(({ chip: e }) => ({
 			width: e.offsetWidth,
 			height: e.offsetHeight
-		})), n = e.map(({ path: e }, n) => this.labelPlace(e, t[n].width, t[n].height));
+		})), n = [], r = e.map(({ path: e }, r) => {
+			let { width: i, height: a } = t[r], o = this.labelPlace(e, i, a, n);
+			return i > 0 && n.push({
+				...o,
+				width: i,
+				height: a
+			}), o;
+		});
 		e.forEach(({ chip: e }, t) => {
-			e.style.left = `${n[t].x}px`, e.style.top = `${n[t].y}px`;
+			e.style.left = `${r[t].x}px`, e.style.top = `${r[t].y}px`;
 		});
 	}
-	labelPlace(e, t, n) {
-		let r = e.getTotalLength();
-		for (let i of Pt) {
-			let a = i === .5 ? pt(e) : e.getPointAtLength(r * i), o = {
-				x: a.x - t / 2,
-				y: a.y - n / 2
-			};
-			if (t === 0 || !this.coversNode({
-				...o,
+	labelPlace(e, t, n, r) {
+		let i = e.getTotalLength();
+		for (let a of Pt) {
+			let o = a === .5 ? pt(e) : e.getPointAtLength(i * a), s = {
+				x: o.x - t / 2,
+				y: o.y - n / 2
+			}, c = {
+				...s,
 				width: t,
 				height: n
-			})) return o;
+			};
+			if (t === 0 || !this.coversNode(c) && !r.some((e) => T(c, e))) return s;
 		}
-		let i = pt(e);
-		return {
-			x: i.x - t / 2,
-			y: i.y - n / 2
-		};
+		return this.stepAcross(e, t, n, r);
 	}
 	coversNode(e) {
-		return this.labelObstacles ??= [...this.nodeElements.keys()].map((e) => this.nodeRect(e)).filter((e) => e !== null), this.labelObstacles.some((t) => $e(e, t));
+		return this.labelObstacles ??= [...this.nodeElements.keys()].map((e) => this.nodeRect(e)).filter((e) => e !== null), this.labelObstacles.some((t) => T(e, t));
+	}
+	stepAcross(e, t, n, r) {
+		let i = e.getTotalLength(), a = pt(e), o = e.getPointAtLength(Math.max(0, i / 2 - 1)), s = e.getPointAtLength(Math.min(i, i / 2 + 1)), c = Math.abs(s.y - o.y) >= Math.abs(s.x - o.x), l = {
+			x: a.x - t / 2,
+			y: a.y - n / 2,
+			width: t,
+			height: n
+		};
+		for (let e = 0; e < r.length; e++) {
+			let e = r.find((e) => T(l, e));
+			if (e === void 0) break;
+			c ? l.x = l.x + t / 2 < e.x + e.width / 2 ? e.x - t - Ft : e.x + e.width + Ft : l.y = l.y + n / 2 < e.y + e.height / 2 ? e.y - n - Ft : e.y + e.height + Ft;
+		}
+		return {
+			x: l.x,
+			y: l.y
+		};
 	}
 	drawPending(e, t, n) {
-		this.clearPending(), this.edgeLayer.append(It(Re(this.settings.edgeShape, e, t), n, "ui-graph__edge-line ui-graph__edge-line--pending"));
+		this.clearPending(), this.edgeLayer.append(Lt(ze(this.settings.edgeShape, e, t), n, "ui-graph__edge-line ui-graph__edge-line--pending"));
 	}
 	clearPending() {
 		this.edgeLayer.querySelector(".ui-graph__edge-line--pending")?.remove();
@@ -1323,7 +1359,7 @@ var Mt = "center", j = "http://www.w3.org/2000/svg", Nt = "ui-graph--edge-focus"
 		};
 	}
 };
-function It(e, t, n) {
+function Lt(e, t, n) {
 	let r = document.createElementNS(j, "g");
 	if (r.setAttribute("class", n), r.style.setProperty("--ui-graph-pin-color", t), e.pieces === null) {
 		let t = document.createElementNS(j, "path");
@@ -1338,12 +1374,12 @@ function It(e, t, n) {
 function N(e) {
 	return String(Math.round(e * 100) / 100);
 }
-function Lt(e) {
+function Rt(e) {
 	return `${e.offsetWidth}x${e.offsetHeight}`;
 }
 //#endregion
 //#region src/canvas/canvas-settings.ts
-var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-graph-highlight", Vt = "data-ui-graph-auto-save", Ht = "data-ui-graph-direction", Ut = "data-ui-graph-node-shape", Wt = "data-ui-graph-edit-structure", Gt = "data-ui-graph-mode", Kt = "data-ui-graph-node-action-bar", qt = "data-ui-graph-node-action-bar-repeat", Jt = "data-ui-graph-min-zoom", Yt = "data-ui-graph-max-zoom", Xt = class {
+var zt = "data-ui-graph-edge-shape", Bt = "data-ui-graph-snap", Vt = "data-ui-graph-highlight", Ht = "data-ui-graph-auto-save", Ut = "data-ui-graph-direction", Wt = "data-ui-graph-node-shape", Gt = "data-ui-graph-edit-structure", Kt = "data-ui-graph-mode", qt = "data-ui-graph-node-action-bar", Jt = "data-ui-graph-node-action-bar-repeat", Yt = "data-ui-graph-min-zoom", Xt = "data-ui-graph-max-zoom", Zt = class {
 	root;
 	readOnlyClass;
 	constructor(e, t) {
@@ -1353,34 +1389,34 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		return this.root.classList.contains(this.readOnlyClass);
 	}
 	get edgeShape() {
-		let e = this.root.getAttribute(Rt);
+		let e = this.root.getAttribute(zt);
 		return e === "straight" || e === "bezier" ? e : "orthogonal";
 	}
 	get snapping() {
-		return this.root.hasAttribute(zt);
-	}
-	get highlightOnHover() {
 		return this.root.hasAttribute(Bt);
 	}
-	get autoSave() {
+	get highlightOnHover() {
 		return this.root.hasAttribute(Vt);
+	}
+	get autoSave() {
+		return this.root.hasAttribute(Ht);
 	}
 	get gridSize() {
 		return Number(getComputedStyle(this.root).getPropertyValue("--ui-graph-grid-size")) || 20;
 	}
 	get nodeActionBar() {
-		return this.root.hasAttribute(Kt);
-	}
-	get nodeActionBarRepeats() {
 		return this.root.hasAttribute(qt);
 	}
+	get nodeActionBarRepeats() {
+		return this.root.hasAttribute(Jt);
+	}
 	get minZoom() {
-		return Number(this.root.getAttribute(Jt)) || .25;
+		return Number(this.root.getAttribute(Yt)) || .25;
 	}
 	get maxZoom() {
-		return Number(this.root.getAttribute(Yt)) || 2.5;
+		return Number(this.root.getAttribute(Xt)) || 2.5;
 	}
-}, Zt = ".ui-graph__grid", Qt = 250, $t = class {
+}, Qt = ".ui-graph__grid", $t = 250, en = class {
 	root;
 	settings;
 	context;
@@ -1404,8 +1440,11 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 	fittedWidth = 0;
 	fittedHeight = 0;
 	stopSizeWatch;
+	viewKept;
+	opened = !1;
+	stopOpenWatch = null;
 	constructor(e, t, n, r) {
-		this.root = e, this.settings = t, this.context = n, this.store = n.store, this.host = r, this.viewport = e.querySelector(".ui-graph__viewport"), this.scene = e.querySelector(".ui-graph__scene"), this.grid = e.querySelector(Zt), this.zoomLabel = e.querySelector("[data-ui-graph-zoom]"), this.minimap = e.querySelector("[data-ui-graph-map]"), this.minimapNodes = e.querySelector("[data-ui-graph-map-nodes]"), this.minimapView = e.querySelector("[data-ui-graph-map-view]"), this.stopSizeWatch = n.observeSize(this.viewport, () => this.viewportResized());
+		this.root = e, this.settings = t, this.context = n, this.store = n.store, this.host = r, this.viewport = e.querySelector(".ui-graph__viewport"), this.scene = e.querySelector(".ui-graph__scene"), this.grid = e.querySelector(Qt), this.zoomLabel = e.querySelector("[data-ui-graph-zoom]"), this.minimap = e.querySelector("[data-ui-graph-map]"), this.minimapNodes = e.querySelector("[data-ui-graph-map-nodes]"), this.minimapView = e.querySelector("[data-ui-graph-map-view]"), this.stopSizeWatch = n.observeSize(this.viewport, () => this.viewportResized()), this.viewKept = n.store.readJson(e, "view") !== null;
 	}
 	viewportResized() {
 		let e = this.viewport.clientWidth, t = this.viewport.clientHeight;
@@ -1418,7 +1457,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		}
 	}
 	dispose() {
-		this.stopSizeWatch();
+		this.stopSizeWatch(), this.stopOpenWatch?.(), this.stopOpenWatch = null;
 	}
 	get zoom() {
 		return this.zoomValue;
@@ -1437,11 +1476,11 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		e !== null && (this.zoomValue = Math.min(this.settings.maxZoom, Math.max(this.settings.minZoom, Number(e.zoom) || 1)), this.panXValue = Number(e.panX) || 0, this.panYValue = Number(e.panY) || 0, this.fitted = e.fitted === !0, this.fittedWidth = this.fitted ? Number(e.width) || this.viewport.clientWidth : 0, this.fittedHeight = this.fitted ? Number(e.height) || this.viewport.clientHeight : 0);
 	}
 	applyView() {
-		this.scene.style.transform = `translate(${this.panXValue}px, ${this.panYValue}px) scale(${this.zoomValue})`, this.grid?.style.setProperty("--ui-graph-zoom", String(this.zoomValue)), this.grid?.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`), this.grid?.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`), this.drawZoom(), this.placeMinimapView(), this.viewport.dispatchEvent(new Event("scroll")), clearTimeout(this.keepTimer), this.keepTimer = setTimeout(() => this.keepView(), Qt);
+		this.scene.style.transform = `translate(${this.panXValue}px, ${this.panYValue}px) scale(${this.zoomValue})`, this.grid?.style.setProperty("--ui-graph-zoom", String(this.zoomValue)), this.grid?.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`), this.grid?.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`), this.drawZoom(), this.placeMinimapView(), this.viewport.dispatchEvent(new Event("scroll")), clearTimeout(this.keepTimer), this.keepTimer = setTimeout(() => this.keepView(), $t);
 	}
 	drawZoom() {
 		let e = Math.round(this.zoomValue * 100);
-		this.zoomLabel !== null && e !== this.zoomShare && (this.zoomShare = e, this.zoomLabel.textContent = ne(this.context, this.zoomLabel, e));
+		this.zoomLabel !== null && e !== this.zoomShare && (this.zoomShare = e, this.zoomLabel.textContent = re(this.context, this.zoomLabel, e));
 	}
 	wordsChanged() {
 		this.zoomShare = NaN, this.drawZoom();
@@ -1455,7 +1494,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 			width: this.fittedWidth,
 			height: this.fittedHeight
 		}), {
-			selector: Zt,
+			selector: Qt,
 			styles: {
 				"--ui-graph-zoom": String(this.zoomValue),
 				"--ui-graph-pan-x": `${this.panXValue}px`,
@@ -1464,17 +1503,30 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		});
 	}
 	showsAnyItem() {
-		return ot(this.host.items().flatMap((e) => this.host.nodeRect(e.id) ?? []), {
+		let e = this.host.items().flatMap((e) => this.host.nodeRect(e.id) ?? []), t = this.visibleRect();
+		return ot(e, {
 			zoom: this.zoomValue,
 			panX: this.panXValue,
 			panY: this.panYValue
-		}, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight);
+		}, t.width, t.height);
+	}
+	fitSheet() {
+		if (this.root.offsetWidth > 0) {
+			this.fitUnlessKept();
+			return;
+		}
+		this.stopOpenWatch ??= this.context.observeSize(this.root, () => {
+			this.root.offsetWidth !== 0 && (this.stopOpenWatch?.(), this.stopOpenWatch = null, this.fitUnlessKept());
+		});
+	}
+	fitUnlessKept() {
+		(this.opened || !this.viewKept || !this.showsAnyItem()) && this.fit(), this.opened = !0;
 	}
 	fit() {
 		let e = this.contentBounds(!0);
 		if (e === null) return;
-		let t = at(e, this.viewport.clientWidth - this.sideWidth(), this.viewport.clientHeight, this.settings.minZoom, Math.min(1, this.settings.maxZoom), this.topChrome());
-		this.zoomValue = t.zoom, this.panXValue = t.panX, this.panYValue = t.panY, this.fitted = !0, this.fittedWidth = this.viewport.clientWidth, this.fittedHeight = this.viewport.clientHeight, this.applyView();
+		let t = this.visibleRect(), n = at(e, t.width, t.height, this.settings.minZoom, Math.min(1, this.settings.maxZoom), this.topChrome());
+		this.zoomValue = n.zoom, this.panXValue = n.panX, this.panYValue = n.panY, this.fitted = !0, this.fittedWidth = this.viewport.clientWidth, this.fittedHeight = this.viewport.clientHeight, this.applyView();
 	}
 	topChrome() {
 		let e = this.viewport.getBoundingClientRect(), t = e.left + this.viewport.clientLeft, n = e.top + this.viewport.clientTop;
@@ -1488,9 +1540,14 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 			};
 		});
 	}
-	sideWidth() {
-		let e = this.viewport.querySelector(`[${m}]:not([${g}])`);
-		return e === null || e.offsetWidth === 0 ? 0 : this.viewport.clientWidth - e.offsetLeft;
+	visibleRect() {
+		let e = this.viewport.querySelector(`[${m}]:not([${g}])`), t = e === null || e.offsetWidth === 0 ? 0 : this.viewport.clientWidth - e.offsetLeft;
+		return {
+			x: 0,
+			y: 0,
+			width: this.viewport.clientWidth - t,
+			height: this.viewport.clientHeight
+		};
 	}
 	zoomBy(e, t, n) {
 		let r = Math.min(this.settings.maxZoom, Math.max(this.settings.minZoom, this.zoomValue * e));
@@ -1518,7 +1575,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		(e.x + t !== this.panXValue || e.y + n !== this.panYValue) && (this.panXValue = e.x + t, this.panYValue = e.y + n, this.fitted = !1, this.applyView());
 	}
 	centerOnRect(e, t, n) {
-		this.panXValue = (this.viewport.clientWidth - this.sideWidth()) / 2 - (e.x + e.width / 2) * this.zoomValue, this.panYValue = t + (this.viewport.clientHeight - t - n) / 2 - (e.y + e.height / 2) * this.zoomValue, this.fitted = !1, this.applyView();
+		this.panXValue = this.visibleRect().width / 2 - (e.x + e.width / 2) * this.zoomValue, this.panYValue = t + (this.viewport.clientHeight - t - n) / 2 - (e.y + e.height / 2) * this.zoomValue, this.fitted = !1, this.applyView();
 	}
 	contentBounds(e = !1) {
 		let t = [];
@@ -1532,7 +1589,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 			width: e.width,
 			height: e.height
 		});
-		return Qe(t);
+		return $e(t);
 	}
 	drawMinimap() {
 		if (this.minimap === null || this.minimapNodes === null) return;
@@ -1558,11 +1615,17 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		this.placeMinimapView();
 	}
 	minimapPlacement(e) {
-		let t = this.minimap?.clientWidth ?? 0, n = this.minimap?.clientHeight ?? 0, r = Math.min(t / Math.max(1, e.width), n / Math.max(1, e.height));
+		let t = this.minimap;
+		if (t === null) return {
+			scale: 0,
+			offsetX: 0,
+			offsetY: 0
+		};
+		let n = getComputedStyle(t), r = Number.parseFloat(n.paddingLeft) || 0, i = Number.parseFloat(n.paddingTop) || 0, a = t.clientWidth - r - (Number.parseFloat(n.paddingRight) || 0), o = t.clientHeight - i - (Number.parseFloat(n.paddingBottom) || 0), s = Math.min(a / Math.max(1, e.width), o / Math.max(1, e.height));
 		return {
-			scale: r,
-			offsetX: (t - e.width * r) / 2,
-			offsetY: (n - e.height * r) / 2
+			scale: s,
+			offsetX: r + (a - e.width * s) / 2,
+			offsetY: i + (o - e.height * s) / 2
 		};
 	}
 	placeMinimapView() {
@@ -1571,7 +1634,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		let t = {
 			x: -this.panXValue / this.zoomValue,
 			y: -this.panYValue / this.zoomValue,
-			width: this.viewport.clientWidth / this.zoomValue,
+			width: this.visibleRect().width / this.zoomValue,
 			height: this.viewport.clientHeight / this.zoomValue
 		};
 		this.minimapView.style.left = `${e.offsetX + (t.x - this.minimapContent.x) * e.scale}px`, this.minimapView.style.top = `${e.offsetY + (t.y - this.minimapContent.y) * e.scale}px`, this.minimapView.style.width = `${t.width * e.scale}px`, this.minimapView.style.height = `${t.height * e.scale}px`;
@@ -1579,10 +1642,10 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 	minimapPan(e) {
 		let t = this.minimapPlace;
 		if (this.minimap === null || this.minimapContent === null || t === null) return;
-		let n = this.minimap.getBoundingClientRect(), r = this.minimapContent.x + (e.clientX - n.left - t.offsetX) / t.scale, i = this.minimapContent.y + (e.clientY - n.top - t.offsetY) / t.scale;
-		this.panXValue = (this.viewport.clientWidth - this.sideWidth()) / 2 - r * this.zoomValue, this.panYValue = this.viewport.clientHeight / 2 - i * this.zoomValue, this.fitted = !1, this.applyView();
+		let n = this.minimap.getBoundingClientRect(), r = this.minimapContent.x + (e.clientX - n.left - this.minimap.clientLeft - t.offsetX) / t.scale, i = this.minimapContent.y + (e.clientY - n.top - this.minimap.clientTop - t.offsetY) / t.scale, a = this.visibleRect();
+		this.panXValue = a.width / 2 - r * this.zoomValue, this.panYValue = a.height / 2 - i * this.zoomValue, this.fitted = !1, this.applyView();
 	}
-}, en = class {
+}, tn = class {
 	touches = /* @__PURE__ */ new Map();
 	pinch = null;
 	get pinching() {
@@ -1598,7 +1661,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 				panX: n.panX,
 				panY: n.panY
 			},
-			mid: tn(a, o),
+			mid: nn(a, o),
 			distance: Math.hypot(o.x - a.x, o.y - a.y)
 		}, !0;
 	}
@@ -1608,7 +1671,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		let i = this.pinch;
 		if (i === null || !i.fingers.includes(e)) return null;
 		let a = this.touches.get(i.fingers[0]), o = this.touches.get(i.fingers[1]);
-		return st(i.view, i.mid, i.distance, tn(a, o), Math.hypot(o.x - a.x, o.y - a.y), n, r);
+		return st(i.view, i.mid, i.distance, nn(a, o), Math.hypot(o.x - a.x, o.y - a.y), n, r);
 	}
 	up(e) {
 		this.touches.delete(e);
@@ -1625,7 +1688,7 @@ var Rt = "data-ui-graph-edge-shape", zt = "data-ui-graph-snap", Bt = "data-ui-gr
 		};
 	}
 };
-function tn(e, t) {
+function nn(e, t) {
 	return {
 		x: (e.x + t.x) / 2,
 		y: (e.y + t.y) / 2
@@ -1633,7 +1696,7 @@ function tn(e, t) {
 }
 //#endregion
 //#region src/canvas/canvas.ts
-var nn = "ui-graph--panning", rn = `[${s}], [${c}]`, an = "graph-document", on = "graph.save-document", sn = class {
+var rn = "ui-graph--panning", an = `[${s}], [${c}]`, on = "graph-document", sn = "graph.save-document", cn = class {
 	context;
 	kinds = /* @__PURE__ */ new Map();
 	canvases = /* @__PURE__ */ new WeakMap();
@@ -1642,13 +1705,13 @@ var nn = "ui-graph--panning", rn = `[${s}], [${c}]`, an = "graph-document", on =
 		this.context = t;
 		for (let e of n) this.kinds.set(e.name, e);
 		this.attach(t.root.querySelectorAll(e)), t.observeComponents(t.root, e, { childList: !0 }, (e) => this.attach(e)), t.observeComponents(t.root, "*", { childList: !0 }, () => this.prune()), t.observeComponents(t.root, e, { attributeFilter: [
-			Rt,
 			zt,
+			Bt,
 			"data-ui-graph-minimap",
-			Ht,
 			Ut,
 			Wt,
-			Gt
+			Gt,
+			Kt
 		] }, (e) => {
 			for (let t of e) this.canvases.get(t)?.draw();
 		}), t.observeComponents(t.root, e, {
@@ -1669,7 +1732,7 @@ var nn = "ui-graph--panning", rn = `[${s}], [${c}]`, an = "graph-document", on =
 		for (let t of e) {
 			let e = this.kinds.get(t.getAttribute("data-ui-graph-kind") ?? "");
 			if (e !== void 0 && !this.canvases.has(t)) {
-				let n = new ln(t, this.context, e);
+				let n = new un(t, this.context, e);
 				this.canvases.set(t, n), this.live.add(n);
 			}
 		}
@@ -1689,13 +1752,13 @@ var nn = "ui-graph--panning", rn = `[${s}], [${c}]`, an = "graph-document", on =
 		this.canvases.get(e)?.documentState.requestSave(t);
 	}
 };
-function cn(e, t) {
+function ln(e, t) {
 	let n = t.target;
 	if (n?.id === void 0) return null;
 	let r = typeof n.id == "number" ? n.id : Number(n.id.value);
 	return Number.isNaN(r) ? null : e.dom.findComponent(r, n.dynamicParameters ?? []);
 }
-var ln = class {
+var un = class {
 	root;
 	context;
 	states;
@@ -1714,7 +1777,7 @@ var ln = class {
 	render;
 	kind;
 	drag = null;
-	pinch = new en();
+	pinch = new tn();
 	pointerX = 0;
 	pointerY = 0;
 	drawnReadOnly;
@@ -1732,13 +1795,14 @@ var ln = class {
 			drawEdges: () => this.render.drawEdges(),
 			drawGroups: () => this.render.drawGroups(),
 			drawMinimap: () => this.view.drawMinimap(),
-			deleteSelection: () => this.deleteSelection()
+			deleteSelection: () => this.deleteSelection(),
+			chosenChanged: (e) => this.viewport.toggleAttribute(t.names.ownsKeys, e)
 		};
-		this.settings = new Xt(e, t.names.readOnlyClass), this.drawnReadOnly = this.settings.readOnly, this.documentState = new fe(e, s, this.settings, (e) => n.readDocument(e), {
+		this.settings = new Zt(e, t.names.readOnlyClass), this.drawnReadOnly = this.settings.readOnly, this.documentState = new pe(e, s, this.settings, (e) => n.readDocument(e), {
 			clearSelectionSets: () => this.selection.clearSets(),
 			redraw: () => this.render.draw(),
 			redrawEdges: () => this.render.drawEdges()
-		}, t.values), this.selection = new mt(e, this.nodeElements, this.groupLayer, c), this.view = new $t(e, this.settings, t, c), this.dragging = new ht(this.selection, c, this.settings), this.menus = new Tt(e, t, this.documentState, this.selection, this.view, this.settings, c, this.groupLayer), this.render = new Ft(t, r, i, this.groupLayer, a, o, this.nodeElements, this.documentState, this.selection, this.settings, this.view, () => this.kind), this.kind = n.create({
+		}, t.values), this.selection = new mt(e, this.nodeElements, this.groupLayer, c), this.view = new en(e, this.settings, t, c), this.dragging = new ht(this.selection, c, this.settings), this.menus = new Tt(e, t, this.documentState, this.selection, this.view, this.settings, c, this.groupLayer), this.render = new It(t, r, i, this.groupLayer, a, o, this.nodeElements, this.documentState, this.selection, this.settings, this.view, () => this.kind), this.kind = n.create({
 			root: e,
 			context: t,
 			scene: r,
@@ -1805,11 +1869,11 @@ var ln = class {
 	deleteSelection() {
 		let e = this.selection.nodeIds, t = this.selection.edgeIds;
 		if (this.settings.readOnly || e.size === 0 && t.size === 0) return;
-		let n = this.documentState.document;
-		n.groups = n.groups.filter((t) => !e.has(t.id)), this.kind.remove(e, t), this.selection.clearSets(), this.documentState.edited();
+		let n = this.documentState.document, r = n.groups.length;
+		n.groups = n.groups.filter((t) => !e.has(t.id)), (this.kind.remove(e, t) || n.groups.length !== r) && (this.selection.clearSets(), this.documentState.edited());
 	}
 	listen() {
-		this.viewport.addEventListener("wheel", (e) => this.wheel(e), { passive: !1 }), this.viewport.addEventListener("pointerdown", (e) => this.pointerDown(e)), this.viewport.addEventListener("pointermove", (e) => this.pointerMove(e)), this.viewport.addEventListener("pointerup", (e) => this.pointerUp(e)), this.viewport.addEventListener("pointercancel", (e) => this.fingerTaken(e)), this.viewport.addEventListener("pointerleave", () => this.render.setFocusItem(null)), this.viewport.addEventListener("dblclick", (e) => this.doubleClick(e)), this.viewport.addEventListener("keydown", (e) => this.key(e)), this.viewport.addEventListener("click", (e) => this.click(e)), this.root.addEventListener("click", (e) => this.chrome(e)), this.root.addEventListener(h.menuOpeningEvent, (e) => this.menuOpening(e)), re(this.root, this.viewport);
+		this.viewport.addEventListener("wheel", (e) => this.wheel(e), { passive: !1 }), this.viewport.addEventListener("pointerdown", (e) => this.pointerDown(e)), this.viewport.addEventListener("pointermove", (e) => this.pointerMove(e)), this.viewport.addEventListener("pointerup", (e) => this.pointerUp(e)), this.viewport.addEventListener("pointercancel", (e) => this.fingerTaken(e)), this.viewport.addEventListener("pointerleave", () => this.render.setFocusItem(null)), this.viewport.addEventListener("dblclick", (e) => this.doubleClick(e)), this.viewport.addEventListener("keydown", (e) => this.key(e)), this.viewport.addEventListener("click", (e) => this.click(e)), this.root.addEventListener("click", (e) => this.chrome(e)), this.root.addEventListener(h.menuOpeningEvent, (e) => this.menuOpening(e)), ie(this.root, this.viewport);
 	}
 	menuOpening(e) {
 		let t = e instanceof CustomEvent ? e.detail : null;
@@ -1848,14 +1912,14 @@ var ln = class {
 			this.pointerX = n.x, this.pointerY = n.y, this.menus.prepareMenus(e.target);
 			return;
 		}
-		if (e.button !== 0 || !(e.target instanceof Element) || dn(e.target) || this.kind.isEditor(e.target) || this.isPanel(e.target)) return;
+		if (e.button !== 0 || !(e.target instanceof Element) || fn(e.target) || this.kind.isEditor(e.target) || this.isPanel(e.target)) return;
 		if (e.target.closest("[data-ui-graph-map]") !== null) {
 			this.drag = { kind: "map" }, this.viewport.setPointerCapture(e.pointerId), this.view.minimapPan(e);
 			return;
 		}
 		let t = this.view.toViewport(e), r = this.view.toScene(t.x, t.y);
 		this.pointerX = r.x, this.pointerY = r.y, e.preventDefault(), this.viewport.focus({ preventScroll: !0 });
-		let i = e.target.closest(rn);
+		let i = e.target.closest(an);
 		if (i !== null) {
 			this.pressMark(i, !1);
 			return;
@@ -1894,7 +1958,7 @@ var ln = class {
 			startY: t.y,
 			panX: this.view.panX,
 			panY: this.view.panY
-		}, this.root.classList.add(nn)), this.viewport.setPointerCapture(e.pointerId);
+		}, this.root.classList.add(rn)), this.viewport.setPointerCapture(e.pointerId);
 	}
 	pressMark(e, t) {
 		let n = e.closest(`[${o}]`)?.getAttribute(o), r = e.hasAttribute(s);
@@ -2012,7 +2076,7 @@ var ln = class {
 	}
 	endDrag() {
 		let e = this.drag;
-		this.drag = null, e?.kind === "kind" && e.end(), this.root.classList.remove(nn), this.selection.hideMarquee(), this.render.clearPending();
+		this.drag = null, e?.kind === "kind" && e.end(), this.root.classList.remove(rn), this.selection.hideMarquee(), this.render.clearPending();
 	}
 	updateReroute(e, t) {
 		let n = this.kind.edges().find((t) => t.id === e.edge);
@@ -2044,7 +2108,7 @@ var ln = class {
 	}
 	click(e) {
 		if (!(e.target instanceof Element)) return;
-		let t = e.target.closest(rn);
+		let t = e.target.closest(an);
 		if (t !== null) {
 			e.detail === 0 && this.pressMark(t, !0);
 			return;
@@ -2055,7 +2119,7 @@ var ln = class {
 			return;
 		}
 		let r = e.target.closest(`[${o}]`);
-		r !== null && !dn(e.target) && !this.kind.isEditor(e.target) && this.raiseNodeClick(r.getAttribute(o));
+		r !== null && !fn(e.target) && !this.kind.isEditor(e.target) && this.raiseNodeClick(r.getAttribute(o));
 	}
 	raiseNodeClick(e) {
 		this.root.dispatchEvent(new CustomEvent("node-click", {
@@ -2065,7 +2129,7 @@ var ln = class {
 	}
 	doubleClick(e) {
 		if (this.settings.readOnly || !(e.target instanceof Element)) return;
-		let t = b(this.viewport.ownerDocument.elementFromPoint(e.clientX, e.clientY) ?? e.target, (e) => this.isPanel(e));
+		let t = te(this.viewport.ownerDocument.elementFromPoint(e.clientX, e.clientY) ?? e.target, (e) => this.isPanel(e));
 		if (t !== null) switch (t.to) {
 			case "reroute": {
 				let n = this.view.toViewport(e);
@@ -2082,19 +2146,19 @@ var ln = class {
 		!this.settings.readOnly && this.kind.canEditItems() && this.menus.renameNode(e);
 	}
 	key(e) {
-		if (e.defaultPrevented || e.isComposing) return;
-		let t = e.target instanceof Element && (e.target.closest("input, textarea, select") !== null || this.kind.isEditor(e.target)), n = e.ctrlKey || e.metaKey;
-		if (n && !e.altKey && !e.shiftKey && e.code === "KeyS") {
+		if (e.defaultPrevented || this.context.shortcuts.isComposing(e)) return;
+		let t = this.context.shortcuts.isFieldKey(e) || e.target instanceof Element && this.kind.isEditor(e.target), n = (t) => this.context.shortcuts.matches(e, t);
+		if (n("Ctrl+S")) {
 			e.preventDefault(), this.documentState.save();
 			return;
 		}
-		t || e.target instanceof Element && e.target.closest(`[${this.context.names.eventBoundary}]`) !== null && this.onSheet(e.target) || (this.onSheet(e.target) || e.target instanceof Element && e.target.matches(v)) && (e.key === "Delete" || e.key === "Backspace" ? (e.preventDefault(), this.deleteSelection()) : n && e.code === "KeyC" ? (e.preventDefault(), this.copy()) : n && e.code === "KeyV" ? (e.preventDefault(), this.paste()) : n && e.code === "KeyZ" && !e.shiftKey ? (e.preventDefault(), this.replay(this.documentState.undo())) : n && (e.code === "KeyY" || e.code === "KeyZ" && e.shiftKey) ? (e.preventDefault(), this.replay(this.documentState.redo())) : n && e.code === "KeyA" ? (e.preventDefault(), this.selection.selectAll(this.kind.items().map((e) => e.id))) : e.key === "Escape" ? (this.kind.escape(), this.selection.clearSelection()) : e.key === "F2" && this.selection.nodeIds.size === 1 && (e.preventDefault(), this.renameNode(this.selection.nodeIds.values().next().value)));
+		t || e.target instanceof Element && e.target.closest(`[${this.context.names.eventBoundary}]`) !== null && this.onSheet(e.target) || (this.onSheet(e.target) || e.target instanceof Element && e.target.matches(v)) && ((e.key === "Delete" || e.key === "Backspace") && this.context.shortcuts.isPlainKey(e, { shift: !0 }) ? (e.preventDefault(), this.deleteSelection()) : n("Ctrl+C") ? (e.preventDefault(), this.copy()) : n("Ctrl+V") ? (e.preventDefault(), this.paste()) : n("Ctrl+Z") ? (e.preventDefault(), this.replay(this.documentState.undo())) : n("Ctrl+Y") || n("Ctrl+Shift+Z") ? (e.preventDefault(), this.replay(this.documentState.redo())) : n("Ctrl+A") ? (e.preventDefault(), this.selection.selectAll(this.kind.items().map((e) => e.id))) : e.key === "Escape" ? (this.selection.any && e.preventDefault(), this.kind.escape(), this.selection.clearSelection()) : n("F2") && this.selection.nodeIds.size === 1 && (e.preventDefault(), this.renameNode(this.selection.nodeIds.values().next().value)));
 	}
 	onSheet(e) {
 		return e === this.viewport || e instanceof Node && this.scene.contains(e);
 	}
 	isPanel(e) {
-		return un(e) || this.kind.isPanel(e);
+		return dn(e) || this.kind.isPanel(e);
 	}
 	replay(e) {
 		e !== null && this.documentState.replay(e);
@@ -2106,52 +2170,53 @@ var ln = class {
 			return;
 		}
 		if (this.kind.chrome(e.target)) return;
+		let t = this.view.visibleRect();
 		if (e.target.closest("[data-ui-graph-zoom-in]") !== null) {
-			this.view.zoomBy(1.2, this.viewport.clientWidth / 2, this.viewport.clientHeight / 2);
+			this.view.zoomBy(1.2, t.width / 2, t.height / 2);
 			return;
 		}
 		if (e.target.closest("[data-ui-graph-zoom-out]") !== null) {
-			this.view.zoomBy(1 / 1.2, this.viewport.clientWidth / 2, this.viewport.clientHeight / 2);
+			this.view.zoomBy(1 / 1.2, t.width / 2, t.height / 2);
 			return;
 		}
 		if (e.target.closest("[data-ui-graph-fit]") !== null) {
 			this.view.fit();
 			return;
 		}
-		let t = this.context.names, n = e.target.closest(`[${t.key}]`), r = n?.getAttribute(t.key) ?? "", i = e.target.closest(`[${p}]`);
-		if (i !== null && n !== null && this.menus.foldPanel(), r.length === 0 || i === null && e.target.closest(`[${t.contextMenu}]`) === null) return;
-		let a = i?.getAttribute("data-ui-graph-menu-panel") ?? n.closest(`[${t.contextMenu}]`)?.getAttribute(t.contextMenu) ?? "";
-		r.startsWith("graph:") ? this.menus.run(r, a) : this.menus.raiseEntry(r, a);
-		let o = document.activeElement;
-		(!(o instanceof HTMLElement) || o === document.body || !o.isConnected) && this.viewport.focus({ preventScroll: !0 });
+		let n = this.context.names, r = e.target.closest(`[${n.key}]`), i = r?.getAttribute(n.key) ?? "", a = e.target.closest(`[${p}]`);
+		if (a !== null && r !== null && this.menus.foldPanel(), i.length === 0 || a === null && e.target.closest(`[${n.contextMenu}]`) === null) return;
+		let o = a?.getAttribute("data-ui-graph-menu-panel") ?? r.closest(`[${n.contextMenu}]`)?.getAttribute(n.contextMenu) ?? "";
+		i.startsWith("graph:") ? this.menus.run(i, o) : this.menus.raiseEntry(i, o);
+		let s = document.activeElement;
+		(!(s instanceof HTMLElement) || s === document.body || !s.isConnected) && this.viewport.focus({ preventScroll: !0 });
 	}
 };
-function un(e) {
+function dn(e) {
 	return e.closest(`[${p}]`) !== null;
 }
-function dn(e) {
+function fn(e) {
 	let t = e.closest("input, textarea, select, button");
 	return t !== null && !t.matches("[data-ui-graph-pin-toggle], [data-ui-graph-fold]");
 }
 //#endregion
 //#region src/framework-api.ts
-var fn = 2;
-function pn() {
+var pn = 4;
+function mn() {
 	let e = window.NEStandardUI;
 	if (e === void 0 || typeof e.registerEngine != "function") throw Error("NE.Standard.UI.Web.Graph needs the framework's client (ui.js) on the page before it.");
-	if (e.contractVersion !== fn) throw Error(`NE.Standard.UI.Web.Graph was built for plugin contract ${fn}, but the framework's client on the page implements ${String(e.contractVersion ?? "an older one")}; install the package version that matches the framework.`);
+	if (e.contractVersion !== pn) throw Error(`NE.Standard.UI.Web.Graph was built for plugin contract ${pn}, but the framework's client on the page implements ${String(e.contractVersion ?? "an older one")}; install the package version that matches the framework.`);
 	return e;
 }
 //#endregion
 //#region src/graph/chain.ts
-function mn(e, t) {
+function hn(e, t) {
 	let n = /* @__PURE__ */ new Set([t]), r = /* @__PURE__ */ new Set();
-	return hn(e, t, !0, n, r), hn(e, t, !1, n, r), {
+	return gn(e, t, !0, n, r), gn(e, t, !1, n, r), {
 		items: [...n],
 		edges: [...r]
 	};
 }
-function hn(e, t, n, r, i) {
+function gn(e, t, n, r, i) {
 	let a = /* @__PURE__ */ new Map();
 	for (let t of e) {
 		let e = n ? t.to : t.from, r = a.get(e);
@@ -2165,26 +2230,26 @@ function hn(e, t, n, r, i) {
 }
 //#endregion
 //#region src/canvas/aim.ts
-var gn = /* @__PURE__ */ new WeakMap();
-function _n(e) {
+var _n = /* @__PURE__ */ new WeakMap();
+function vn(e) {
 	e.classList.add(d);
 }
-function vn(e, t, n) {
+function yn(e, t, n) {
 	e.classList.remove(d);
 	for (let e of t.querySelectorAll(`[${f}]`)) e.removeAttribute(f), n?.(e);
 }
-function yn(e, t, n) {
-	let r = gn.get(e) ?? null;
-	r !== t && (r !== null && n(r, !1), t !== null && n(t, !0), gn.set(e, t));
+function bn(e, t, n) {
+	let r = _n.get(e) ?? null;
+	r !== t && (r !== null && n(r, !1), t !== null && n(t, !0), _n.set(e, t));
 }
 //#endregion
 //#region src/graph/link-drag.ts
-var bn = "data-ui-graph-handle", xn = "data-ui-graph-entry", Sn = "data-ui-graph-link-source";
-function Cn(e, t, n) {
+var xn = "data-ui-graph-handle", Sn = "data-ui-graph-entry", Cn = "data-ui-graph-link-source";
+function wn(e, t, n) {
 	let r = t.closest(`[${o}]`), i = r?.getAttribute("data-ui-graph-node") ?? null;
 	if (r === null || i === null) return null;
 	let a = e.root, s = null;
-	_n(a), r.setAttribute(Sn, "");
+	vn(a), r.setAttribute(Cn, "");
 	for (let t of e.nodeLayer.querySelectorAll(`[${o}]`)) {
 		let e = t.getAttribute(o);
 		e !== i && !n.canLink(i, e) && t.setAttribute(f, "no");
@@ -2193,7 +2258,7 @@ function Cn(e, t, n) {
 	return {
 		kind: "kind",
 		move: (t, r) => {
-			s = wn(e, i, r, n);
+			s = Tn(e, i, r, n);
 			let a = s?.querySelector("[data-ui-graph-entry]") ?? null;
 			e.drawPending(e.centerOf(l()), a === null ? t : e.centerOf(a), "var(--ui-color-primary)");
 		},
@@ -2202,21 +2267,21 @@ function Cn(e, t, n) {
 			t !== null && n.link(i, t, e);
 		},
 		end: () => {
-			r.removeAttribute(Sn), c()?.removeAttribute(Sn), vn(a, e.nodeLayer);
+			r.removeAttribute(Cn), c()?.removeAttribute(Cn), yn(a, e.nodeLayer);
 		}
 	};
 }
-function wn(e, t, n, r) {
+function Tn(e, t, n, r) {
 	let i = document.elementFromPoint(n.clientX, n.clientY)?.closest("[data-ui-graph-node]") ?? null, a = i?.getAttribute("data-ui-graph-node") ?? null, o = i !== null && a !== null && a !== t && e.nodeLayer.contains(i) && r.canLink(t, a) ? i : null;
-	return yn(e.nodeLayer, o, (e, t) => {
+	return bn(e.nodeLayer, o, (e, t) => {
 		t ? e.setAttribute(f, "yes") : e.removeAttribute(f);
 	}), o;
 }
-function Tn(e, t) {
+function En(e, t) {
 	let n = e.root.querySelector(`.ui-graph__edge[data-ui-graph-edge="${CSS.escape(t)}"]`);
 	return n === null ? null : pt(n);
 }
-function En(e, t, n, r) {
+function Dn(e, t, n, r) {
 	if (e.settings.readOnly) return;
 	let i = document.createElement("div"), a = document.createElement("span");
 	i.className = "ui-graph__caption-edit", a.className = "ui-graph__caption-edit-text", i.style.left = `${t.x}px`, i.style.top = `${t.y}px`, a.textContent = n, i.append(a), e.scene.append(i), e.context.renames.open({
@@ -2232,50 +2297,50 @@ function En(e, t, n, r) {
 }
 //#endregion
 //#region src/graph/card-view.ts
-var Dn = u.slice(1);
-function On(e, t, n) {
+var On = u.slice(1);
+function kn(e, t, n) {
 	let r = document.createElement("div"), i = (t.shape ?? n.shape) === "icon", a = t.title ?? t.id;
 	r.className = i ? "ui-graph__node ui-graph__bubble" : "ui-graph__node ui-graph__card", r.setAttribute(o, t.id), r.style.setProperty("--ui-graph-node-x", String(e.x)), r.style.setProperty("--ui-graph-node-y", String(e.y)), t.color !== null && t.color.length > 0 && r.style.setProperty("--ui-graph-node-color", t.color), n.conflict !== null && r.setAttribute("data-ui-graph-conflict", n.conflict), e.pinned === !0 && r.setAttribute("data-ui-graph-pinned", "");
-	let s = kn(t, i ? "ui-graph__bubble-face" : "ui-graph__card-icon", n);
-	if (s !== null && r.append(s), i ? r.append(jn(a, "ui-graph__bubble-title")) : r.append(An(t, a)), t.badge !== null && r.append(Mn(t.badge, i ? "ui-graph__bubble-badge" : "ui-graph__card-badge")), n.connectable) {
+	let s = An(t, i ? "ui-graph__bubble-face" : "ui-graph__card-icon", n);
+	if (s !== null && r.append(s), i ? r.append(Mn(a, "ui-graph__bubble-title")) : r.append(jn(t, a)), t.badge !== null && r.append(Nn(t.badge, i ? "ui-graph__bubble-badge" : "ui-graph__card-badge")), n.connectable) {
 		let e = document.createElement("span"), t = document.createElement("span");
-		e.className = "ui-graph__handle", e.setAttribute(bn, ""), t.className = "ui-graph__entry", t.setAttribute(xn, ""), r.append(t, e);
+		e.className = "ui-graph__handle", e.setAttribute(xn, ""), t.className = "ui-graph__entry", t.setAttribute(Sn, ""), r.append(t, e);
 	}
 	let c = t.tooltip ?? (i ? a : null);
-	return c !== null && S(r, c, n.tooltips), r;
+	return c !== null && x(r, c, n.tooltips), r;
 }
-function kn(e, t, n) {
-	let r = t === "ui-graph__bubble-face";
-	if (e.image === null && e.icon === null && !r) return null;
-	let i = document.createElement("span");
-	if (i.className = t, i.setAttribute("aria-hidden", "true"), e.image !== null) {
-		let t = document.createElement("img");
-		t.src = e.image, t.alt = "", t.draggable = !1, i.setAttribute("data-ui-graph-picture", ""), i.append(t);
+function An(e, t, n) {
+	let r = t === "ui-graph__bubble-face", i = e.image !== null && n.urls.isImageSource(e.image) ? e.image : null;
+	if (i === null && e.icon === null && !r) return null;
+	let a = document.createElement("span");
+	if (a.className = t, a.setAttribute("aria-hidden", "true"), i !== null) {
+		let e = document.createElement("img");
+		e.src = i, e.alt = "", e.draggable = !1, a.setAttribute("data-ui-graph-picture", ""), a.append(e);
 	} else if (e.icon !== null) {
 		let t = document.createElement("span");
-		n.icons.apply(t, e.icon), i.append(t);
+		n.icons.apply(t, e.icon), a.append(t);
 	}
-	return i;
+	return a;
 }
-function An(e, t) {
+function jn(e, t) {
 	let n = document.createElement("div");
-	if (n.className = "ui-graph__card-text", n.append(jn(t, null)), e.subtitle !== null) {
+	if (n.className = "ui-graph__card-text", n.append(Mn(t, null)), e.subtitle !== null) {
 		let t = document.createElement("span");
 		t.className = "ui-graph__card-subtitle", t.textContent = e.subtitle, n.append(t);
 	}
 	return n;
 }
-function jn(e, t) {
-	let n = document.createElement("span");
-	return n.className = t === null ? Dn : `${Dn} ${t}`, n.textContent = e, n;
-}
 function Mn(e, t) {
+	let n = document.createElement("span");
+	return n.className = t === null ? On : `${On} ${t}`, n.textContent = e, n;
+}
+function Nn(e, t) {
 	let n = document.createElement("span"), r = document.createElement("span");
 	return n.className = `${h.badgeClass} ${h.badgeSurfaceClass} ${t}`, n.setAttribute(h.badgeText, ""), r.className = h.badgeTextClass, r.textContent = e, n.append(r), n;
 }
 //#endregion
 //#region src/graph/draft.ts
-function Nn(e, t, n, r) {
+function Pn(e, t, n, r) {
 	let i = new Set(n), a = new Map(t.map((e) => [e.id, e])), o = /* @__PURE__ */ new Set(), s = [];
 	for (let t of e) {
 		if (i.has(t.id)) continue;
@@ -2285,7 +2350,7 @@ function Nn(e, t, n, r) {
 	for (let e of t) !o.has(e.id) && !i.has(e.id) && s.push(r(e));
 	return s;
 }
-function Pn(e, t) {
+function Fn(e, t) {
 	let n = new Map(e.map((e) => [e.id, e])), r = /* @__PURE__ */ new Map();
 	for (let e of t) {
 		let t = n.get(e.id);
@@ -2293,7 +2358,7 @@ function Pn(e, t) {
 	}
 	return r;
 }
-function Fn(e, t, n, r) {
+function In(e, t, n, r) {
 	let i = e.findIndex((e) => e.id === t);
 	if (i < 0) return !1;
 	if (r) {
@@ -2302,21 +2367,21 @@ function Fn(e, t, n, r) {
 	} else e.splice(i, 1);
 	return !0;
 }
-function In(e, t, n) {
+function Ln(e, t, n) {
 	return /* @__PURE__ */ new Set([
 		...e.map((e) => e.id),
 		...t.map((e) => e.id),
 		...n
 	]);
 }
-function Ln(e, t) {
+function Rn(e, t) {
 	let n = 1;
 	for (; t.has(`${e}-${n}`);) n++;
 	return `${e}-${n}`;
 }
 //#endregion
 //#region src/graph/model.ts
-function Rn() {
+function zn() {
 	return {
 		nodes: [],
 		edges: [],
@@ -2328,9 +2393,9 @@ function Rn() {
 		key: null
 	};
 }
-function zn(e) {
+function Bn(e) {
 	let t = e;
-	if (typeof t != "object" || !t) return Rn();
+	if (typeof t != "object" || !t) return zn();
 	let n = t.draft;
 	return {
 		nodes: (t.nodes ?? []).map((e) => ({
@@ -2341,24 +2406,24 @@ function zn(e) {
 		})),
 		edges: (t.edges ?? []).map((e) => ({
 			id: String(e.id),
-			points: le(e.points)
+			points: ue(e.points)
 		})),
-		groups: (t.groups ?? []).map(ue),
+		groups: (t.groups ?? []).map(de),
 		draft: {
 			nodes: (n?.nodes ?? []).flatMap((e) => {
-				let t = Wn(e);
+				let t = Gn(e);
 				return t === null ? [] : [{
-					...Bn(t),
+					...Vn(t),
 					created: e.created === !0,
 					baseline: typeof e.baseline == "string" ? e.baseline : null
 				}];
 			}),
 			removed: (n?.removed ?? []).map((e) => String(e))
 		},
-		key: se(t)
+		key: ce(t)
 	};
 }
-function Bn(e) {
+function Vn(e) {
 	return {
 		id: e.id,
 		title: e.title,
@@ -2374,16 +2439,16 @@ function Bn(e) {
 		baseline: null
 	};
 }
-function Vn(e) {
-	return Wn(e);
-}
-function Hn(e, t) {
-	return Nn(e, t.nodes, t.removed, Vn);
+function Hn(e) {
+	return Gn(e);
 }
 function Un(e, t) {
-	return Pn(e, t.nodes);
+	return Pn(e, t.nodes, t.removed, Hn);
 }
-function Wn(e) {
+function Wn(e, t) {
+	return Fn(e, t.nodes);
+}
+function Gn(e) {
 	if (typeof e != "object" || !e) return null;
 	let t = e, n = t.id;
 	if (typeof n != "string" || n.length === 0) return null;
@@ -2394,7 +2459,7 @@ function Wn(e) {
 		subtitle: P(t.subtitle),
 		icon: P(t.icon),
 		image: P(t.image),
-		shape: Gn(t.shape),
+		shape: Kn(t.shape),
 		color: P(t.color),
 		badge: P(t.badge),
 		tooltip: P(t.tooltip),
@@ -2408,13 +2473,13 @@ function Wn(e) {
 		})
 	};
 }
-function Gn(e) {
+function Kn(e) {
 	return e === "Icon" || e === "icon" || e === 1 ? "icon" : e === "Card" || e === "card" || e === 0 ? "card" : null;
 }
 function P(e) {
 	return typeof e == "string" && e.length > 0 ? e : null;
 }
-function Kn(e) {
+function qn(e) {
 	let t = new Set(e.map((e) => e.id));
 	return e.flatMap((e) => e.links.filter((e) => t.has(e.to)).map((t) => ({
 		...t,
@@ -2423,7 +2488,7 @@ function Kn(e) {
 }
 //#endregion
 //#region src/graph/graph-editing.ts
-var qn = class {
+var Jn = class {
 	services;
 	host;
 	constructor(e, t) {
@@ -2438,7 +2503,7 @@ var qn = class {
 		let n = this.host.node(e);
 		if (n === void 0) return null;
 		let r = this.host.serverNode(e), i = {
-			...Bn(n),
+			...Vn(n),
 			baseline: r === void 0 ? null : JSON.stringify(r)
 		};
 		return this.document.draft.nodes.push(i), i;
@@ -2452,7 +2517,7 @@ var qn = class {
 		n !== null && (n.color = t);
 	}
 	addNode() {
-		let e = Ln("node", In(this.host.serverNodes(), this.document.draft.nodes, this.document.draft.removed)), t = this.services.pointerScene(), n = this.services.context.strings.text("ui.graph.new-node");
+		let e = Rn("node", Ln(this.host.serverNodes(), this.document.draft.nodes, this.document.draft.removed)), t = this.services.pointerScene(), n = this.services.context.strings.text("ui.graph.new-node");
 		this.document.draft.nodes.push({
 			id: e,
 			title: n,
@@ -2466,12 +2531,7 @@ var qn = class {
 			links: [],
 			created: !0,
 			baseline: null
-		}), this.document.nodes.push({
-			id: e,
-			x: t.x,
-			y: t.y,
-			pinned: !1
-		}), this.services.selection.selectOnly(e), this.services.documentState.edited(), this.services.renameItem(e);
+		}), this.host.placeAt(e, t), this.services.selection.selectOnly(e), this.services.documentState.edited(), this.services.renameItem(e);
 	}
 	removeNodes(e) {
 		let t = this.document.draft;
@@ -2487,7 +2547,7 @@ var qn = class {
 		}
 	}
 	beginLink(e) {
-		return Cn(this.services, e, {
+		return wn(this.services, e, {
 			canLink: (e, t) => this.host.node(e)?.links.some((e) => e.to === t) !== !0,
 			link: (e, t) => this.link(e, t)
 		});
@@ -2504,8 +2564,8 @@ var qn = class {
 		}), this.services.documentState.edited();
 	}
 	editCaption(e) {
-		let t = this.host.link(e), n = Tn(this.services, e);
-		t !== void 0 && n !== null && En(this.services, n, t.caption ?? "", (n) => {
+		let t = this.host.link(e), n = En(this.services, e);
+		t !== void 0 && n !== null && Dn(this.services, n, t.caption ?? "", (n) => {
 			let r = this.draftOf(t.from);
 			r !== null && (r.links = r.links.map((t) => t.id === e ? {
 				...t,
@@ -2516,18 +2576,18 @@ var qn = class {
 };
 //#endregion
 //#region src/graph/keyed-list.ts
-function Jn(e, t, n) {
+function Yn(e, t, n) {
 	switch (t.action) {
 		case "Reset":
 			e.length = 0;
 			return;
 		case "Move":
-			for (let n of t.moves) Xn(e, n.key, n.newIndex);
+			for (let n of t.moves) Zn(e, n.key, n.newIndex);
 			return;
-		default: for (let r of t.items) Yn(e, t.action, r.key ?? r.oldKey, r.oldKey ?? r.key, r.index, r.item, n);
+		default: for (let r of t.items) Xn(e, t.action, r.key ?? r.oldKey, r.oldKey ?? r.key, r.index, r.item, n);
 	}
 }
-function Yn(e, t, n, r, i, a, o) {
+function Xn(e, t, n, r, i, a, o) {
 	let s = e.findIndex((e) => e.id === (t === "Replace" ? r : n));
 	if (t === "Remove") {
 		s >= 0 && e.splice(s, 1);
@@ -2536,7 +2596,7 @@ function Yn(e, t, n, r, i, a, o) {
 	let c = o(a);
 	c !== null && (s >= 0 ? e[s] = c : i !== null && i >= 0 && i <= e.length ? e.splice(i, 0, c) : e.push(c));
 }
-function Xn(e, t, n) {
+function Zn(e, t, n) {
 	let r = e.findIndex((e) => e.id === t);
 	if (r < 0 || n === null) return;
 	let [i] = e.splice(r, 1);
@@ -2544,9 +2604,9 @@ function Xn(e, t, n) {
 }
 //#endregion
 //#region src/graph/layered.ts
-var Zn = 8, Qn = 4, $n = 24, er = 128, tr = 48, nr = 96;
-function rr(e, t, n) {
-	let r = n.direction === "down" || n.direction === "up", i = n.direction === "left" || n.direction === "up", a = n.layerGap ?? br(e, r), o = n.nodeGap ?? 32, s = /* @__PURE__ */ new Map();
+var Qn = 8, $n = 4, er = 24, tr = 128, nr = 48, rr = 96;
+function ir(e, t, n) {
+	let r = n.direction === "down" || n.direction === "up", i = n.direction === "left" || n.direction === "up", a = n.layerGap ?? xr(e, r), o = n.nodeGap ?? 32, s = /* @__PURE__ */ new Map();
 	e.forEach((e, t) => {
 		let n = r ? e.width : e.height, i = e.anchor === void 0 ? n / 2 : r ? e.anchor.x : e.anchor.y;
 		s.has(e.id) || s.set(e.id, {
@@ -2561,30 +2621,30 @@ function rr(e, t, n) {
 			line: 0
 		});
 	});
-	let { sequence: c, forward: l, backEdges: u } = ar([...s.values()], t);
-	mr(c, l, s);
-	let d = n.layerGaps?.(new Map([...s.values()].map((e) => [e.id, e.layer]))), f = /* @__PURE__ */ new Map(), p = gr(l, s, f), m = _r(s, p);
-	xr(m, p, o);
-	let h = /* @__PURE__ */ new Map(), g = /* @__PURE__ */ new Map(), _ = /* @__PURE__ */ new Map(), v = n.originX ?? 0, y = n.originY ?? 0, ee = [], b = 0, te = a, x = Infinity;
-	for (let e of m) for (let t of e) x = Math.min(x, t.line - t.lead);
+	let { sequence: c, forward: l, backEdges: u } = or([...s.values()], t);
+	hr(c, l, s);
+	let d = n.layerGaps?.(new Map([...s.values()].map((e) => [e.id, e.layer]))), f = /* @__PURE__ */ new Map(), p = _r(l, s, f), m = vr(s, p);
+	Sr(m, p, o);
+	let h = /* @__PURE__ */ new Map(), g = /* @__PURE__ */ new Map(), _ = /* @__PURE__ */ new Map(), v = n.originX ?? 0, y = n.originY ?? 0, ee = [], te = 0, ne = a, b = Infinity;
+	for (let e of m) for (let t of e) b = Math.min(b, t.line - t.lead);
 	for (let [e, t] of m.entries()) {
 		let n = 0;
 		for (let e of t) n = Math.max(n, e.depth);
 		for (let e of t) {
-			let t = Number.isFinite(x) ? x : 0;
+			let t = Number.isFinite(b) ? b : 0;
 			ee.push({
 				id: e.id,
 				real: e.real,
-				along: e.real ? b : b + n / 2,
+				along: e.real ? te : te + n / 2,
 				depth: e.real ? e.depth : 0,
 				across: e.real ? e.line - e.lead - t : e.line - t
 			}), e.real && _.set(e.id, e.layer);
 		}
-		te = d?.get(e) ?? a, b += n + te;
+		ne = d?.get(e) ?? a, te += n + ne;
 	}
-	let ne = Math.max(0, b - te);
+	let re = Math.max(0, te - ne);
 	for (let e of ee) {
-		let t = i ? ne - e.along - e.depth : e.along, n = r ? {
+		let t = i ? re - e.along - e.depth : e.along, n = r ? {
 			x: v + e.across,
 			y: y + t
 		} : {
@@ -2593,24 +2653,24 @@ function rr(e, t, n) {
 		};
 		e.real ? h.set(e.id, n) : g.set(e.id, n);
 	}
-	let S = /* @__PURE__ */ new Map();
-	for (let [e, t] of f) u.has(e) || S.set(e, t.map((e) => g.get(e)));
+	let x = /* @__PURE__ */ new Map();
+	for (let [e, t] of f) u.has(e) || x.set(e, t.map((e) => g.get(e)));
 	return {
 		positions: h,
 		backEdges: u,
 		layers: _,
-		routes: S
+		routes: x
 	};
 }
-function ir(e, t) {
+function ar(e, t) {
 	let n = /* @__PURE__ */ new Map();
 	for (let t of e) n.has(t) || n.set(t, { id: t });
-	return ar([...n.values()], t).backEdges;
+	return or([...n.values()], t).backEdges;
 }
-function ar(e, t) {
+function or(e, t) {
 	let n = new Set(e.map((e) => e.id)), r = /* @__PURE__ */ new Set(), i = t.filter((e) => n.has(e.from) && n.has(e.to));
 	for (let e of i) e.from === e.to && r.add(e.id);
-	let a = i.filter((e) => e.from !== e.to), o = or(e, a), s = fr(e, a, o), c = [];
+	let a = i.filter((e) => e.from !== e.to), o = sr(e, a), s = pr(e, a, o), c = [];
 	for (let e of a) o.has(e.id) ? (r.add(e.id), c.push({
 		id: e.id,
 		from: e.to,
@@ -2630,8 +2690,8 @@ function ar(e, t) {
 		backEdges: r
 	};
 }
-function or(e, t) {
-	let n = /* @__PURE__ */ new Set(), r = sr(e, t), i = /* @__PURE__ */ new Map();
+function sr(e, t) {
+	let n = /* @__PURE__ */ new Set(), r = cr(e, t), i = /* @__PURE__ */ new Map();
 	r.forEach((e, t) => {
 		for (let n of e) i.set(n, t);
 	});
@@ -2645,11 +2705,11 @@ function or(e, t) {
 		t !== void 0 && o[t].push(e), n !== void 0 && o[n].push(e);
 	}
 	return r.forEach((e, t) => {
-		let r = cr(e, a[t], o[t]), i = e.length <= $n ? lr(r, a[t], o[t]) : r, s = new Map(i.map((e, t) => [e, t]));
+		let r = lr(e, a[t], o[t]), i = e.length <= er ? ur(r, a[t], o[t]) : r, s = new Map(i.map((e, t) => [e, t]));
 		for (let e of a[t]) s.get(e.from) > s.get(e.to) && n.add(e.id);
 	}), n;
 }
-function sr(e, t) {
+function cr(e, t) {
 	let n = /* @__PURE__ */ new Map();
 	for (let e of t) {
 		let t = n.get(e.from);
@@ -2688,7 +2748,7 @@ function sr(e, t) {
 	}
 	return c;
 }
-function cr(e, t, n) {
+function lr(e, t, n) {
 	let r = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map();
 	for (let e of n) a.set(e.from, (a.get(e.from) ?? 0) + 1), a.set(e.to, (a.get(e.to) ?? 0) - 1);
 	for (let t of e) r.set(t, /* @__PURE__ */ new Set()), i.set(t, /* @__PURE__ */ new Set());
@@ -2715,23 +2775,23 @@ function cr(e, t, n) {
 	}
 	return [...s, ...c.reverse()];
 }
-function lr(e, t, n) {
-	let r = e, i = ur(r, t, n), a = 0;
+function ur(e, t, n) {
+	let r = e, i = dr(r, t, n), a = 0;
 	for (let o = 0; o < 3; o++) {
 		let o = !1;
 		for (let s of e) {
 			let e = r.filter((e) => e !== s);
 			for (let c of [[...e, s], [s, ...e]]) {
-				if (a++ >= er) return r;
-				let e = ur(c, t, n);
-				dr(e, i) && (r = c, i = e, o = !0);
+				if (a++ >= tr) return r;
+				let e = dr(c, t, n);
+				fr(e, i) && (r = c, i = e, o = !0);
 			}
 		}
 		if (!o) break;
 	}
 	return r;
 }
-function ur(e, t, n) {
+function dr(e, t, n) {
 	let r = new Map(e.map((e, t) => [e, t])), i = t.map((e) => r.get(e.from) < r.get(e.to) ? {
 		from: e.from,
 		to: e.to
@@ -2751,16 +2811,16 @@ function ur(e, t, n) {
 		span: s
 	};
 }
-function dr(e, t) {
+function fr(e, t) {
 	return e.back === t.back ? e.span < t.span : e.back < t.back;
 }
-function fr(e, t, n) {
+function pr(e, t, n) {
 	let r = new Map(e.map((e, t) => [e.id, t])), i = Array(e.length).fill(0), a = /* @__PURE__ */ new Map();
 	for (let e of t) {
 		let t = r.get(n.has(e.id) ? e.to : e.from), o = r.get(n.has(e.id) ? e.from : e.to), s = a.get(t);
 		i[o]++, s === void 0 ? a.set(t, [o]) : s.push(o);
 	}
-	let o = new pr(), s = [];
+	let o = new mr(), s = [];
 	for (i.forEach((e, t) => {
 		e === 0 && o.push(t);
 	}); o.size > 0;) {
@@ -2770,7 +2830,7 @@ function fr(e, t, n) {
 	}
 	return s;
 }
-var pr = class {
+var mr = class {
 	items = [];
 	get size() {
 		return this.items.length;
@@ -2796,7 +2856,7 @@ var pr = class {
 		return e[r] = n, t;
 	}
 };
-function mr(e, t, n) {
+function hr(e, t, n) {
 	let r = /* @__PURE__ */ new Map();
 	for (let e of t) {
 		let t = r.get(e.to);
@@ -2807,9 +2867,9 @@ function mr(e, t, n) {
 		for (let i of r.get(t.id) ?? []) e = Math.max(e, n.get(i).layer + 1);
 		t.layer = e;
 	}
-	hr(e, t, n);
+	gr(e, t, n);
 }
-function hr(e, t, n) {
+function gr(e, t, n) {
 	let r = /* @__PURE__ */ new Map(), i = /* @__PURE__ */ new Map();
 	for (let e of t) {
 		r.set(e.to, (r.get(e.to) ?? 0) + 1);
@@ -2824,7 +2884,7 @@ function hr(e, t, n) {
 		a.layer = Math.max(a.layer, s - 1);
 	}
 }
-function gr(e, t, n) {
+function _r(e, t, n) {
 	let r = [], i = 0;
 	for (let a of e) {
 		let e = t.get(a.from), o = t.get(a.to), s = [], c = e.id, l = a.fromOffset ?? e.lead;
@@ -2835,8 +2895,8 @@ function gr(e, t, n) {
 				id: a,
 				real: !1,
 				depth: 0,
-				breadth: Zn,
-				lead: Zn / 2,
+				breadth: Qn,
+				lead: Qn / 2,
 				input: e.input,
 				layer: n,
 				order: 0,
@@ -2845,8 +2905,8 @@ function gr(e, t, n) {
 				from: c,
 				to: a,
 				fromOffset: l,
-				toOffset: Zn / 2
-			}), s.push(a), c = a, l = Zn / 2;
+				toOffset: Qn / 2
+			}), s.push(a), c = a, l = Qn / 2;
 		}
 		s.length > 0 && n.set(a.id, s), r.push({
 			from: c,
@@ -2857,24 +2917,24 @@ function gr(e, t, n) {
 	}
 	return r;
 }
-function _r(e, t) {
+function vr(e, t) {
 	let n = [];
 	for (let t of e.values()) {
 		for (; n.length <= t.layer;) n.push([]);
 		n[t.layer].push(t);
 	}
 	for (let e of n) e.sort((e, t) => e.input - t.input), e.forEach((e, t) => e.order = t);
-	let r = vr(t, !0), i = vr(t, !1);
-	for (let t = 0; t < Qn; t++) {
+	let r = yr(t, !0), i = yr(t, !1);
+	for (let t = 0; t < $n; t++) {
 		let a = t % 2 == 0;
 		for (let t = 1; t < n.length; t++) {
 			let o = n[a ? t : n.length - 1 - t];
-			yr(o, a ? r : i, e);
+			br(o, a ? r : i, e);
 		}
 	}
 	return n;
 }
-function vr(e, t) {
+function yr(e, t) {
 	let n = /* @__PURE__ */ new Map();
 	for (let r of e) {
 		let e = t ? r.to : r.from, i = t ? r.from : r.to, a = n.get(e);
@@ -2882,7 +2942,7 @@ function vr(e, t) {
 	}
 	return n;
 }
-function yr(e, t, n) {
+function br(e, t, n) {
 	let r = /* @__PURE__ */ new Map();
 	for (let i of e) {
 		let e = t.get(i.id) ?? [];
@@ -2890,33 +2950,33 @@ function yr(e, t, n) {
 	}
 	e.sort((e, t) => r.get(e.id) - r.get(t.id) || e.order - t.order), e.forEach((e, t) => e.order = t);
 }
-function br(e, t) {
-	if (e.length === 0) return tr;
+function xr(e, t) {
+	if (e.length === 0) return nr;
 	let n = e.map((e) => t ? e.height : e.width).sort((e, t) => e - t), r = n[Math.floor(n.length / 2)];
-	return Math.max(tr, Math.min(nr, Math.round(r * .75)));
-}
-function xr(e, t, n) {
-	let r = new Map(e.flat().map((e) => [e.id, e])), i = vr(t, !0), a = vr(t, !1), o = Sr(e, i, r), s = Tr(t, r), c = [];
-	for (let t of [!1, !0]) for (let l of [!1, !0]) {
-		let u = (t ? [...e].reverse() : [...e]).map((e) => l ? [...e].reverse() : [...e]);
-		c.push(Dr(u, Er(u, t ? a : i, o, s, r), n, l));
-	}
-	let l = Or(e, c);
-	for (let t of e) for (let e of t) e.line = l.get(e.id);
+	return Math.max(nr, Math.min(rr, Math.round(r * .75)));
 }
 function Sr(e, t, n) {
+	let r = new Map(e.flat().map((e) => [e.id, e])), i = yr(t, !0), a = yr(t, !1), o = Cr(e, i, r), s = Er(t, r), c = [];
+	for (let t of [!1, !0]) for (let l of [!1, !0]) {
+		let u = (t ? [...e].reverse() : [...e]).map((e) => l ? [...e].reverse() : [...e]);
+		c.push(Or(u, Dr(u, t ? a : i, o, s, r), n, l));
+	}
+	let l = kr(e, c);
+	for (let t of e) for (let e of t) e.line = l.get(e.id);
+}
+function Cr(e, t, n) {
 	let r = /* @__PURE__ */ new Set();
 	for (let i = 1; i < e.length; i++) {
 		let a = e[i], o = 0, s = 0;
 		for (let c = 0; c < a.length; c++) {
-			let l = Cr(a[c], t, n);
+			let l = wr(a[c], t, n);
 			if (c !== a.length - 1 && l === void 0) continue;
 			let u = l ?? e[i - 1].length - 1;
 			for (; s <= c; s++) {
-				let e = a[s], i = Cr(e, t, n);
+				let e = a[s], i = wr(e, t, n);
 				for (let a of t.get(e.id) ?? []) {
 					let t = n.get(a).order;
-					(t < o || t > u) && t !== i && r.add(wr(a, e.id));
+					(t < o || t > u) && t !== i && r.add(Tr(a, e.id));
 				}
 			}
 			o = u;
@@ -2924,23 +2984,23 @@ function Sr(e, t, n) {
 	}
 	return r;
 }
-function Cr(e, t, n) {
+function wr(e, t, n) {
 	if (e.real) return;
 	let r = n.get((t.get(e.id) ?? [])[0]);
 	return r === void 0 || r.real ? void 0 : r.order;
 }
-function wr(e, t) {
+function Tr(e, t) {
 	return `${e}\u0000${t}`;
 }
-function Tr(e, t) {
+function Er(e, t) {
 	let n = /* @__PURE__ */ new Map();
 	for (let r of e) {
-		let e = wr(r.from, r.to);
+		let e = Tr(r.from, r.to);
 		n.has(e) || n.set(e, r.fromOffset - t.get(r.from).lead - (r.toOffset - t.get(r.to).lead));
 	}
 	return n;
 }
-function Er(e, t, n, r, i) {
+function Dr(e, t, n, r, i) {
 	let a = /* @__PURE__ */ new Map(), o = /* @__PURE__ */ new Map(), s = /* @__PURE__ */ new Map();
 	for (let t of e) t.forEach((e, t) => {
 		a.set(e.id, e.id), o.set(e.id, 0), s.set(e.id, t);
@@ -2952,7 +3012,7 @@ function Er(e, t, n, r, i) {
 			for (let t of /* @__PURE__ */ new Set([Math.floor((c.length - 1) / 2), Math.ceil((c.length - 1) / 2)])) {
 				let u = c[t];
 				if (u === void 0) continue;
-				let d = i.get(u).layer < l.layer, f = d ? wr(u, l.id) : wr(l.id, u);
+				let d = i.get(u).layer < l.layer, f = d ? Tr(u, l.id) : Tr(l.id, u);
 				if (!n.has(f) && e < s.get(u)) {
 					a.set(l.id, a.get(u)), o.set(l.id, o.get(u) + (d ? r.get(f) : -r.get(f))), e = s.get(u);
 					break;
@@ -2965,7 +3025,7 @@ function Er(e, t, n, r, i) {
 		shift: o
 	};
 }
-function Dr(e, t, n, r) {
+function Or(e, t, n, r) {
 	let { root: i } = t, a = (e) => r ? -t.shift.get(e.id) : t.shift.get(e.id), o = /* @__PURE__ */ new Map(), s = /* @__PURE__ */ new Map(), c = /* @__PURE__ */ new Map();
 	for (let t of e) {
 		for (let e of t) s.set(i.get(e.id), s.get(i.get(e.id)) ?? 0), c.set(i.get(e.id), Math.min(c.get(i.get(e.id)) ?? 0, a(e)));
@@ -2993,7 +3053,7 @@ function Dr(e, t, n, r) {
 	for (let t of e) for (let e of t) d.set(e.id, (r ? -1 : 1) * (l.get(i.get(e.id)) + a(e)));
 	return d;
 }
-function Or(e, t) {
+function kr(e, t) {
 	let n = e.flat(), r = t.map((e) => {
 		let t = Infinity, r = -Infinity;
 		for (let i of n) {
@@ -3006,15 +3066,17 @@ function Or(e, t) {
 }
 //#endregion
 //#region src/graph/layered-sheet.ts
-var kr = .35, Ar = 12, jr = .6, Mr = class {
+var Ar = {
+	from: 0,
+	to: 0
+}, jr = .35, Mr = 12, Nr = .6, Pr = class {
 	services;
 	host;
 	options;
 	backEdges = /* @__PURE__ */ new Set();
 	pending = /* @__PURE__ */ new Set();
+	settling = /* @__PURE__ */ new Set();
 	placing = !1;
-	viewKept;
-	placedOnce = !1;
 	turned = !1;
 	laidAt = /* @__PURE__ */ new Map();
 	routes = /* @__PURE__ */ new Map();
@@ -3024,10 +3086,10 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 	waiting = null;
 	placements = null;
 	constructor(e, t, n) {
-		this.services = e, this.host = t, this.options = n, this.viewKept = e.context.store.readJson(e.root, "view") !== null, this.laidFor = this.layoutFor;
+		this.services = e, this.host = t, this.options = n, this.laidFor = this.layoutFor;
 	}
 	get direction() {
-		let e = this.services.root.getAttribute(Ht);
+		let e = this.services.root.getAttribute(Ut);
 		return e === "down" || e === "left" || e === "up" ? e : "right";
 	}
 	get document() {
@@ -3037,7 +3099,7 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 		return `${this.direction}:${this.host.layoutKey()}`;
 	}
 	structureChanged() {
-		this.backEdges = ir(this.host.nodeIds(), this.host.links());
+		this.backEdges = ar(this.host.nodeIds(), this.host.links());
 	}
 	isBack(e) {
 		return this.backEdges.has(e);
@@ -3059,6 +3121,14 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 			}, e.nodes.push(r), n.set(t, r), this.pending.add(t), this.placements = null), r;
 		});
 	}
+	placeAt(e, t) {
+		this.document.nodes.push({
+			id: e,
+			x: t.x,
+			y: t.y,
+			pinned: !1
+		}), this.placements = null, this.settling.add(e);
+	}
 	edges() {
 		this.lanes = null, this.shifts = null, this.placements = null;
 		let e = this.document, t = new Map(e.edges.map((e) => [e.id, e]));
@@ -3075,36 +3145,48 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 			this.laidFor = this.layoutFor, this.turned = !0;
 			for (let e of this.host.nodeIds()) this.pending.add(e);
 		}
-		this.pending.size === 0 || this.placing || (this.placing = !0, queueMicrotask(() => this.placePending()));
+		this.pending.size === 0 && this.settling.size === 0 || this.placing || (this.placing = !0, queueMicrotask(() => this.placePending()));
 	}
 	placePending() {
 		if (this.placing = !1, this.services.root.offsetWidth === 0) {
 			this.waitForSize();
 			return;
 		}
-		let e = this.items();
-		if (this.pending.size > 0 && this.pending.size < e.length && e.every((e) => this.pending.has(e.id) || this.standsWhereLaid(e.id))) for (let t of e) this.pending.add(t.id);
-		let t = e.filter((e) => this.pending.has(e.id));
-		if (t.length === 0) return;
-		let n = this.layout(this.measure()), r = e.filter((e) => !this.pending.has(e.id)).map((e) => this.services.nodeRect(e.id)).filter((e) => e !== null), i = r.length === 0, a = t.length === e.length;
-		if (a) this.laidAt = n.positions, this.routes = n.routes;
+		let e = this.settleAdded(), t = this.items();
+		if (this.pending.size > 0 && this.pending.size < t.length && t.every((e) => this.pending.has(e.id) || this.standsWhereLaid(e.id))) for (let e of t) this.pending.add(e.id);
+		let n = t.filter((e) => this.pending.has(e.id));
+		if (n.length === 0) {
+			e && this.services.draw();
+			return;
+		}
+		let r = this.layout(this.measure()), i = t.filter((e) => !this.pending.has(e.id)).map((e) => this.services.nodeRect(e.id)).filter((e) => e !== null), a = i.length === 0, o = n.length === t.length;
+		if (o) this.laidAt = r.positions, this.routes = r.routes;
 		else for (let e of this.host.links()) (this.pending.has(e.from) || this.pending.has(e.to)) && this.routes.delete(e.id);
-		for (let e of t) {
-			let t = n.positions.get(e.id), i = this.services.nodeRect(e.id);
-			if (t === void 0 || i === null) continue;
-			let o = {
+		for (let e of n) {
+			let t = r.positions.get(e.id), n = this.services.nodeRect(e.id);
+			if (t === void 0 || n === null) continue;
+			let a = {
 				x: t.x,
 				y: t.y,
-				width: i.width,
-				height: i.height
+				width: n.width,
+				height: n.height
 			};
-			for (; r.some((e) => $e(o, e));) this.direction === "down" ? o.x += o.width + this.options.nodeGap : o.y += o.height + this.options.nodeGap;
-			e.x = o.x, e.y = o.y, r.push(o), a || this.laidAt.set(e.id, {
-				x: o.x,
-				y: o.y
+			for (; i.some((e) => T(a, e));) this.direction === "down" ? a.x += a.width + this.options.nodeGap : a.y += a.height + this.options.nodeGap;
+			e.x = a.x, e.y = a.y, i.push(a), o || this.laidAt.set(e.id, {
+				x: a.x,
+				y: a.y
 			});
 		}
-		this.pending.clear(), this.services.draw(), (i || this.turned) && (this.placedOnce || !this.viewKept || !this.services.view.showsAnyItem()) && this.services.view.fit(), this.placedOnce = !0, this.turned = !1;
+		this.pending.clear(), this.services.draw(), (a || this.turned) && this.services.view.fitSheet(), this.turned = !1;
+	}
+	settleAdded() {
+		if (this.settling.size === 0) return !1;
+		for (let e of this.document.nodes) {
+			if (!this.settling.has(e.id)) continue;
+			let t = this.services.snapPlace(e.id, e);
+			e.x = t.x, e.y = t.y;
+		}
+		return this.settling.clear(), !0;
 	}
 	waitForSize() {
 		this.waiting === null && (this.waiting = this.services.context.observeSize(this.services.root, () => {
@@ -3119,8 +3201,8 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 		if (this.host.nodeBox !== void 0) for (let n of e) t = Math.max(t, this.services.nodeExtent(n.id)?.width ?? 0);
 		let n = e.map((e) => ({
 			id: e.id,
-			...this.box(e.width, e.height, t)
-		})), r = rr(n, this.host.links(), {
+			...this.box(e.id, e.width, e.height, t)
+		})), r = ir(n, this.host.links(), {
 			direction: this.direction,
 			nodeGap: this.options.nodeGap,
 			layerGap: this.options.layerGap
@@ -3158,11 +3240,11 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 			};
 		});
 	}
-	box(e, t, n) {
+	box(e, t, n, r) {
 		return this.host.nodeBox === void 0 ? {
-			width: e,
-			height: t
-		} : this.host.nodeBox(e, t, n);
+			width: t,
+			height: n
+		} : this.host.nodeBox(e, t, n, r);
 	}
 	arrange(e, t) {
 		let n = this.layout(this.host.nodeIds().map((t) => ({
@@ -3204,7 +3286,7 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 				target: n + 2 === a.length ? t.to : `${t.id}#${n + 1}`
 			});
 		}
-		let t = he(e);
+		let t = ge(e);
 		return this.direction === "left" || this.direction === "up" ? new Map([...t].map(([e, t]) => [e, -t])) : t;
 	}
 	endsOf(e) {
@@ -3252,7 +3334,7 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 		for (let [i, a] of e) {
 			let e = a.length > 1 && this.host.spreadsEnds(i) ? this.services.nodeRect(i) : null;
 			if (e === null) continue;
-			let o = [...a].sort((e, t) => e.across - t.across), s = o.findIndex((e) => e.level), c = s >= 0 ? s : (o.length - 1) / 2, l = Math.max(c, o.length - 1 - c), u = Math.min(Ar, (r ? e.width : e.height) * jr / (2 * l));
+			let o = [...a].sort((e, t) => e.across - t.across), s = o.findIndex((e) => e.level), c = s >= 0 ? s : (o.length - 1) / 2, l = Math.max(c, o.length - 1 - c), u = Math.min(Mr, (r ? e.width : e.height) * Nr / (2 * l));
 			o.forEach((e, r) => {
 				t.get(e.id)[n] = (r - c) * u;
 			});
@@ -3261,7 +3343,10 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 	middleEndsOf(e) {
 		let t = this.services.nodeRect(e.from), n = this.services.nodeRect(e.to);
 		if (t === null || n === null) return null;
-		let r = this.direction, i = this.backEdges.has(e.id), a = e.from === e.to, { start: o, end: s } = Nr(t, n, r, i, a);
+		let r = this.direction, i = this.backEdges.has(e.id), a = e.from === e.to, { start: o, end: s } = Fr(t, n, r, i, a, this.host.footRoom === void 0 ? Ar : {
+			from: this.host.footRoom(e.from),
+			to: this.host.footRoom(e.to)
+		});
 		return {
 			from: o,
 			to: s,
@@ -3288,61 +3373,61 @@ var kr = .35, Ar = 12, jr = .6, Mr = class {
 		}), this.placements.byId.get(e);
 	}
 };
-function Nr(e, t, n, r, i) {
-	let a = n === "down" || n === "up", o = n === "left" || n === "up";
+function Fr(e, t, n, r, i, a = Ar) {
+	let o = n === "down" || n === "up", s = n === "left" || n === "up", c = e.y + e.height + a.from, l = t.y + t.height + a.to;
 	if (!r) return {
-		start: a ? {
+		start: o ? {
 			x: e.x + e.width / 2,
-			y: o ? e.y : e.y + e.height
+			y: s ? e.y : c
 		} : {
-			x: o ? e.x : e.x + e.width,
+			x: s ? e.x : e.x + e.width,
 			y: e.y + e.height / 2
 		},
-		end: a ? {
+		end: o ? {
 			x: t.x + t.width / 2,
-			y: o ? t.y + t.height : t.y
+			y: s ? l : t.y
 		} : {
-			x: o ? t.x + t.width : t.x,
+			x: s ? t.x + t.width : t.x,
 			y: t.y + t.height / 2
 		}
 	};
-	let s = i ? !o : o, c = i ? o : !o;
+	let u = i ? !s : s, d = i ? s : !s;
 	return {
-		start: a ? {
-			x: e.x + e.width * kr,
-			y: s ? e.y + e.height : e.y
+		start: o ? {
+			x: e.x + e.width * jr,
+			y: u ? c : e.y
 		} : {
-			x: s ? e.x + e.width : e.x,
-			y: e.y + e.height * kr
+			x: u ? e.x + e.width : e.x,
+			y: e.y + e.height * jr
 		},
-		end: a ? {
-			x: t.x + t.width * kr,
-			y: c ? t.y + t.height : t.y
+		end: o ? {
+			x: t.x + t.width * jr,
+			y: d ? l : t.y
 		} : {
-			x: c ? t.x + t.width : t.x,
-			y: t.y + t.height * kr
+			x: d ? t.x + t.width : t.x,
+			y: t.y + t.height * jr
 		}
 	};
 }
 //#endregion
 //#region src/graph/layered-kind.ts
-var Pr = "data-ui-graph-nodes", Fr = 32, Ir = 34, Lr = 96;
-function Rr(e, t, n) {
-	let r = Math.max(e, Lr, n);
+var Ir = "data-ui-graph-nodes", Lr = 32, Rr = 96;
+function zr(e, t, n) {
+	let r = Math.max(e, Rr, n);
 	return {
 		width: r,
-		height: t + Ir,
+		height: t + 38,
 		anchor: {
 			x: r / 2,
 			y: t / 2
 		}
 	};
 }
-var zr = {
+var Br = {
 	name: "layered",
-	readDocument: zn,
-	create: (e) => new Br(e)
-}, Br = class {
+	readDocument: Bn,
+	create: (e) => new Vr(e)
+}, Vr = class {
 	snapsByCenter = !0;
 	services;
 	editing;
@@ -3357,23 +3442,25 @@ var zr = {
 	links = [];
 	linkById = /* @__PURE__ */ new Map();
 	constructor(e) {
-		let t = C(e.root.getAttribute(Pr));
-		this.services = e, this.server = Array.isArray(t) ? t.map(Wn).filter((e) => e !== null) : [], this.editing = new qn(e, {
+		let t = S(e.root.getAttribute(Ir));
+		this.services = e, this.server = Array.isArray(t) ? t.map(Gn).filter((e) => e !== null) : [], this.editing = new Jn(e, {
 			nodes: () => this.nodes,
 			serverNodes: () => this.server,
 			node: (e) => this.nodeById.get(e),
 			serverNode: (e) => this.serverById.get(e),
-			link: (e) => this.linkById.get(e)
-		}), this.sheet = new Mr(e, {
+			link: (e) => this.linkById.get(e),
+			placeAt: (e, t) => this.sheet.placeAt(e, t)
+		}), this.sheet = new Pr(e, {
 			nodeIds: () => this.nodes.map((e) => e.id),
 			links: () => this.links,
 			layoutKey: () => this.shape,
-			nodeBox: (e, t, n) => this.shape === "icon" ? Rr(e, t, n) : {
-				width: e,
-				height: t
+			nodeBox: (e, t, n, r) => this.shapeOf(e) === "icon" ? zr(t, n, r) : {
+				width: t,
+				height: n
 			},
-			spreadsEnds: (e) => (this.nodeById.get(e)?.shape ?? this.shape) === "card"
-		}, { nodeGap: Fr }), this.refresh();
+			spreadsEnds: (e) => this.shapeOf(e) === "card",
+			footRoom: (e) => this.shapeOf(e) === "icon" ? 38 : 0
+		}, { nodeGap: Lr }), this.refresh();
 	}
 	get editable() {
 		return !this.services.settings.readOnly && this.services.root.hasAttribute("data-ui-graph-edit-structure");
@@ -3382,14 +3469,17 @@ var zr = {
 		return this.services.documentState.document;
 	}
 	get shape() {
-		return Gn(this.services.root.getAttribute("data-ui-graph-node-shape")) ?? "card";
+		return Kn(this.services.root.getAttribute("data-ui-graph-node-shape")) ?? "card";
+	}
+	shapeOf(e) {
+		return this.nodeById.get(e)?.shape ?? this.shape;
 	}
 	applyChange(e) {
-		Jn(this.server, e, Wn), this.serverVersion++, this.services.draw();
+		Yn(this.server, e, Gn), this.serverVersion++, this.services.draw();
 	}
 	refresh() {
 		let e = this.document.draft, t = `${this.serverVersion}|${this.services.documentState.version}`;
-		t !== this.structureKey && (this.structureKey = t, this.serverById = new Map(this.server.map((e) => [e.id, e])), this.nodes = Hn(this.server, e), this.conflicts = Un(this.server, e), this.nodeById = new Map(this.nodes.map((e) => [e.id, e])), this.links = Kn(this.nodes), this.linkById = new Map(this.links.map((e) => [e.id, e])), this.sheet.structureChanged());
+		t !== this.structureKey && (this.structureKey = t, this.serverById = new Map(this.server.map((e) => [e.id, e])), this.nodes = Un(this.server, e), this.conflicts = Wn(this.server, e), this.nodeById = new Map(this.nodes.map((e) => [e.id, e])), this.links = qn(this.nodes), this.linkById = new Map(this.links.map((e) => [e.id, e])), this.sheet.structureChanged());
 	}
 	items() {
 		return this.refresh(), this.sheet.items();
@@ -3410,9 +3500,10 @@ var zr = {
 			tooltip: null,
 			links: []
 		};
-		return On(e, t, {
+		return kn(e, t, {
 			icons: this.services.context.icons,
 			tooltips: this.services.context.tooltips,
+			urls: this.services.context.urls,
 			shape: this.shape,
 			connectable: this.editable,
 			conflict: this.conflicts.get(t.id) ?? null
@@ -3436,7 +3527,7 @@ var zr = {
 		};
 	}
 	related(e) {
-		return mn(this.links, e);
+		return hn(this.links, e);
 	}
 	edgeColor() {
 		return "var(--ui-text-muted)";
@@ -3448,7 +3539,7 @@ var zr = {
 		return !1;
 	}
 	pointerDown(e, t) {
-		let n = t.closest(`[${bn}]`);
+		let n = t.closest(`[${xn}]`);
 		return n === null || !this.editable ? !1 : this.editing.beginLink(n) ?? !0;
 	}
 	chrome() {
@@ -3461,7 +3552,7 @@ var zr = {
 		return null;
 	}
 	remove(e, t) {
-		this.editable && (this.editing.removeLinks(t), this.editing.removeNodes(e));
+		return this.editable ? (this.editing.removeLinks(t), this.editing.removeNodes(e), !0) : !1;
 	}
 	canEditItems() {
 		return this.editable;
@@ -3479,7 +3570,7 @@ var zr = {
 		return this.sheet.arrange(e, t);
 	}
 	runCommand(e, t) {
-		if (e === "graph:take-server" || e === "graph:keep-mine") return t?.kind === "node" && !this.services.settings.readOnly && Fn(this.document.draft.nodes, t.id, this.serverById.get(t.id), e === "graph:keep-mine") && this.services.documentState.edited(), !0;
+		if (e === "graph:take-server" || e === "graph:keep-mine") return t?.kind === "node" && !this.services.settings.readOnly && In(this.document.draft.nodes, t.id, this.serverById.get(t.id), e === "graph:keep-mine") && this.services.documentState.edited(), !0;
 		if (!this.editable) return e === "graph:add-node" || e === "graph:caption" || e === "graph:delete-edge";
 		switch (e) {
 			case "graph:add-node": return this.editing.addNode(), !0;
@@ -3500,7 +3591,7 @@ var zr = {
 };
 //#endregion
 //#region src/nodes/layout.ts
-function Vr(e, t) {
+function Hr(e, t) {
 	let n = t.fallback ?? {
 		width: 220,
 		height: 120
@@ -3521,17 +3612,17 @@ function Vr(e, t) {
 		toOffset: t.pinOffset?.(e.toNode, e.toPin, "in") ?? void 0
 	})), l = t.only !== void 0, u = Infinity, d = Infinity;
 	for (let e of i) u = Math.min(u, e.x), d = Math.min(d, e.y);
-	let f = rr(s, c, {
+	let f = ir(s, c, {
 		direction: "right",
 		layerGap: r,
-		layerGaps: (e) => Ur(o, e, r),
+		layerGaps: (e) => Wr(o, e, r),
 		nodeGap: t.rowGap ?? 32,
 		originX: l ? u : 0,
 		originY: l ? d : 0
 	}).positions;
-	return (t.gridSize ?? 0) > 0 && Hr(f, s, c, t.gridSize), f;
+	return (t.gridSize ?? 0) > 0 && Ur(f, s, c, t.gridSize), f;
 }
-function Hr(e, t, n, r) {
+function Ur(e, t, n, r) {
 	let i = new Map(t.map((e) => [e.id, e.height])), a = new Map(t.map((e, t) => [e.id, t])), o = new Map(t.map((e) => [e.id, e.id])), s = (e) => {
 		let t = o.get(e);
 		return t === e ? e : s(t);
@@ -3555,7 +3646,7 @@ function Hr(e, t, n, r) {
 		});
 	}
 }
-function Ur(e, t, n) {
+function Wr(e, t, n) {
 	let r = e.filter((e) => t.get(e.toNode) > t.get(e.fromNode)), i = /* @__PURE__ */ new Map();
 	for (let e of r) i.set(`${e.fromNode}:${e.fromPin}`, (i.get(`${e.fromNode}:${e.fromPin}`) ?? 0) + 1);
 	let a = /* @__PURE__ */ new Map();
@@ -3565,8 +3656,8 @@ function Ur(e, t, n) {
 	}
 	return new Map([...a].map(([e, t]) => [e, Math.max(n, 28 + (t.size - 1) * 14)]));
 }
-var Wr = "array", Gr = "array:", Kr = "text", qr = "image";
-function Jr() {
+var Gr = "array", Kr = "array:", qr = "text", Jr = "image";
+function Yr() {
 	return {
 		nodes: [],
 		edges: [],
@@ -3575,20 +3666,20 @@ function Jr() {
 		parameters: []
 	};
 }
-function Yr(e) {
+function Xr(e) {
 	let t = e;
-	return typeof t != "object" || !t ? Jr() : {
-		nodes: (t.nodes ?? []).map(Xr),
-		edges: (t.edges ?? []).map(Zr),
-		groups: (t.groups ?? []).map(ue),
-		key: se(t),
+	return typeof t != "object" || !t ? Yr() : {
+		nodes: (t.nodes ?? []).map(Zr),
+		edges: (t.edges ?? []).map(Qr),
+		groups: (t.groups ?? []).map(de),
+		key: ce(t),
 		parameters: (t.parameters ?? []).map((e) => ({
 			node: String(e.node),
 			pin: String(e.pin)
 		}))
 	};
 }
-function Xr(e) {
+function Zr(e) {
 	return {
 		id: String(e.id),
 		type: String(e.type),
@@ -3599,34 +3690,34 @@ function Xr(e) {
 		pinned: e.pinned === !0,
 		collapsed: e.collapsed === !0,
 		values: { ...e.values },
-		width: ce(e.width),
-		height: ce(e.height)
+		width: le(e.width),
+		height: le(e.height)
 	};
 }
-function Zr(e) {
+function Qr(e) {
 	return {
 		id: String(e.id),
 		fromNode: String(e.fromNode),
 		fromPin: String(e.fromPin),
 		toNode: String(e.toNode),
 		toPin: String(e.toPin),
-		points: le(e.points)
+		points: ue(e.points)
 	};
 }
-function Qr(e) {
-	return e === Wr || e.startsWith(Gr);
-}
 function $r(e) {
-	return e === Kr || e === qr;
+	return e === Gr || e.startsWith(Kr);
 }
-function ei(e, t) {
-	return e.length === 0 || t.length === 0 ? !1 : e === t || e === "any" || t === "any" || $r(e) && $r(t) ? !0 : Qr(e) && Qr(t) && (e === Wr || t === Wr);
+function ei(e) {
+	return e === qr || e === Jr;
 }
-function ti(e, t, n) {
+function ti(e, t) {
+	return e.length === 0 || t.length === 0 ? !1 : e === t || e === "any" || t === "any" || ei(e) && ei(t) ? !0 : $r(e) && $r(t) && (e === Gr || t === Gr);
+}
+function ni(e, t, n) {
 	let r = {};
 	for (let t of e.inputs) t.editor !== "None" && t.defaultValue !== void 0 && t.defaultValue !== null && (r[t.name] = t.defaultValue);
 	return {
-		id: w("n"),
+		id: C("n"),
 		type: e.key,
 		x: t,
 		y: n,
@@ -3636,54 +3727,54 @@ function ti(e, t, n) {
 		values: r
 	};
 }
-function ni(e) {
+function ri(e) {
 	return e.hidden !== !0 && e.editor !== "None" && e.editor !== "Image" && e.editor !== "List" && e.editor !== "Display";
 }
-function ri(e, t, n, r) {
+function ii(e, t, n, r) {
 	let i = e.nodes.find((e) => e.id === n), a = i === void 0 ? void 0 : t.get(i.type), o = I(a, r, !1);
-	return i !== void 0 && a !== void 0 && o !== void 0 && ni(o) && F(e, n, r) === void 0 && ui(o, i, a);
+	return i !== void 0 && a !== void 0 && o !== void 0 && ri(o) && F(e, n, r) === void 0 && di(o, i, a);
 }
-function ii(e, t, n) {
+function ai(e, t, n) {
 	let r = e.parameters.filter((e) => e.node !== t || e.pin !== n), i = r.length !== e.parameters.length;
 	return e.parameters = r, i;
 }
-function ai(e, t, n, r, i) {
-	let a = e.nodes.find((e) => e.id === n), o = I(a === void 0 ? void 0 : t.get(a.type), r, i === "out");
-	return a === void 0 || o === void 0 ? !1 : e.edges.some((e) => si(e, n, r, i)) ? !0 : i === "in" && ci(o) && JSON.stringify(a.values[r] ?? o.defaultValue ?? null) !== JSON.stringify(o.defaultValue ?? null);
-}
 function oi(e, t, n, r, i) {
 	let a = e.nodes.find((e) => e.id === n), o = I(a === void 0 ? void 0 : t.get(a.type), r, i === "out");
-	a !== void 0 && o !== void 0 && (e.edges = e.edges.filter((e) => !si(e, n, r, i)), i === "in" && ci(o) && (a.values[r] = o.defaultValue ?? null));
+	return a === void 0 || o === void 0 ? !1 : e.edges.some((e) => ci(e, n, r, i)) ? !0 : i === "in" && li(o) && JSON.stringify(a.values[r] ?? o.defaultValue ?? null) !== JSON.stringify(o.defaultValue ?? null);
 }
-function si(e, t, n, r) {
+function si(e, t, n, r, i) {
+	let a = e.nodes.find((e) => e.id === n), o = I(a === void 0 ? void 0 : t.get(a.type), r, i === "out");
+	a !== void 0 && o !== void 0 && (e.edges = e.edges.filter((e) => !ci(e, n, r, i)), i === "in" && li(o) && (a.values[r] = o.defaultValue ?? null));
+}
+function ci(e, t, n, r) {
 	return r === "in" ? e.toNode === t && e.toPin === n : e.fromNode === t && e.fromPin === n;
 }
-function ci(e) {
+function li(e) {
 	return e.editor !== "None" && e.editor !== "Display";
 }
 function F(e, t, n) {
 	return e.edges.find((e) => e.toNode === t && e.toPin === n);
 }
-function li(e, t, n) {
+function ui(e, t, n) {
 	return e.edges.filter((e) => e.toNode === t && e.toPin === n);
 }
-function ui(e, t, n) {
+function di(e, t, n) {
 	if (e.hidden === !0) return !1;
 	let r = e.visibleWhen ?? "";
 	if (r.length === 0) return !0;
-	let i = di(t.values, n, r), a = e.visibleValues ?? [];
-	return a.length > 0 ? a.some((e) => e === fi(i)) : i != null && i !== !1 && fi(i).length > 0;
+	let i = fi(t.values, n, r), a = e.visibleValues ?? [];
+	return a.length > 0 ? a.some((e) => e === pi(i)) : i != null && i !== !1 && pi(i).length > 0;
 }
-function di(e, t, n) {
+function fi(e, t, n) {
 	return e[n] ?? t.inputs.find((e) => e.name === n)?.defaultValue;
 }
-function fi(e) {
+function pi(e) {
 	return e == null ? "" : String(e);
 }
 function I(e, t, n) {
 	return (n ? e?.outputs : e?.inputs)?.find((e) => e.name === t);
 }
-function L(e, t, n, r, i = /* @__PURE__ */ new Set()) {
+function mi(e, t, n, r, i = /* @__PURE__ */ new Set()) {
 	let a = `${n}:${r}`;
 	if (i.has(a)) return "any";
 	i.add(a);
@@ -3691,14 +3782,14 @@ function L(e, t, n, r, i = /* @__PURE__ */ new Set()) {
 	if (c === void 0) return "any";
 	if (c.typeOf === null || c.typeOf === void 0 || c.typeOf.length === 0) return c.type;
 	let l = F(e, n, c.typeOf);
-	return l === void 0 ? I(s, c.typeOf, !1)?.type ?? "any" : L(e, t, l.fromNode, l.fromPin, i);
+	return l === void 0 ? I(s, c.typeOf, !1)?.type ?? "any" : mi(e, t, l.fromNode, l.fromPin, i);
 }
-function pi(e, t, n, r) {
-	if (r.type === qr) return !0;
+function hi(e, t, n, r) {
+	if (r.type === Jr) return !0;
 	let i = F(e, n, r.name);
-	return i !== void 0 && L(e, t, i.fromNode, i.fromPin) === qr;
+	return i !== void 0 && mi(e, t, i.fromNode, i.fromPin) === Jr;
 }
-function mi(e, t) {
+function gi(e, t) {
 	let n = e.nodes.filter((e) => t.has(e.id)), r = e.edges.filter((e) => t.has(e.fromNode) && t.has(e.toNode));
 	return {
 		nodes: n.map((e) => ({
@@ -3711,11 +3802,11 @@ function mi(e, t) {
 		}))
 	};
 }
-function hi(e, t, n) {
+function _i(e, t, n) {
 	let r = /* @__PURE__ */ new Map();
 	return {
 		nodes: e.nodes.map((e) => {
-			let i = w("n");
+			let i = C("n");
 			return r.set(e.id, i), {
 				...e,
 				id: i,
@@ -3726,7 +3817,7 @@ function hi(e, t, n) {
 		}),
 		edges: e.edges.map((e) => ({
 			...e,
-			id: w("e"),
+			id: C("e"),
 			fromNode: r.get(e.fromNode) ?? e.fromNode,
 			toNode: r.get(e.toNode) ?? e.toNode,
 			points: e.points.map((e) => ({
@@ -3737,50 +3828,85 @@ function hi(e, t, n) {
 	};
 }
 //#endregion
-//#region src/nodes/display.ts
-var gi = "$picture", _i = "ui.graph.more", vi = "✓", yi = "✕";
-function bi(e, t) {
-	if (e == null || e === "") return R(t.empty, "ui-graph__display-empty");
-	if (typeof e == "string") return t.picture === !0 && wi(e, t) ? Ti(e, null, null) : R(t.moment(e) ?? e, "ui-graph__display-text");
-	if (typeof e == "number") return R(t.number(e), "ui-graph__display-number");
-	if (typeof e == "bigint") return R(String(e), "ui-graph__display-number");
-	if (typeof e == "boolean") return R(e ? vi : yi, "ui-graph__display-number");
-	if (Array.isArray(e)) return e.length === 0 ? R(t.empty, "ui-graph__display-empty") : Ei(e, t);
-	let n = Si(e);
-	if (n !== null) return Ci(n, t);
-	let r = xi(e);
-	return r === null ? typeof e == "object" ? ki(e, t) : R(String(e), "ui-graph__display-text") : R(t.more(r), "ui-graph__display-empty");
+//#region src/canvas/side-panel.ts
+var vi = `[${h.collapseToggle}]`, yi = h.collapsed, bi = "folded", xi = "open", Si = "--ui-graph-side-folded";
+function Ci(e, t, n) {
+	wi(e ?? t, n)?.focus({ preventScroll: !0 });
 }
-function xi(e) {
+function wi(e, t) {
+	return e === null || e.tabIndex >= 0 ? e : t.first(e);
+}
+var Ti = class {
+	store;
+	root;
+	panel;
+	slot;
+	foldedByDefault;
+	constructor(e, t, n, r) {
+		this.store = e, this.root = t, this.panel = n, this.slot = r, this.foldedByDefault = n !== null && (n.hasAttribute(yi) || Ei(n));
+		let i = e.read(t, r), a = i === bi || i !== xi && this.foldedByDefault;
+		n !== null && a !== n.hasAttribute(yi) && (n.toggleAttribute(yi, a), n.querySelector(vi)?.setAttribute("aria-expanded", a ? "false" : "true"));
+	}
+	press(e) {
+		if (this.panel === null || !this.panel.contains(e) || e.closest(vi) === null) return !1;
+		let t = this.panel.hasAttribute(yi);
+		return this.store.write(this.root, this.slot, t === this.foldedByDefault ? null : t ? bi : xi), !0;
+	}
+};
+function Ei(e) {
+	return getComputedStyle(e).getPropertyValue(Si).trim() === "1";
+}
+//#endregion
+//#region src/nodes/display.ts
+var Di = "$picture", Oi = "ui.graph.more", ki = "✓", Ai = "✕", ji = "ui-graph__display--picture";
+function Mi(e, t, n) {
+	let r = Ni(t, n);
+	e.replaceChildren(r), e.classList.toggle(ji, r.classList.contains("ui-graph__display-image") && !r.classList.contains("ui-graph__display-image--sized"));
+}
+function Ni(e, t) {
+	if (e == null || e === "") return L(t.empty, "ui-graph__display-empty");
+	if (typeof e == "string") return t.picture === !0 && Li(e, t) ? Ri(e, null, null) : L(t.moment(e) ?? e, "ui-graph__display-text");
+	if (typeof e == "number") return L(t.number(e), "ui-graph__display-number");
+	if (typeof e == "bigint") return L(String(e), "ui-graph__display-number");
+	if (typeof e == "boolean") return L(e ? ki : Ai, "ui-graph__display-number");
+	if (Array.isArray(e)) return e.length === 0 ? L(t.empty, "ui-graph__display-empty") : zi(e, t);
+	let n = Fi(e);
+	if (n !== null) return Ii(n, t);
+	let r = Pi(e);
+	return r === null ? typeof e == "object" ? Hi(e, t) : L(String(e), "ui-graph__display-text") : L(t.more(r), "ui-graph__display-empty");
+}
+function Pi(e) {
 	if (typeof e != "object" || !e || Array.isArray(e)) return null;
 	let t = e;
 	return t.key === "ui.graph.more" && Object.keys(e).length === 2 && typeof t.args?.count == "number" ? t.args.count : null;
 }
-function Si(e) {
+function Fi(e) {
 	if (typeof e != "object" || !e || Array.isArray(e)) return null;
-	let t = e, n = t[gi];
+	let t = e, n = t[Di];
 	return typeof n == "string" ? {
 		address: n,
-		width: ce(t.width),
-		height: ce(t.height)
+		width: le(t.width),
+		height: le(t.height)
 	} : null;
 }
-function Ci(e, t) {
-	return wi(e.address, t) ? Ti(e.address, e.width, e.height) : R(e.address, "ui-graph__display-text");
+function Ii(e, t) {
+	return Li(e.address, t) ? Ri(e.address, e.width, e.height) : L(e.address, "ui-graph__display-text");
 }
-function wi(e, t) {
+function Li(e, t) {
 	return /^blob:/i.test(e.trim()) || t.isImageSource(e);
 }
-function R(e, t) {
+function L(e, t) {
 	let n = document.createElement("div");
 	return n.className = t, n.textContent = e, n;
 }
-function Ti(e, t, n) {
+function Ri(e, t, n) {
 	let r = document.createElement("img");
-	return r.className = "ui-graph__display-image", t !== null && (r.classList.add("ui-graph__display-image--sized"), r.style.width = `${t}px`, n !== null && (r.style.height = `${n}px`)), r.src = e, r.alt = "", r.addEventListener("error", () => r.replaceWith(R(e, "ui-graph__display-text")), { once: !0 }), r;
+	return r.className = "ui-graph__display-image", t !== null && (r.classList.add("ui-graph__display-image--sized"), r.style.width = `${t}px`, n !== null && (r.style.height = `${n}px`)), r.src = e, r.alt = "", r.addEventListener("error", () => {
+		r.parentElement?.classList.remove(ji), r.replaceWith(L(e, "ui-graph__display-text"));
+	}, { once: !0 }), r;
 }
-function Ei(e, t) {
-	let { entries: n, more: r } = Di(e), i = Oi(n);
+function zi(e, t) {
+	let { entries: n, more: r } = Bi(e), i = Vi(n);
 	if (i === null) {
 		let n = document.createElement("div");
 		n.className = "ui-graph__display-list";
@@ -3788,7 +3914,7 @@ function Ei(e, t) {
 			...t,
 			picture: !1
 		};
-		for (let t of e) n.append(bi(t, r));
+		for (let t of e) n.append(Ni(t, r));
 		return n;
 	}
 	let a = document.createElement("table"), o = document.createElement("tr");
@@ -3802,7 +3928,7 @@ function Ei(e, t) {
 		let n = document.createElement("tr"), r = e;
 		for (let e of i) {
 			let i = document.createElement("td");
-			i.textContent = Ai(r[e], t), n.append(i);
+			i.textContent = Ui(r[e], t), n.append(i);
 		}
 		a.append(n);
 	}
@@ -3812,8 +3938,8 @@ function Ei(e, t) {
 	}
 	return a;
 }
-function Di(e) {
-	let t = e.length === 0 ? null : xi(e.at(-1));
+function Bi(e) {
+	let t = e.length === 0 ? null : Pi(e.at(-1));
 	return t === null ? {
 		entries: e,
 		more: null
@@ -3822,42 +3948,42 @@ function Di(e) {
 		more: t
 	};
 }
-function Oi(e) {
+function Vi(e) {
 	let t = [];
 	for (let n of e) {
-		if (typeof n != "object" || !n || Array.isArray(n) || Si(n) !== null) return null;
+		if (typeof n != "object" || !n || Array.isArray(n) || Fi(n) !== null) return null;
 		for (let e of Object.keys(n)) t.includes(e) || t.push(e);
 	}
 	return t.length === 0 ? null : t;
 }
-function ki(e, t) {
+function Hi(e, t) {
 	let n = document.createElement("div");
 	n.className = "ui-graph__display-record";
 	for (let [r, i] of Object.entries(e)) {
-		let e = Si(i);
+		let e = Fi(i);
 		if (e !== null) {
-			n.append(Ci(e, t));
+			n.append(Ii(e, t));
 			continue;
 		}
 		let a = document.createElement("div");
-		a.className = "ui-graph__display-field", a.append(R(r, "ui-graph__display-key")), a.append(R(Ai(i, t), "ui-graph__display-value")), n.append(a);
+		a.className = "ui-graph__display-field", a.append(L(r, "ui-graph__display-key")), a.append(L(Ui(i, t), "ui-graph__display-value")), n.append(a);
 	}
-	return n.childElementCount === 0 ? R(t.empty, "ui-graph__display-empty") : n;
+	return n.childElementCount === 0 ? L(t.empty, "ui-graph__display-empty") : n;
 }
-function Ai(e, t) {
+function Ui(e, t) {
 	if (e == null) return "";
 	if (typeof e == "number") return t.number(e);
-	if (typeof e == "boolean") return e ? vi : yi;
+	if (typeof e == "boolean") return e ? ki : Ai;
 	if (typeof e == "string") return t.moment(e) ?? e;
-	if (Array.isArray(e)) return t.list(e.map((e) => Ai(e, t)));
-	let n = Si(e);
+	if (Array.isArray(e)) return t.list(e.map((e) => Ui(e, t)));
+	let n = Fi(e);
 	if (n !== null) return n.address;
-	let r = xi(e);
-	return r === null ? typeof e == "object" ? t.list(Object.entries(e).map(([e, n]) => t.field(e, Ai(n, t)))) : String(e) : t.more(r);
+	let r = Pi(e);
+	return r === null ? typeof e == "object" ? t.list(Object.entries(e).map(([e, n]) => t.field(e, Ui(n, t)))) : String(e) : t.more(r);
 }
-var ji = /* @__PURE__ */ new Map();
-function Mi(e, t) {
-	let n = ji.get(t);
+var Wi = /* @__PURE__ */ new Map();
+function Gi(e, t) {
+	let n = Wi.get(t);
 	if (n === void 0) {
 		try {
 			n = new Intl.ListFormat(t.length === 0 ? void 0 : t, {
@@ -3870,13 +3996,13 @@ function Mi(e, t) {
 				style: "narrow"
 			});
 		}
-		ji.set(t, n);
+		Wi.set(t, n);
 	}
 	return n.format(e);
 }
 //#endregion
 //#region src/nodes/node-view.ts
-var z = "data-ui-graph-pin", Ni = "data-ui-graph-pin-dir", Pi = "data-ui-graph-pin-type", Fi = "data-ui-graph-state", Ii = "data-ui-graph-head", Li = "data-ui-graph-value", Ri = "data-ui-graph-display", zi = "data-ui-graph-uploading", Bi = "graph-pin-menu", Vi = "data-ui-graph-pin-menu", Hi = "data-ui-graph-pin-menu-dir", Ui = "data-ui-graph-pin-many", Wi = "data-ui-graph-pin-optional", Gi = {
+var R = "data-ui-graph-pin", Ki = "data-ui-graph-pin-dir", qi = "data-ui-graph-pin-type", Ji = "data-ui-graph-state", Yi = "data-ui-graph-head", Xi = "data-ui-graph-value", Zi = "data-ui-graph-display", Qi = "data-ui-graph-uploading", $i = "graph-pin-menu", ea = "data-ui-graph-pin-menu", ta = "data-ui-graph-pin-menu-dir", na = "data-ui-graph-pin-many", ra = "data-ui-graph-pin-optional", ia = {
 	any: "ui.graph.type-any",
 	array: "ui.graph.type-list",
 	text: "ui.graph.type-text",
@@ -3886,151 +4012,151 @@ var z = "data-ui-graph-pin", Ni = "data-ui-graph-pin-dir", Pi = "data-ui-graph-p
 	date: "ui.graph.type-date",
 	time: "ui.graph.type-time",
 	datetime: "ui.graph.type-datetime"
-}, Ki = "array:", qi = "enum:", Ji = "ui.graph.display-field", Yi = "graph-editor:", Xi = "graph-list-remove", Zi = "graph-list-add", Qi = "graph-state-reset", $i = "data-ui-graph-list-add";
-function ea(e, t, n) {
+}, aa = "array:", oa = "enum:", sa = "ui.graph.display-field", ca = "graph-editor:", la = "graph-list-remove", ua = "graph-list-add", da = "graph-state-reset", fa = "data-ui-graph-list-add";
+function pa(e, t, n) {
 	let r = document.createElement("div");
 	r.className = "ui-graph__node", r.setAttribute(o, e.id), r.style.setProperty("--ui-graph-node-x", String(e.x)), r.style.setProperty("--ui-graph-node-y", String(e.y)), t?.minWidth !== null && t?.minWidth !== void 0 && r.style.setProperty("--ui-graph-node-min-width", `${t.minWidth}rem`), e.collapsed !== !0 && e.width !== null && e.width !== void 0 && e.width > 0 && r.style.setProperty("--ui-graph-node-w", String(e.width)), e.collapsed !== !0 && e.height !== null && e.height !== void 0 && e.height > 0 && r.style.setProperty("--ui-graph-node-h", String(e.height));
 	let i = e.color ?? t?.color ?? null;
-	if (i !== null && i.length > 0 && r.style.setProperty("--ui-graph-node-color", i), e.pinned === !0 && r.setAttribute("data-ui-graph-pinned", ""), t?.compact === !0) return ta(r, e, t, n);
-	let a = ia(e, t, n);
-	if (r.append(a), t?.showProgress === !0 && a.append(sa()), e.collapsed === !0) return r.setAttribute(l, ""), a.append(na(e, t, n)), r;
+	if (i !== null && i.length > 0 && r.style.setProperty("--ui-graph-node-color", i), e.pinned === !0 && r.setAttribute("data-ui-graph-pinned", ""), t?.compact === !0) return ma(r, e, t, n);
+	let a = _a(e, t, n);
+	if (r.append(a), t?.showProgress === !0 && a.append(ba()), e.collapsed === !0) return r.setAttribute(l, ""), a.append(ha(e, t, n)), r;
 	let s = document.createElement("div");
 	if (s.className = "ui-graph__node-body", t === void 0) {
 		let t = document.createElement("div");
 		t.className = "ui-graph__node-unknown", t.textContent = e.type, s.append(t);
 	} else {
-		let r = t.inputs.filter((n) => ui(n, e, t)), i = r.filter((e) => e.editor === "None");
-		for (let r = 0; r < Math.max(i.length, t.outputs.length); r++) s.append(ca(e, i[r], t.outputs[r], n));
-		for (let t of r) t.editor !== "None" && s.append(da(e, t, n));
+		let r = t.inputs.filter((n) => di(n, e, t)), i = r.filter((e) => e.editor === "None");
+		for (let r = 0; r < Math.max(i.length, t.outputs.length); r++) s.append(xa(e, i[r], t.outputs[r], n));
+		for (let t of r) t.editor !== "None" && s.append(wa(e, t, n));
 	}
-	return r.append(s), !n.readOnly && t?.resizable !== !1 && r.append(ra()), r;
+	return r.append(s), !n.readOnly && t?.resizable !== !1 && r.append(ga()), r;
 }
-function ta(e, t, n, r) {
+function ma(e, t, n, r) {
 	let i = n.inputs[0], a = n.outputs[0];
 	e.classList.add("ui-graph__node--compact"), (t.color ?? null) === null && a !== void 0 && e.style.setProperty("--ui-graph-node-color", r.pinColor(r.outputType(t.id, a.name)));
 	let o = document.createElement("span");
 	o.className = "ui-graph__node-reroute", o.textContent = t.title ?? (i === void 0 ? null : r.feedTitle(t.id, i.name)) ?? n.title;
 	let s = document.createElement("div");
-	return s.className = "ui-graph__node-ports", i !== void 0 && a !== void 0 && s.append(B(V(t, i, r.outputType(t.id, a.name), "in", r), i, "in", r)), a !== void 0 && s.append(B(V(t, a, r.outputType(t.id, a.name), "out", r), a, "out", r)), e.append(o, s), e;
+	return s.className = "ui-graph__node-ports", i !== void 0 && a !== void 0 && s.append(z(B(t, i, r.outputType(t.id, a.name), "in", r), i, "in", r)), a !== void 0 && s.append(z(B(t, a, r.outputType(t.id, a.name), "out", r), a, "out", r)), e.append(o, s), e;
 }
-function na(e, t, n) {
+function ha(e, t, n) {
 	let r = document.createElement("div");
 	if (r.className = "ui-graph__node-ports", t === void 0) return r;
-	for (let i of t.inputs) i.hasPin !== !1 && ui(i, e, t) && r.append(B(V(e, i, i.type, "in", n), i, "in", n));
-	for (let i of t.outputs) r.append(B(V(e, i, n.outputType(e.id, i.name), "out", n), i, "out", n));
+	for (let i of t.inputs) i.hasPin !== !1 && di(i, e, t) && r.append(z(B(e, i, i.type, "in", n), i, "in", n));
+	for (let i of t.outputs) r.append(z(B(e, i, n.outputType(e.id, i.name), "out", n), i, "out", n));
 	return r;
 }
-function ra() {
+function ga() {
 	let e = document.createElement("div");
 	return e.className = "ui-graph__node-resize", e.setAttribute("data-ui-graph-resize", ""), e;
 }
-function ia(e, t, n) {
+function _a(e, t, n) {
 	let r = document.createElement("div");
-	r.className = "ui-graph__node-head", r.setAttribute(Ii, "");
+	r.className = "ui-graph__node-head", r.setAttribute(Yi, "");
 	let i = document.createElement("button"), a = e.collapsed === !0;
-	i.type = "button", i.className = "ui-graph__node-fold", i.setAttribute(c, ""), aa(i, a ? "ui.graph.expand" : "ui.graph.collapse", n), i.setAttribute("aria-expanded", String(!a)), i.append(oa(n, a ? "ne-chevron-right" : "ne-chevron-down")), r.append(i);
+	i.type = "button", i.className = "ui-graph__node-fold", i.setAttribute(c, ""), va(i, a ? "ui.graph.expand" : "ui.graph.collapse", n), i.setAttribute("aria-expanded", String(!a)), i.append(ya(n, a ? "ne-chevron-right" : "ne-chevron-down")), r.append(i);
 	let o = t?.icon ?? null;
-	o !== null && o.length > 0 && r.append(oa(n, o, "ui-graph__node-icon"));
+	o !== null && o.length > 0 && r.append(ya(n, o, "ui-graph__node-icon"));
 	let l = document.createElement("span");
 	l.className = "ui-graph__node-title", l.textContent = e.title ?? t?.title ?? e.type, r.append(l);
 	let u = document.createElement("button");
-	return u.type = "button", u.className = "ui-graph__node-pinned", u.setAttribute(s, ""), aa(u, e.pinned === !0 ? "ui.graph.unpin" : "ui.graph.pin", n), u.append(oa(n, e.pinned === !0 ? "ne-pin" : "ne-pin-outlined")), r.append(u), r;
+	return u.type = "button", u.className = "ui-graph__node-pinned", u.setAttribute(s, ""), va(u, e.pinned === !0 ? "ui.graph.unpin" : "ui.graph.pin", n), u.append(ya(n, e.pinned === !0 ? "ne-pin" : "ne-pin-outlined")), r.append(u), r;
 }
-function aa(e, t, n) {
+function va(e, t, n) {
 	n.words.write(e, "aria-label", t), n.words.write(e, n.names.tooltip, t), n.readOnly && n.states.setDisabled(e, !0);
 }
-function oa(e, t, n) {
+function ya(e, t, n) {
 	let r = document.createElement("span");
 	return n !== void 0 && (r.className = n), r.setAttribute("aria-hidden", "true"), e.icons.apply(r, t), r;
 }
-function sa() {
+function ba() {
 	let e = document.createElement("div");
 	return e.className = "ui-graph__node-progress", e.hidden = !0, e.append(document.createElement("i")), e;
 }
-function ca(e, t, n, r) {
+function xa(e, t, n, r) {
 	let i = document.createElement("div");
-	return i.className = "ui-graph__row", t !== void 0 && (i.append(B(V(e, t, t.type, "in", r), t, "in", r)), i.append(B(ua(t, "ui-graph__row-label"), t, "in", r))), n !== void 0 && (i.append(B(la(n.title, "ui-graph__row-label ui-graph__row-label--out"), n, "out", r)), i.append(B(V(e, n, r.outputType(e.id, n.name), "out", r), n, "out", r))), i;
+	return i.className = "ui-graph__row", t !== void 0 && (i.append(z(B(e, t, t.type, "in", r), t, "in", r)), i.append(z(Ca(t, "ui-graph__row-label"), t, "in", r))), n !== void 0 && (i.append(z(Sa(n.title, "ui-graph__row-label ui-graph__row-label--out"), n, "out", r)), i.append(z(B(e, n, r.outputType(e.id, n.name), "out", r), n, "out", r))), i;
 }
-function B(e, t, n, r) {
-	return e.setAttribute(r.names.contextMenuUse, Bi), e.setAttribute(Vi, t.name), e.setAttribute(Hi, n), e;
+function z(e, t, n, r) {
+	return e.setAttribute(r.names.contextMenuUse, $i), e.setAttribute(ea, t.name), e.setAttribute(ta, n), e;
 }
-function la(e, t) {
+function Sa(e, t) {
 	let n = document.createElement("span");
 	return n.className = t, n.textContent = e, n;
 }
-function ua(e, t) {
-	return la(e.title, t);
+function Ca(e, t) {
+	return Sa(e.title, t);
 }
-function da(e, t, n) {
+function wa(e, t, n) {
 	let r = document.createElement("div"), i = t.hasPin !== !1 && n.isConnected(e.id, t.name, "in");
-	r.className = ma(t) ? "ui-graph__row ui-graph__row--tall" : "ui-graph__row", B(r, t, "in", n), (t.editor === "Image" && t.large === !0 || t.editor === "Display" || t.editor === "Text" && (t.maxLines ?? 1) > 1) && r.classList.add("ui-graph__row--grow"), t.hasPin !== !1 && r.append(V(e, t, t.type, "in", n));
-	let a = i && t.editor !== "List", o = ga(e, t, a, n), s = o.querySelector(`[${$i}]`);
+	r.className = Da(t) ? "ui-graph__row ui-graph__row--tall" : "ui-graph__row", z(r, t, "in", n), (t.editor === "Image" && t.large === !0 || t.editor === "Display" || t.editor === "Text" && (t.maxLines ?? 1) > 1) && r.classList.add("ui-graph__row--grow"), t.hasPin !== !1 && r.append(B(e, t, t.type, "in", n));
+	let a = i && t.editor !== "List", o = ka(e, t, a, n), s = o.querySelector(`[${fa}]`);
 	if (s !== null) {
 		let e = document.createElement("div");
-		e.className = "ui-graph__row-head", e.append(ua(t, "ui-graph__row-label")), e.append(s), r.append(e);
-	} else pa(t) || r.append(ua(t, "ui-graph__row-label"));
+		e.className = "ui-graph__row-head", e.append(Ca(t, "ui-graph__row-label")), e.append(s), r.append(e), r.classList.add("ui-graph__row--headed");
+	} else Ea(t) || r.append(Ca(t, "ui-graph__row-label"));
 	if (t.height !== null && t.height !== void 0 && t.height > 0 && o.style.setProperty("--ui-graph-editor-height", `${t.height}rem`), a && r.classList.add("ui-graph__row--connected"), r.append(o), t.state === !0) {
-		let i = fa(e, t, o, n);
+		let i = Ta(e, t, o, n);
 		i !== null && r.append(i);
 	}
 	return r;
 }
-function fa(e, t, n, r) {
-	let i = r.cloneEditor(Qi);
-	return i === null ? null : (Ta(i, r.readOnly, r), i.addEventListener("click", () => {
+function Ta(e, t, n, r) {
+	let i = r.cloneEditor(da);
+	return i === null ? null : (Ra(i, r.readOnly, r), i.addEventListener("click", () => {
 		let i = t.defaultValue ?? null, a = n.firstElementChild;
 		a !== null && r.setProperty(a, "Value", i), r.onValueChanged(e.id, t.name, i);
 	}), i);
 }
-function pa(e) {
-	return !ma(e) && e.editor !== "Boolean";
+function Ea(e) {
+	return !Da(e) && e.editor !== "Boolean";
 }
-function ma(e) {
+function Da(e) {
 	return e.editor === "Image" && e.large === !0 || e.editor === "List" || e.editor === "Display" || e.editor === "Text" && (e.maxLines ?? 1) > 1;
 }
-function V(e, t, n, r, i) {
+function B(e, t, n, r, i) {
 	let a = document.createElement("span");
-	a.className = "ui-graph__pin", a.setAttribute(z, t.name), a.setAttribute(Ni, r), a.setAttribute(Pi, n), a.style.setProperty("--ui-graph-pin-color", i.pinColor(n)), t.multiple === !0 && a.setAttribute(Ui, ""), i.isConnected(e.id, t.name, r) && a.classList.add("ui-graph__pin--filled"), (r === "out" || t.required !== !0) && a.setAttribute(Wi, "");
+	a.className = "ui-graph__pin", a.setAttribute(R, t.name), a.setAttribute(Ki, r), a.setAttribute(qi, n), a.style.setProperty("--ui-graph-pin-color", i.pinColor(n)), t.multiple === !0 && a.setAttribute(na, ""), i.isConnected(e.id, t.name, r) && a.classList.add("ui-graph__pin--filled"), (r === "out" || t.required !== !0) && a.setAttribute(ra, "");
 	let o = i.words, s = t.description ?? "", c = o.format("ui.graph.pin-type", {
 		name: t.title,
-		type: ha(n, t.multiple === !0, i)
+		type: Oa(n, t.multiple === !0, i)
 	});
-	return S(a, s.length > 0 ? `${c}\n${s}` : c, i.tooltips), a;
+	return x(a, s.length > 0 ? `${c}\n${s}` : c, i.tooltips), a;
 }
-function ha(e, t, n) {
+function Oa(e, t, n) {
 	let r = n.words, i = (e) => {
-		if (e.startsWith(Ki)) return r.format("ui.graph.type-list-of", { type: i(e.slice(6)) });
-		let t = Gi[e];
+		if (e.startsWith(aa)) return r.format("ui.graph.type-list-of", { type: i(e.slice(6)) });
+		let t = ia[e];
 		if (t !== void 0) return r.text(t);
 		let a = n.typeTitles.get(e);
-		return a === void 0 ? e.startsWith(qi) ? e.slice(5) : e : a;
+		return a === void 0 ? e.startsWith(oa) ? e.slice(5) : e : a;
 	};
 	return t ? r.format("ui.graph.pin-many", { type: i(e) }) : i(e);
 }
-function ga(e, t, n, r) {
+function ka(e, t, n, r) {
 	let i = r.isConnected(e.id, t.name, "in"), a = e.values[t.name] ?? (i ? null : t.defaultValue);
 	switch (t.editor) {
-		case "Image": return wa(e, t, a, n || r.readOnly, r);
-		case "List": return Ea(e, t, a, r);
-		case "Display": return Sa(t, r);
-		default: return _a(e, t, a, n || r.readOnly, r);
+		case "Image": return La(e, t, a, n || r.readOnly, r);
+		case "List": return za(e, t, a, r);
+		case "Display": return Fa(t, r);
+		default: return Aa(e, t, a, n || r.readOnly, r);
 	}
 }
-function _a(e, t, n, r, i) {
-	let a = va(t, t.editor === "Boolean" ? "ui-graph__editor--check" : null), o = i.cloneEditor(`${Yi}${e.type}:${t.name}`);
-	return o === null ? a : (a.append(o), ya(o, n ?? null, r, i, () => i.onValueChanged(e.id, t.name, ba(t, i.readValue(o)))), a);
+function Aa(e, t, n, r, i) {
+	let a = ja(t, t.editor === "Boolean" ? "ui-graph__editor--check" : null), o = i.cloneEditor(`${ca}${e.type}:${t.name}`);
+	return o === null ? a : (a.append(o), Ma(o, n ?? null, r, i, () => i.onValueChanged(e.id, t.name, Na(t, i.readValue(o)))), a);
 }
-function va(e, t) {
+function ja(e, t) {
 	let n = document.createElement("div");
-	return n.className = t === null ? "ui-graph__editor" : `ui-graph__editor ${t}`, n.setAttribute(Li, e.name), n;
+	return n.className = t === null ? "ui-graph__editor" : `ui-graph__editor ${t}`, n.setAttribute(Xi, e.name), n;
 }
-function ya(e, t, n, r, i) {
+function Ma(e, t, n, r, i) {
 	r.setProperty(e, "Value", t), n ? r.setProperty(e, "IsReadOnly", !0) : e.addEventListener("change", i);
 }
-function ba(e, t) {
-	return e.editor === "Text" && t === "" ? "" : xa(e.editor === "Number", t);
+function Na(e, t) {
+	return e.editor === "Text" && t === "" ? "" : Pa(e.editor === "Number", t);
 }
-function xa(e, t) {
+function Pa(e, t) {
 	if (t === void 0 || t === "") return null;
 	if (e && typeof t == "string") {
 		let e = Number(t);
@@ -4038,16 +4164,16 @@ function xa(e, t) {
 	}
 	return t;
 }
-function Sa(e, t) {
+function Fa(e, t) {
 	let n = document.createElement("div");
-	return n.className = "ui-graph__editor ui-graph__editor--display", n.setAttribute(Li, e.name), n.setAttribute(Ri, ""), n.append(bi(null, Ca(e, t))), n;
+	return n.className = "ui-graph__editor ui-graph__editor--display", n.setAttribute(Xi, e.name), n.setAttribute(Zi, ""), Mi(n, null, Ia(e, t)), n;
 }
-function Ca(e, t) {
+function Ia(e, t) {
 	return {
 		empty: t.words.text("ui.graph.no-value"),
-		more: (e) => t.words.format(_i, { count: e }),
-		list: (e) => Mi(e, document.documentElement.lang),
-		field: (e, n) => t.words.format(Ji, {
+		more: (e) => t.words.format(Oi, { count: e }),
+		list: (e) => Gi(e, document.documentElement.lang),
+		field: (e, n) => t.words.format(sa, {
 			key: e,
 			value: n
 		}),
@@ -4059,49 +4185,49 @@ function Ca(e, t) {
 		}
 	};
 }
-function wa(e, t, n, r, i) {
-	let a = t.large === !0, o = va(t, a ? "ui-graph__editor--picture" : null), s = fi(n), c = i.cloneEditor(`${Yi}${e.type}:${t.name}`);
+function La(e, t, n, r, i) {
+	let a = t.large === !0, o = ja(t, a ? "ui-graph__editor--picture" : null), s = pi(n), c = i.cloneEditor(`${ca}${e.type}:${t.name}`);
 	if (c === null) return o;
-	if (o.append(c), a) return ya(c, s.length === 0 ? null : s, r, i, () => {
+	if (o.append(c), a) return Ma(c, s.length === 0 ? null : s, r, i, () => {
 		let n = c.querySelector(`input.${h.pictureSelectionClass}`);
 		if (n === null || n.value.length === 0) return;
 		let r = c.querySelector(`.${h.pictureTextClass}`)?.textContent ?? "";
 		i.onImageUploaded(e.id, t.name, n.value, r);
 	}), o;
-	ya(c, s.length === 0 ? null : s, r, i, () => {
-		let n = fi(i.readValue(c));
+	Ma(c, s.length === 0 ? null : s, r, i, () => {
+		let n = pi(i.readValue(c));
 		i.onValueChanged(e.id, t.name, n.length === 0 ? null : n);
 	});
 	let l = c.querySelector(`.${h.textInputActionClass} > *`);
-	return l !== null && (Ta(l, r, i), l.addEventListener("click", (n) => {
+	return l !== null && (Ra(l, r, i), l.addEventListener("click", (n) => {
 		n.preventDefault(), i.onPickImage(e.id, t.name);
 	})), o;
 }
-function Ta(e, t, n) {
+function Ra(e, t, n) {
 	t && n.setProperty(e, "Enabled", !1);
 }
-function Ea(e, t, n, r) {
-	let i = va(t, "ui-graph__editor--list"), a = Array.isArray(n) ? [...n] : [], o = t.type === "array:number" || t.type === "number", s = document.createElement("div");
+function za(e, t, n, r) {
+	let i = ja(t, "ui-graph__editor--list"), a = Array.isArray(n) ? [...n] : [], o = t.type === "array:number" || t.type === "number", s = document.createElement("div");
 	s.className = "ui-graph__list-rows", i.append(s);
 	let c = () => r.onValueChanged(e.id, t.name, [...a]), l = () => {
 		s.replaceChildren(), s.hidden = a.length === 0, a.forEach((n, i) => {
-			let u = document.createElement("div"), d = r.cloneEditor(`${Yi}${e.type}:${t.name}`), f = r.cloneEditor(Xi);
-			u.className = "ui-graph__list-row", d !== null && (ya(d, n ?? null, r.readOnly, r, () => {
-				a[i] = xa(o, r.readValue(d)), c();
-			}), u.append(d)), f !== null && (Ta(f, r.readOnly, r), f.addEventListener("click", () => {
+			let u = document.createElement("div"), d = r.cloneEditor(`${ca}${e.type}:${t.name}`), f = r.cloneEditor(la);
+			u.className = "ui-graph__list-row", d !== null && (Ma(d, n ?? null, r.readOnly, r, () => {
+				a[i] = Pa(o, r.readValue(d)), c();
+			}), u.append(d)), f !== null && (Ra(f, r.readOnly, r), f.addEventListener("click", () => {
 				a.splice(i, 1), l(), c();
 			}), u.append(f)), s.append(u);
 		});
 	};
 	l();
-	let u = r.cloneEditor(Zi);
-	return u !== null && (u.setAttribute($i, ""), Ta(u, r.readOnly, r), u.addEventListener("click", () => {
+	let u = r.cloneEditor(ua);
+	return u !== null && (u.setAttribute(fa, ""), Ra(u, r.readOnly, r), u.addEventListener("click", () => {
 		a.push(null), l(), c();
 	}), i.append(u)), i;
 }
 //#endregion
 //#region src/nodes/nodes-log.ts
-var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-graph-run-state", Aa = 500, ja = "ui.graph.run-line", Ma = class {
+var Ba = "data-ui-graph-log-node", Va = "data-ui-graph-log-open", Ha = "data-ui-graph-run-state", Ua = 500, Wa = "ui.graph.run-line", Ga = class {
 	root;
 	context;
 	services;
@@ -4148,24 +4274,26 @@ var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-
 		let n = this.services.nodeElements.get(e);
 		if (n === void 0) return;
 		let r = n.querySelector(".ui-graph__node-progress");
-		n.setAttribute(Fi, t.state), r !== null && (r.hidden = t.state !== "running" || t.progress === null, t.progress !== null && r.style.setProperty("--ui-graph-progress", String(Math.min(1, Math.max(0, t.progress)))));
+		n.setAttribute(Ji, t.state), r !== null && (r.hidden = t.state !== "running" || t.progress === null, t.progress !== null && r.style.setProperty("--ui-graph-progress", String(Math.min(1, Math.max(0, t.progress)))));
 	}
 	setDisplay(e, t, n) {
 		let r = this.displays.get(e);
 		r === void 0 && (r = /* @__PURE__ */ new Map(), this.displays.set(e, r)), r.set(t, n), this.applyDisplay(e, t, n);
 	}
 	applyDisplay(e, t, n) {
-		let r = this.services.nodeElements.get(e)?.querySelector(`[${Ri}][${Li}="${CSS.escape(t)}"]`), i = this.services.documentState.document, a = i.nodes.find((t) => t.id === e), o = I(a === void 0 ? void 0 : this.types.get(a.type), t, !1), s = Ca(o, {
-			words: this.context.strings,
-			number: (e, t) => this.formatNumber(e, t),
-			date: (e, t) => this.formatDate(e, t),
-			temporal: this.context.temporal,
-			urls: this.context.urls
+		let r = this.services.nodeElements.get(e)?.querySelector(`[data-ui-graph-display][data-ui-graph-value="${CSS.escape(t)}"]`) ?? null;
+		if (r === null) return;
+		let i = this.services.documentState.document, a = i.nodes.find((t) => t.id === e), o = I(a === void 0 ? void 0 : this.types.get(a.type), t, !1);
+		Mi(r, n, {
+			...Ia(o, {
+				words: this.context.strings,
+				number: (e, t) => this.formatNumber(e, t),
+				date: (e, t) => this.formatDate(e, t),
+				temporal: this.context.temporal,
+				urls: this.context.urls
+			}),
+			picture: o !== void 0 && hi(i, this.types, e, o)
 		});
-		r?.replaceChildren(bi(n, {
-			...s,
-			picture: o !== void 0 && pi(i, this.types, e, o)
-		}));
 	}
 	formatNumber(e, t) {
 		return this.context.numbers.format(e, t ?? null, this.context.numbers.readCulture(this.root));
@@ -4180,7 +4308,7 @@ var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-
 			message: n,
 			at: /* @__PURE__ */ new Date()
 		};
-		if (this.log.push(r), this.log.length > Aa) {
+		if (this.log.push(r), this.log.length > Ua) {
 			let e = this.logEntries?.firstElementChild ?? null;
 			this.log.shift(), this.removeLines(e === null ? [] : [e], e?.nextElementSibling ?? null);
 		}
@@ -4192,7 +4320,7 @@ var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-
 	}
 	renderLogEntry(e) {
 		let t = document.createElement("li"), n = document.createElement("time"), r = document.createElement("button"), i = document.createElement("span");
-		t.className = "ui-graph__log-entry", t.setAttribute("data-ui-graph-log-level", e.level), n.className = "ui-graph__log-time", n.dateTime = e.at.toISOString(), n.textContent = this.context.temporal.format(e.at, "HH:mm:ss", this.context.temporal.readCulture(this.root)), r.type = "button", r.className = "ui-graph__log-node", r.setAttribute(Da, e.nodeId), r.textContent = this.nodeName(e.nodeId), i.className = "ui-graph__log-message";
+		t.className = "ui-graph__log-entry", t.setAttribute("data-ui-graph-log-level", e.level), n.className = "ui-graph__log-time", n.dateTime = e.at.toISOString(), n.textContent = this.context.temporal.format(e.at, "HH:mm:ss", this.context.temporal.readCulture(this.root)), r.type = "button", r.className = "ui-graph__log-node", r.setAttribute(Ba, e.nodeId), r.textContent = this.nodeName(e.nodeId), i.className = "ui-graph__log-message";
 		let a = e.message;
 		return typeof a?.key == "string" ? this.context.strings.write(i, null, a.key, a.args ?? null) : i.textContent = this.said(e.message), t.append(n, r, i), t;
 	}
@@ -4219,13 +4347,13 @@ var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-
 	removeLines(e, t) {
 		let n = e.some((e) => e.contains(document.activeElement));
 		for (let t of e) t.remove();
-		n && (t?.querySelector("[data-ui-graph-log-node]") ?? this.logToggle)?.focus({ preventScroll: !0 });
+		n && Ci(t?.querySelector("[data-ui-graph-log-node]") ?? null, this.logToggle, this.context.focus);
 	}
 	setLogOpen(e, t = !1) {
-		this.root.toggleAttribute(Oa, e), this.logToggle?.setAttribute("aria-expanded", String(e)), t && this.context.store.write(this.root, "log", e ? "open" : null);
+		this.root.toggleAttribute(Va, e), this.logToggle?.setAttribute("aria-expanded", String(e)), t && this.context.store.write(this.root, "log", e ? "open" : null);
 	}
 	isLogOpen() {
-		return this.root.hasAttribute(Oa);
+		return this.root.hasAttribute(Va);
 	}
 	goToNode(e) {
 		let t = this.services.nodeRect(e);
@@ -4243,7 +4371,7 @@ var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-
 	drawRun() {
 		if (this.runLine === null) return;
 		let e = this.runningNode === null ? void 0 : this.statuses.get(this.runningNode), t = e?.state === "running" ? Math.min(1, Math.max(0, e.progress ?? 0)) : 0, n = this.runTotal === 0 ? +!!this.runStarted : Math.min(1, (this.runCompleted + t) / this.runTotal), r = Math.round(n * 100), i = this.runStarted && this.runCompleted >= this.runTotal;
-		this.runLine.style.setProperty("--ui-graph-run", String(n)), this.runLine.style.setProperty("--ui-graph-run-step", String(t)), this.runLine.setAttribute("aria-valuenow", String(r)), this.runLine.setAttribute(ka, this.runStarted ? this.runFailed ? "failed" : this.runStopped ? "stopped" : i ? "done" : "running" : "idle"), this.runLabel !== null && (this.runLabel.textContent = this.runLabelText(e)), this.runShare !== null && (this.runShare.textContent = this.runStarted ? ne(this.context, this.runShare, r) : "");
+		this.runLine.style.setProperty("--ui-graph-run", String(n)), this.runLine.style.setProperty("--ui-graph-run-step", String(t)), this.runLine.setAttribute("aria-valuenow", String(r)), this.runLine.setAttribute(Ha, this.runStarted ? this.runFailed ? "failed" : this.runStopped ? "stopped" : i ? "done" : "running" : "idle"), this.runLabel !== null && (this.runLabel.textContent = this.runLabelText(e)), this.runShare !== null && (this.runShare.textContent = this.runStarted ? re(this.context, this.runShare, r) : "");
 	}
 	runLabelText(e) {
 		if (this.runningNode !== null) {
@@ -4254,34 +4382,12 @@ var Da = "data-ui-graph-log-node", Oa = "data-ui-graph-log-open", ka = "data-ui-
 		return t === void 0 ? "" : this.joined(t.nodeId, this.said(t.message));
 	}
 	joined(e, t) {
-		return this.context.strings.format(ja, {
+		return this.context.strings.format(Wa, {
 			node: this.nodeName(e),
 			message: t
 		});
 	}
-}, Na = `[${h.collapseToggle}]`, Pa = h.collapsed, Fa = "folded", Ia = "open", La = "--ui-graph-side-folded", Ra = class {
-	store;
-	root;
-	panel;
-	slot;
-	foldedByDefault;
-	constructor(e, t, n, r) {
-		this.store = e, this.root = t, this.panel = n, this.slot = r, this.foldedByDefault = n !== null && (n.hasAttribute(Pa) || za(n));
-		let i = e.read(t, r), a = i === Fa || i !== Ia && this.foldedByDefault;
-		n !== null && a !== n.hasAttribute(Pa) && (n.toggleAttribute(Pa, a), n.querySelector(Na)?.setAttribute("aria-expanded", a ? "false" : "true"));
-	}
-	press(e) {
-		if (this.panel === null || !this.panel.contains(e) || e.closest(Na) === null) return !1;
-		let t = this.panel.hasAttribute(Pa);
-		return this.store.write(this.root, this.slot, t === this.foldedByDefault ? null : t ? Fa : Ia), !0;
-	}
-};
-function za(e) {
-	return getComputedStyle(e).getPropertyValue(La).trim() === "1";
-}
-//#endregion
-//#region src/nodes/nodes-parameters.ts
-var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-list]", Ha = "data-ui-graph-parameters", H = "data-ui-graph-parameter-node", Ua = "data-ui-graph-parameter-pin", U = "data-ui-graph-parameter-remove", Wa = "graph-editor:", Ga = "graph-list-remove", Ka = "parameters", qa = "ui.graph.show-node", Ja = "ui-graph__parameter", Ya = "ui-graph__parameter-name", Xa = "ui-graph__parameter-node", Za = "ui-graph__parameter-pin", Qa = "ui-graph__parameter-field", $a = class {
+}, Ka = "[data-ui-graph-parameters-panel]", qa = "[data-ui-graph-parameters-list]", Ja = "data-ui-graph-parameters", V = "data-ui-graph-parameter-node", Ya = "data-ui-graph-parameter-pin", H = "data-ui-graph-parameter-remove", Xa = "graph-editor:", Za = "graph-list-remove", Qa = "parameters", $a = "ui.graph.show-node", eo = "ui-graph__parameter", to = "ui-graph__parameter-name", no = "ui-graph__parameter-node", ro = "ui-graph__parameter-pin", io = "ui-graph__parameter-field", ao = class {
 	services;
 	host;
 	panel;
@@ -4291,10 +4397,10 @@ var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-lis
 	fields = /* @__PURE__ */ new Map();
 	rows = /* @__PURE__ */ new Map();
 	constructor(e, t) {
-		this.services = e, this.host = t, this.panel = e.root.querySelector(Ba), this.list = this.panel?.querySelector(Va) ?? null, this.fold = new Ra(e.context.store, e.root, this.panel, Ka);
+		this.services = e, this.host = t, this.panel = e.root.querySelector(Ka), this.list = this.panel?.querySelector(qa) ?? null, this.fold = new Ti(e.context.store, e.root, this.panel, Qa);
 	}
 	get shown() {
-		return this.services.root.hasAttribute(Ha);
+		return this.services.root.hasAttribute(Ja);
 	}
 	get document() {
 		return this.services.documentState.document;
@@ -4303,11 +4409,11 @@ var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-lis
 		return this.document.parameters.some((n) => n.node === e && n.pin === t);
 	}
 	allows(e, t) {
-		return this.shown && ri(this.document, this.host.types, e, t);
+		return this.shown && ii(this.document, this.host.types, e, t);
 	}
 	toggle(e, t) {
 		if (!this.services.settings.readOnly) {
-			if (!ii(this.document, e, t)) {
+			if (!ai(this.document, e, t)) {
 				if (!this.allows(e, t)) return;
 				this.document.parameters = [...this.document.parameters, {
 					node: e,
@@ -4327,14 +4433,14 @@ var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-lis
 	press(e) {
 		if (this.panel === null || !this.panel.contains(e)) return !1;
 		if (this.fold.press(e)) return !0;
-		let t = e.closest(`[${U}]`);
+		let t = e.closest(`[${H}]`);
 		if (t !== null) return this.remove(t), !0;
-		let n = e.closest(`[${H}]`)?.getAttribute(H);
+		let n = e.closest(`[${V}]`)?.getAttribute(V);
 		return n != null && this.host.show(n), !0;
 	}
 	remove(e) {
-		let t = e.closest(`.${Ja}`), n = t === null || this.list === null ? -1 : [...this.list.children].indexOf(t), r = e.contains(document.activeElement);
-		this.toggle(e.getAttribute(H) ?? "", e.getAttribute(Ua) ?? ""), r && this.list !== null && !this.list.contains(document.activeElement) && eo(this.list.children[n]?.querySelector(`[${U}]`) ?? this.panel?.querySelector(`[${h.collapseToggle}]`) ?? null, this.services.context.focus)?.focus({ preventScroll: !0 });
+		let t = e.closest(`.${eo}`), n = t === null || this.list === null ? -1 : [...this.list.children].indexOf(t), r = e.contains(document.activeElement);
+		this.toggle(e.getAttribute(V) ?? "", e.getAttribute(Ya) ?? ""), r && this.list !== null && !this.list.contains(document.activeElement) && Ci(this.list.children[n]?.querySelector(`[${H}]`) ?? null, this.panel?.querySelector(`[${h.collapseToggle}]`) ?? null, this.services.context.focus);
 	}
 	draw() {
 		if (this.list === null) return;
@@ -4355,13 +4461,13 @@ var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-lis
 		if (e === null || this.list === null || !this.list.contains(e)) return null;
 		for (let [t, n] of this.rows) if (n.contains(e)) return {
 			row: t,
-			part: e.closest(`.${Ya}`) === null ? e.closest(`[${U}]`) === null ? Qa : U : Ya
+			part: e.closest(`.${to}`) === null ? e.closest(`[${H}]`) === null ? io : H : to
 		};
 		return null;
 	}
 	restoreFocus(e) {
 		let t = e === null ? void 0 : this.rows.get(e.row);
-		e !== null && t !== void 0 && eo(t.querySelector(e.part === U ? `[${U}]` : `.${e.part}`), this.services.context.focus)?.focus({ preventScroll: !0 });
+		e !== null && t !== void 0 && wi(t.querySelector(e.part === H ? `[${H}]` : `.${e.part}`), this.services.context.focus)?.focus({ preventScroll: !0 });
 	}
 	showValue(e, t, n) {
 		let r = this.fields.get(`${e}\n${t}`);
@@ -4371,7 +4477,7 @@ var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-lis
 		let e = [];
 		for (let t of this.document.parameters) {
 			let n = this.document.nodes.find((e) => e.id === t.node), r = n === void 0 ? void 0 : this.host.types.get(n.type), i = I(r, t.pin, !1);
-			n !== void 0 && r !== void 0 && i !== void 0 && ri(this.document, this.host.types, n.id, i.name) && e.push({
+			n !== void 0 && r !== void 0 && i !== void 0 && ii(this.document, this.host.types, n.id, i.name) && e.push({
 				parameter: t,
 				node: n,
 				type: r,
@@ -4387,26 +4493,21 @@ var Ba = "[data-ui-graph-parameters-panel]", Va = "[data-ui-graph-parameters-lis
 		return t ?? e.pin.defaultValue ?? null;
 	}
 	row(e, t) {
-		let n = this.services.context, r = document.createElement("div"), i = document.createElement("button"), a = document.createElement("span"), o = document.createElement("span"), s = this.host.cloneEditor(`${Wa}${e.node.type}:${e.pin.name}`), c = this.host.cloneEditor(Ga);
-		if (r.className = Ja, i.className = Ya, i.type = "button", n.strings.write(i, n.names.tooltip, qa), i.setAttribute(H, e.node.id), a.className = Xa, a.textContent = this.nameOf(e), i.append(a), pa(e.pin) || (o.className = Za, o.textContent = e.pin.title, i.append(o)), r.append(i), this.rows.set(`${e.node.id}\n${e.pin.name}`, r), s !== null) {
+		let n = this.services.context, r = document.createElement("div"), i = document.createElement("button"), a = document.createElement("span"), o = document.createElement("span"), s = this.host.cloneEditor(`${Xa}${e.node.type}:${e.pin.name}`), c = this.host.cloneEditor(Za);
+		if (r.className = eo, i.className = to, i.type = "button", n.strings.write(i, n.names.tooltip, $a), i.setAttribute(V, e.node.id), a.className = no, a.textContent = this.nameOf(e), i.append(a), Ea(e.pin) || (o.className = ro, o.textContent = e.pin.title, i.append(o)), r.append(i), this.rows.set(`${e.node.id}\n${e.pin.name}`, r), s !== null) {
 			let i = n.properties;
-			s.classList.add(Qa), i.set(s, "Value", this.shownValue(e, e.node.values[e.pin.name])), t ? i.set(s, "IsReadOnly", !0) : s.addEventListener("change", () => this.host.setValue(e.node.id, e.pin.name, this.host.readValue(e.pin, s))), this.fields.set(`${e.node.id}\n${e.pin.name}`, {
+			s.classList.add(io), i.set(s, "Value", this.shownValue(e, e.node.values[e.pin.name])), t ? i.set(s, "IsReadOnly", !0) : s.addEventListener("change", () => this.host.setValue(e.node.id, e.pin.name, this.host.readValue(e.pin, s))), this.fields.set(`${e.node.id}\n${e.pin.name}`, {
 				field: s,
 				found: e
 			}), r.append(s);
 		}
-		return c !== null && (c.setAttribute(U, ""), c.setAttribute(H, e.node.id), c.setAttribute(Ua, e.pin.name), n.properties.set(c, "Enabled", !t), r.append(c)), r;
+		return c !== null && (c.setAttribute(H, ""), c.setAttribute(V, e.node.id), c.setAttribute(Ya, e.pin.name), n.properties.set(c, "Enabled", !t), r.append(c)), r;
 	}
-};
-function eo(e, t) {
-	return e === null || e.tabIndex >= 0 ? e : t.first(e);
-}
-//#endregion
-//#region src/canvas/picker.ts
-var to = "[data-ui-graph-picker]", no = "[data-ui-graph-picker-search] input", ro = "[data-ui-graph-picker-rail]", io = "[data-ui-graph-picker-list]", ao = "[data-ui-graph-picker-empty]", oo = "data-ui-graph-kind", W = "data-ui-graph-category", so = "data-ui-graph-category-fold", G = "/", co = "--ui-graph-picker-depth", lo = ".ui-graph__viewport", uo = "input, button, [tabindex]", K = "ui-graph__picker-entry", fo = "ui-graph__picker-entry--current", po = "ui-graph__picker-entry--pointed", q = "/", mo = class e {
+}, oo = "[data-ui-graph-picker]", so = "[data-ui-graph-picker-search] input", co = "[data-ui-graph-picker-rail]", lo = "[data-ui-graph-picker-rail-toggle]", uo = "[data-ui-graph-picker-list]", fo = "[data-ui-graph-picker-empty]", po = "data-ui-graph-kind", U = "data-ui-graph-category", mo = "data-ui-graph-category-fold", W = "/", ho = "--ui-graph-picker-depth", go = ".ui-graph__viewport", _o = "input, button, [tabindex]", G = "ui-graph__picker-entry", vo = "ui-graph__picker-entry--current", yo = "ui-graph__picker-entry--pointed", K = "/", bo = class e {
 	panel;
 	search;
 	rail;
+	railToggle;
 	list;
 	empty;
 	home;
@@ -4416,62 +4517,67 @@ var to = "[data-ui-graph-picker]", no = "[data-ui-graph-picker-search] input", r
 	ids;
 	roving;
 	focus;
+	shortcuts;
 	choose;
-	category = q;
-	railStop = q;
+	category = K;
+	railStop = K;
 	drawnTerms = "";
 	unfolded = /* @__PURE__ */ new Set();
 	pointerX = NaN;
 	pointerY = NaN;
-	constructor(e, t, n, r, i, a, o, s, c, l, u, d, f) {
-		this.panel = e, this.search = t, this.rail = n, this.list = r, this.empty = i, this.home = a, this.entries = o, this.words = s, this.icons = c, this.ids = l, this.roving = u, this.focus = d, this.choose = f, this.search.addEventListener("input", () => this.draw()), this.search.addEventListener("change", () => {
-			this.search.value !== this.drawnTerms && this.draw();
-		}), this.search.addEventListener("keydown", (e) => this.key(e)), this.panel.addEventListener("keydown", (e) => this.escape(e)), this.panel.addEventListener("keydown", (e) => this.tab(e)), this.panel.addEventListener("mousedown", (e) => this.press(e)), this.rail.addEventListener("click", (e) => this.rails(e)), this.rail.addEventListener("keydown", (e) => this.railKey(e)), this.list.addEventListener("click", (e) => this.click(e)), this.list.addEventListener("pointermove", (e) => this.point(e)), this.panel.addEventListener("click", (e) => {
-			e.target === this.panel && this.close();
+	pressedBackdrop = !1;
+	constructor(e, t, n, r, i, a, o, s, c, l, u, d, f, p) {
+		this.panel = e, this.search = t, this.rail = n, this.railToggle = e.querySelector(lo), this.list = r, this.empty = i, this.home = a, this.entries = o, this.words = s, this.icons = c, this.ids = l, this.roving = u, this.focus = d, this.shortcuts = f, this.choose = p, this.search.addEventListener("input", () => this.draw(!0)), this.search.addEventListener("change", () => {
+			this.search.value !== this.drawnTerms && this.draw(!1);
+		}), this.search.addEventListener("keydown", (e) => this.key(e)), this.panel.addEventListener("keydown", (e) => this.escape(e)), this.panel.addEventListener("keydown", (e) => this.tab(e)), this.panel.addEventListener("mousedown", (e) => this.press(e)), this.rail.addEventListener("click", (e) => this.rails(e)), this.railToggle?.addEventListener("click", () => this.showRail(this.railToggle?.getAttribute("aria-expanded") !== "true")), this.rail.addEventListener("keydown", (e) => this.railKey(e)), this.list.addEventListener("click", (e) => this.click(e)), this.list.addEventListener("pointermove", (e) => this.point(e)), this.panel.addEventListener("pointerdown", (e) => {
+			this.pressedBackdrop = e.target === this.panel;
+		}), this.panel.addEventListener("click", (e) => {
+			e.target === this.panel && this.pressedBackdrop && this.close();
 		}), this.panel.addEventListener("close", () => {
 			this.search.setAttribute("aria-expanded", "false"), this.returnKeyboard();
 		});
 	}
-	static create(t, n, r, i, a, o, s, c) {
-		let l = t.querySelector(to), u = l?.querySelector(no) ?? null, d = l?.querySelector(ro) ?? null, f = l?.querySelector(io) ?? null, p = l?.querySelector(ao) ?? null;
-		return l === null || u === null || d === null || f === null || p === null ? null : (u.setAttribute("role", "combobox"), u.setAttribute("aria-controls", i.ensureId(f, "ui-graph-picker-list")), u.setAttribute("aria-autocomplete", "list"), u.setAttribute("aria-expanded", "false"), f.tabIndex = -1, new e(l, u, d, f, p, t.querySelector(lo), n, r, a, i, o, s, c));
+	static create(t, n, r, i, a, o, s, c, l) {
+		let u = t.querySelector(oo), d = u?.querySelector(so) ?? null, f = u?.querySelector(co) ?? null, p = u?.querySelector(uo) ?? null, m = u?.querySelector(fo) ?? null;
+		return u === null || d === null || f === null || p === null || m === null ? null : (d.setAttribute("role", "combobox"), d.setAttribute("aria-controls", i.ensureId(p, "ui-graph-picker-list")), d.setAttribute("aria-autocomplete", "list"), d.setAttribute("aria-expanded", "false"), p.tabIndex = -1, u.querySelector(lo)?.setAttribute("aria-controls", i.ensureId(f, "ui-graph-picker-rail")), new e(u, d, f, p, m, t.querySelector(go), n, r, a, i, o, s, c, l));
 	}
 	get isOpen() {
 		return this.panel.open;
 	}
 	open() {
-		this.search.value = "", this.category = q, this.railStop = q, this.drawRail(), this.draw(), this.panel.open || this.panel.showModal(), this.search.setAttribute("aria-expanded", "true"), this.search.focus({ preventScroll: !0 });
+		this.search.value = "", this.category = K, this.railStop = K, this.showRail(!1), this.drawRail(), this.draw(!1), this.panel.open || this.panel.showModal(), this.search.setAttribute("aria-expanded", "true"), this.search.focus({ preventScroll: !0 });
 	}
 	close() {
 		this.search.setAttribute("aria-expanded", "false"), this.panel.open && this.panel.close();
+	}
+	showRail(e) {
+		this.railToggle?.setAttribute("aria-expanded", String(e));
 	}
 	contains(e) {
 		return e instanceof Node && this.panel.contains(e);
 	}
 	escape(e) {
-		e.key !== "Escape" || e.defaultPrevented || e.isComposing || !this.isOpen || (e.preventDefault(), this.close());
+		e.key !== "Escape" || e.defaultPrevented || this.shortcuts.isEscapeClaimed(e) || !this.isOpen || (e.preventDefault(), this.close());
 	}
 	returnKeyboard() {
 		let e = document.activeElement;
 		this.home !== null && (e === null || e === document.body || this.panel.contains(e)) && this.home.focus({ preventScroll: !0 });
 	}
 	tab(e) {
-		if (e.key !== "Tab" || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
-		let t = this.focus.stops(this.panel), n = e.shiftKey ? t[0] : t.at(-1);
-		n !== void 0 && document.activeElement === n && (e.preventDefault(), (e.shiftKey ? t.at(-1) : t[0])?.focus({ preventScroll: !0 }));
+		e.key === "Tab" && !e.defaultPrevented && this.shortcuts.isPlainKey(e, { shift: !0 }) && this.focus.trapTab(this.panel, e);
 	}
 	press(e) {
 		let t = e.target instanceof Element ? e.target : null;
 		if (t === null || t === this.panel) return;
-		let n = t.closest(uo);
+		let n = t.closest(_o);
 		(n === null || n === this.panel || !this.panel.contains(n) || this.list.contains(n)) && (e.preventDefault(), document.activeElement !== this.search && this.search.focus({ preventScroll: !0 }));
 	}
 	drawRail() {
 		let e = [], t = /* @__PURE__ */ new Map();
 		for (let n of this.entries()) {
-			let r = ho(n), i = r.length === 0 ? [""] : r.split(G), a = e;
+			let r = xo(n), i = r.length === 0 ? [""] : r.split(W), a = e;
 			for (let e = 0; e < i.length; e++) {
-				let n = i.slice(0, e + 1).join(G), r = t.get(n);
+				let n = i.slice(0, e + 1).join(W), r = t.get(n);
 				r === void 0 && (r = {
 					path: n,
 					name: i[e],
@@ -4480,26 +4586,28 @@ var to = "[data-ui-graph-picker]", no = "[data-ui-graph-picker-search] input", r
 			}
 		}
 		let n = [{
-			category: q,
+			category: K,
 			caption: this.words.text("ui.graph.all-kinds"),
 			depth: 0,
 			folds: !1
 		}];
 		this.listRail(e, 0, n);
-		let r = /* @__PURE__ */ new Map();
-		for (let e of this.rail.querySelectorAll(`[${W}]`)) r.set(e.getAttribute(W) ?? "", e);
-		let i = new Set(n.map((e) => e.category));
-		for (let [e, t] of r) i.has(e) || t.remove();
-		let a = this.rail.firstElementChild;
+		let r = t.get(this.category);
+		this.showChosen(r === void 0 ? n[0].caption : r.path.length === 0 ? this.words.text("ui.graph.uncategorized") : r.name);
+		let i = /* @__PURE__ */ new Map();
+		for (let e of this.rail.querySelectorAll(`[${U}]`)) i.set(e.getAttribute(U) ?? "", e);
+		let a = new Set(n.map((e) => e.category));
+		for (let [e, t] of i) a.has(e) || t.remove();
+		let o = this.rail.firstElementChild;
 		for (let e of n) {
-			let t = r.get(e.category);
-			t !== void 0 && t.hasAttribute("aria-expanded") !== e.folds && (t === a && (a = t.nextElementSibling), t.remove(), t = void 0), t ??= this.railEntry(e), this.showRailEntry(t, e), t === a ? a = t.nextElementSibling : this.rail.insertBefore(t, a);
+			let t = i.get(e.category);
+			t !== void 0 && t.hasAttribute("aria-expanded") !== e.folds && (t === o && (o = t.nextElementSibling), t.remove(), t = void 0), t ??= this.railEntry(e), this.showRailEntry(t, e), t === o ? o = t.nextElementSibling : this.rail.insertBefore(t, o);
 		}
-		let o = this.railEntries();
-		this.roving.applyTabIndex(o, o.find((e) => e.getAttribute(W) === this.railStop) ?? o.find((e) => e.getAttribute(W) === this.category) ?? o[0] ?? null);
+		let s = this.railEntries();
+		this.roving.applyTabIndex(s, s.find((e) => e.getAttribute(U) === this.railStop) ?? s.find((e) => e.getAttribute(U) === this.category) ?? s[0] ?? null);
 	}
 	railEntries() {
-		return [...this.rail.querySelectorAll(`[${W}]`)];
+		return [...this.rail.querySelectorAll(`[${U}]`)];
 	}
 	listRail(e, t, n) {
 		for (let r of e) {
@@ -4512,24 +4620,28 @@ var to = "[data-ui-graph-picker]", no = "[data-ui-graph-picker-search] input", r
 			}), e && this.unfolded.has(r.path) && this.listRail(r.children, t + 1, n);
 		}
 	}
+	showChosen(e) {
+		let t = this.railToggle?.firstElementChild ?? null;
+		t !== null && t.textContent !== e && (t.textContent = e);
+	}
 	railEntry(e) {
 		let t = document.createElement("button"), n = document.createElement("span"), r = document.createElement("span");
-		return t.type = "button", t.className = "ui-graph__picker-category", t.setAttribute("role", "treeitem"), t.setAttribute(W, e.category), n.className = "ui-graph__picker-fold", n.setAttribute("aria-hidden", "true"), e.folds && (n.setAttribute(so, ""), this.icons.apply(n, "ne-chevron-right")), t.append(n, r), t;
+		return t.type = "button", t.className = "ui-graph__picker-category", t.setAttribute("role", "treeitem"), t.setAttribute(U, e.category), n.className = "ui-graph__picker-fold", n.setAttribute("aria-hidden", "true"), e.folds && (n.setAttribute(mo, ""), this.icons.apply(n, "ne-chevron-right")), t.append(n, r), t;
 	}
 	showRailEntry(e, t) {
 		let n = e.lastElementChild;
-		e.setAttribute("aria-selected", String(t.category === this.category)), e.setAttribute("aria-level", String(t.depth + 1)), e.style.setProperty(co, String(t.depth)), t.folds && e.setAttribute("aria-expanded", String(this.unfolded.has(t.category))), n !== null && n.textContent !== t.caption && (n.textContent = t.caption);
+		e.setAttribute("aria-selected", String(t.category === this.category)), e.setAttribute("aria-level", String(t.depth + 1)), e.style.setProperty(ho, String(t.depth)), t.folds && e.setAttribute("aria-expanded", String(this.unfolded.has(t.category))), n !== null && n.textContent !== t.caption && (n.textContent = t.caption);
 	}
 	rails(e) {
-		let t = e.target instanceof Element ? e.target : null, n = t === null ? null : t.closest(`[${W}]`);
+		let t = e.target instanceof Element ? e.target : null, n = t === null ? null : t.closest(`[${U}]`);
 		if (t === null || n === null) return;
-		let r = n.getAttribute(W) ?? q;
-		t.closest(`[${so}]`) === null ? (n.hasAttribute("aria-expanded") && this.toggle(r, r !== this.category || void 0), this.category = r, this.railStop = r, this.drawRail(), this.draw()) : (this.toggle(r), this.drawRail()), e.detail > 0 && this.search.focus({ preventScroll: !0 });
+		let r = n.getAttribute(U) ?? K;
+		t.closest(`[${mo}]`) === null ? (n.hasAttribute("aria-expanded") && this.toggle(r, r !== this.category || void 0), this.category = r, this.railStop = r, this.showRail(!1), this.drawRail(), this.draw(e.detail === 0)) : (this.toggle(r), this.drawRail()), e.detail > 0 && this.search.focus({ preventScroll: !0 });
 	}
 	railKey(e) {
-		let t = e.target instanceof Element ? e.target.closest(`[${W}]`) : null;
-		if (t === null || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
-		let n = t.getAttribute(W) ?? q, r = this.railEntries(), i = r.indexOf(t), a = (e) => Number(e?.getAttribute("aria-level") ?? 0), o = null;
+		let t = e.target instanceof Element ? e.target.closest(`[${U}]`) : null;
+		if (t === null || e.defaultPrevented || !this.shortcuts.isPlainKey(e)) return;
+		let n = t.getAttribute(U) ?? K, r = this.railEntries(), i = r.indexOf(t), a = (e) => Number(e?.getAttribute("aria-level") ?? 0), o = null;
 		if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
 			let s = t.getAttribute("aria-expanded");
 			if (e.key === "ArrowRight" && s === "false" || e.key === "ArrowLeft" && s === "true") {
@@ -4544,18 +4656,18 @@ var to = "[data-ui-graph-picker]", no = "[data-ui-graph-picker-search] input", r
 			axis: "vertical",
 			loop: !1
 		});
-		o != null && (e.preventDefault(), this.railStop = o.getAttribute(W) ?? q, this.roving.applyTabIndex(r, o), o.focus({ preventScroll: !0 }));
+		o != null && (e.preventDefault(), this.railStop = o.getAttribute(U) ?? K, this.roving.applyTabIndex(r, o), o.focus({ preventScroll: !0 }));
 	}
 	toggle(e, t) {
 		t ?? !this.unfolded.has(e) ? this.unfolded.add(e) : this.unfolded.delete(e);
 	}
-	draw() {
+	draw(e) {
 		this.drawnTerms = this.search.value;
-		let e = this.search.value.trim().toLowerCase(), t = this.entries().filter((t) => this.chosen(t) && (e.length === 0 || go(t, e)));
-		this.list.replaceChildren(), this.empty.hidden = t.length > 0;
-		for (let e of t) {
+		let t = this.search.value.trim().toLowerCase(), n = this.entries().filter((e) => this.chosen(e) && (t.length === 0 || So(e, t)));
+		this.list.replaceChildren(), this.empty.hidden = n.length > 0;
+		for (let e of n) {
 			let t = document.createElement("button");
-			t.type = "button", t.className = K, t.tabIndex = -1, t.id = this.ids.ensureId(t, `${this.list.id}-entry`), t.setAttribute("role", "option"), t.setAttribute(oo, e.key);
+			t.type = "button", t.className = G, t.tabIndex = -1, t.id = this.ids.ensureId(t, `${this.list.id}-entry`), t.setAttribute("role", "option"), t.setAttribute(po, e.key);
 			let n = e.icon ?? "";
 			if (n.length > 0) {
 				let e = document.createElement("span");
@@ -4570,58 +4682,58 @@ var to = "[data-ui-graph-picker]", no = "[data-ui-graph-picker-search] input", r
 			}
 			t.append(r), this.list.append(t);
 		}
-		this.setCurrent(this.list.querySelector(`.${K}`));
+		this.setCurrent(this.list.querySelector(`.${G}`), !e);
 	}
 	setCurrent(e, t = !1) {
-		for (let n of this.list.querySelectorAll(`.${K}`)) {
+		for (let n of this.list.querySelectorAll(`.${G}`)) {
 			let r = n === e;
-			n.classList.toggle(fo, r), n.classList.toggle(po, r && t), n.setAttribute("aria-selected", String(r));
+			n.classList.toggle(vo, r), n.classList.toggle(yo, r && t), n.setAttribute("aria-selected", String(r));
 		}
 		e === null ? this.search.removeAttribute("aria-activedescendant") : this.search.setAttribute("aria-activedescendant", e.id);
 	}
 	chosen(e) {
-		if (this.category === q) return !0;
-		let t = ho(e);
-		return t === this.category || t.startsWith(this.category + G);
+		if (this.category === K) return !0;
+		let t = xo(e);
+		return t === this.category || t.startsWith(this.category + W);
 	}
 	key(e) {
-		if (e.isComposing) return;
+		if (this.shortcuts.isComposing(e)) return;
 		if (e.key === "Enter") {
-			e.preventDefault(), this.take(this.list.querySelector(`.${fo}`));
+			e.preventDefault(), this.take(this.list.querySelector(`.${vo}`));
 			return;
 		}
 		if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-		let t = [...this.list.querySelectorAll(`.${K}`)], n = this.roving.target({
+		let t = [...this.list.querySelectorAll(`.${G}`)], n = this.roving.target({
 			key: e.key,
 			items: t,
-			current: t.find((e) => e.classList.contains(fo)) ?? null,
+			current: t.find((e) => e.classList.contains(vo)) ?? null,
 			axis: "vertical"
 		});
 		n !== null && (e.preventDefault(), this.setCurrent(n), n.scrollIntoView({ block: "nearest" }));
 	}
 	click(e) {
-		this.take(e.target instanceof Element ? e.target.closest(`.${K}`) : null);
+		this.take(e.target instanceof Element ? e.target.closest(`.${G}`) : null);
 	}
 	point(e) {
 		if (e.clientX === this.pointerX && e.clientY === this.pointerY) return;
 		this.pointerX = e.clientX, this.pointerY = e.clientY;
-		let t = e.target instanceof Element ? e.target.closest(`.${K}`) : null;
-		t !== null && !t.classList.contains(fo) && this.setCurrent(t, !0);
+		let t = e.target instanceof Element ? e.target.closest(`.${G}`) : null;
+		t !== null && !t.classList.contains(vo) && this.setCurrent(t, !0);
 	}
 	take(e) {
-		let t = e?.getAttribute(oo), n = t == null ? void 0 : this.entries().find((e) => e.key === t);
+		let t = e?.getAttribute(po), n = t == null ? void 0 : this.entries().find((e) => e.key === t);
 		n !== void 0 && (this.close(), this.choose(n));
 	}
 };
-function ho(e) {
-	return (e.category ?? "").split(G).map((e) => e.trim()).filter((e) => e.length > 0).join(G);
+function xo(e) {
+	return (e.category ?? "").split(W).map((e) => e.trim()).filter((e) => e.length > 0).join(W);
 }
-function go(e, t) {
+function So(e, t) {
 	return e.title.toLowerCase().includes(t) || (e.description ?? "").toLowerCase().includes(t) || (e.category ?? "").toLowerCase().includes(t) || e.key.toLowerCase().includes(t);
 }
 //#endregion
 //#region src/nodes/nodes-picker-binding.ts
-var _o = class {
+var Co = class {
 	services;
 	picker;
 	loose = null;
@@ -4629,7 +4741,7 @@ var _o = class {
 		let n = e.context;
 		this.services = e;
 		let r = t.filter((e) => e.hidden !== !0);
-		this.picker = mo.create(e.root, () => r, n.strings, n.dom, n.icons, n.roving, n.focus, (e) => this.addNode(e));
+		this.picker = bo.create(e.root, () => r, n.strings, n.dom, n.icons, n.roving, n.focus, n.shortcuts, (e) => this.addNode(e));
 	}
 	open() {
 		this.loose = null, this.picker?.open();
@@ -4643,13 +4755,13 @@ var _o = class {
 	addNode(e) {
 		let t = this.services.settings, n = this.loose;
 		if (this.loose = null, t.readOnly) return;
-		let r = n?.at ?? this.services.pointerScene(), i = ti(e, E(r.x, t.gridSize, t.snapping), E(r.y, t.gridSize, t.snapping)), a = this.services.documentState.document;
-		a.nodes.push(i), n !== null && a.nodes.some((e) => e.id === n.fromNode) && this.wire(a, n, i, e), this.services.selection.selectOnly(i.id), this.services.documentState.edited();
+		let r = n?.at ?? this.services.pointerScene(), i = ni(e, r.x, r.y), a = this.services.snapPlace(i.id, i), o = this.services.documentState.document;
+		i.x = a.x, i.y = a.y, o.nodes.push(i), n !== null && o.nodes.some((e) => e.id === n.fromNode) && this.wire(o, n, i, e), this.services.selection.selectOnly(i.id), this.services.documentState.edited();
 	}
 	wire(e, t, n, r) {
-		let i = r.inputs.find((e) => e.hasPin !== !1 && ui(e, n, r) && ei(t.fromType, e.type));
+		let i = r.inputs.find((e) => e.hasPin !== !1 && di(e, n, r) && ti(t.fromType, e.type));
 		i !== void 0 && e.edges.push({
-			id: w("e"),
+			id: C("e"),
 			fromNode: t.fromNode,
 			fromPin: t.fromPin,
 			toNode: n.id,
@@ -4657,7 +4769,7 @@ var _o = class {
 			points: []
 		});
 	}
-}, vo = "graph.run", yo = "graph.run-all", bo = "run-stop", xo = "ui-graph--running", So = class {
+}, wo = "graph.run", To = "graph.run-all", Eo = "run-stop", Do = "ui-graph--running", Oo = class {
 	services;
 	once;
 	all;
@@ -4665,22 +4777,22 @@ var _o = class {
 	asked = !1;
 	running = !1;
 	constructor(e) {
-		this.services = e, this.once = e.root.querySelector("[data-ui-graph-run-once]"), this.all = e.root.querySelector("[data-ui-graph-run-all]"), this.stop = e.root.querySelector("[data-ui-graph-run-stop]"), this.once?.addEventListener("click", () => this.start(vo)), this.all?.addEventListener("click", () => this.start(yo)), this.stop?.addEventListener("click", () => e.root.dispatchEvent(new CustomEvent(bo, { bubbles: !0 }))), this.draw();
+		this.services = e, this.once = e.root.querySelector("[data-ui-graph-run-once]"), this.all = e.root.querySelector("[data-ui-graph-run-all]"), this.stop = e.root.querySelector("[data-ui-graph-run-stop]"), this.once?.addEventListener("click", () => this.start(wo)), this.all?.addEventListener("click", () => this.start(To)), this.stop?.addEventListener("click", () => e.root.dispatchEvent(new CustomEvent(Eo, { bubbles: !0 }))), this.draw();
 	}
 	setRunning(e) {
 		this.running = e, this.asked = !1, this.draw();
 	}
 	saveCompleted(e) {
-		!this.asked || e !== vo && e !== yo || (this.asked = !1, this.draw());
+		!this.asked || e !== wo && e !== To || (this.asked = !1, this.draw());
 	}
 	start(e) {
 		this.asked || this.running || (this.asked = !0, this.draw(), this.services.documentState.requestSave(e));
 	}
 	draw() {
 		let e = this.asked || this.running, t = this.services.context.states;
-		this.once !== null && t.setDisabled(this.once, e), this.all !== null && t.setDisabled(this.all, e), this.stop !== null && t.setDisabled(this.stop, !this.running), this.services.root.classList.toggle(xo, e);
+		this.once !== null && t.setDisabled(this.once, e), this.all !== null && t.setDisabled(this.all, e), this.stop !== null && t.setDisabled(this.stop, !this.running), this.services.root.classList.toggle(Do, e);
 	}
-}, Co = "image-upload", wo = class {
+}, ko = "image-upload", Ao = "image/*", jo = class {
 	root;
 	context;
 	settings;
@@ -4691,9 +4803,9 @@ var _o = class {
 	pickImage(e, t) {
 		if (this.settings.readOnly) return;
 		let n = document.createElement("input");
-		n.type = "file", n.accept = "image/*", n.addEventListener("change", () => {
+		n.type = "file", n.accept = Ao, n.addEventListener("change", () => {
 			let r = n.files?.[0];
-			r !== void 0 && this.uploadImage(e, t, r);
+			r !== void 0 && this.context.uploads.accepts(Ao, r) && this.uploadImage(e, t, r);
 		}), n.click();
 	}
 	async uploadImage(e, t, n) {
@@ -4702,11 +4814,11 @@ var _o = class {
 			let r = await this.context.uploads.uploadAsync([n], (n) => this.markUpload(e, t, n));
 			this.announce(e, t, r.selectionId, n.name);
 		} catch {
-			this.editorOf(e, t)?.setAttribute(zi, this.context.strings.text("ui.graph.upload-failed"));
+			this.editorOf(e, t)?.setAttribute(Qi, this.context.strings.text("ui.graph.upload-failed"));
 		}
 	}
 	announce(e, t, n, r) {
-		this.root.dispatchEvent(new CustomEvent(Co, {
+		this.root.dispatchEvent(new CustomEvent(ko, {
 			bubbles: !0,
 			detail: { keys: [
 				e,
@@ -4718,12 +4830,12 @@ var _o = class {
 	}
 	markUpload(e, t, n) {
 		let r = this.editorOf(e, t);
-		r?.setAttribute(zi, ne(this.context, r, n));
+		r?.setAttribute(Qi, re(this.context, r, n));
 	}
 	editorOf(e, t) {
 		return this.nodeElements.get(e)?.querySelector(`[data-ui-graph-value="${CSS.escape(t)}"]`) ?? null;
 	}
-}, To = ".ui-graph__row", Eo = "ui-graph__pin--aimed", Do = class {
+}, Mo = ".ui-graph__row", No = "ui-graph__pin--aimed", Po = class {
 	services;
 	host;
 	types;
@@ -4747,41 +4859,41 @@ var _o = class {
 	connectionFrom(e) {
 		let t = e.closest(`[${o}]`)?.getAttribute(o);
 		if (t == null) return null;
-		let n = e.getAttribute(z);
+		let n = e.getAttribute(R);
 		if (e.getAttribute("data-ui-graph-pin-dir") === "out") return {
 			fromNode: t,
 			fromPin: n,
 			fromType: e.getAttribute("data-ui-graph-pin-type") ?? "any",
 			detached: null
 		};
-		let r = li(this.document, t, n).at(-1);
+		let r = ui(this.document, t, n).at(-1);
 		if (r === void 0) return null;
 		this.document.edges = this.document.edges.filter((e) => e.id !== r.id);
 		let i = {
 			fromNode: r.fromNode,
 			fromPin: r.fromPin,
-			fromType: L(this.document, this.types, r.fromNode, r.fromPin),
+			fromType: mi(this.document, this.types, r.fromNode, r.fromPin),
 			detached: r
 		};
 		return this.services.draw(), i;
 	}
 	offerDropTargets(e, t) {
-		_n(this.services.root);
-		for (let n of this.services.nodeLayer.querySelectorAll(`[${z}]`)) {
-			let r = n.getAttribute("data-ui-graph-pin-dir") === "in" && n.closest("[data-ui-graph-node]")?.getAttribute("data-ui-graph-node") !== e && ei(t, n.getAttribute("data-ui-graph-pin-type") ?? "any");
+		vn(this.services.root);
+		for (let n of this.services.nodeLayer.querySelectorAll(`[${R}]`)) {
+			let r = n.getAttribute("data-ui-graph-pin-dir") === "in" && n.closest("[data-ui-graph-node]")?.getAttribute("data-ui-graph-node") !== e && ti(t, n.getAttribute("data-ui-graph-pin-type") ?? "any");
 			n.setAttribute(f, r ? "yes" : "no");
 		}
-		for (let e of this.services.nodeLayer.querySelectorAll(To)) {
-			let t = e.querySelector(`[${z}][${Ni}="in"]`);
+		for (let e of this.services.nodeLayer.querySelectorAll(Mo)) {
+			let t = e.querySelector(`[${R}][${Ki}="in"]`);
 			e.setAttribute(f, t?.getAttribute("data-ui-graph-drop") === "yes" ? "yes" : "no");
 		}
 	}
 	aimAt(e) {
 		let t = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-ui-graph-pin][data-ui-graph-drop=\"yes\"]") ?? null;
-		yn(this.services.nodeLayer, t, (e, t) => e.classList.toggle(Eo, t));
+		bn(this.services.nodeLayer, t, (e, t) => e.classList.toggle(No, t));
 	}
 	clearDropTargets() {
-		vn(this.services.root, this.services.nodeLayer, (e) => e.classList.remove(Eo));
+		yn(this.services.root, this.services.nodeLayer, (e) => e.classList.remove(No));
 	}
 	trackConnect(e, t, n) {
 		let r = this.host.pinPoint(e.fromNode, e.fromPin, "out");
@@ -4806,7 +4918,7 @@ var _o = class {
 			this.cancelConnection(t);
 			return;
 		}
-		if (i === t.fromNode || !ei(t.fromType, o)) {
+		if (i === t.fromNode || !ti(t.fromType, o)) {
 			t.detached !== null && (this.document.edges.push(t.detached), this.services.draw());
 			return;
 		}
@@ -4817,23 +4929,23 @@ var _o = class {
 			}
 		} else this.document.edges = this.document.edges.filter((e) => e.toNode !== i || e.toPin !== a);
 		this.document.edges.push({
-			id: w("e"),
+			id: C("e"),
 			fromNode: t.fromNode,
 			fromPin: t.fromPin,
 			toNode: i,
 			toPin: a,
 			points: []
-		}), ii(this.document, i, a), this.services.documentState.edited();
+		}), ai(this.document, i, a), this.services.documentState.edited();
 	}
 	inputPin(e, t) {
 		let n = this.document.nodes.find((t) => t.id === e);
 		return I(n === void 0 ? void 0 : this.types.get(n.type), t, !1);
 	}
-}, Oo = ".ui-graph__editor", ko = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel, [data-ui-graph-parameters-panel]", Ao = "data-ui-graph-catalog", jo = "graph.reroute", Mo = 30, No = 12, Po = "graph:add-parameter", Fo = "graph:remove-parameter", Io = "graph:reset-pin", Lo = {
+}, Fo = ".ui-graph__editor", Io = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel, [data-ui-graph-parameters-panel]", Lo = "data-ui-graph-catalog", Ro = "graph.reroute", zo = 30, Bo = 12, Vo = "graph:add-parameter", Ho = "graph:remove-parameter", Uo = "graph:reset-pin", Wo = {
 	name: "nodes",
-	readDocument: Yr,
-	create: (e) => new Ro(e)
-}, Ro = class {
+	readDocument: Xr,
+	create: (e) => new Go(e)
+}, Go = class {
 	services;
 	types = /* @__PURE__ */ new Map();
 	typeTitles = /* @__PURE__ */ new Map();
@@ -4845,28 +4957,26 @@ var _o = class {
 	upload;
 	runPanel;
 	parameters;
-	viewKept;
-	drawnOnce = !1;
-	sizeWatch = null;
+	fittedOnce = !1;
 	clipboard = null;
 	pinTarget = null;
 	constructor(e) {
-		let t = zo(e.root.getAttribute(Ao));
-		this.services = e, this.seriesColors = Bo(e.root), this.viewKept = e.context.store.readJson(e.root, "view") !== null;
+		let t = Ko(e.root.getAttribute(Lo));
+		this.services = e, this.seriesColors = e.context.colors.count(e.root);
 		for (let e of t) {
 			this.types.set(e.key, e);
-			for (let t of [...e.inputs, ...e.outputs]) t.typeTitle !== null && t.typeTitle !== void 0 && this.typeTitles.set(Ho(t.type), t.typeTitle);
+			for (let t of [...e.inputs, ...e.outputs]) t.typeTitle !== null && t.typeTitle !== void 0 && this.typeTitles.set(Jo(t.type), t.typeTitle);
 		}
-		this.pickerBinding = new _o(e, t), this.wiring = new Do(e, {
+		this.pickerBinding = new Co(e, t), this.wiring = new Po(e, {
 			pinPoint: (e, t, n) => this.pinPoint(e, t, n),
 			pinColor: (e) => this.pinColor(e),
 			dropOnNothing: (e) => this.pickerBinding.openFor(e)
-		}, this.types), this.log = new Ma(e, this.types), this.upload = new wo(e), this.runPanel = new So(e), this.parameters = new $a(e, {
+		}, this.types), this.log = new Ga(e, this.types), this.upload = new jo(e), this.runPanel = new Oo(e), this.parameters = new ao(e, {
 			types: this.types,
 			setValue: (e, t, n) => this.setValue(e, t, n, !0),
-			readValue: (t, n) => ba(t, e.context.values.read(n)),
+			readValue: (t, n) => Na(t, e.context.values.read(n)),
 			show: (e) => this.log.goToNode(e),
-			cloneEditor: (t) => x(e.root, t)
+			cloneEditor: (t) => b(e.root, t)
 		}), this.log.setLogOpen(e.context.store.read(e.root, "log") === "open"), this.log.drawRun(), e.root.addEventListener(h.menuOpeningEvent, (e) => this.pinMenuOpening(e));
 	}
 	get document() {
@@ -4880,7 +4990,7 @@ var _o = class {
 	}
 	renderItem(e) {
 		let t = e, n = this.services.context;
-		return ea(t, this.types.get(t.type), {
+		return pa(t, this.types.get(t.type), {
 			words: n.strings,
 			names: n.names,
 			states: n.states,
@@ -4888,7 +4998,7 @@ var _o = class {
 			icons: n.icons,
 			readOnly: this.services.settings.readOnly,
 			pinColor: (e) => this.pinColor(e),
-			outputType: (e, t) => L(this.document, this.types, e, t),
+			outputType: (e, t) => mi(this.document, this.types, e, t),
 			feedTitle: (e, t) => this.feedTitle(e, t, /* @__PURE__ */ new Set()),
 			isConnected: (e, t, n) => n === "in" ? F(this.document, e, t) !== void 0 : this.document.edges.some((n) => n.fromNode === e && n.fromPin === t),
 			onValueChanged: (e, t, n) => this.setValue(e, t, n),
@@ -4899,7 +5009,7 @@ var _o = class {
 			date: (e, t) => this.log.formatDate(e, t),
 			temporal: n.temporal,
 			urls: n.urls,
-			cloneEditor: (e) => x(this.services.root, e),
+			cloneEditor: (e) => b(this.services.root, e),
 			setProperty: (e, t, r) => n.properties.set(e, t, r),
 			readValue: (e) => n.values.read(e)
 		});
@@ -4911,21 +5021,7 @@ var _o = class {
 		this.log.reapplyToRedrawnNodes(e), this.services.settings.snapping && _t(this.services.nodeElements.values(), this.services.settings.gridSize), this.parameters.draw(), this.fitFirstDraw();
 	}
 	fitFirstDraw() {
-		if (this.drawnOnce || (this.drawnOnce = !0, this.document.nodes.length === 0)) return;
-		let e = this.services.root;
-		if (e.offsetWidth > 0) {
-			this.fitUnlessKept();
-			return;
-		}
-		this.sizeWatch = this.services.context.observeSize(e, () => {
-			e.offsetWidth !== 0 && (this.dispose(), this.fitUnlessKept());
-		});
-	}
-	dispose() {
-		this.sizeWatch?.(), this.sizeWatch = null;
-	}
-	fitUnlessKept() {
-		(!this.viewKept || !this.services.view.showsAnyItem()) && this.services.view.fit();
+		this.fittedOnce || this.document.nodes.length === 0 || (this.fittedOnce = !0, this.services.view.fitSheet());
 	}
 	itemColor(e) {
 		return e.color ?? this.types.get(e.type)?.color ?? "";
@@ -4943,7 +5039,7 @@ var _o = class {
 			});
 		}
 		if (this.services.settings.edgeShape !== "orthogonal") return e;
-		let t = he(this.document.edges.flatMap((t) => {
+		let t = ge(this.document.edges.flatMap((t) => {
 			let n = e.get(t.id);
 			return n === void 0 ? [] : [{
 				id: t.id,
@@ -4974,10 +5070,10 @@ var _o = class {
 	}
 	edgeColor(e) {
 		let t = e;
-		return this.pinColor(L(this.document, this.types, t.fromNode, t.fromPin));
+		return this.pinColor(mi(this.document, this.types, t.fromNode, t.fromPin));
 	}
 	pinPoint(e, t, n) {
-		let r = this.services.nodeElements.get(e)?.querySelector(`[${z}="${CSS.escape(t)}"][${Ni}="${n}"]`);
+		let r = this.services.nodeElements.get(e)?.querySelector(`[${R}="${CSS.escape(t)}"][${Ki}="${n}"]`);
 		return r == null ? null : this.services.centerOf(r);
 	}
 	feedTitle(e, t, n) {
@@ -4988,7 +5084,7 @@ var _o = class {
 		return o === void 0 ? I(a, r.fromPin, !0)?.title ?? null : this.feedTitle(r.fromNode, o.name, n);
 	}
 	pinColor(e) {
-		return e === "any" ? "var(--ui-text-muted)" : `var(--ui-color-series-${(({
+		return e === "any" ? "var(--ui-text-muted)" : this.services.context.colors.color(({
 			image: 1,
 			array: 2,
 			number: 3,
@@ -4997,7 +5093,7 @@ var _o = class {
 			date: 8,
 			time: 8,
 			datetime: 8
-		}[e] ?? Vo(e) + 1) - 1) % this.seriesColors + 1})`;
+		}[e] ?? qo(e) + 1) - 1, this.seriesColors);
 	}
 	setValue(e, t, n, r = !1) {
 		let i = this.document.nodes.find((t) => t.id === e);
@@ -5024,7 +5120,7 @@ var _o = class {
 		}
 	}
 	showCommitted(e, t, n) {
-		let r = this.document.nodes.find((t) => t.id === e), i = r === void 0 ? void 0 : this.types.get(r.type), a = this.services.nodeElements.get(e)?.querySelector(`[${Li}="${CSS.escape(t)}"] > *`);
+		let r = this.document.nodes.find((t) => t.id === e), i = r === void 0 ? void 0 : this.types.get(r.type), a = this.services.nodeElements.get(e)?.querySelector(`[${Xi}="${CSS.escape(t)}"] > *`);
 		return i === void 0 || a == null || i.inputs.some((e) => e.visibleWhen === t) ? !1 : (this.services.context.properties.set(a, "Value", n ?? i.inputs.find((e) => e.name === t)?.defaultValue ?? null), !0);
 	}
 	setStatus(e, t, n, r) {
@@ -5046,21 +5142,21 @@ var _o = class {
 		this.runPanel.saveCompleted(t);
 	}
 	isEditor(e) {
-		return e.closest(Oo) !== null && e.closest("[data-ui-graph-head]") === null;
+		return e.closest(Fo) !== null && e.closest("[data-ui-graph-head]") === null;
 	}
 	isPanel(e) {
-		return e.closest(ko) !== null;
+		return e.closest(Io) !== null;
 	}
 	pointerDown(e, t) {
-		let n = t.closest(`[${z}]`);
+		let n = t.closest(`[${R}]`);
 		return n === null || this.services.settings.readOnly ? !1 : this.wiring.beginConnect(n) ?? !0;
 	}
 	chrome(e) {
 		if (this.parameters.press(e)) return !0;
 		if (e.closest("[data-ui-graph-log-toggle]") !== null) return this.log.setLogOpen(!this.log.isLogOpen(), !0), !0;
 		if (e.closest("[data-ui-graph-log-clear]") !== null) return this.log.clearLog(), !0;
-		let t = e.closest(`[${Da}]`);
-		return t !== null && (this.log.goToNode(t.getAttribute(Da)), !0);
+		let t = e.closest(`[${Ba}]`);
+		return t !== null && (this.log.goToNode(t.getAttribute(Ba)), !0);
 	}
 	backgroundDoubleClick() {
 		this.pickerBinding.open();
@@ -5069,25 +5165,37 @@ var _o = class {
 		this.pickerBinding.close();
 	}
 	copy(e) {
-		this.clipboard = mi(this.document, e);
+		this.clipboard = gi(this.document, e);
 	}
 	paste() {
 		if (this.clipboard === null) return null;
-		let e = this.services.settings.gridSize * 2, t = hi(this.clipboard, e, e);
-		return this.document.nodes.push(...t.nodes), this.document.edges.push(...t.edges), this.clipboard = mi(this.document, new Set(t.nodes.map((e) => e.id))), t.nodes.map((e) => e.id);
+		let e = this.services.settings.gridSize * 2, t = _i(this.clipboard, e, e);
+		return this.document.nodes.push(...t.nodes), this.document.edges.push(...t.edges), this.clipboard = gi(this.document, new Set(t.nodes.map((e) => e.id))), t.nodes.map((e) => e.id);
 	}
 	remove(e, t) {
 		let n = this.document;
-		n.nodes = n.nodes.filter((t) => !e.has(t.id)), n.edges = n.edges.filter((n) => !t.has(n.id) && !e.has(n.fromNode) && !e.has(n.toNode)), this.parameters.forget(e);
+		return n.nodes = n.nodes.filter((t) => !e.has(t.id)), n.edges = n.edges.filter((n) => !t.has(n.id) && !e.has(n.fromNode) && !e.has(n.toNode)), this.parameters.forget(e), !0;
 	}
 	arrange(e, t) {
 		let n = this.services.settings;
-		return Vr(this.document, {
+		return Hr(this.document, {
 			sizes: e,
 			only: t,
 			pinOffset: (e, t, n) => this.pinOffset(e, t, n),
 			gridSize: n.snapping ? n.gridSize : 0
 		});
+	}
+	levelTops(e, t) {
+		let n = [];
+		for (let r of this.document.edges) {
+			let i = r.fromNode === e;
+			if (!i && r.toNode !== e) continue;
+			let a = this.document.nodes.find((e) => e.id === (i ? r.toNode : r.fromNode));
+			if (a === void 0 || a.id === e || t.has(a.id)) continue;
+			let o = i ? this.pinOffset(e, r.fromPin, "out") : this.pinOffset(e, r.toPin, "in"), s = i ? this.pinOffset(a.id, r.toPin, "in") : this.pinOffset(a.id, r.fromPin, "out");
+			o !== null && s !== null && n.push(a.y + s - o);
+		}
+		return n;
 	}
 	pinOffset(e, t, n) {
 		let r = this.services.nodeElements.get(e), i = this.pinPoint(e, t, n);
@@ -5110,36 +5218,36 @@ var _o = class {
 			case "graph:add-node": return this.services.settings.readOnly || this.pickerBinding.open(), !0;
 			case "graph:add-reroute": return (t === null || t.kind === "edge") && this.addReroute(t?.id ?? null), !0;
 			case "graph:reset-state": return t?.kind === "node" && this.resetState(t.id), !0;
-			case Po:
-			case Fo: return this.pinTarget !== null && this.parameters.toggle(this.pinTarget.node, this.pinTarget.pin), !0;
-			case Io: return this.resetPin(), !0;
+			case Vo:
+			case Ho: return this.pinTarget !== null && this.parameters.toggle(this.pinTarget.node, this.pinTarget.pin), !0;
+			case Uo: return this.resetPin(), !0;
 			case "graph:delete-edge": return t?.kind === "edge" && !this.services.settings.readOnly && (this.document.edges = this.document.edges.filter((e) => e.id !== t.id), this.services.documentState.edited()), !0;
 			default: return !1;
 		}
 	}
 	addReroute(e) {
-		let t = e === null ? null : this.document.edges.find((t) => t.id === e), n = this.types.get(jo), r = n?.inputs[0], i = n?.outputs[0];
+		let t = e === null ? null : this.document.edges.find((t) => t.id === e), n = this.types.get(Ro), r = n?.inputs[0], i = n?.outputs[0];
 		if (this.services.settings.readOnly || t === void 0 || n === void 0 || r === void 0 || i === void 0) return;
-		let a = this.services.settings, o = this.services.pointerScene(), s = ti(n, E(o.x - Mo, a.gridSize, a.snapping), E(o.y - No, a.gridSize, a.snapping));
-		this.document.nodes.push(s), t !== null && (this.document.edges = [
+		let a = this.services.pointerScene(), o = ni(n, a.x - zo, a.y - Bo), s = this.services.snapPlace(o.id, o);
+		o.x = s.x, o.y = s.y, this.document.nodes.push(o), t !== null && (this.document.edges = [
 			...this.document.edges.filter((e) => e.id !== t.id),
 			{
-				id: w("e"),
+				id: C("e"),
 				fromNode: t.fromNode,
 				fromPin: t.fromPin,
-				toNode: s.id,
+				toNode: o.id,
 				toPin: r.name,
 				points: []
 			},
 			{
-				id: w("e"),
-				fromNode: s.id,
+				id: C("e"),
+				fromNode: o.id,
 				fromPin: i.name,
 				toNode: t.toNode,
 				toPin: t.toPin,
 				points: []
 			}
-		]), this.services.selection.selectOnly(s.id), this.services.documentState.edited();
+		]), this.services.selection.selectOnly(o.id), this.services.documentState.edited();
 	}
 	syncMenus(e, t) {
 		for (let t of [
@@ -5153,7 +5261,7 @@ var _o = class {
 	pinMenuOpening(e) {
 		let t = this.services.context.names.contextMenu, n = e.target instanceof Element ? e.target.closest(`[${t}]`) : null, r = e instanceof CustomEvent ? e.detail?.target ?? null : null;
 		if (n?.getAttribute(t) !== "graph-pin-menu" || !(r instanceof Element) || this.services.context.states.isInert(this.services.root)) return;
-		let i = r.closest(`[${Vi}]`), a = i?.closest("[data-ui-graph-node]")?.getAttribute("data-ui-graph-node") ?? null;
+		let i = r.closest(`[${ea}]`), a = i?.closest("[data-ui-graph-node]")?.getAttribute("data-ui-graph-node") ?? null;
 		this.pinTarget = i === null || a === null ? null : {
 			node: a,
 			pin: i.getAttribute("data-ui-graph-pin-menu") ?? "",
@@ -5162,11 +5270,11 @@ var _o = class {
 	}
 	syncPinMenu() {
 		let e = this.services, t = this.pinTarget, n = !this.services.settings.readOnly, r = t !== null && t.direction === "in" && this.parameters.allows(t.node, t.pin), i = r && this.parameters.has(t.node, t.pin);
-		k(e, Po, r && !i), k(e, Fo, i), O(e, Po, n), O(e, Fo, n), O(e, Io, n && t !== null && ai(this.document, this.types, t.node, t.pin, t.direction));
+		k(e, Vo, r && !i), k(e, Ho, i), O(e, Vo, n), O(e, Ho, n), O(e, Uo, n && t !== null && oi(this.document, this.types, t.node, t.pin, t.direction));
 	}
 	resetPin() {
 		let e = this.pinTarget;
-		!this.services.settings.readOnly && e !== null && ai(this.document, this.types, e.node, e.pin, e.direction) && (oi(this.document, this.types, e.node, e.pin, e.direction), this.services.documentState.edited());
+		!this.services.settings.readOnly && e !== null && oi(this.document, this.types, e.node, e.pin, e.direction) && (si(this.document, this.types, e.node, e.pin, e.direction), this.services.documentState.edited());
 	}
 	resetState(e) {
 		let t = this.document.nodes.find((t) => t.id === e), n = this.statePins(e);
@@ -5180,57 +5288,53 @@ var _o = class {
 		return t === void 0 ? [] : this.types.get(t.type)?.inputs.filter((e) => e.state === !0) ?? [];
 	}
 };
-function zo(e) {
-	let t = C(e);
+function Ko(e) {
+	let t = S(e);
 	return Array.isArray(t) ? t : [];
 }
-function Bo(e) {
-	let t = Number(getComputedStyle(e).getPropertyValue("--ui-color-series-count"));
-	return Number.isFinite(t) && t >= 1 ? Math.floor(t) : 8;
-}
-function Vo(e) {
+function qo(e) {
 	let t = 0;
 	for (let n = 0; n < e.length; n++) t = t * 31 + e.charCodeAt(n) >>> 0;
 	return t;
 }
-function Ho(e) {
-	return e.startsWith("array:") ? Ho(e.slice(6)) : e;
+function Jo(e) {
+	return e.startsWith("array:") ? Jo(e.slice(6)) : e;
 }
 //#endregion
 //#region src/production/craft-view.ts
-var Uo = u.slice(1);
-function Wo(e, t) {
+var Yo = u.slice(1);
+function Xo(e, t) {
 	let n = e.readCulture(t);
 	return (t) => e.format(Math.round(t * 1e3) / 1e3, null, n);
 }
-function Go(e, t, n) {
+function Zo(e, t, n) {
 	let r = document.createElement("div"), i = document.createElement("span"), a = document.createElement("span");
-	if (r.className = "ui-graph__node ui-graph__craft", r.setAttribute(o, t.id), r.style.setProperty("--ui-graph-node-x", String(e.x)), r.style.setProperty("--ui-graph-node-y", String(e.y)), t.color !== null && r.style.setProperty("--ui-graph-node-color", t.color), n.conflict !== null && r.setAttribute("data-ui-graph-conflict", n.conflict), e.pinned === !0 && r.setAttribute("data-ui-graph-pinned", ""), i.className = `${Uo} ui-graph__craft-name`, i.textContent = t.title ?? n.word, a.className = "ui-graph__craft-time", a.textContent = n.note ?? J(t.time, n.number), r.append(i, a), n.connectable) {
+	if (r.className = "ui-graph__node ui-graph__craft", r.setAttribute(o, t.id), r.style.setProperty("--ui-graph-node-x", String(e.x)), r.style.setProperty("--ui-graph-node-y", String(e.y)), t.color !== null && r.style.setProperty("--ui-graph-node-color", t.color), n.conflict !== null && r.setAttribute("data-ui-graph-conflict", n.conflict), e.pinned === !0 && r.setAttribute("data-ui-graph-pinned", ""), i.className = `${Yo} ui-graph__craft-name`, i.textContent = t.title ?? n.word, a.className = "ui-graph__craft-time", a.textContent = n.note ?? q(t.time, n.number), r.append(i, a), n.connectable) {
 		let e = document.createElement("span"), t = document.createElement("span");
-		e.className = "ui-graph__handle", e.setAttribute(bn, ""), t.className = "ui-graph__entry", t.setAttribute(xn, ""), r.append(t, e);
+		e.className = "ui-graph__handle", e.setAttribute(xn, ""), t.className = "ui-graph__entry", t.setAttribute(Sn, ""), r.append(t, e);
 	}
-	return S(r, t.tooltip ?? Ko(t, n.resource, n.number), n.tooltips), r;
+	return x(r, t.tooltip ?? Qo(t, n.resource, n.number), n.tooltips), r;
 }
-function Ko(e, t, n) {
-	let r = (e) => e.map((e) => `${qo(e.amount, t(e.resource)?.unit ?? null, n)} ${t(e.resource)?.title ?? e.resource}`).join(" + ");
+function Qo(e, t, n) {
+	let r = (e) => e.map((e) => `${$o(e.amount, t(e.resource)?.unit ?? null, n)} ${t(e.resource)?.title ?? e.resource}`).join(" + ");
 	return `${r(e.ingredients) || "—"} → ${r(e.products) || "—"}`;
 }
-function J(e, t) {
+function q(e, t) {
 	return `${t(e)} s`;
 }
-function qo(e, t, n) {
+function $o(e, t, n) {
 	return t === null ? `×${n(e)}` : `×${n(e)} ${t}`;
 }
-function Jo(e, t, n, r) {
-	return `${qo(e, t, r)} · ${J(n, r)}`;
+function es(e, t, n, r) {
+	return `${$o(e, t, r)} · ${q(n, r)}`;
 }
-function Yo(e, t) {
+function ts(e, t) {
 	let n = e.trim().replace("×", "").trim(), r = Number(t === "," ? n.replace(",", ".") : n.replaceAll(",", ""));
 	return Number.isFinite(r) && r > 0 ? r : null;
 }
 //#endregion
 //#region src/production/model.ts
-function Xo() {
+function ns() {
 	return {
 		nodes: [],
 		edges: [],
@@ -5249,9 +5353,9 @@ function Xo() {
 		key: null
 	};
 }
-function Zo(e) {
+function rs(e) {
 	let t = e;
-	if (typeof t != "object" || !t) return Xo();
+	if (typeof t != "object" || !t) return ns();
 	let n = t.draft;
 	return {
 		nodes: (t.nodes ?? []).map((e) => ({
@@ -5262,81 +5366,81 @@ function Zo(e) {
 		})),
 		edges: (t.edges ?? []).map((e) => ({
 			id: String(e.id),
-			points: le(e.points)
+			points: ue(e.points)
 		})),
-		groups: (t.groups ?? []).map(ue),
+		groups: (t.groups ?? []).map(de),
 		draft: {
 			resources: (n?.resources ?? []).flatMap((e) => {
-				let t = ts(e);
+				let t = ss(e);
 				return t === null ? [] : [{
-					...ss(t),
-					...$o(e)
+					...ps(t),
+					...as(e)
 				}];
 			}),
 			crafts: (n?.crafts ?? []).flatMap((e) => {
-				let t = ns(e);
+				let t = cs(e);
 				return t === null ? [] : [{
-					...cs(t),
-					...$o(e)
+					...ms(t),
+					...as(e)
 				}];
 			}),
 			removed: (n?.removed ?? []).map((e) => String(e))
 		},
-		plan: Qo(t.plan),
-		key: se(t)
+		plan: is(t.plan),
+		key: ce(t)
 	};
 }
-function Qo(e) {
+function is(e) {
 	let t = e ?? {}, n = String(t.period ?? "").toLowerCase(), r = String(t.objective ?? "").toLowerCase();
 	return {
-		targets: rs(t.targets),
+		targets: ls(t.targets),
 		period: n === "minute" ? "Minute" : n === "hour" ? "Hour" : "Once",
 		objective: r === "leasttime" ? "LeastTime" : r === "leastcost" ? "LeastCost" : "LeastRaw",
 		bought: Array.isArray(t.bought) ? t.bought.map((e) => String(e)) : []
 	};
 }
-function $o(e) {
+function as(e) {
 	let t = e;
 	return {
 		created: t.created === !0,
 		baseline: typeof t.baseline == "string" ? t.baseline : null
 	};
 }
-function es(e) {
+function os(e) {
 	if (typeof e != "object" || !e) return null;
 	let t = e.kind;
-	return t === "Craft" || t === "craft" || t === 1 ? ns(e) : t === "Resource" || t === "resource" || t === 0 ? ts(e) : null;
+	return t === "Craft" || t === "craft" || t === 1 ? cs(e) : t === "Resource" || t === "resource" || t === 0 ? ss(e) : null;
 }
-function ts(e) {
+function ss(e) {
 	let t = e;
 	return typeof t.id != "string" || t.id.length === 0 ? null : {
 		kind: "resource",
 		id: t.id,
-		title: Y(t.title),
-		icon: Y(t.icon),
-		color: Y(t.color),
-		tooltip: Y(t.tooltip),
-		image: Y(t.image),
-		category: Y(t.category),
-		unit: Y(t.unit),
+		title: J(t.title),
+		icon: J(t.icon),
+		color: J(t.color),
+		tooltip: J(t.tooltip),
+		image: J(t.image),
+		category: J(t.category),
+		unit: J(t.unit),
 		cost: typeof t.cost == "number" && Number.isFinite(t.cost) ? t.cost : null
 	};
 }
-function ns(e) {
+function cs(e) {
 	let t = e;
 	return typeof t.id != "string" || t.id.length === 0 ? null : {
 		kind: "craft",
 		id: t.id,
-		title: Y(t.title),
-		icon: Y(t.icon),
-		color: Y(t.color),
-		tooltip: Y(t.tooltip),
-		ingredients: rs(t.ingredients),
-		products: rs(t.products),
-		time: is(t.time)
+		title: J(t.title),
+		icon: J(t.icon),
+		color: J(t.color),
+		tooltip: J(t.tooltip),
+		ingredients: ls(t.ingredients),
+		products: ls(t.products),
+		time: us(t.time)
 	};
 }
-function rs(e) {
+function ls(e) {
 	return Array.isArray(e) ? e.flatMap((e) => {
 		let t = e;
 		return typeof t == "object" && t && typeof t.resource == "string" ? [{
@@ -5345,10 +5449,10 @@ function rs(e) {
 		}] : [];
 	}) : [];
 }
-function Y(e) {
+function J(e) {
 	return typeof e == "string" && e.length > 0 ? e : null;
 }
-function is(e) {
+function us(e) {
 	if (typeof e == "number") return Number.isFinite(e) ? e : 0;
 	if (typeof e != "string") return 0;
 	let t = /^(-)?(?:(\d+)\.)?(\d+):(\d+):(\d+(?:\.\d+)?)$/.exec(e.trim());
@@ -5356,14 +5460,14 @@ function is(e) {
 	let n = Number(t[2] ?? 0) * 86400 + Number(t[3]) * 3600 + Number(t[4]) * 60 + Number(t[5]);
 	return t[1] === "-" ? -n : n;
 }
-function as(e) {
-	let t = Math.round(Math.max(0, e) * 1e7), n = Math.floor(t / 864e9), r = t - n * 86400 * 1e7, i = Math.floor(r / 36e9), a = Math.floor(r % 36e9 / 6e8), o = Math.floor(r % 6e8 / 1e7), s = r % 1e7, c = `${os(i)}:${os(a)}:${os(o)}${s === 0 ? "" : `.${String(s).padStart(7, "0")}`}`;
+function ds(e) {
+	let t = Math.round(Math.max(0, e) * 1e7), n = Math.floor(t / 864e9), r = t - n * 86400 * 1e7, i = Math.floor(r / 36e9), a = Math.floor(r % 36e9 / 6e8), o = Math.floor(r % 6e8 / 1e7), s = r % 1e7, c = `${fs(i)}:${fs(a)}:${fs(o)}${s === 0 ? "" : `.${String(s).padStart(7, "0")}`}`;
 	return n > 0 ? `${n}.${c}` : c;
 }
-function os(e) {
+function fs(e) {
 	return String(e).padStart(2, "0");
 }
-function ss(e) {
+function ps(e) {
 	return {
 		id: e.id,
 		title: e.title,
@@ -5378,7 +5482,7 @@ function ss(e) {
 		baseline: null
 	};
 }
-function cs(e) {
+function ms(e) {
 	return {
 		id: e.id,
 		title: e.title,
@@ -5387,16 +5491,16 @@ function cs(e) {
 		tooltip: e.tooltip,
 		ingredients: e.ingredients.map((e) => ({ ...e })),
 		products: e.products.map((e) => ({ ...e })),
-		time: as(e.time),
+		time: ds(e.time),
 		created: !1,
 		baseline: null
 	};
 }
-function ls(e, t) {
+function hs(e, t) {
 	let n = [...t.resources, ...t.crafts], r = new Set(t.crafts);
-	return Nn(e, n, t.removed, (e) => r.has(e) ? ns(e) : ts(e));
+	return Pn(e, n, t.removed, (e) => r.has(e) ? cs(e) : ss(e));
 }
-function us(e, t) {
+function gs(e, t) {
 	let n = e.ingredients.filter((e) => !t.has(e.resource)), r = e.products.filter((e) => !t.has(e.resource)), i = n.length !== e.ingredients.length;
 	return !i && r.length === e.products.length ? null : {
 		ingredients: n,
@@ -5404,10 +5508,10 @@ function us(e, t) {
 		goes: n.length === 0 && (i || r.length === 0)
 	};
 }
-function ds(e, t) {
-	return Pn(e, [...t.resources, ...t.crafts]);
+function _s(e, t) {
+	return Fn(e, [...t.resources, ...t.crafts]);
 }
-function fs(e) {
+function vs(e) {
 	let t = new Set(e.filter((e) => e.kind === "resource").map((e) => e.id)), n = e.filter((e) => e.kind === "craft"), r = /* @__PURE__ */ new Map();
 	for (let e of n) for (let n of e.products) {
 		if (!t.has(n.resource)) continue;
@@ -5420,7 +5524,7 @@ function fs(e) {
 		if (o.length === 1 && (r.get(o[0].resource) ?? []).length === 1) {
 			a.add(e.id);
 			for (let t of n) i.push({
-				id: ps(e.id, t.resource),
+				id: ys(e.id, t.resource),
 				from: t.resource,
 				to: o[0].resource,
 				craft: e.id,
@@ -5434,7 +5538,7 @@ function fs(e) {
 			continue;
 		}
 		for (let t of n) i.push({
-			id: ps(e.id, t.resource),
+			id: ys(e.id, t.resource),
 			from: t.resource,
 			to: e.id,
 			craft: e.id,
@@ -5443,7 +5547,7 @@ function fs(e) {
 			amount: t.amount
 		});
 		for (let t of o) i.push({
-			id: ms(e.id, t.resource),
+			id: bs(e.id, t.resource),
 			from: e.id,
 			to: t.resource,
 			craft: e.id,
@@ -5459,8 +5563,8 @@ function fs(e) {
 			craft: n.id,
 			amount: r,
 			time: n.time,
-			edge: ms(n.id, e)
-		}), a.has(n.id) || s.add(ms(n.id, e));
+			edge: bs(n.id, e)
+		}), a.has(n.id) || s.add(bs(n.id, e));
 	}
 	return {
 		edges: i,
@@ -5469,21 +5573,21 @@ function fs(e) {
 		quiet: s
 	};
 }
-function ps(e, t) {
+function ys(e, t) {
 	return `${e}<${t}`;
 }
-function ms(e, t) {
+function bs(e, t) {
 	return `${e}>${t}`;
 }
 //#endregion
 //#region src/production/production-editing.ts
-var hs = "graph-link-menu", gs = class {
+var xs = "graph-link-menu", Ss = class {
 	services;
 	number;
 	decimalSeparator;
 	host;
 	constructor(e, t) {
-		this.services = e, this.host = t, this.number = Wo(e.context.numbers, e.root), this.decimalSeparator = e.context.numbers.readCulture(e.root).decimalSeparator;
+		this.services = e, this.host = t, this.number = Xo(e.context.numbers, e.root), this.decimalSeparator = e.context.numbers.readCulture(e.root).decimalSeparator;
 	}
 	get document() {
 		return this.services.documentState.document;
@@ -5496,13 +5600,13 @@ var hs = "graph-link-menu", gs = class {
 		let i = this.host.serverEntry(e), a = i === void 0 ? null : JSON.stringify(i);
 		if (r.kind === "craft") {
 			let e = {
-				...cs(r),
+				...ms(r),
 				baseline: a
 			};
 			return t.crafts.push(e), e;
 		}
 		let o = {
-			...ss(r),
+			...ps(r),
 			baseline: a
 		};
 		return t.resources.push(o), o;
@@ -5520,7 +5624,7 @@ var hs = "graph-link-menu", gs = class {
 		n !== null && (n.color = t);
 	}
 	addResource() {
-		let e = Ln("resource", this.keys()), t = this.services.pointerScene();
+		let e = Rn("resource", this.keys()), t = this.services.pointerScene();
 		this.document.draft.resources.push({
 			id: e,
 			title: this.services.context.strings.text("ui.graph.new-resource"),
@@ -5533,15 +5637,10 @@ var hs = "graph-link-menu", gs = class {
 			cost: null,
 			created: !0,
 			baseline: null
-		}), this.document.nodes.push({
-			id: e,
-			x: t.x,
-			y: t.y,
-			pinned: !1
-		}), this.services.selection.selectOnly(e), this.services.documentState.edited(), this.services.renameItem(e);
+		}), this.host.placeAt(e, t), this.services.selection.selectOnly(e), this.services.documentState.edited(), this.services.renameItem(e);
 	}
 	keys() {
-		return In(this.host.entries(), [], this.document.draft.removed);
+		return Ln(this.host.entries(), [], this.document.draft.removed);
 	}
 	removeEntries(e) {
 		let t = this.document.draft, n = /* @__PURE__ */ new Set();
@@ -5554,8 +5653,8 @@ var hs = "graph-link-menu", gs = class {
 	dropResources(e) {
 		let t = /* @__PURE__ */ new Set();
 		for (let n of this.host.entries()) {
-			if (n.kind !== "craft" || !this.stands(n.id) || us(n, e) === null) continue;
-			let r = this.craftOf(n.id), i = us(r, e);
+			if (n.kind !== "craft" || !this.stands(n.id) || gs(n, e) === null) continue;
+			let r = this.craftOf(n.id), i = gs(r, e);
 			if (i !== null) {
 				if (i.goes) {
 					t.add(r.id);
@@ -5579,7 +5678,7 @@ var hs = "graph-link-menu", gs = class {
 		t.size > 0 && this.removeEntries(t);
 	}
 	beginLink(e) {
-		return Cn(this.services, e, {
+		return wn(this.services, e, {
 			canLink: (e, t) => this.canLink(e, t),
 			link: (e, t, n) => this.link(e, t, n)
 		});
@@ -5599,7 +5698,7 @@ var hs = "graph-link-menu", gs = class {
 					from: e,
 					to: t,
 					craft: r
-				}, Dt(this.services, hs, n.clientX, n.clientY);
+				}, Dt(this.services, xs, n.clientX, n.clientY);
 				return;
 			}
 			this.addRecipe(e, t);
@@ -5624,7 +5723,7 @@ var hs = "graph-link-menu", gs = class {
 	}
 	addRecipe(e, t) {
 		this.document.draft.crafts.push({
-			id: Ln("craft", this.keys()),
+			id: Rn("craft", this.keys()),
 			title: null,
 			icon: null,
 			color: null,
@@ -5637,7 +5736,7 @@ var hs = "graph-link-menu", gs = class {
 				resource: t,
 				amount: 1
 			}],
-			time: as(1),
+			time: ds(1),
 			created: !0,
 			baseline: null
 		});
@@ -5658,11 +5757,11 @@ var hs = "graph-link-menu", gs = class {
 		this.editSide(e, "out");
 	}
 	editSide(e, t) {
-		let n = this.host.edge(e), r = Tn(this.services, e);
+		let n = this.host.edge(e), r = En(this.services, e);
 		if (n === void 0 || r === null) return;
 		let i = t === "in" ? n.role !== "product" : n.role === "product", a = t === "in" ? n.resource : n.product ?? n.resource, o = t === "in" ? n.amount : n.output ?? n.amount;
-		En(this.services, r, this.number(o), (e) => {
-			let t = Yo(e, this.decimalSeparator), r = t === null ? null : this.craftOf(n.craft);
+		Dn(this.services, r, this.number(o), (e) => {
+			let t = ts(e, this.decimalSeparator), r = t === null ? null : this.craftOf(n.craft);
 			if (t === null || r === null) return;
 			let o = (e) => e.map((e) => e.resource === a ? {
 				...e,
@@ -5672,19 +5771,19 @@ var hs = "graph-link-menu", gs = class {
 		});
 	}
 	editTime(e) {
-		let t = this.host.entry(e), n = this.host.collapsed(e) ? null : this.services.nodeRect(e), r = this.host.craftEdge(e), i = n === null ? r === void 0 ? null : Tn(this.services, r) : {
+		let t = this.host.entry(e), n = this.host.collapsed(e) ? null : this.services.nodeRect(e), r = this.host.craftEdge(e), i = n === null ? r === void 0 ? null : En(this.services, r) : {
 			x: n.x + n.width / 2,
 			y: n.y + n.height / 2
 		};
-		i !== null && t?.kind === "craft" && En(this.services, i, this.number(t.time), (t) => {
-			let n = Yo(t, this.decimalSeparator), r = n === null ? null : this.craftOf(e);
-			n !== null && r !== null && is(r.time) !== n && (r.time = as(n), this.services.documentState.edited());
+		i !== null && t?.kind === "craft" && Dn(this.services, i, this.number(t.time), (t) => {
+			let n = ts(t, this.decimalSeparator), r = n === null ? null : this.craftOf(e);
+			n !== null && r !== null && us(r.time) !== n && (r.time = ds(n), this.services.documentState.edited());
 		});
 	}
-}, X = 1e-9, _s = 1e-12;
-function vs(e) {
+}, Y = 1e-9, Cs = 1e-12;
+function ws(e) {
 	let t = e.cost.length, n = e.rows.length, r = [];
-	for (let t = 0; t < n; t++) e.atLeast[t] > X && r.push(t);
+	for (let t = 0; t < n; t++) e.atLeast[t] > Y && r.push(t);
 	let i = t + n, a = i + r.length, o = [], s = [], c = 1;
 	for (let l = 0; l < n; l++) {
 		let n = Array(a + 1).fill(0), u = r.indexOf(l), d = u < 0 ? -1 : 1;
@@ -5703,18 +5802,18 @@ function vs(e) {
 		u
 	];
 	if (r.length > 0) {
-		if (!ys(o, s, f, i, (e) => d[e] < -1e-9)) return "unsettled";
+		if (!Ts(o, s, f, i, (e) => d[e] < -1e-9)) return "unsettled";
 		let e = 0;
 		for (let t = 0; t < n; t++) s[t] >= i && (e += o[t][a]);
 		if (e > 1e-7 * c) return "infeasible";
-		Cs(o, s, f, i);
+		ks(o, s, f, i);
 	}
-	if (!ys(o, s, f, i, (e) => l[e] < -1e-9) || !ys(o, s, f, i, (e) => Math.abs(l[e]) <= X && u[e] < -1e-9)) return "unsettled";
+	if (!Ts(o, s, f, i, (e) => l[e] < -1e-9) || !Ts(o, s, f, i, (e) => Math.abs(l[e]) <= Y && u[e] < -1e-9)) return "unsettled";
 	let p = Array(t).fill(0);
 	for (let e = 0; e < n; e++) s[e] < t && (p[s[e]] = Math.max(0, o[e][a]));
 	return p;
 }
-function ys(e, t, n, r, i) {
+function Ts(e, t, n, r, i) {
 	let a = e.length === 0 ? r : e[0].length - 1, o = 64 * (e.length + a) + 256;
 	for (let s = 0; s < o; s++) {
 		let o = -1;
@@ -5725,63 +5824,63 @@ function ys(e, t, n, r, i) {
 		if (o < 0) return !0;
 		let s = -1, c = 0;
 		for (let n = 0; n < e.length; n++) {
-			if (e[n][o] <= X) continue;
+			if (e[n][o] <= Y) continue;
 			let r = e[n][a] / e[n][o];
-			s < 0 || r < c - X ? (s = n, c = r) : r <= c + X && t[n] < t[s] && (s = n, c = Math.min(c, r));
+			s < 0 || r < c - Y ? (s = n, c = r) : r <= c + Y && t[n] < t[s] && (s = n, c = Math.min(c, r));
 		}
 		if (s < 0) return !1;
-		bs(e, t, n, s, o);
+		Es(e, t, n, s, o);
 	}
 	return !1;
 }
-function bs(e, t, n, r, i) {
+function Es(e, t, n, r, i) {
 	let a = e[r], o = a[i];
-	for (let e = 0; e < a.length; e++) a[e] = Ss(a[e] / o);
+	for (let e = 0; e < a.length; e++) a[e] = Os(a[e] / o);
 	a[i] = 1;
-	for (let t = 0; t < e.length; t++) t !== r && xs(e[t], a, i);
-	for (let e of n) xs(e, a, i);
+	for (let t = 0; t < e.length; t++) t !== r && Ds(e[t], a, i);
+	for (let e of n) Ds(e, a, i);
 	t[r] = i;
 }
-function xs(e, t, n) {
+function Ds(e, t, n) {
 	let r = e[n];
 	if (r !== 0) {
-		for (let n = 0; n < e.length; n++) e[n] = Ss(e[n] - r * t[n]);
+		for (let n = 0; n < e.length; n++) e[n] = Os(e[n] - r * t[n]);
 		e[n] = 0;
 	}
 }
-function Ss(e) {
-	return Math.abs(e) < _s ? 0 : e;
+function Os(e) {
+	return Math.abs(e) < Cs ? 0 : e;
 }
-function Cs(e, t, n, r) {
+function ks(e, t, n, r) {
 	let i = e[0].length - 1;
 	for (let a = 0; a < e.length; a++) if (!(t[a] < r)) {
 		e[a][i] = 0;
-		for (let i = 0; i < r; i++) if (Math.abs(e[a][i]) > X) {
-			bs(e, t, n, a, i);
+		for (let i = 0; i < r; i++) if (Math.abs(e[a][i]) > Y) {
+			Es(e, t, n, a, i);
 			break;
 		}
 	}
 }
 //#endregion
 //#region src/production/plan.ts
-var Z = 1e-9, ws = 922337203685.4775, Ts = 2147483647;
-function Es(e) {
+var X = 1e-9, As = 922337203685.4775, js = 2147483647;
+function Ms(e) {
 	return e.source ? e.consumed + e.target : 0;
 }
-function Ds(e) {
+function Ns(e) {
 	return e === "Minute" ? 60 : e === "Hour" ? 3600 : null;
 }
-function Os(e, t) {
+function Ps(e, t) {
 	let n = /* @__PURE__ */ new Map();
 	for (let t of e) t.kind === "resource" && !n.has(t.id) && n.set(t.id, t);
 	let r = e.filter((e) => e.kind === "craft"), i = new Set(t.bought ?? []), a = /* @__PURE__ */ new Map();
-	for (let e of r) for (let t of Ns(e.products, n)) {
+	for (let e of r) for (let t of Z(e.products, n)) {
 		if (i.has(t.resource)) continue;
 		let n = a.get(t.resource);
 		n === void 0 ? a.set(t.resource, [e]) : n.includes(e) || n.push(e);
 	}
 	let o = /* @__PURE__ */ new Map();
-	for (let e of t.targets) n.has(e.resource) && e.amount > Z && o.set(e.resource, (o.get(e.resource) ?? 0) + e.amount);
+	for (let e of t.targets) n.has(e.resource) && e.amount > X && o.set(e.resource, (o.get(e.resource) ?? 0) + e.amount);
 	if (o.size === 0) return {
 		status: "Empty",
 		crafts: [],
@@ -5793,20 +5892,20 @@ function Os(e, t) {
 	let s = new Set(o.keys()), c = /* @__PURE__ */ new Set(), l = [...s];
 	for (let e = l.shift(); e !== void 0; e = l.shift()) for (let t of a.get(e) ?? []) if (!c.has(t)) {
 		c.add(t);
-		for (let e of Ns(t.ingredients, n)) s.has(e.resource) || (s.add(e.resource), l.push(e.resource));
+		for (let e of Z(t.ingredients, n)) s.has(e.resource) || (s.add(e.resource), l.push(e.resource));
 	}
-	let u = r.filter((e) => c.has(e)), d = [...n.keys()].filter((e) => s.has(e) && a.has(e)), f = d.map((e) => u.map((t) => Ps(t.products, e) - Ps(t.ingredients, e))), p = d.map((e) => o.get(e) ?? 0), m = t.objective === "LeastCost", h = u.map((e) => js(e, n, a, !1)), g = m ? u.map((e) => js(e, n, a, !0)) : h, _ = u.map((e) => Math.max(0, e.time)), v = t.objective === "LeastTime" ? vs({
+	let u = r.filter((e) => c.has(e)), d = [...n.keys()].filter((e) => s.has(e) && a.has(e)), f = d.map((e) => u.map((t) => zs(t.products, e) - zs(t.ingredients, e))), p = d.map((e) => o.get(e) ?? 0), m = t.objective === "LeastCost", h = u.map((e) => Ls(e, n, a, !1)), g = m ? u.map((e) => Ls(e, n, a, !0)) : h, _ = u.map((e) => Math.max(0, e.time)), v = t.objective === "LeastTime" ? ws({
 		rows: f,
 		atLeast: p,
 		cost: _,
 		tieCost: h
-	}) : vs({
+	}) : ws({
 		rows: f,
 		atLeast: p,
 		cost: g,
 		tieCost: _
 	});
-	return Array.isArray(v) ? As(n, a, o, u, (t.period === "Once" ? ks(f, p, v) : null) ?? v, Ds(t.period)) : {
+	return Array.isArray(v) ? Is(n, a, o, u, (t.period === "Once" ? Fs(f, p, v) : null) ?? v, Ns(t.period)) : {
 		status: v === "infeasible" ? "Infeasible" : "Unsettled",
 		crafts: [],
 		resources: [],
@@ -5815,8 +5914,8 @@ function Os(e, t) {
 		cost: 0
 	};
 }
-function ks(e, t, n) {
-	let r = n.map((e) => e <= Z ? 0 : Math.ceil(e - 1e-6));
+function Fs(e, t, n) {
+	let r = n.map((e) => e <= X ? 0 : Math.ceil(e - 1e-6));
 	for (let i = 0; i < 1e3; i++) {
 		let i = !1;
 		for (let a = 0; a < e.length; a++) {
@@ -5824,7 +5923,7 @@ function ks(e, t, n) {
 			for (let t = 0; t < r.length; t++) o += e[a][t] * r[t];
 			if (o >= t[a] - 1e-6) continue;
 			let s = -1;
-			for (let t = 0; t < r.length; t++) e[a][t] > Z && (s < 0 || n[t] > n[s] + Z) && (s = t);
+			for (let t = 0; t < r.length; t++) e[a][t] > X && (s < 0 || n[t] > n[s] + X) && (s = t);
 			if (s < 0) return null;
 			r[s] += Math.ceil((t[a] - o) / e[a][s] - 1e-9), i = !0;
 		}
@@ -5832,65 +5931,65 @@ function ks(e, t, n) {
 	}
 	return null;
 }
-function As(e, t, n, r, i, a) {
+function Is(e, t, n, r, i, a) {
 	let o = [], s = /* @__PURE__ */ new Map(), c = /* @__PURE__ */ new Map(), l = 0;
 	for (let t = 0; t < r.length; t++) {
 		let n = r[t], u = i[t];
-		if (u <= Z) continue;
+		if (u <= X) continue;
 		let d = u * Math.max(0, n.time);
 		o.push({
 			craft: n.id,
 			runs: u,
-			time: Math.min(d, ws),
-			workers: a === null ? null : Math.min(Math.ceil(d / a - Z), Ts)
+			time: Math.min(d, As),
+			workers: a === null ? null : Math.min(Math.ceil(d / a - X), js)
 		}), l += d;
-		for (let t of Ns(n.products, e)) s.set(t.resource, (s.get(t.resource) ?? 0) + u * t.amount);
-		for (let t of Ns(n.ingredients, e)) c.set(t.resource, (c.get(t.resource) ?? 0) + u * t.amount);
+		for (let t of Z(n.products, e)) s.set(t.resource, (s.get(t.resource) ?? 0) + u * t.amount);
+		for (let t of Z(n.ingredients, e)) c.set(t.resource, (c.get(t.resource) ?? 0) + u * t.amount);
 	}
 	let u = [], d = 0, f = 0;
 	for (let r of e.values()) {
 		if (!n.has(r.id) && !s.has(r.id) && !c.has(r.id)) continue;
 		let e = !t.has(r.id), i = n.get(r.id) ?? 0, a = s.get(r.id) ?? 0, o = c.get(r.id) ?? 0;
-		e && (d += o + i, f += (o + i) * Ms(r)), u.push({
+		e && (d += o + i, f += (o + i) * Rs(r)), u.push({
 			resource: r.id,
 			source: e,
 			target: i,
 			produced: a,
 			consumed: o,
-			surplus: e ? 0 : Fs(a - o - i)
+			surplus: e ? 0 : Bs(a - o - i)
 		});
 	}
 	return {
 		status: "Solved",
 		crafts: o,
 		resources: u,
-		time: Math.min(l, ws),
+		time: Math.min(l, As),
 		raw: d,
 		cost: f
 	};
 }
-function js(e, t, n, r) {
+function Ls(e, t, n, r) {
 	let i = 0;
-	for (let a of Ns(e.ingredients, t)) n.has(a.resource) || (i += a.amount * (r ? Ms(t.get(a.resource)) : 1));
+	for (let a of Z(e.ingredients, t)) n.has(a.resource) || (i += a.amount * (r ? Rs(t.get(a.resource)) : 1));
 	return i;
 }
-function Ms(e) {
+function Rs(e) {
 	return e.cost !== null && Number.isFinite(e.cost) && e.cost >= 0 ? e.cost : 1;
 }
-function Ns(e, t) {
+function Z(e, t) {
 	return e.filter((e) => t.has(e.resource) && e.amount > 0);
 }
-function Ps(e, t) {
+function zs(e, t) {
 	let n = 0;
 	for (let r of e) r.resource === t && r.amount > 0 && (n += r.amount);
 	return n;
 }
-function Fs(e) {
+function Bs(e) {
 	return Math.abs(e) < 1e-7 ? 0 : e;
 }
 //#endregion
 //#region src/production/plan-view.ts
-function Is(e, t) {
+function Vs(e, t) {
 	return {
 		plan: e,
 		period: t,
@@ -5898,38 +5997,38 @@ function Is(e, t) {
 		resources: new Map(e.resources.map((e) => [e.resource, e]))
 	};
 }
-function Ls(e, t) {
+function Hs(e, t) {
 	return e.filter((e) => e.kind === "craft" ? t.crafts.has(e.id) : t.resources.has(e.id));
 }
-function Rs(e, t) {
+function Us(e, t) {
 	return e === "Minute" ? t.text("ui.graph.per-minute") : e === "Hour" ? t.text("ui.graph.per-hour") : "";
 }
-function zs(e, t, n) {
-	return qo(e, t, n);
-}
-function Bs(e, t, n, r) {
-	let i = t === void 0 ? null : Vs(t);
-	return i !== null && Math.abs(i - e) < 1e-6 ? null : zs(e, n, r);
-}
-function Vs(e) {
-	return e.source ? Es(e) : e.produced;
-}
-function Hs(e, t, n) {
-	return e.workers === null ? J(e.time, n) : t.format("ui.graph.plan-at-once", { count: n(e.workers) });
-}
-function Us(e, t, n, r, i) {
-	let a = zs(Vs(e), t, i);
-	return n === void 0 ? a : `${a} · ${Hs(n, r, i)}`;
-}
 function Ws(e, t, n) {
-	return `×${n(e.runs)} · ${Hs(e, t, n)}`;
+	return $o(e, t, n);
+}
+function Gs(e, t, n, r) {
+	let i = t === void 0 ? null : Ks(t);
+	return i !== null && Math.abs(i - e) < 1e-6 ? null : Ws(e, n, r);
+}
+function Ks(e) {
+	return e.source ? Ms(e) : e.produced;
+}
+function qs(e, t, n) {
+	return e.workers === null ? q(e.time, n) : t.format("ui.graph.plan-at-once", { count: n(e.workers) });
+}
+function Js(e, t, n, r, i) {
+	let a = Ws(Ks(e), t, i);
+	return n === void 0 ? a : `${a} · ${qs(n, r, i)}`;
+}
+function Ys(e, t, n) {
+	return `×${n(e.runs)} · ${qs(e, t, n)}`;
 }
 //#endregion
 //#region src/production/plan-panel.ts
-var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[data-ui-graph-plan-add]", Js = "data-ui-graph-plan-remove", Ys = "[data-ui-graph-plan-message]", Xs = "[data-ui-graph-plan-totals]", Zs = "data-ui-graph-plan-rate", Qs = "plan", $s = {
+var Xs = "[data-ui-graph-plan]", Zs = "[data-ui-graph-plan-targets]", Qs = "[data-ui-graph-plan-add]", $s = "data-ui-graph-plan-remove", ec = "[data-ui-graph-plan-message]", tc = "[data-ui-graph-plan-totals]", nc = "data-ui-graph-plan-rate", rc = "plan", ic = {
 	infeasible: "ui.graph.plan-infeasible",
 	unsettled: "ui.graph.plan-unsettled"
-}, ec = class {
+}, ac = class {
 	services;
 	number;
 	host;
@@ -5941,7 +6040,7 @@ var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[dat
 	targetsKey = "";
 	amounts = /* @__PURE__ */ new Map();
 	constructor(e, t) {
-		this.services = e, this.host = t, this.number = Wo(e.context.numbers, e.root), this.panel = e.root.querySelector(Gs), this.period = this.field("[data-ui-graph-plan-period]"), this.objective = this.field("[data-ui-graph-plan-objective]"), this.period?.addEventListener("change", () => this.choose()), this.objective?.addEventListener("change", () => this.choose()), this.fold = new Ra(e.context.store, e.root, this.panel, Qs);
+		this.services = e, this.host = t, this.number = Xo(e.context.numbers, e.root), this.panel = e.root.querySelector(Xs), this.period = this.field("[data-ui-graph-plan-period]"), this.objective = this.field("[data-ui-graph-plan-objective]"), this.period?.addEventListener("change", () => this.choose()), this.objective?.addEventListener("change", () => this.choose()), this.fold = new Ti(e.context.store, e.root, this.panel, rc);
 	}
 	field(e) {
 		return this.panel?.querySelector(`${e} > *`) ?? null;
@@ -5964,29 +6063,25 @@ var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[dat
 		return t != null && this.host.show(t), !0;
 	}
 	edit(e) {
-		if (e.closest(qs) !== null) return this.host.pick(), !0;
-		let t = e.closest(`[${Js}]`), n = t?.getAttribute(Js);
-		if (t === null || n == null) return !1;
-		let r = this.host.request(), i = r.targets.findIndex((e) => e.resource === n), a = t.contains(document.activeElement);
-		return this.host.change({
-			...r,
-			targets: r.targets.filter((e) => e.resource !== n)
-		}), a && this.focusAfterRemoval(i), !0;
+		if (e.closest(Qs) !== null) return this.host.pick(), !0;
+		let t = e.closest(`[${$s}]`), n = t?.getAttribute($s);
+		return t === null || n == null ? !1 : (this.removeTarget(n, t), !0);
 	}
-	focusAfterRemoval(e) {
-		let t = this.panel?.querySelector(Ks);
-		if (this.panel === null || (t?.contains(document.activeElement) ?? !1)) return;
-		let n = t?.children[e]?.querySelector(`[${Js}]`) ?? this.panel.querySelector(`[${h.collapseToggle}]`);
-		(n === null || n.matches("button") ? n : n.querySelector("button"))?.focus({ preventScroll: !0 });
+	removeTarget(e, t) {
+		let n = this.host.request().targets.findIndex((t) => t.resource === e), r = document.activeElement, i = r === null || r === document.body || (t.closest(`${Zs} > *`) ?? t).contains(r);
+		this.host.target(e, null), i && requestAnimationFrame(() => {
+			let e = this.panel?.querySelector(Zs) ?? null;
+			this.panel === null || document.activeElement !== null && document.activeElement !== document.body || Ci(e?.children[n]?.querySelector(`[${$s}]`) ?? null, this.panel.querySelector(`[${h.collapseToggle}]`), this.services.context.focus);
+		});
 	}
 	draw(e) {
 		if (this.panel === null || e === this.drawnKey) return;
 		this.drawnKey = e;
 		let t = this.host.request(), n = this.host.reading(), r = this.services.settings.readOnly, i = this.services.context.properties;
 		this.period !== null && (i.set(this.period, "Value", t.period), i.set(this.period, "IsReadOnly", r)), this.objective !== null && (i.set(this.objective, "Value", t.objective), i.set(this.objective, "IsReadOnly", r));
-		let a = this.field(qs);
-		a !== null && i.set(a, "Enabled", !r), this.panel.toggleAttribute(Zs, t.period !== "Once");
-		for (let e of this.panel.querySelectorAll("[data-ui-graph-plan-counted]")) e.setAttribute("data-ui-graph-plan-counted", Rs(t.period, this.services.context.strings));
+		let a = this.field(Qs);
+		a !== null && i.set(a, "Enabled", !r), this.panel.toggleAttribute(nc, t.period !== "Once");
+		for (let e of this.panel.querySelectorAll("[data-ui-graph-plan-counted]")) e.setAttribute("data-ui-graph-plan-counted", Us(t.period, this.services.context.strings));
 		this.drawTargets(t, r), this.drawMessage(t, n), this.drawTables(n);
 	}
 	wordsChanged() {
@@ -5994,7 +6089,7 @@ var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[dat
 		this.drawnKey = "", this.targetsKey = "", this.draw(e);
 	}
 	drawTargets(e, t) {
-		let n = this.panel.querySelector(Ks);
+		let n = this.panel.querySelector(Zs);
 		if (n === null) return;
 		let r = JSON.stringify([t, e.targets.map((e) => {
 			let t = this.host.resource(e.resource);
@@ -6015,33 +6110,31 @@ var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[dat
 		n !== void 0 && !n.contains(document.activeElement) && this.services.context.properties.set(n, "Value", t);
 	}
 	targetRow(e, t, n) {
-		let r = this.host.resource(e), i = document.createElement("div"), a = this.nameOf(e, r?.title ?? e, r?.image ?? r?.icon ?? null), o = x(this.services.root, "graph-plan-amount"), s = x(this.services.root, "graph-plan-remove"), c = this.services.context.properties;
-		return i.className = "ui-graph__plan-target", i.append(a), o !== null && (c.set(o, "Value", t), c.set(o, "IsReadOnly", n), o.addEventListener("change", () => this.setAmount(e, o, this.services.context.values.read(o))), this.amounts.set(e, o), i.append(o)), s !== null && (s.setAttribute(Js, e), c.set(s, "Enabled", !n), i.append(s)), i;
+		let r = this.host.resource(e), i = document.createElement("div"), a = this.nameOf(e, r?.title ?? e, r?.image ?? r?.icon ?? null), o = b(this.services.root, "graph-plan-amount"), s = b(this.services.root, "graph-plan-remove"), c = this.services.context.properties;
+		return i.className = "ui-graph__plan-target", i.append(a), o !== null && (c.set(o, "Value", t), c.set(o, "IsReadOnly", n), o.addEventListener("change", () => this.setAmount(e, o, this.services.context.values.read(o))), this.amounts.set(e, o), i.append(o)), s !== null && (s.setAttribute($s, e), c.set(s, "Enabled", !n), i.append(s)), i;
 	}
 	setAmount(e, t, n) {
-		let r = typeof n == "number" ? n : Number(String(n ?? "").replace(",", ".")), i = this.host.request();
-		if (!Number.isFinite(r) || r <= 0) {
-			let n = i.targets.find((t) => t.resource === e);
+		if (typeof n != "number" && String(n ?? "").trim().length === 0) {
+			this.removeTarget(e, t);
+			return;
+		}
+		let r = this.services.context.numbers.readCulture(this.services.root).decimalSeparator, i = typeof n == "number" ? n > 0 ? n : null : ts(String(n), r);
+		if (i === null) {
+			let n = this.host.request().targets.find((t) => t.resource === e);
 			n !== void 0 && this.services.context.properties.set(t, "Value", n.amount);
 			return;
 		}
-		this.host.change({
-			...i,
-			targets: i.targets.map((t) => t.resource === e ? {
-				...t,
-				amount: r
-			} : t)
-		});
+		this.host.target(e, i);
 	}
 	drawMessage(e, t) {
-		let n = this.services.context.strings, r = this.panel.querySelector(Ys), i = this.panel.querySelector(Xs);
+		let n = this.services.context.strings, r = this.panel.querySelector(ec), i = this.panel.querySelector(tc);
 		if (r !== null) {
 			r.hidden = t !== null;
 			let i = e.targets.length > 0 ? this.host.failure() : null;
-			r.toggleAttribute("data-ui-graph-plan-failed", i !== null), r.textContent = t === null ? n.text(i === null ? "ui.graph.plan-empty" : $s[i]) : "";
+			r.toggleAttribute("data-ui-graph-plan-failed", i !== null), r.textContent = t === null ? n.text(i === null ? "ui.graph.plan-empty" : ic[i]) : "";
 		}
 		i !== null && (i.hidden = t === null, t !== null && (i.textContent = n.format("ui.graph.plan-totals", {
-			time: J(t.plan.time, this.number),
+			time: q(t.plan.time, this.number),
 			raw: this.number(t.plan.raw),
 			cost: this.number(t.plan.cost)
 		})));
@@ -6051,14 +6144,14 @@ var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[dat
 		for (let t of e?.plan.resources ?? []) {
 			let e = this.host.resource(t.resource), i = e?.unit === null || e?.unit === void 0 ? "" : ` ${e.unit}`, a = this.nameOf(t.resource, e?.title ?? t.resource, e?.image ?? e?.icon ?? null);
 			if (t.source) {
-				n.push(tc(t.resource, a, `${this.number(Es(t))}${i}`));
+				n.push(oc(t.resource, a, `${this.number(Ms(t))}${i}`));
 				continue;
 			}
-			r.push(tc(t.resource, a, `${this.number(t.produced)}${i}`, `${this.number(t.consumed)}${i}`, t.surplus > 0 ? `${this.number(t.surplus)}${i}` : "—"));
+			r.push(oc(t.resource, a, `${this.number(t.produced)}${i}`, `${this.number(t.consumed)}${i}`, t.surplus > 0 ? `${this.number(t.surplus)}${i}` : "—"));
 		}
 		for (let n of e?.plan.crafts ?? []) {
 			let e = this.host.craft(n.craft), r = e?.products[0] === void 0 ? void 0 : this.host.resource(e.products[0].resource), a = this.nameOf(n.craft, e?.title ?? t.text("ui.graph.recipe"), e?.icon ?? r?.image ?? r?.icon ?? null);
-			i.push(tc(n.craft, a, this.number(n.runs), J(n.time, this.number), n.workers === null ? "—" : this.number(n.workers)));
+			i.push(oc(n.craft, a, this.number(n.runs), q(n.time, this.number), n.workers === null ? "—" : this.number(n.workers)));
 		}
 		this.fill("raw", n), this.fill("resources", r), this.fill("crafts", i);
 	}
@@ -6075,7 +6168,7 @@ var Gs = "[data-ui-graph-plan]", Ks = "[data-ui-graph-plan-targets]", qs = "[dat
 		return i.textContent = t, r.append(i), r;
 	}
 };
-function tc(e, t, ...n) {
+function oc(e, t, ...n) {
 	let r = document.createElement("tr"), i = document.createElement("th");
 	i.scope = "row", i.append(t), r.setAttribute("data-ui-graph-plan-item", e), r.append(i);
 	for (let e of n) {
@@ -6086,11 +6179,11 @@ function tc(e, t, ...n) {
 }
 //#endregion
 //#region src/production/production-kind.ts
-var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:output", sc = "graph:craft-time", cc = "graph:delete-edge", lc = "graph:target", uc = "graph:bought", dc = "data-ui-graph-target", fc = {
+var sc = 32, cc = 84, lc = "graph:add-node", uc = "graph:amount", dc = "graph:output", fc = "graph:craft-time", pc = "graph:delete-edge", mc = "graph:target", hc = "graph:bought", gc = "data-ui-graph-target", _c = {
 	name: "production",
-	readDocument: Zo,
-	create: (e) => new pc(e)
-}, pc = class {
+	readDocument: rs,
+	create: (e) => new vc(e)
+}, vc = class {
 	snapsByCenter = !0;
 	services;
 	number;
@@ -6115,26 +6208,29 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 	reading = null;
 	failure = null;
 	constructor(e) {
-		let t = C(e.root.getAttribute(Pr));
-		this.services = e, this.number = Wo(e.context.numbers, e.root), this.decimalSeparator = e.context.numbers.readCulture(e.root).decimalSeparator, this.server = Array.isArray(t) ? t.map(es).filter((e) => e !== null) : [], this.editing = new gs(e, {
+		let t = S(e.root.getAttribute(Ir));
+		this.services = e, this.number = Xo(e.context.numbers, e.root), this.decimalSeparator = e.context.numbers.readCulture(e.root).decimalSeparator, this.server = Array.isArray(t) ? t.map(os).filter((e) => e !== null) : [], this.editing = new Ss(e, {
 			entries: () => this.entries,
 			collapsed: (e) => this.collapsed.has(e),
 			craftEdge: (e) => this.links.find((t) => t.craft === e)?.id,
 			entry: (e) => this.entryById.get(e),
 			serverEntry: (e) => this.serverById.get(e),
-			edge: (e) => this.linkById.get(e)
-		}), this.sheet = new Mr(e, {
+			edge: (e) => this.linkById.get(e),
+			placeAt: (e, t) => this.sheet.placeAt(e, t)
+		}), this.sheet = new Pr(e, {
 			nodeIds: () => this.drawn.map((e) => e.id),
 			links: () => this.links,
 			layoutKey: () => this.reading === null ? this.shape : `${this.shape}|${this.drawn.map((e) => e.id).join(",")}`,
-			nodeBox: (e, t, n) => this.shape === "icon" ? Rr(e, t, n) : {
-				width: e,
-				height: t
-			}
+			nodeBox: (e, t, n, r) => this.shape === "icon" ? zr(t, n, r) : {
+				width: t,
+				height: n
+			},
+			spreadsEnds: (e) => this.shape === "card" && this.entryById.get(e)?.kind !== "craft",
+			footRoom: (e) => this.shape === "icon" && this.entryById.get(e)?.kind !== "craft" ? 38 : 0
 		}, {
-			nodeGap: nc,
-			layerGap: rc
-		}), this.panel = new ec(e, {
+			nodeGap: sc,
+			layerGap: cc
+		}), this.panel = new ac(e, {
 			request: () => this.document.plan,
 			reading: () => this.reading,
 			failure: () => this.failure,
@@ -6144,9 +6240,10 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 				return t?.kind === "craft" ? t : void 0;
 			},
 			change: (e) => this.changePlan(e),
+			target: (e, t) => this.setTarget(e, t),
 			pick: () => this.picker?.open(),
 			show: (e) => this.show(e)
-		}), this.picker = mo.create(e.root, () => this.targetChoices(), e.context.strings, e.context.dom, e.context.icons, e.context.roving, e.context.focus, (e) => this.setTarget(e.key, 1)), this.refresh();
+		}), this.picker = bo.create(e.root, () => this.targetChoices(), e.context.strings, e.context.dom, e.context.icons, e.context.roving, e.context.focus, e.context.shortcuts, (e) => this.setTarget(e.key, 1)), this.refresh();
 	}
 	targetChoices() {
 		let e = new Set(this.document.plan.targets.map((e) => e.resource));
@@ -6158,7 +6255,7 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		}] : []);
 	}
 	get planning() {
-		return this.services.root.getAttribute(Gt) === "plan";
+		return this.services.root.getAttribute(Kt) === "plan";
 	}
 	get editable() {
 		return !this.planning && !this.services.settings.readOnly && this.services.root.hasAttribute("data-ui-graph-edit-structure");
@@ -6167,19 +6264,19 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		return this.services.documentState.document;
 	}
 	get shape() {
-		return Gn(this.services.root.getAttribute("data-ui-graph-node-shape")) ?? "icon";
+		return Kn(this.services.root.getAttribute("data-ui-graph-node-shape")) ?? "icon";
 	}
 	applyChange(e) {
-		Jn(this.server, e, es), this.serverVersion++, this.services.draw();
+		Yn(this.server, e, os), this.serverVersion++, this.services.draw();
 	}
 	refresh() {
 		let e = this.document.draft, t = this.planning, n = `${this.serverVersion}|${this.services.documentState.version}|${t}|${this.services.settings.readOnly}`;
 		if (n === this.structureKey) return;
-		this.structureKey = n, this.serverById = new Map(this.server.map((e) => [e.id, e])), this.entries = ls(this.server, e);
-		let r = t ? Os(this.entries, this.document.plan) : null;
-		this.reading = r?.status === "Solved" ? Is(r, this.document.plan.period) : null, this.failure = r?.status === "Infeasible" ? "infeasible" : r?.status === "Unsettled" ? "unsettled" : null;
-		let i = this.reading === null ? t ? [] : this.entries : Ls(this.entries, this.reading), a = fs(i);
-		this.links = a.edges, this.collapsed = a.collapsed, this.outputs = a.outputs, this.quiet = a.quiet, this.drawn = i.filter((e) => !this.collapsed.has(e.id)), this.conflicts = ds(this.server, e), this.entryById = new Map(this.entries.map((e) => [e.id, e])), this.linkById = new Map(this.links.map((e) => [e.id, e])), this.sheet.structureChanged(), this.panel.draw(n);
+		this.structureKey = n, this.serverById = new Map(this.server.map((e) => [e.id, e])), this.entries = hs(this.server, e);
+		let r = t ? Ps(this.entries, this.document.plan) : null;
+		this.reading = r?.status === "Solved" ? Vs(r, this.document.plan.period) : null, this.failure = r?.status === "Infeasible" ? "infeasible" : r?.status === "Unsettled" ? "unsettled" : null;
+		let i = this.reading === null ? t ? [] : this.entries : Hs(this.entries, this.reading), a = vs(i);
+		this.links = a.edges, this.collapsed = a.collapsed, this.outputs = a.outputs, this.quiet = a.quiet, this.drawn = i.filter((e) => !this.collapsed.has(e.id)), this.conflicts = _s(this.server, e), this.entryById = new Map(this.entries.map((e) => [e.id, e])), this.linkById = new Map(this.links.map((e) => [e.id, e])), this.sheet.structureChanged(), this.panel.draw(n);
 	}
 	resource(e) {
 		let t = this.entryById.get(e);
@@ -6195,12 +6292,12 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		let t = this.entryById.get(e.id), n = this.conflicts.get(e.id) ?? null, r = this.services.context.strings;
 		if (t?.kind === "craft") {
 			let i = this.reading?.crafts.get(t.id);
-			return Go(e, t, {
+			return Zo(e, t, {
 				tooltips: this.services.context.tooltips,
 				word: r.text("ui.graph.recipe"),
 				connectable: this.editable,
 				conflict: n,
-				note: i === void 0 ? null : Ws(i, r, this.number),
+				note: i === void 0 ? null : Ys(i, r, this.number),
 				resource: (e) => this.resource(e),
 				number: this.number
 			});
@@ -6214,7 +6311,7 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 			image: null,
 			category: null,
 			unit: null
-		}, a = this.outputs.get(i.id), o = this.reading?.resources.get(i.id), s = o !== void 0 && this.reading !== null ? Us(o, i.unit ?? null, a !== void 0 && this.collapsed.has(a.craft) ? this.reading.crafts.get(a.craft) : void 0, r, this.number) : a === void 0 ? null : Jo(a.amount, i.unit ?? null, a.time, this.number), c = On(e, {
+		}, a = this.outputs.get(i.id), o = this.reading?.resources.get(i.id), s = o !== void 0 && this.reading !== null ? Js(o, i.unit ?? null, a !== void 0 && this.collapsed.has(a.craft) ? this.reading.crafts.get(a.craft) : void 0, r, this.number) : a === void 0 ? null : es(a.amount, i.unit ?? null, a.time, this.number), c = kn(e, {
 			id: i.id,
 			title: i.title,
 			subtitle: i.category,
@@ -6228,17 +6325,21 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		}, {
 			icons: this.services.context.icons,
 			tooltips: this.services.context.tooltips,
+			urls: this.services.context.urls,
 			shape: this.shape,
 			connectable: this.editable,
 			conflict: n
 		});
-		return this.planning && this.document.plan.targets.some((e) => e.resource === i.id) && c.setAttribute(dc, ""), c;
+		return this.planning && this.document.plan.targets.some((e) => e.resource === i.id) && c.setAttribute(gc, ""), c;
 	}
 	wordsChanged() {
 		this.panel.wordsChanged();
 	}
 	itemsDrawn() {
 		this.sheet.itemsDrawn();
+	}
+	dispose() {
+		this.sheet.dispose();
 	}
 	itemColor(e) {
 		return this.entryById.get(e.id)?.color ?? "";
@@ -6254,10 +6355,10 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 	}
 	amountOf(e) {
 		let t = this.resource(e.resource)?.unit ?? null, n = this.reading?.crafts.get(e.craft);
-		return n === void 0 || this.reading === null ? qo(e.amount, t, this.number) : e.role === "product" ? zs(n.runs * e.amount, t, this.number) : Bs(n.runs * e.amount, this.reading.resources.get(e.resource), t, this.number);
+		return n === void 0 || this.reading === null ? $o(e.amount, t, this.number) : e.role === "product" ? Ws(n.runs * e.amount, t, this.number) : Gs(n.runs * e.amount, this.reading.resources.get(e.resource), t, this.number);
 	}
 	related(e) {
-		return mn(this.links, e);
+		return hn(this.links, e);
 	}
 	edgeColor() {
 		return "var(--ui-text-muted)";
@@ -6269,7 +6370,7 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		return this.panel.contains(e);
 	}
 	pointerDown(e, t) {
-		let n = t.closest(`[${bn}]`);
+		let n = t.closest(`[${xn}]`);
 		return n === null || !this.editable ? !1 : this.editing.beginLink(n) ?? !0;
 	}
 	chrome(e) {
@@ -6305,11 +6406,11 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		let t = this.services.nodeRect(e);
 		if (t === null || this.resource(e) === void 0) return;
 		let n = this.document.plan.targets.find((t) => t.resource === e);
-		En(this.services, {
+		Dn(this.services, {
 			x: t.x + t.width / 2,
 			y: t.y + t.height / 2
 		}, n === void 0 ? "" : this.number(n.amount), (t) => {
-			let n = Yo(t, this.decimalSeparator);
+			let n = ts(t, this.decimalSeparator);
 			t.trim().length === 0 ? this.setTarget(e, null) : n !== null && this.setTarget(e, n);
 		});
 	}
@@ -6326,7 +6427,7 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		return null;
 	}
 	remove(e, t) {
-		this.editable && (this.editing.removeEdges(t), this.editing.removeEntries(e));
+		return this.editable ? (this.editing.removeEdges(t), this.editing.removeEntries(e), !0) : !1;
 	}
 	canEditItems() {
 		return this.editable;
@@ -6344,17 +6445,17 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		return this.sheet.arrange(e, t);
 	}
 	runCommand(e, t) {
-		let n = e === ic || e === ac || e === oc || e === sc || e === cc;
+		let n = e === lc || e === uc || e === dc || e === fc || e === pc;
 		if (e === "graph:link-ingredient" || e === "graph:link-recipe") return this.editable && this.editing.answerLink(e === "graph:link-ingredient"), !0;
 		if (e === "graph:take-server" || e === "graph:keep-mine") {
 			let n = this.conflictOf(t);
 			if (n !== null && !this.services.settings.readOnly) {
 				let t = this.document.draft, r = e === "graph:keep-mine";
-				(Fn(t.resources, n, this.serverById.get(n), r) || Fn(t.crafts, n, this.serverById.get(n), r)) && this.services.documentState.edited();
+				(In(t.resources, n, this.serverById.get(n), r) || In(t.crafts, n, this.serverById.get(n), r)) && this.services.documentState.edited();
 			}
 			return !0;
 		}
-		if (e === uc) {
+		if (e === hc) {
 			if (this.planning && t?.kind === "node" && this.isMade(t.id)) {
 				let e = this.document.plan, n = e.bought ?? [];
 				this.changePlan({
@@ -6364,19 +6465,19 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 			}
 			return !0;
 		}
-		if (e === lc) return this.planning && t?.kind === "node" && this.editTarget(t.id), !0;
+		if (e === mc) return this.planning && t?.kind === "node" && this.editTarget(t.id), !0;
 		if (!n || !this.editable) return n;
 		switch (e) {
-			case ic:
+			case lc:
 				this.editing.addResource();
 				break;
-			case ac:
+			case uc:
 				t?.kind === "edge" && this.editing.editAmount(t.id);
 				break;
-			case oc:
+			case dc:
 				t?.kind === "edge" && this.editing.editOutput(t.id);
 				break;
-			case sc:
+			case fc:
 				t !== null && this.editing.editTime(t.kind === "node" ? t.id : this.linkById.get(t.id)?.craft ?? "");
 				break;
 			default: t?.kind === "edge" && (this.editing.removeEdges(/* @__PURE__ */ new Set([t.id])), this.services.documentState.edited());
@@ -6395,83 +6496,83 @@ var nc = 32, rc = 84, ic = "graph:add-node", ac = "graph:amount", oc = "graph:ou
 		k(this.services, "graph:take-server", r), k(this.services, "graph:keep-mine", r);
 		let i = t?.kind === "node" && this.entryById.get(t.id)?.kind === "craft", a = t?.kind === "edge" && this.linkById.get(t.id)?.role === "recipe";
 		for (let e of [
-			ic,
-			ac,
-			cc
+			lc,
+			uc,
+			pc
 		]) O(this.services, e, n);
 		let o = this.planning && t?.kind === "node" && this.resource(t.id) !== void 0, s = o && this.isMade(t.id);
-		k(this.services, lc, o), k(this.services, uc, s), O(this.services, lc, e && o), O(this.services, uc, e && s), Ot(this.services, uc, s && (this.document.plan.bought ?? []).includes(t.id)), O(this.services, oc, n && a), O(this.services, sc, n && (i || a));
+		k(this.services, mc, o), k(this.services, hc, s), O(this.services, mc, e && o), O(this.services, hc, e && s), Ot(this.services, hc, s && (this.document.plan.bought ?? []).includes(t.id)), O(this.services, dc, n && a), O(this.services, fc, n && (i || a));
 	}
-}, mc = "graph.set-node-status", hc = "graph.set-node-display", gc = "graph.set-node-value", _c = "graph.add-node-log", vc = "graph.set-run-progress", yc = "graph.set-running";
-function bc(e, t) {
-	e.registerEvent("node-click", { dynamicParameters: (e) => [e.domEvent.detail?.nodeId ?? ""] }), e.registerEvent(Co, { dynamicParameters: (e) => [...e.domEvent.detail?.keys ?? []] });
+}, yc = "graph.set-node-status", bc = "graph.set-node-display", xc = "graph.set-node-value", Sc = "graph.add-node-log", Cc = "graph.set-run-progress", wc = "graph.set-running";
+function Tc(e, t) {
+	e.registerEvent("node-click", { dynamicParameters: (e) => [e.domEvent.detail?.nodeId ?? ""] }), e.registerEvent(ko, { dynamicParameters: (e) => [...e.domEvent.detail?.keys ?? []] });
 	let n = (e, n) => {
-		let r = cn(e, n);
-		return r === null ? null : t()?.kindOf(r, Ro) ?? null;
+		let r = ln(e, n);
+		return r === null ? null : t()?.kindOf(r, Go) ?? null;
 	}, r = (e, t) => {
 		let r = e.effect, i = n(e, r);
 		i !== null && r.nodeId !== void 0 && t(i, r.nodeId, r);
 	};
 	e.registerEffect({
-		kind: mc,
+		kind: yc,
 		handler: (e) => r(e, (e, t, n) => e.setStatus(t, n.state ?? "Idle", typeof n.progress == "number" ? n.progress : null, n.message ?? null))
 	}), e.registerEffect({
-		kind: hc,
+		kind: bc,
 		handler: (e) => r(e, (e, t, n) => e.setDisplay(t, n.pinName ?? "", n.value))
 	}), e.registerEffect({
-		kind: gc,
+		kind: xc,
 		handler: (e) => r(e, (e, t, n) => e.setPinValue(t, n.pinName ?? "", n.value, n.committed === !0))
 	}), e.registerEffect({
-		kind: _c,
+		kind: Sc,
 		handler: (e) => r(e, (e, t, n) => e.addLog(t, String(n.level ?? "Info"), n.message ?? null))
 	}), e.registerEffect({
-		kind: vc,
+		kind: Cc,
 		handler: (e) => {
 			let t = e.effect;
 			n(e, t)?.setRunProgress(Number(t.completed) || 0, Number(t.total) || 0);
 		}
 	}), e.registerEffect({
-		kind: yc,
+		kind: wc,
 		handler: (e) => {
 			let t = e.effect;
 			n(e, t)?.setRunning(t.running === !0);
 		}
-	}), e.registerEvent(bo, {});
+	}), e.registerEvent(Eo, {});
 }
 //#endregion
 //#region src/graph.ts
-var Q = pn(), xc = [
-	Lo,
-	zr,
-	fc
+var Q = mn(), Ec = [
+	Wo,
+	Br,
+	_c
 ], $ = null;
 Q.registerEngine((e) => {
-	$ = new sn(e, xc);
+	$ = new cn(e, Ec);
 }), Q.registerEvent("save", {
 	settlesValue: !0,
 	submitsForm: !0,
 	dynamicParameters: (e) => [e.domEvent.detail?.reason ?? ""],
 	completed: (e) => $?.saveCompleted(e.component, e.success, e.domEvent.detail?.id, e.domEvent.detail?.reason ?? "")
 }), Q.registerEvent("menu-entry", { dynamicParameters: (e) => [...e.domEvent.detail?.keys ?? []] }), Q.registerValueReader({
-	kind: an,
-	read: (e) => C(e.getAttribute(t))
+	kind: on,
+	read: (e) => S(e.getAttribute(t))
 }), Q.registerDomOperation({
-	kind: an,
+	kind: on,
 	handler: (e) => e.target.setAttribute(t, JSON.stringify(e.value ?? null))
 }), Q.registerConverter("graph-edge-shape", (e) => String(e ?? "Orthogonal").toLowerCase()), Q.registerConverter("graph-rem", (e) => typeof e == "number" && e > 0 ? `${e}rem` : ""), Q.registerConverter("graph-direction", (e) => {
 	let t = String(e ?? "");
 	return t === "TopToBottom" ? "down" : t === "RightToLeft" ? "left" : t === "BottomToTop" ? "up" : "right";
 }), Q.registerConverter("graph-node-shape", (e) => String(e ?? "") === "Icon" ? "icon" : "card"), Q.registerConverter("graph-production-mode", (e) => String(e ?? "") === "Plan" ? "plan" : "constructor"), Q.registerEffect({
-	kind: on,
+	kind: sn,
 	handler: (e) => {
-		let t = e.effect, n = cn(e, t);
+		let t = e.effect, n = ln(e, t);
 		n !== null && $?.requestSave(n, typeof t.reason == "string" ? t.reason : "");
 	}
-}), bc(Q, () => $), Q.registerCollectionSink({
+}), Tc(Q, () => $), Q.registerCollectionSink({
 	kind: "layered",
-	handler: (e) => $?.kindOf(e.component, Br)?.applyChange(e)
+	handler: (e) => $?.kindOf(e.component, Vr)?.applyChange(e)
 }), Q.registerCollectionSink({
 	kind: "production",
-	handler: (e) => $?.kindOf(e.component, pc)?.applyChange(e)
+	handler: (e) => $?.kindOf(e.component, vc)?.applyChange(e)
 });
 //#endregion

@@ -62,3 +62,21 @@ test("in forced colours a chosen node is a plain outline on its edge, a plan tar
     assert.match(chosen, /outline: 2px solid Highlight;\s*outline-offset: 0;/);
     assert.match(forced, /\.ui-graph__node\[data-ui-graph-target\] \{\s*outline: 3px double CanvasText;\s*outline-offset: 0;/);
 });
+
+test("the corner menu's switch is one square folded and open, first in its head, its name the core bar's gap past it", () => {
+    const rule = (selector: string): string => {
+        const at = css.indexOf(`${selector} {`);
+
+        return at < 0 ? "" : css.slice(at, css.indexOf("}", at));
+    };
+    const toggle = rule(".ui-graph__menu-panel > .ui-menu > .ui-collapsible__bar > .ui-collapsible__toggle");
+    const folded = rule(".ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding]) > .ui-collapsible__bar > .ui-collapsible__toggle");
+
+    assert.match(toggle, /order: -1;/);
+    assert.match(toggle, /width: calc\(1\.75rem \+ 2 \* 0\.25rem\);\s*height: calc\(1\.75rem \+ 2 \* 0\.25rem\);/);
+    assert.match(toggle, /margin-block: -0\.25rem;\s*margin-inline-start: -0\.25rem;/);
+    assert.match(folded, /margin: 0;/);
+    assert.match(rule(".ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding])"), /padding: 0;/);
+    // The head keeps the core bar's own gap and row: no reversed row, no gap of the package's.
+    assert.doesNotMatch(css, /\.ui-graph__menu-panel > \.ui-menu > \.ui-collapsible__bar \{[^}]*(flex-direction|gap)/);
+});
