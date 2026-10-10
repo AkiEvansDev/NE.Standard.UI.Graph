@@ -1,0 +1,201 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ready-made kinds — NE.Standard.UI.Graph</title>
+    <meta name="description" content="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">
+    <link rel="stylesheet" href="site.css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <script src="site.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="site">
+        <a class="name" href="index.html">NE.Standard.UI.Graph</a>
+        <button class="pages-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Pages</button>
+        <nav>
+            <a href="node-canvas.html">Guides</a>
+            <a href="components/index.html">Components</a>
+            <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <input class="nav-filter" type="search" placeholder="Filter pages" aria-label="Filter pages" autocomplete="off" hidden>
+            <h3>Guides</h3>
+            <ul>
+                <li><a href="index.html" title="Three canvases for the NE.Standard UI framework: a node editor, a layered graph and a production graph.">Overview</a></li>
+                <li><a href="node-canvas.html" title="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">The node canvas</a></li>
+                <li class="current"><a href="node-kinds.html" title="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">Ready-made kinds</a></li>
+                <li><a href="canvas.html" title="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">The canvas</a></li>
+                <li><a href="layered-graph.html" title="A graph of the application&#39;s nodes and links, laid out in layers.">Layered graph</a></li>
+                <li><a href="production-graph.html" title="Resources and the recipes between them, and a plan over the catalogue.">Production graph</a></li>
+                <li><a href="inside.html" title="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">Inside the package</a></li>
+            </ul>
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="components/index.html">All components</a></li>
+                <li><a href="components/enums.html">Enums and value types</a></li>
+            </ul>
+            <h3>Graph</h3>
+            <ul>
+                <li><a href="components/layered-graph.html" title="A graph of the application&#39;s nodes and the links between them, laid out in layers.">Layered graph</a></li>
+                <li><a href="components/nodes.html" title="A canvas of typed nodes the viewer wires together.">Nodes</a></li>
+                <li><a href="components/production-graph.html" title="A graph of resources and the crafts between them, laid out in layers.">Production graph</a></li>
+            </ul>
+        </aside>
+        <main>
+<article class="guide">
+<h1>Ready-made kinds</h1>
+<h2 id="the-common-kinds">The common kinds</h2>
+<p>The package carries the kinds nearly every sheet wants, in <code>UINodeKinds.Common</code>: a value filled in on the node for each standard
+type — <code>NumberNode</code>, <code>TextNode</code>, <code>DateNode</code>, <code>YesNoNode</code> and <code>ImageNode</code> (a picture the canvas uploads through <code>OnImageUpload</code>) —
+<code>ToTextNode</code>, which writes any value out as text in a format (<code>N2</code>, <code>yyyy-MM-dd</code>), <code>DisplayNode</code>, which shows whatever a run fed it,
+<code>NoteNode</code>, text for whoever reads the sheet, which a run passes over, <code>DelayNode</code>, which holds the run for the seconds asked,
+reporting its progress, and passes its value on, <code>CounterNode</code>, which counts one step further a run, keeping the value its next
+run hands out in the sheet (<em>Next</em>, with its reset beside it), and at its end starts over or ends a run of all — one counter's
+<em>Wrapped</em> into another's <em>Advance</em> is a loop inside a loop — and <code>RangeXYNode</code> and <code>RangeXYZNode</code>, that loop set up in one node:
+every point of a grid or a box, one a run, X fastest, how many taken kept as <em>Taken</em> — and <code>RandomNode</code>, a number drawn between two
+ends from a seed the sheet keeps, the seed after a run the same, drawn anew, one more or one less. They wear the framework's own <code>ne-</code> glyphs, so they need no icon pack, and join a
+catalogue as any kinds do:</p>
+<pre><code class="language-csharp">public static UINodeCatalog Catalog { get; } = UINodeCatalog.FromTypes([.. UINodeKinds.Common, typeof(MyNode)]);
+</code></pre>
+<p>The text kinds stand in a category of their own, <em>Text</em>: <code>JoinNode</code> gathers every value wired into its one <em>Values</em> pin, written
+out as text, and joins them by a separator — or, given a template, puts them into its places (<code>{0} - {1}</code>, the first connection
+being <code>{0}</code>); <code>SplitNode</code> cuts a text into its parts at a separator, trimmed unless told otherwise, and says how many there are;
+<code>ReplaceNode</code> puts one text in the place of another everywhere it stands; <code>TextLengthNode</code> counts a text's characters;
+<code>ContainsNode</code> answers whether a text holds a part, anywhere, at its start or at its end; <code>ChangeCaseNode</code> writes a text in
+capitals, in small letters or as a title; <code>TrimNode</code> takes the spaces off both ends or one; <code>SliceNode</code> cuts a part out from a
+place, a start below zero counting from the end and no length running to it, a start or a length past the text held to it
+rather than failing; <code>ToNumberNode</code> reads a number out of a text and says whether it was one (<em>Valid</em>); and <code>MatchNode</code> tries a
+regular expression, answering whether it matched, the match and what its groups caught — a pattern that cannot be read fails
+the node saying why, and one that runs past a second on its text fails it rather than holding the run. Case is ignored where
+asked, and every one of them reads and writes as the invariant culture does — a number with a point, <code>12.5</code>, never the server's
+comma — so a sheet reads the same on any server.</p>
+<p>The logic kinds stand under <em>Logic</em>: <code>ChooseNode</code> hands on <em>Yes</em> or <em>No</em> by a yes or no, its result wired as the type that
+reaches <em>Yes</em>; <code>AndNode</code> and <code>OrNode</code> weigh every yes or no wired into their one <em>Values</em> pin, and with none wired in answer yes
+and no, as nothing stands against the one and nothing is on for the other; <code>NotNode</code> turns a yes or no the other way; and
+<code>EqualsNode</code> answers whether two values of any type are the same — numbers as numbers, so a whole 2 is 2.0, texts character by
+character, dates by the clock they read, a day at its midnight, lists item by item, and a number and a text that reads as it
+not the same.</p>
+<p>The list kinds stand under <em>Lists</em> and take the universal array, so a text's parts from <em>Split</em> wire straight in, as any typed
+array does: <code>ItemAtNode</code> takes an item by its place, 0 the first and -1 the last, and says with <em>Found</em> whether there was one
+rather than failing; <code>ListCountNode</code> counts the items; <code>ForEachNode</code> hands them out one a run, as a counter hands out its
+steps — how many it has taken is kept as <em>Taken</em>, with its reset beside it, and at the end it starts over or ends a run of all,
+its <em>Wrapped</em> into another's <em>Advance</em> making a loop inside a loop; <code>SortNode</code> puts them in order, numbers by value and texts
+character by character as the text kinds compare them, the kinds of value apart (yes or no, number, date, text), items that come
+out the same keeping their order; <code>ReverseNode</code> turns the list round; and <code>DistinctNode</code> leaves out every item that repeats one
+before it, by the rule <em>Equals</em> holds. <em>Sort</em>, <em>Reverse</em> and <em>Distinct</em> hand back the type that came in.</p>
+<p>The date kinds stand under <em>Dates</em> and take a day or a date and time alike, handing back the type that came in: <code>AddToDateNode</code>
+moves a date by minutes, hours, days, weeks, months or years, a month by the calendar — the 31st of January and a month is the
+last day of February — and months and years whole; <code>DateDifferenceNode</code> says how far one date stands from another, months and
+years as the whole calendar months and years between them, the smaller units with their fraction; and <code>DatePartsNode</code> takes a
+date apart into its year, month, day, day of the week (1 for Monday to 7 for Sunday), hour and minute.</p>
+<p>Every catalogue carries a <code>RerouteNode</code> whether it names one or not, kept out of the picker: a small box a wire is led through, which hands on whatever
+reaches it to as many inputs as are wired to it and wears the name and the colour of the output that feeds it (looking through
+other reroutes). The sheet's right button offers <strong>Add reroute</strong> beside <strong>Add node</strong>, putting one down unwired where the menu was
+opened; a wire's offers it too, cutting the wire there and leading it through the new one, and <strong>Delete</strong>; a node kind of the application's own is drawn the same way with <code>[GraphNode(Compact = true)]</code>.</p>
+<h2 id="files">Files</h2>
+<p>The file kinds reach the server's disk, so they are not among the common ones: an application takes them on purpose.</p>
+<pre><code class="language-csharp">public static UINodeCatalog Catalog { get; } = UINodeCatalog.FromTypes([.. UINodeKinds.Common, .. UINodeKinds.Files]);
+</code></pre>
+<p>A node names a file by its path on the server — <code>D:\Photos\2026\a.png</code>, or relative to a base folder. What they may touch is the
+application's to decide, not the kinds': a canvas is a page anyone viewing it drives, so <strong>with nothing registered the file kinds
+reach nothing</strong> — every path fails the node, saying the disk is not open to it. <code>AddGraphFiles</code> opens it, and the base folder
+and the check are both optional: <code>new UINodeFiles()</code> alone lets them touch whatever the process may, a relative path taken from
+the current directory. The check is given each full path and whether it is to be read or written, and a path it refuses fails
+the node with why. The path is the one the kind will open: <code>..</code> resolved and every link along it followed — a symbolic link or
+a junction — so a link inside an allowed folder leads nowhere the check has not seen. <code>UINodeFiles.IsInside(path, folder)</code> is
+the comparison such a check wants: it names the folder the same way (<code>UINodeFiles.RealPath</code>), where it may stand under a link
+itself, compares names as the system does — ignoring case on Windows and macOS, but not on Linux, where <code>/srv/WORK</code> is another
+folder than <code>/srv/work</code> — and takes <code>D:\Work2</code> for no part of <code>D:\Work</code>:</p>
+<pre><code class="language-csharp">services.AddGraphFiles(new UINodeFiles
+{
+    BasePath = @&quot;D:\Work&quot;,
+    // Read anywhere under D:\Work, write only under D:\Work\Out.
+    Allow = (path, access) =&gt; UINodeFiles.IsInside(path, access == UINodeFileAccess.Write ? @&quot;D:\Work\Out&quot; : @&quot;D:\Work&quot;)
+});
+</code></pre>
+<p>A check that lets every read through opens the whole disk to whoever views the page, whatever the base folder says. A
+file kind reads at most 64 MB of one file (<code>MaxReadBytes</code>, <code>UINodeFiles.DefaultMaxReadBytes</code>), whatever the file says of its
+length — a device reads without end — and a larger one fails the node.</p>
+<p><code>FilesInFolderNode</code> hands out a folder's files matching a filter
+(<code>*.png;*.jpg</code>), one a run, in name order, keeping the one it took last in the sheet — the next run takes the one after it, so a
+file added or removed meanwhile moves no other — and a run of all goes through the folder; <code>ReadTextNode</code> and
+<code>WriteTextNode</code> read and write text, the writer replacing a file already there only when asked.</p>
+<h2 id="a-calculators-kinds-ready-made">A calculator's kinds, ready made</h2>
+<p><code>NE.Standard.UI.Graph.Calculator</code> is a package of node kinds, the first of this slice: an operation, rounding, a sum, a clamp, the
+least or most of several, a comparison, and a result to read after a run — each under <code>Calculator/</code> in the picker, the numbers
+they work on coming from the common <code>NumberNode</code>. They join an application's own kinds in one catalogue, which is also how any kinds from another assembly join it, and they
+wear the core's own glyphs, so the host registers nothing for them:</p>
+<pre><code>dotnet add package NE.Standard.UI.Graph.Calculator
+</code></pre>
+<pre><code class="language-csharp">public static UINodeCatalog Catalog { get; } = UINodeCatalog.FromTypes([.. UINodeKinds.Common, .. CalculatorNodes.Kinds, typeof(MyNode)]);
+</code></pre>
+<p>A kind's key in a saved sheet is its <code>NodeKey</code> (<code>calculator.result</code>), so a sheet written by one application runs in another; the
+line a run wrote is <code>ResultNode.Text</code>.</p>
+<h2 id="picture-kinds-ready-made">Picture kinds, ready made</h2>
+<p><code>NE.Standard.UI.Graph.Image</code> works pictures on the server with SkiaSharp: <code>ImageSizeNode</code> reads the size off the file's header,
+<code>ResizeImageNode</code> resamples to a size (<code>Stretch</code>, <code>Contain</code> or <code>Cover</code>), and <code>CropImageNode</code>, <code>RotateImageNode</code> (by quarters),
+<code>FlipImageNode</code>, <code>GrayscaleImageNode</code>, <code>BlurImageNode</code> and <code>ConvertImageNode</code> (PNG, JPEG or WebP, at a quality) each write a new
+picture, under <code>Image</code> in the picker. A picture on the wire is its address; the chain starts at the common <code>ImageNode</code> or at
+<code>LoadImageNode</code>, which reads a file from the disk, as the file kinds do, and refuses one whose first bytes are not a picture, and ends at a
+<code>DisplayNode</code>, which draws the address as the picture, since a picture's output feeds it, or at <code>SaveImageNode</code>, which writes it into a folder under the name given
+with its format's extension. <em>Files in folder</em> into <em>Load image</em>, a resize, and <em>Save image</em> is a folder of thumbnails in one run
+of all. A picture going out as JPEG, which has no transparency, is laid on white.</p>
+<p><em>Load image</em> and <em>Save image</em> reach the disk, so they stand apart from the rest: <code>ImageNodes.Kinds</code> is the kinds that work a
+picture in the store, <code>ImageNodes.FileKinds</code> the two that load and save a file, which reach nothing until the application
+registers <code>AddGraphFiles</code>, as the file kinds do.</p>
+<pre><code>dotnet add package NE.Standard.UI.Graph.Image
+</code></pre>
+<p>The kinds read and keep pictures through the application's <code>IUINodeImageStore</code>, which the runner reaches through the services it
+was given (<code>new UINodeRunner(catalog, services)</code>). <code>AddGraphImages()</code> registers the one that comes with the package,
+<code>UINodeImageMemoryStore</code>: pictures in memory, served back as the application's content provider. An application that has a
+content provider of its own, or keeps its pictures in a blob store or on disk, implements <code>IUINodeImageStore</code> on its own store
+instead — the same store the canvas's uploads (<code>OnImageUpload</code>) are written to. The memory store keeps a picture under the hash
+of what it is, so the same file loaded again, or a node run again on it, is one picture at one address, and the nodes below it
+are handed on rather than run. It keeps 256 MB of pictures (<code>UINodeImageMemoryStore.DefaultMaxBytes</code>) — every upload and every
+picture a run makes lands in it, from whoever views a page — letting go of the pictures used longest ago past that;
+<code>AddGraphImages(maxBytes)</code> sets another cap. A run's cache may still hand on the address of a picture let go that way: the kind
+below it fails once, and the failure makes the next run make everything above it afresh.</p>
+<pre><code class="language-csharp">public static UINodeCatalog Catalog { get; } = UINodeCatalog.FromTypes([.. UINodeKinds.Common, .. ImageNodes.Kinds]);
+
+// The application.
+services.AddGraphImages();
+</code></pre>
+<p>With <em>Load image</em> and <em>Save image</em> too, the catalogue names <code>ImageNodes.FileKinds</code> and the application opens the disk:</p>
+<pre><code class="language-csharp">public static UINodeCatalog Catalog { get; } = UINodeCatalog.FromTypes([.. UINodeKinds.Common, .. UINodeKinds.Files, .. ImageNodes.Kinds, .. ImageNodes.FileKinds]);
+
+services.AddGraphFiles(new UINodeFiles
+{
+    BasePath = @&quot;D:\Work&quot;,
+    Allow = (path, access) =&gt; UINodeFiles.IsInside(path, access == UINodeFileAccess.Write ? @&quot;D:\Work\Out&quot; : @&quot;D:\Work&quot;)
+});
+</code></pre>
+<p>How much the kinds may take of the server is <code>UINodeImageLimits</code>: a picture is decoded to at most 50 million pixels
+(<code>MaxPixels</code>), and the process decodes two pictures at once (<code>MaxConcurrentDecodes</code>), a run past it waiting its turn. A decoded
+picture takes four bytes a pixel and a kind holds two or three at once, so the two together bound what the kinds hold in memory.
+A resize decodes a large photograph at a smaller scale where its format allows, so the cap bounds what is decoded rather than
+what the file claims. An application sets its own by registering them as a service, which the runner reaches through its
+services:</p>
+<pre><code class="language-csharp">services.AddSingleton(new UINodeImageLimits { MaxPixels = 100_000_000, MaxConcurrentDecodes = 4 });
+</code></pre>
+<p>SkiaSharp brings its Windows and macOS natives; the package adds the dependency-free Linux build, the host most servers run on.</p>
+
+</article>
+        </main>
+    </div>
+
+    <footer class="site">
+        <span class="version">Documents 1.7.2</span> ·
+        <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">github.com/AkiEvansDev/NE.Standard.UI.Graph</a> ·
+        the Prosperity Public License 3.0.0 — free for noncommercial use. Issues are the way to report a bug or ask
+        for a change; the repository is a read-only mirror and takes no pull requests.
+    </footer>
+
+</div>
+</body>
+</html>

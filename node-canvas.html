@@ -1,0 +1,456 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The node canvas — NE.Standard.UI.Graph</title>
+    <meta name="description" content="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">
+    <link rel="stylesheet" href="site.css">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <script src="site.js" defer></script>
+</head>
+<body>
+<div class="page">
+
+    <header class="site">
+        <a class="name" href="index.html">NE.Standard.UI.Graph</a>
+        <button class="pages-toggle" type="button" aria-controls="sidebar" aria-expanded="false">Pages</button>
+        <nav>
+            <a href="node-canvas.html">Guides</a>
+            <a href="components/index.html">Components</a>
+            <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">GitHub</a>
+        </nav>
+    </header>
+
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <input class="nav-filter" type="search" placeholder="Filter pages" aria-label="Filter pages" autocomplete="off" hidden>
+            <h3>Guides</h3>
+            <ul>
+                <li><a href="index.html" title="Three canvases for the NE.Standard UI framework: a node editor, a layered graph and a production graph.">Overview</a></li>
+                <li class="current"><a href="node-canvas.html" title="Node kinds as your own classes: the attributes, running a sheet, pictures and whose document it is.">The node canvas</a></li>
+                <li><a href="node-kinds.html" title="The common kinds every catalogue can take, the reroute, and the calculator and picture packages.">Ready-made kinds</a></li>
+                <li><a href="canvas.html" title="What every canvas shares: the grid, the zoom, the menus, and what the viewer can do.">The canvas</a></li>
+                <li><a href="layered-graph.html" title="A graph of the application&#39;s nodes and links, laid out in layers.">Layered graph</a></li>
+                <li><a href="production-graph.html" title="Resources and the recipes between them, and a plan over the catalogue.">Production graph</a></li>
+                <li><a href="inside.html" title="How the canvas is built on the framework: its marks, its Less, its engine and its kinds.">Inside the package</a></li>
+            </ul>
+            <h3>Reference</h3>
+            <ul>
+                <li><a href="components/index.html">All components</a></li>
+                <li><a href="components/enums.html">Enums and value types</a></li>
+            </ul>
+            <h3>Graph</h3>
+            <ul>
+                <li><a href="components/layered-graph.html" title="A graph of the application&#39;s nodes and the links between them, laid out in layers.">Layered graph</a></li>
+                <li><a href="components/nodes.html" title="A canvas of typed nodes the viewer wires together.">Nodes</a></li>
+                <li><a href="components/production-graph.html" title="A graph of resources and the crafts between them, laid out in layers.">Production graph</a></li>
+            </ul>
+        </aside>
+        <main>
+<article class="guide">
+<h1>The node canvas</h1>
+<h2 id="a-node-kind">A node kind</h2>
+<pre><code class="language-csharp">[GraphNode(Category = &quot;Maths&quot;, Title = &quot;Operation&quot;, Color = &quot;#8b5cf6&quot;)]
+public sealed class OperationNode : IGraphNode
+{
+    [GraphInput(Title = &quot;Left&quot;)]
+    public double Left { get; set; }
+
+    [GraphInput(Title = &quot;Right&quot;)]
+    public double Right { get; set; }
+
+    [GraphInput(NoPin = true, Choices = [&quot;Add&quot;, &quot;Subtract&quot;, &quot;Multiply&quot;, &quot;Divide&quot;])]
+    public string Operation { get; set; } = &quot;Add&quot;;
+
+    [GraphOutput]
+    public double Result { get; set; }
+
+    public void Execute(UINodeRunContext context)
+        =&gt; Result = Operation switch
+        {
+            &quot;Subtract&quot; =&gt; Left - Right,
+            &quot;Multiply&quot; =&gt; Left * Right,
+            &quot;Divide&quot; =&gt; Left / Right,
+            _ =&gt; Left + Right
+        };
+}
+</code></pre>
+<h2 id="what-the-attributes-decide">What the attributes decide</h2>
+<p><code>[GraphNode]</code> — the kind as a whole:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Says</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Key</code></td>
+<td>The name the document stores the kind under; unset, the class's name</td>
+</tr>
+<tr>
+<td><code>Title</code></td>
+<td>The title the node and the picker show; unset, the class's name read as words</td>
+</tr>
+<tr>
+<td><code>Description</code></td>
+<td>The line under the title in the picker</td>
+</tr>
+<tr>
+<td><code>Category</code></td>
+<td>How the picker groups the kinds; a path nests a group, <code>Maths/Rounding</code> standing under <code>Maths</code></td>
+</tr>
+<tr>
+<td><code>Icon</code>, <code>Color</code></td>
+<td>The icon beside the title, and the node's colour (the viewer may change it)</td>
+</tr>
+<tr>
+<td><code>MinWidth</code></td>
+<td>The floor of the node's width, in rem; the viewer drags a node wider by its corner</td>
+</tr>
+<tr>
+<td><code>Resizable</code></td>
+<td>Whether the viewer may drag the node's corner to resize it — on unless set to <code>false</code></td>
+</tr>
+<tr>
+<td><code>ShowProgress</code></td>
+<td>Whether the node draws a progress bar while it runs — <strong>off by default</strong>; without it no status effect makes one appear</td>
+</tr>
+<tr>
+<td><code>Hidden</code></td>
+<td>The picker leaves the kind out; a document that already uses it still loads, runs and draws it</td>
+</tr>
+<tr>
+<td><code>Compact</code></td>
+<td>The node is drawn as a small box with its pins on its two ends and no head or fields — a reroute</td>
+</tr>
+<tr>
+<td><code>AlwaysRuns</code></td>
+<td>The node runs every time, never handed on from its last run: it waits, reads or writes the disk, reads the clock</td>
+</tr>
+</tbody>
+</table>
+<p>The icon is an icon value: a glyph name from whatever icon pack your application registered, or one of the framework's own
+<code>ne-</code> marks (<code>UIGlyphs</code>), which need no pack. The package names no glyph class of its own; its built-in menu entries wear
+<code>UIGlyphs</code> marks, and <code>SetCommandIcon(UIGraphCommands.AddNode, …)</code> replaces one with an icon value of your own.</p>
+<p><code>[GraphInput]</code> — a value with an input pin and the editor its type asks for:</p>
+<table>
+<thead>
+<tr>
+<th>Ask for</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The pin's caption, and a tooltip on it</td>
+<td><code>Title</code> (unset, the property's name read as words), <code>Description</code></td>
+</tr>
+<tr>
+<td>A pin with no editor</td>
+<td><code>PinOnly = true</code></td>
+</tr>
+<tr>
+<td>An editor with no pin</td>
+<td><code>NoPin = true</code></td>
+</tr>
+<tr>
+<td>A pin that takes several connections</td>
+<td><code>Multiple = true</code> — the property is an array or a list, the pin's type is its element type, and the connected values arrive in the order of their edges</td>
+</tr>
+<tr>
+<td>A value the node cannot run without</td>
+<td><code>Required = true</code> — a run stops at the node with an error and skips everything below it</td>
+</tr>
+<tr>
+<td>A pin shown only while another holds a value</td>
+<td><code>VisibleWhen = nameof(OtherInput)</code>, and <code>VisibleValues = [&quot;a&quot;, &quot;b&quot;]</code> to name which values; a hidden pin is still saved and fed, and a parameter set out on it leaves the panel until it shows again</td>
+</tr>
+<tr>
+<td>A combo box over a text</td>
+<td><code>Choices = [&quot;a&quot;, &quot;b&quot;]</code>, or <code>ChoicesFrom = nameof(Members)</code> naming a public static member</td>
+</tr>
+<tr>
+<td>Several values out of a set</td>
+<td>An enum array, or <code>Choices</code>/<code>ChoicesFrom</code> on a <code>string[]</code> or <code>List&lt;string&gt;</code> — a list whose every row is a combo box</td>
+</tr>
+<tr>
+<td>A picture, from the address the value holds, with a file the viewer sends the server</td>
+<td><code>Image = true</code> (on a <code>PinOnly</code> input, the pin alone is a picture's); add <code>Large = true</code> for one large pressable surface instead of a thumbnail with its address</td>
+</tr>
+<tr>
+<td>A pin that shows what a run put there rather than taking a value</td>
+<td><code>Display = true</code></td>
+</tr>
+<tr>
+<td>How a display pin writes a number</td>
+<td><code>Format</code> — a standard numeric format (<code>N</code>, <code>F2</code>, <code>P</code>, <code>C</code>) in the page's culture; not applied to an editable field</td>
+</tr>
+<tr>
+<td>What a number editor accepts</td>
+<td><code>Min</code>, <code>Max</code>, <code>Step</code> (a whole number steps by one on its own)</td>
+</tr>
+<tr>
+<td>What the value is measured in</td>
+<td><code>Unit = &quot;kg&quot;</code>, written after the editor inside its box</td>
+</tr>
+<tr>
+<td>What a text editor accepts</td>
+<td><code>MaxLength</code>, <code>MaxLines</code></td>
+</tr>
+<tr>
+<td>How much room the editor takes</td>
+<td><code>Height</code> (rem)</td>
+</tr>
+<tr>
+<td>Where the pin stands</td>
+<td><code>Order</code> — counted from one among its own side's pins; unset, the place the class declares it in</td>
+</tr>
+<tr>
+<td>A value the node itself changes as it runs, kept for the next run</td>
+<td><code>State = true</code> — never a pin; the node offers a button that puts it back to its default (see <em>Running again and again</em>)</td>
+</tr>
+<tr>
+<td>Such a value kept out of sight</td>
+<td><code>State = true, Hidden = true</code> — nothing drawn; the node's menu has <em>Reset</em>, which puts every state value of the node back to its default</td>
+</tr>
+</tbody>
+</table>
+<p>A catalogue's text — a kind's title, category and description, a pin's caption, unit, choices and description — is the
+application's content, like a name the viewer gives a node: the node's head, its fields, the picker and its search, the
+parameters panel, the log and the run line show it as written in every language, and it is never looked up nor reported as a
+missing word, whatever the application's <code>KeyPrefixes</code>. An application that wants its kinds in another language titles them in
+it. What the canvas says itself is words (<code>GraphStrings</code>): its menus and panels, the run and zoom controls, and a pin's type in
+its tooltip (<code>ui.graph.type-*</code> inside <code>ui.graph.pin-type</code>'s <code>{name} ({type})</code>) — an enum or a class of the application's own is
+named by its name read as words (<code>UINodePin.TypeTitle</code>), which is the catalogue's and shows as written.</p>
+<p><code>[GraphOutput]</code> — an output pin of the property's type, with <code>Title</code>, <code>Description</code> and <code>Order</code> as an input has them;
+<code>TypeOf = nameof(SomeInput)</code> makes its type follow whatever is connected to that input, and <code>Image = true</code> makes a text output
+a picture's.</p>
+<p><strong>Pins are typed.</strong> A connection is allowed between matching types and always to or from <code>object</code>, the universal
+type; a picture and a text join, since a picture is an address. An input takes one edge unless it says <code>Multiple = true</code>;
+an output feeds any number.
+An array pin (<code>T[]</code>, <code>List&lt;T&gt;</code>) accepts an array of the same element type or the universal array. Your own class is
+a pin type named by the class and connects to its own kind or to <code>object</code>.</p>
+<h2 id="running-the-network">Running the network</h2>
+<pre><code class="language-csharp">UINodeCatalog catalog = UINodeCatalog.FromTypes(typeof(OperationNode), typeof(NumberNode), typeof(ResultNode));
+UINodeRunner runner = new(catalog) { OnStatus = (id, state, progress, message) =&gt; … };
+
+UINodeRunResult result = await runner.RunAsync(sheet);
+</code></pre>
+<p>The runner materializes the document into instances of your classes, walks them in the order their connections put
+them — a cycle is refused rather than followed — fills each node's inputs from the outputs feeding them, calls
+<code>Execute</code>, and answers every node's outputs. A kind that waits on something implements <code>IGraphNodeAsync</code> instead; one that
+does no work and has no pin — a note — is passed over. A node that throws fails, and its branch stops there while the rest
+of the sheet runs — wherever its code threw: in <code>Execute</code>, in a setter an input was fed through, in an output's getter, in
+<code>HasMore</code> or in a display pin's getter. The document may be the browser's, so a node with no id or no kind, one whose id an
+earlier node took, and an edge naming no pin are left out, as a node of a kind the catalogue does not know is.</p>
+<p><code>OnStatus</code> is what a controller turns into <code>SetNodeStatusEffect</code>s, and <code>OnDisplay</code> — what each display pin came to
+hold — into <code>SetNodeDisplayEffect</code>s. Both reach a node without touching the document: a state colouring its frame,
+a progress bar only on a kind that says <code>[GraphNode(ShowProgress = true)]</code> (a message goes to the run line, not onto
+the node, where a line would shove its pins about), and a panel drawn from whatever shape the value turns out to have — a number, a text,
+a picture, a list of lines, a table of records, or an object's fields; a list or a record inside a cell or a field is written on one line, its entries joined as the page's
+language joins a list (<code>Intl.ListFormat</code>) and a record's field in the word <code>ui.graph.display-field</code> (<code>{key}: {value}</code>). What a
+display is sent is a readable share: a text past 10 000 characters or a list past 200 entries
+is cut short with what was left out said at its end in the page's words (<code>ui.graph.more</code>), and a record past 256 KB of JSON, or one that cannot travel as JSON, is
+sent as its text — a number JSON cannot spell too, <code>NaN</code> or an infinity, alone or inside a record; a state value on its way
+back to the canvas is sent the same way, and read as the number again on the next run.</p>
+<p><strong>A display draws a picture by type, never by what a text looks like.</strong> A text is drawn as a picture when the display pin is
+a picture's itself (<code>[GraphInput(Display = true, Image = true)]</code>) or the output feeding it is one — <code>[GraphOutput(Image = true)]</code>,
+followed through anything that hands its input on (<code>TypeOf</code>: a <em>Delay</em>, a reroute); any other text is text, however much it
+looks like an address. A picture inside a record or a list has no pin to say so, so it says so itself: it is a <code>UINodePicture</code>
+(its address, and a <code>Width</code> and <code>Height</code> to draw it at if it has them), which travels marked as a picture.</p>
+<pre><code class="language-csharp">[GraphOutput]
+public UINodePicture Preview =&gt; new(Address, Width: 160, Height: 120);   // drawn at 160 by 120 in a display
+
+[GraphOutput]
+public UINodePicture[] Frames { get; set; } = [];                          // a list of pictures
+</code></pre>
+<p>Even a picture a type names is drawn only from an address the framework draws a picture from — this site, the web, an inline
+picture, judged as the browser reads the address (<code>urls.isImageSource</code> on the plugin surface) — or a local <code>blob:</code>; <code>//host/…</code>
+and <code>/\host/…</code> start with a slash but are another site's, and stay text. Pass the application's services to the runner
+(<code>new UINodeRunner(catalog, services)</code>) and a node reaches them through <code>context.Services</code>: a node kind is built from a parameterless constructor, so that is the way in.</p>
+<p>Both hooks are awaited, so a run is watched as it runs rather than all at once when it answers — push each effect as it
+arrives instead of collecting them for the command's result:</p>
+<pre><code class="language-csharp">// In a controller command; CanvasId is the NodesComponent's id.
+UINodeRunner runner = new(catalog, Context.Services)
+{
+    OnStatus = (id, state, progress, message)
+        =&gt; new(Context.SendEffectsAsync([new SetNodeStatusEffect(CanvasId, id, state) { Progress = progress, Message = message }], cancellationToken))
+};
+</code></pre>
+<p>A node says how far along it is with <code>context.ReportAsync(&quot;Reading&quot;, 0.4)</code>, or in a word of its own,
+<code>context.ReportAsync(UIPhrase.Of(&quot;my.reading&quot;, (&quot;file&quot;, name)), 0.4)</code>; only a kind that waits (<code>IGraphNodeAsync</code>) can, since a
+kind that runs straight through has nothing to say in the middle of itself. The message shows on the run line while the node runs; the fraction draws a bar only when the kind says <code>[GraphNode(ShowProgress = true)]</code>.</p>
+<p>What a run says travels as a <code>UIPhrase</code>. The runner's own messages are the package's words, written in the page's language — an
+input left empty (<code>UIGraphWords.RunRequired</code>, the input's title filling it as written), a node cut short by Stop (<code>RunStopped</code>),
+a node on a cycle (<code>RunCycle</code>), a folder's file (<code>FileProgress</code>). What a node says itself — <code>ReportAsync</code>, <code>Log</code>, the message of
+the exception it throws (&quot;Division by zero.&quot;) — is its content, shown as written, as the catalogue's text is; a kind that wants
+its line in the page's language reports or logs a phrase of its own keys, <code>context.Log(UIPhrase.Of(&quot;my.key&quot;, (&quot;count&quot;, n)))</code>. A
+catalogue's text passed into such a phrase — a pin's title, a node's name — goes as a plain argument, written as it is, never as
+<code>UIPhrase.Text</code>, which the page would look up.</p>
+<h2 id="running-again-and-again">Running again and again</h2>
+<p>A node can keep something between runs: a property marked <code>[GraphInput(State = true)]</code> is filled from the document like any
+value, and what the node leaves it at is reported (<code>OnState</code>) and written back — the next run starts from it. A node that hands
+out one item a run implements <code>IGraphNodeSequence</code> and says whether it has more; <code>RunAllAsync</code> runs the sheet until one such
+node has none left:</p>
+<pre><code class="language-csharp">[GraphNode(Title = &quot;Next id&quot;)]
+public sealed class NextIdNode : IGraphNode, IGraphNodeSequence
+{
+    [GraphInput(State = true)]
+    public int Issued { get; set; }
+
+    [GraphOutput]
+    public string Id { get; set; } = &quot;&quot;;
+
+    public bool HasMore =&gt; Issued &lt; 100;
+
+    public void Execute(UINodeRunContext context)
+        =&gt; Id = $&quot;item-{++Issued}&quot;;
+}
+</code></pre>
+<p>A failure takes its branch and its run, and the next run goes on with the next item — one bad file does not stop a folder —
+unless the sequence node itself failed. The state a run changed is reported once the run is through, so a run stopped part way
+changes none of it: a folder's place moves on only for a file whose whole run happened, and the node cut short stands idle
+again. A collection kept as state may be changed in place — a list the node adds to counts as changed when its items did — and
+each run's node works on its own copy, so the document a run started from is not changed under it.</p>
+<h2 id="handing-on-what-has-not-changed">Handing on what has not changed</h2>
+<p>A runner given a cache (<code>UINodeRunner.Cache</code>, a <code>UINodeRunCache</code>) hands on what a node last came to when its inputs are the ones
+it last ran on, rather than running it again, and draws it <em>Cached</em>: a chain of pictures re-run with one number changed at its
+end reworks that end alone. The cache keeps a node's last run and no more, so it is never larger than the sheet. A node with
+state always runs, and so does a kind that does more than turn its inputs into its outputs — waits, reads or writes the disk,
+reads the clock — which says so with <code>[GraphNode(AlwaysRuns = true)]</code>. A node that fails forgets its own last run and those of
+every node above it, so the next run makes them afresh rather than handing the same thing on. <code>UINodeRuns</code> keeps one for its canvas; clear it
+(<code>Cache.Clear()</code>) when the sheet is replaced. Two counters make a loop inside a loop: the inner one's <em>Wrapped</em> into the outer one's
+<em>Advance</em>, the inner starting over, and the outer moves once a round of the inner — or one <em>Range XY</em> does it alone.</p>
+<p>The canvas runs itself with its run panel and <code>UINodeRuns</code>, which does all of the above for a controller: Run and Run all save
+the sheet under a run's reason, the save command hands the save on, and every status, display, log line, progress and state
+reaches the canvas as it happens, the state kept on the controller's sheet too. The run line along the top (<code>ShowRunProgress</code>, on
+unless told otherwise) shows from the first run on and keeps the last run's end; before it, its room stays clear, so the corner
+menu and the run panel stand where they will stay.</p>
+<pre><code class="language-csharp">// The view
+new NodesComponent(CanvasId)
+    .SetShowRunPanel(true)
+    .OnSave(nameof(Controller.SaveAsync), UIGraphArguments.Reason(&quot;reason&quot;))
+    .OnStop(nameof(Controller.Stop));
+
+// The controller
+private readonly UINodeRuns _runs;
+
+public Controller()
+{
+    _runs = new UINodeRuns(CanvasId, Catalog, () =&gt; Sheet, sheet =&gt; Sheet = sheet);
+}
+
+[UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background, MaxConcurrent = 4)]
+public async Task&lt;UICommandResult&gt; SaveAsync(string reason, CancellationToken cancellationToken)
+{
+    UINodeRunOutcome? outcome = await _runs.SavedAsync(Context.SendEffectsAsync, Context.Runtime.InvokeAsync, Context.Services, reason, cancellationToken);   // null for a save and no run
+    return UICommandResult.Ok();
+}
+
+[UICommand]
+public void Stop() =&gt; _runs.Stop();
+</code></pre>
+<p>The save command is a background one: an ordinary command holds its tab until it answers, and the panel's Stop could not reach the
+server while a run of all goes on. It allows more than one run of itself at once (<code>MaxConcurrent</code>, one by default): an edit the
+viewer saves while a run of all goes on is a second run of the same command, which one would refuse. One run of the sheet goes at
+a time — a second asked for meanwhile is a save and no more — and the package
+needs nothing of the controller but the three things it hands in: where effects go, the runtime's own turn it writes the sheet
+in, and the services the nodes reach. The command runs beside its tab, so the state a run leaves is read onto the sheet and written
+back inside <code>Context.Runtime.InvokeAsync</code>, where a save the viewer makes at that moment cannot land between the two. A controller running the sheet itself hands <code>OnState</code> a committed <code>SetNodeValueEffect</code>
+(<code>Committed = true</code>, no step to undo) and writes the state back with <code>UINodeDocument.WithValue</code>, as <code>UINodeRuns</code> does.</p>
+<h2 id="the-sheets-parameters">The sheet's parameters</h2>
+<p>A canvas that sets its parameters out carries a panel under its run panel. A right press anywhere on an input's row — its pin,
+its caption, its field — opens the pin's menu, and <em>Add to parameters</em> sets the input out in the panel too: under its node's
+name, in the same field its node draws, bound to the same value, so an edit in either shows in the other. A press on the name
+brings the node into view; the cross, or <em>Remove from parameters</em> in the pin's menu, takes the input back out. The set is part of
+the document (<code>UINodeDocument.Parameters</code>), saved and undone with the sheet, and an application may set some out before the
+viewer sees it:</p>
+<pre><code class="language-csharp">new NodesComponent(CanvasId)
+    .SetShowParameters(true);
+
+Sheet = StartingSheet().WithParameters(new UINodeParameter(&quot;rate&quot;, nameof(RateNode.Percent)));
+</code></pre>
+<p>Only an input with a field of its own that no wire feeds can be one — text, number, boolean, date and time, choice; a picture, a
+list, a display, a pin-only input and a hidden state cannot, and the pin's menu does not offer them. Wiring an input takes it out
+of the parameters in the same step, so an undo brings both back, and one whose node leaves the sheet leaves the panel.
+An input its node hides for now (<code>VisibleWhen</code>) leaves the panel while it is hidden and comes back when it shows; the parameter
+stays in the document meanwhile. <code>WithParameters</code> refuses a wired input or a node the sheet lacks. A document comes back off the
+wire as the browser sent it, so a server reads a sheet's parameters through the catalogue — <code>UINodeCatalog.ParametersOf(document)</code>
+passes over any that may not stand (a hidden one among them), and <code>CanBeParameter(document, parameter)</code> answers for one. The
+panel arrives folded, its gear alone, as small as the run panel over it; a viewer who opens it finds it open next time, the fold
+remembered for the canvas.</p>
+<p>The pin's menu stands over the node's wherever a pin's row is pressed; a line with a pin-only input and an output gives each half
+its own. A folded node has no rows, so each pin on its head opens its own pin's menu, as a reroute's two ends do. Beside the parameter entries, which only a canvas showing its parameters offers, it carries <em>Reset</em>: an input lets its
+wires go and takes its kind's default value back, an output lets its wires go — one step to undo. <em>Reset</em> is unavailable while
+the pin has nothing to reset, and on a read-only canvas every entry is.</p>
+<h2 id="a-picture-a-node-uploads">A picture a node uploads</h2>
+<p>A picture pin's control sends the chosen file through the framework's own upload and raises <code>image-upload</code>, naming the
+node, the pin, the selection and the file's name:</p>
+<pre><code class="language-csharp">// In the view
+new NodesComponent(Controller.CanvasId)
+    .OnImageUpload(nameof(Controller.ImageUploadedAsync));
+
+// In the controller
+[UICommand]
+public async Task&lt;UICommandResult&gt; ImageUploadedAsync(string node, string pin, string selection, string fileName, CancellationToken cancellationToken)
+{
+    UIUploadSelection chosen = await Context.Uploads.GetSelectionAsync(Context.Handle, selection, cancellationToken);
+    var address = …;   // keep the file wherever this application keeps its pictures
+
+    return UICommandResult.Ok([new SetNodeValueEffect(CanvasId, node, pin, address)]);
+}
+</code></pre>
+<p>Where the picture is kept, and whether it is kept at all, is the application's own business; the pin shows nothing until
+the command answers. <code>SetNodeValueEffect</code> writes that one pin rather than pushing the whole document back, so the
+viewer's unsaved work survives it — and the canvas is left dirty, so save before running the sheet.</p>
+<h2 id="whose-document-it-is">Whose document it is</h2>
+<p>The sheet on the canvas is the viewer's until they save it. Bind the value <code>OnSubmit</code> with a <code>FormId</code>, the framework's own
+way of holding an edit until it is sent:</p>
+<pre><code class="language-csharp">// On the controller, beside CanvasId
+public const string CanvasForm = &quot;sheet-form&quot;;
+
+// In the view
+new NodesComponent(Controller.CanvasId)
+    .SetFormId(Controller.CanvasForm)
+    .BindValue(nameof(Controller.Sheet), mode: UIBindingMode.OnSubmit)
+    .OnSave(nameof(Controller.SaveAsync), UIGraphArguments.Reason(&quot;reason&quot;))
+</code></pre>
+<p>From the first edit the canvas holds its document: a value the server pushes meanwhile is not put on, so a flush that
+happens to carry the sheet cannot take the viewer's work with it. A save submits the form and the canvas stands <em>unsaved</em>
+until the command it raised has answered — a command that fails leaves it unsaved, as it should — and undoing back to the
+saved sheet lets the document go again. An application that means to put a sheet on sets the value and says so:</p>
+<pre><code class="language-csharp">Sheet = StartingSheet();
+
+return UICommandResult.Ok([new DiscardFormEffect(CanvasForm)]);
+</code></pre>
+<p><code>DiscardFormEffect</code> lets the viewer's unsaved work go, and the canvas takes the server's sheet with a fresh undo history.
+A sheet of any size travels: the framework sends a value over 8 KB beside the connection, both ways.</p>
+<p>A page whose document is the application's at once rather than the viewer's until Ctrl+S turns on <code>AutoSave</code>: every edit is
+saved as it is made, the save event carrying <code>UIGraphArguments.AutoSaveReason</code>, and a save still in flight queues the next behind
+it. The planner's builds do this, so a target named in the plan's panel is the build's goal before another tab is opened:</p>
+<pre><code class="language-csharp">new ProductionGraphComponent(&quot;plan&quot;)
+    .BindItems(nameof(Controller.Catalogue))
+    .SetMode(UIProductionMode.Plan)
+    .SetAutoSave(true)
+    .SetFormId(Controller.PlanForm)
+    .BindValue(nameof(Controller.Plan), mode: UIBindingMode.OnSubmit)
+    .OnSave(nameof(Controller.SaveGoals));
+</code></pre>
+
+</article>
+        </main>
+    </div>
+
+    <footer class="site">
+        <span class="version">Documents 1.7.2</span> ·
+        <a href="https://github.com/AkiEvansDev/NE.Standard.UI.Graph">github.com/AkiEvansDev/NE.Standard.UI.Graph</a> ·
+        the Prosperity Public License 3.0.0 — free for noncommercial use. Issues are the way to report a bug or ask
+        for a change; the repository is a read-only mirror and takes no pull requests.
+    </footer>
+
+</div>
+</body>
+</html>
