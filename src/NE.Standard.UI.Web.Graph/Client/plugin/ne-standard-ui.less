@@ -100,7 +100,7 @@
 @ui-table-ground: color-mix(in srgb, var(--ui-color-on-surface) @ui-table-tint, transparent);
 
 // The ink of the ground a part stands on, and its muted fade. `--ui-faint-base` is the ground's on-colour where the ground is filled
-// (a filled button or badge, a Background) and is reset where a ground of its own is opaque (a popup, a raised surface); the root's
+// (a filled button or badge, a Background) and is reset where a ground of its own is opaque (a popup, a raised or flat surface); the root's
 // `--ui-text-muted` is fixed to the page's ink and never sees it, so a part that can stand on a filled ground reads these.
 @ui-text-ink: var(--ui-faint-base, var(--ui-color-on-surface));
 // Muted is the ink at 68% on the page and at 87% on a filled ground, which reads 4.5:1 on every theme fill (Success, the lowest,
@@ -113,11 +113,11 @@
 
 // The ground a part stands on, for a part cut out of it (a chart's hollow marker, the edge between two sectors). `--ui-ground` is
 // written where `--ui-faint-base` is: a Background's colour inline, a filled button's or badge's fill, and the own colour of a
-// ground that is opaque (a popup, the dialog, a Background, Raised or Tinted surface); unset, the ground is the page's surface.
+// ground that is opaque (a popup, the dialog, a Background, Raised, Flat or Tinted surface); unset, the ground is the page's surface.
 @ui-ground: var(--ui-ground, var(--ui-color-surface));
 
-// A popup's own ground, one step above the ground it opens from: the page's surface colour over the page; over a raised panel or
-// the dialog, what the panel writes to `--ui-popup-ground` — its fill with 8 % more of the text, the step the panel is off the
+// A popup's own ground, one step above the ground it opens from: the page's surface colour over the page; over a raised or flat
+// panel or the dialog, what the panel writes to `--ui-popup-ground` — its fill with 8 % more of the text, the step the panel is off the
 // surface. A Background or Tinted ground is the page's level again and takes the step back; a popup on the body is handed its
 // opener's (`carryPopupGround`, anchored-popup.ts).
 @ui-popup-ground: var(--ui-popup-ground, var(--ui-popup-base, var(--ui-color-surface)));

@@ -119,12 +119,10 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         {
             foreach (UINodePin pin in type.Inputs)
             {
+                // A field keeps the default Tonal, the fill alone: a node frames its fields itself, and a Filled field's line would
+                // only add weight there.
                 if (CreateEditor(pin) is not IVisualComponent editor)
                     continue;
-
-                // A node frames its fields itself: the fill alone, without a Filled field's line, which only adds weight there.
-                if (editor is IFieldInputComponent field)
-                    field.Appearance = UIInputAppearance.Tonal;
 
                 SetCanvasRegion(UIGraphRegions.Editor(type.Key, pin.Name), editor);
             }
