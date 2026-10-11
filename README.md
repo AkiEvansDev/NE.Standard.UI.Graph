@@ -22,9 +22,12 @@ ready-made kinds, the canvas every component shares, the layered graph, the prod
 ## Install
 
 ```
-dotnet add package NE.Standard.UI.Graph
-dotnet add package NE.Standard.UI.Web.Graph
+dotnet add App package NE.Standard.UI.Graph
+dotnet add App.Web package NE.Standard.UI.Web.Graph
 ```
+
+The first is the component, for the application's library; the second its rendering, for the web project that hosts the
+library ([getting started](https://akievansdev.github.io/NE.Standard/getting-started.html)).
 
 A calculator's kinds come ready made in a third, [`NE.Standard.UI.Graph.Calculator`](https://akievansdev.github.io/NE.Standard.UI.Graph/node-kinds.html#a-calculators-kinds-ready-made),
 and picture kinds worked with SkiaSharp in a fourth, [`NE.Standard.UI.Graph.Image`](https://akievansdev.github.io/NE.Standard.UI.Graph/node-kinds.html#picture-kinds-ready-made).

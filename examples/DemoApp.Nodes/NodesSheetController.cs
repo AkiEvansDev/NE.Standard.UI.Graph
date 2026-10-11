@@ -228,23 +228,26 @@ internal abstract partial class NodesSheetController : UIControllerBase
     }
 
     /// <summary>The page is gone: a run under way ends, and the page's own folder goes with it, so the temporary folder keeps no page's leftovers.</summary>
-    protected override void OnDispose()
+    protected override void Dispose(bool disposing)
     {
-        _runs.Stop();
-
-        var folder = Path.Combine(DemoFolders.Root, _out);
-
-        try
+        if (disposing && !IsDisposed)
         {
-            if (Directory.Exists(folder))
-                Directory.Delete(folder, recursive: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // A file still held — a run's last write — is left for the system's own cleaning of its temporary folder.
+            _runs.Stop();
+
+            var folder = Path.Combine(DemoFolders.Root, _out);
+
+            try
+            {
+                if (Directory.Exists(folder))
+                    Directory.Delete(folder, recursive: true);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // A file still held — a run's last write — is left for the system's own cleaning of its temporary folder.
+            }
         }
 
-        base.OnDispose();
+        base.Dispose(disposing);
     }
 
     /// <summary>A node's values as a starting sheet writes them.</summary>
