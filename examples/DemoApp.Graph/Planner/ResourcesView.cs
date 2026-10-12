@@ -67,11 +67,8 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 .SetColumn(24, UIGridUnit.Auto())
                 // Tonal: a lone field beside its own button.
                 .AddChild(new TextInputComponent(SearchId)
-                    .SetType(UITextInputType.Search)
                     .SetAppearance(UIInputAppearance.Tonal)
-                    .SetPlaceholder("planner.search")
-                    .SetPrefixIcon(MaterialIcons.Outlined(PlannerIcons.Search))
-                    .SetShowClearButton()
+                    .SetSearch("planner.search")
                     .SetDebounceMilliseconds(150)
                     .SetPlacement(1, 1, 23, 1)
                 )

@@ -6,7 +6,6 @@ namespace DemoApp.Graph.Planner;
 /// </summary>
 public static class PlannerIcons
 {
-    public const string Search = MaterialIcons.Search;
     public const string Add = MaterialIcons.Add;
     public const string Delete = MaterialIcons.Delete;
     public const string Resource = MaterialIcons.Category;
@@ -16,7 +15,7 @@ public static class PlannerIcons
     public const string Swatch = MaterialIcons.Circle;
 
     /// <summary>The page's own controls, drawn outlined.</summary>
-    public static readonly string[] Outlined = [Search, Add, Delete, Resource, Import, Export, Picture];
+    public static readonly string[] Outlined = [Add, Delete, Resource, Import, Export, Picture];
 
     /// <summary>The colours' dots and every glyph a resource can wear, drawn filled.</summary>
     public static string[] Filled()

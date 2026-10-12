@@ -138,6 +138,12 @@
 // The brand's ink, not its fill: on a dark page the fill is as dark as the page, and a third of it was all but unseen.
 @ui-text-selection: color-mix(in srgb, var(--ui-color-primary-ink) 48%, transparent);
 
+// A quote's stroke, one width wherever one is drawn: a paragraph's quote line, a Markdown blockquote, the Extensions quote (its
+// `UIText.Quote` writes the same 3 px as a border, held equal by QuoteStrokeSyncTests). A quotation inside text is drawn in one
+// neutral colour; the preset's reply or pin wears the brand or its author's colour.
+@ui-quote-stroke: 3px;
+@ui-quote-ink: var(--ui-color-border);
+
 // A thing being dragged stays in its place as a ghost (a column's caption, a tab, a tree row), so the gap it will leave is what moves.
 @ui-drag-ghost-opacity: 0.45;
 // A label a loading ring stands beside rather than replacing (a button with no icon to turn into the ring) fades under it.
@@ -187,6 +193,7 @@
 // The standard marks a package's chrome asks for; the core draws none of them itself.
 @ui-glyph-arrow-up: "\e5d8"; // arrow_upward
 @ui-glyph-arrow-down: "\e5db"; // arrow_downward
+@ui-glyph-arrow-back: "\e5c4"; // arrow_back — the standard Back action
 @ui-glyph-sort: "\e8d5"; // swap_vert — the two ways a column may go, for one that is sorted neither way
 @ui-glyph-first-page: "\e5dc";
 @ui-glyph-last-page: "\e5dd";
@@ -1482,8 +1489,8 @@
 }
 
 // An entry of a short list of choices (a language, a page size): one line at the list's row height, the pointer's and the keyboard's
-// marks a list's, and the chosen one (`aria-checked`) on the chosen ground.
-.ui-choice-entry() {
+// marks a list's, and the chosen one (`aria-checked` in a menu, `aria-selected` in a field's listbox) on the chosen ground.
+.ui-choice-entry(@chosen: ~"[aria-checked='true']") {
     display: flex;
     align-items: center;
     min-height: @ui-list-row-height;
@@ -1496,10 +1503,10 @@
     white-space: nowrap;
     cursor: pointer;
     .ui-interactive-base();
-    .ui-entry-hover(~"[aria-checked='true']");
-    .ui-entry-keyboard(~"[aria-checked='true']");
+    .ui-entry-hover(@chosen);
+    .ui-entry-keyboard(@chosen);
 
-    &[aria-checked="true"] {
+    &@{chosen} {
         .ui-selected-ground();
         .ui-selected-ink();
     }
@@ -1523,6 +1530,43 @@
     // A key moves the cursor at once, frame and wash together: the washes' fade trailed the frame, which has none.
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row} {
         transition: @ui-root-transition;
+    }
+}
+
+// A list's rows (an items view's stack, a tree) round every wash they wear — the pointer's, the press's wave, the keyboard's, the
+// chosen ground — as a menu's entry does, and a chosen row is straight only on the edge its mark stands on: the leading one, or the
+// one SelectionStyle moved it to, read off the host's own inline mark (`.ui-selected-scope()` fences an ancestor's). A table's and a
+// key-value list's rows, edge to edge in a grid, stay square. The keyboard's frame, at a greater weight, takes its own corner.
+.ui-list-row-corners(@host; @row) {
+    @{host} > [data-ui-items-host] > @{row} {
+        border-radius: @ui-list-entry-radius;
+    }
+
+    @{host} > [data-ui-items-host] > @{row}[data-ui-selected] {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+    @{host}[style*="--ui-selected-mark: none"] > [data-ui-items-host] > @{row}[data-ui-selected] {
+        border-radius: @ui-list-entry-radius;
+    }
+
+    @{host}[style*="--ui-selected-mark: inset -2px"] > [data-ui-items-host] > @{row}[data-ui-selected] {
+        border-radius: @ui-list-entry-radius;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+    @{host}[style*="--ui-selected-mark: inset 0 2px"] > [data-ui-items-host] > @{row}[data-ui-selected] {
+        border-radius: @ui-list-entry-radius;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }
+
+    @{host}[style*="--ui-selected-mark: inset 0 -2px"] > [data-ui-items-host] > @{row}[data-ui-selected] {
+        border-radius: @ui-list-entry-radius;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
     }
 }
 

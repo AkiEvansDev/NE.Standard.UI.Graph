@@ -41,11 +41,8 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         // The core's own field, not an input of the package's: its clear button and its focus ring; Tonal, since the picker's
         // popup frames it, as a node frames its fields.
         PickerSearch = new TextInputComponent()
-            .SetType(UITextInputType.Search)
             .SetAppearance(UIInputAppearance.Tonal)
-            .SetPrefixIcon(UIGlyphs.Search)
-            .SetPlaceholder(UIGraphWords.SearchKinds)
-            .SetShowClearButton();
+            .SetSearch(UIGraphWords.SearchKinds);
 
         SetCanvasRegion(UIGraphRegions.PickerSearch, PickerSearch);
         SetCanvasRegion(UIGraphRegions.ListRemove, GlyphButton(UIGlyphs.Close, UIGraphWords.Remove));

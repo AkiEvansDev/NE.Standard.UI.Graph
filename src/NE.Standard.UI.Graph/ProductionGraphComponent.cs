@@ -43,11 +43,8 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         PlanObjective = PlanSelect(UIGraphWords.Objective, (nameof(UIProductionObjective.LeastRaw), UIGraphWords.LeastRaw), (nameof(UIProductionObjective.LeastTime), UIGraphWords.LeastTime), (nameof(UIProductionObjective.LeastCost), UIGraphWords.LeastCost));
         // Tonal, as a node's fields are: the picker's popup frames it.
         PickerSearch = new TextInputComponent()
-            .SetType(UITextInputType.Search)
             .SetAppearance(UIInputAppearance.Tonal)
-            .SetPrefixIcon(UIGlyphs.Search)
-            .SetPlaceholder(UIGraphWords.SearchResources)
-            .SetShowClearButton();
+            .SetSearch(UIGraphWords.SearchResources);
 
         SetCanvasRegion(UIGraphRegions.PlanPeriod, PlanPeriod);
         SetCanvasRegion(UIGraphRegions.PlanObjective, PlanObjective);

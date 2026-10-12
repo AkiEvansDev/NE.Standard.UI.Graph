@@ -82,7 +82,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                         .SetVerticalAlignment(UIAlignment.Center),
                     new ButtonComponent()
                         .SetTitle("planner.graph.forget-layout")
-                        .SetType(UIButtonType.Outline)
+                        .SetType(UIButtonType.Ghost)
                         .OnClick(nameof(DependenciesController.ResetLayout))
                         .SetHorizontalAlignment(UIAlignment.Start)
                         .SetVerticalAlignment(UIAlignment.Center)
@@ -137,7 +137,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                         .SetVerticalAlignment(UIAlignment.Center),
                     new ButtonComponent()
                         .SetTitle("planner.graph.remove-added")
-                        .SetType(UIButtonType.Outline)
+                        .SetType(UIButtonType.Ghost)
                         .OnClick(nameof(DependenciesController.RemoveAdded))
                         .SetVerticalAlignment(UIAlignment.Center)
                 )

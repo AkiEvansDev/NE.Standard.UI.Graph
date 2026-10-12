@@ -60,7 +60,7 @@ internal abstract class NodesSheetView : NodesDemoView
                         .SetVerticalAlignment(UIAlignment.Center),
                     new ButtonComponent()
                         .SetTitle("nodes.reset")
-                        .SetType(UIButtonType.Outline)
+                        .SetType(UIButtonType.Ghost)
                         .OnClick(nameof(NodesSheetController.Reset))
                         .SetHorizontalAlignment(UIAlignment.Start)
                         .SetVerticalAlignment(UIAlignment.Center)
