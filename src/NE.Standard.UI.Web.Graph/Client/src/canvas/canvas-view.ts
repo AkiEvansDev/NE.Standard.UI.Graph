@@ -56,7 +56,7 @@ export class CanvasView {
     private fitted = false;
     private fittedWidth = 0;
     private fittedHeight = 0;
-    private readonly stopSizeWatch: () => void;
+    private stopSizeWatch: (() => void) | null = null;
     // Whether the viewer had a view of this canvas kept before it was first drawn, read before a draw writes one: the sheet's
     // first fit leaves it standing.
     private readonly viewKept: boolean;
@@ -77,8 +77,13 @@ export class CanvasView {
         this.minimap = root.querySelector<HTMLElement>("[data-ui-graph-map]");
         this.minimapNodes = root.querySelector<HTMLElement>("[data-ui-graph-map-nodes]");
         this.minimapView = root.querySelector<HTMLElement>("[data-ui-graph-map-view]");
-        this.stopSizeWatch = context.observeSize(this.viewport, () => this.viewportResized());
         this.viewKept = context.store.readJson(root, "view") !== null;
+        this.watchSize();
+    }
+
+    /** Watches the canvas's size, from the start and again once a root that left the page is back on it. */
+    public watchSize(): void {
+        this.stopSizeWatch ??= this.context.observeSize(this.viewport, () => this.viewportResized());
     }
 
     /** The canvas took another size: a fit the reader left alone is made again for it; a canvas with no size (hidden) waits. */
@@ -101,7 +106,8 @@ export class CanvasView {
 
     /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
     public dispose(): void {
-        this.stopSizeWatch();
+        this.stopSizeWatch?.();
+        this.stopSizeWatch = null;
         this.stopOpenWatch?.();
         this.stopOpenWatch = null;
     }

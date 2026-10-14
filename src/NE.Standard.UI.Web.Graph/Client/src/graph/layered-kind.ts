@@ -4,22 +4,16 @@
 import { chainOf } from "./chain.ts";
 import type { CollectionChange } from "ne-standard-ui";
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
-import { enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
+import { enableMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
-import { readJson } from "../canvas/canvas-model.ts";
 import { EditStructureAttribute, NodeShapeAttribute } from "../canvas/canvas-settings.ts";
 import { renderCard } from "./card-view.ts";
-import type { DraftConflict } from "./draft.ts";
-import { resolveConflict } from "./draft.ts";
+import { DraftedCollection } from "./drafted-collection.ts";
 import { GraphEditing } from "./graph-editing.ts";
-import { applyCollectionChange } from "./keyed-list.ts";
 import { LayeredSheet } from "./layered-sheet.ts";
 import { HandleAttribute } from "./link-drag.ts";
-import type { GraphDocument, GraphEdge, GraphNode, GraphNodeShape } from "./model.ts";
-import { draftConflicts, graphEdges, overlayDraft, readGraphDocument, readGraphNode, readShape } from "./model.ts";
-
-/** On the root: the nodes the renderer wrote, which a bound collection's own changes then replace. */
-export const NodesAttribute = "data-ui-graph-nodes";
+import type { GraphDocument, GraphEdge, GraphNode, GraphNodeDraft, GraphNodeShape } from "./model.ts";
+import { GraphDraftModel, graphEdges, readGraphDocument, readShape } from "./model.ts";
 
 const NodeGap = 32;
 /**
@@ -47,35 +41,19 @@ export class LayeredKind implements CanvasKind {
     public readonly snapsByCenter = true;
 
     private readonly services: CanvasServices<GraphDocument>;
+    private readonly nodes: DraftedCollection<GraphDocument, GraphNode, GraphNodeDraft>;
     private readonly editing: GraphEditing;
     private readonly sheet: LayeredSheet;
 
-    // The collection as the server has it; what is drawn is it with the draft laid over, worked out again whenever either changes.
-    private readonly server: GraphNode[];
-    private serverById = new Map<string, GraphNode>();
-    private serverVersion = 0;
-    private structureKey = "";
-    private nodes: GraphNode[] = [];
-    private nodeById = new Map<string, GraphNode>();
-    private conflicts = new Map<string, DraftConflict>();
     private links: GraphEdge[] = [];
     private linkById = new Map<string, GraphEdge>();
 
     public constructor(services: CanvasServices<GraphDocument>) {
-        const read = readJson(services.root.getAttribute(NodesAttribute));
-
         this.services = services;
-        this.server = Array.isArray(read) ? read.map(readGraphNode).filter((node): node is GraphNode => node !== null) : [];
-        this.editing = new GraphEditing(services, {
-            nodes: () => this.nodes,
-            serverNodes: () => this.server,
-            node: id => this.nodeById.get(id),
-            serverNode: id => this.serverById.get(id),
-            link: id => this.linkById.get(id),
-            placeAt: (id, at) => this.sheet.placeAt(id, at)
-        });
+        this.nodes = new DraftedCollection(services, GraphDraftModel, (id, at) => this.sheet.placeAt(id, at));
+        this.editing = new GraphEditing(services, this.nodes, id => this.linkById.get(id));
         this.sheet = new LayeredSheet(services, {
-            nodeIds: () => this.nodes.map(node => node.id),
+            nodeIds: () => this.nodes.items.map(node => node.id),
             links: () => this.links,
             layoutKey: () => this.shape,
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
@@ -93,41 +71,26 @@ export class LayeredKind implements CanvasKind {
         return !this.services.settings.readOnly && this.services.root.hasAttribute(EditStructureAttribute);
     }
 
-    private get document(): GraphDocument {
-        return this.services.documentState.document;
-    }
-
     private get shape(): GraphNodeShape {
         return readShape(this.services.root.getAttribute(NodeShapeAttribute)) ?? "card";
     }
 
     /** The shape a node is drawn in: its own, or the sheet's. */
     private shapeOf(id: string): GraphNodeShape {
-        return this.nodeById.get(id)?.shape ?? this.shape;
+        return this.nodes.item(id)?.shape ?? this.shape;
     }
 
     /** A change to the bound collection, the initial reset and insert among them: the cards are drawn again, and a new node placed. */
     public applyChange(change: CollectionChange): void {
-        applyCollectionChange(this.server, change, readGraphNode);
-        this.serverVersion++;
-        this.services.draw();
+        this.nodes.applyChange(change);
     }
 
     /** Recomputes drawn nodes, links, back-edges and server-conflicted drafts; only when the collection or the draft actually changed. */
     private refresh(): void {
-        // The document's own edit count, not the draft stringified: this runs on every pointer move of a drag.
-        const draft = this.document.draft;
-        const key = `${this.serverVersion}|${this.services.documentState.version}`;
-
-        if (key === this.structureKey)
+        if (!this.nodes.refresh())
             return;
 
-        this.structureKey = key;
-        this.serverById = new Map(this.server.map(node => [node.id, node]));
-        this.nodes = overlayDraft(this.server, draft);
-        this.conflicts = draftConflicts(this.server, draft);
-        this.nodeById = new Map(this.nodes.map(node => [node.id, node]));
-        this.links = graphEdges(this.nodes);
+        this.links = graphEdges(this.nodes.items);
         this.linkById = new Map(this.links.map(link => [link.id, link]));
         this.sheet.structureChanged();
     }
@@ -145,7 +108,7 @@ export class LayeredKind implements CanvasKind {
     }
 
     public renderItem(item: CanvasItem): HTMLElement {
-        const node = this.nodeById.get(item.id) ?? { id: item.id, title: null, subtitle: null, icon: null, image: null, shape: null, color: null, badge: null, tooltip: null, links: [] };
+        const node = this.nodes.item(item.id) ?? { id: item.id, title: null, subtitle: null, icon: null, image: null, shape: null, color: null, badge: null, tooltip: null, links: [] };
 
         return renderCard(item, node, {
             icons: this.services.context.icons,
@@ -153,7 +116,7 @@ export class LayeredKind implements CanvasKind {
             urls: this.services.context.urls,
             shape: this.shape,
             connectable: this.editable,
-            conflict: this.conflicts.get(node.id) ?? null
+            conflict: this.nodes.conflict(node.id)
         });
     }
 
@@ -166,7 +129,7 @@ export class LayeredKind implements CanvasKind {
     }
 
     public itemColor(item: CanvasItem): string {
-        return this.nodeById.get(item.id)?.color ?? "";
+        return this.nodes.item(item.id)?.color ?? "";
     }
 
     public edgeEnds(edge: CanvasEdge): EdgeEnds | null {
@@ -242,14 +205,14 @@ export class LayeredKind implements CanvasKind {
     /** A node's name is the node's, in the draft; on a graph that does not allow it, nothing is written anywhere. */
     public renameItem(id: string, title: string | null): boolean {
         if (this.editable)
-            this.editing.rename(id, title);
+            this.nodes.rename(id, title);
 
         return true;
     }
 
     public paintItem(id: string, color: string | null): boolean {
         if (this.editable)
-            this.editing.paint(id, color);
+            this.nodes.paint(id, color);
 
         return true;
     }
@@ -263,12 +226,8 @@ export class LayeredKind implements CanvasKind {
     }
 
     public runCommand(key: string, target: MenuTarget | null): boolean {
-        if (key === "graph:take-server" || key === "graph:keep-mine") {
-            if (target?.kind === "node" && !this.services.settings.readOnly && resolveConflict(this.document.draft.nodes, target.id, this.serverById.get(target.id), key === "graph:keep-mine"))
-                this.services.documentState.edited();
-
+        if (this.nodes.answerConflict(key, target?.kind === "node" ? target.id : null))
             return true;
-        }
 
         if (!this.editable)
             return key === "graph:add-node" || key === "graph:caption" || key === "graph:delete-edge";
@@ -299,11 +258,8 @@ export class LayeredKind implements CanvasKind {
 
     public syncMenus(editable: boolean, target: MenuTarget | null): void {
         const allowed = editable && this.editable;
-        const conflict = editable && target?.kind === "node" && this.conflicts.has(target.id);
 
-        // A conflict's two answers stand in the menu only of an item that has one.
-        showMenuEntries(this.services, "graph:take-server", conflict);
-        showMenuEntries(this.services, "graph:keep-mine", conflict);
+        this.nodes.showConflictAnswers(editable && target?.kind === "node" && this.nodes.conflict(target.id) !== null);
 
         for (const key of ["graph:add-node", "graph:caption", "graph:delete-edge"])
             enableMenuEntries(this.services, key, allowed);

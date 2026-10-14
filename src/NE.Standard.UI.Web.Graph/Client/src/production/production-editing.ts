@@ -1,30 +1,26 @@
-// What the viewer changes about a production catalogue (not places): entries added/renamed/recoloured/removed, links drawn (a new
-// craft, an ingredient, a product), amounts and times edited, ingredients/products removed. Every change goes into the document's
-// draft, by key, until the save.
+// What the viewer changes about a production catalogue beyond what the collection itself takes (named, recoloured): entries added
+// and removed, links drawn (a new craft, an ingredient, a product), amounts and times edited, ingredients/products removed. Every
+// change goes into the document's draft, by key, until the save.
 
 import type { CanvasServices, KindDrag } from "../canvas/canvas-kind.ts";
-import type { Point } from "../canvas/canvas-model.ts";
 import { openNamedMenu } from "../canvas/canvas-menus.ts";
-import { freeKey, takenKeys } from "../graph/draft.ts";
+import type { DraftedCollection } from "../graph/drafted-collection.ts";
 import { beginLinkDrag, edgeMiddle, openChipField } from "../graph/link-drag.ts";
 import { numberWriter, parsePositive } from "./craft-view.ts";
 import type { NumberWriter } from "./craft-view.ts";
 import type { Craft, CraftAmount, CraftDraft, ProductionDocument, ProductionEdge, ProductionEntry, ResourceDraft } from "./model.ts";
-import { craftDraft, readSpan, resourceDraft, withoutResources, writeSpan } from "./model.ts";
+import { readSpan, withoutResources, writeSpan } from "./model.ts";
 
-/** What the editing reaches on the kind: the entries as drawn and as the server has them, and an edge by its key. */
+/** What the editing reaches on the kind beside its entries: how a craft is drawn, and an edge by its key. */
 export type ProductionEditingHost = {
-    entries(): readonly ProductionEntry[];
     /** Whether a craft is drawn on its own edges rather than as a junction of its own. */
     collapsed(id: string): boolean;
     /** One of the edges a craft is drawn as, for a craft that has no item of its own. */
     craftEdge(id: string): string | undefined;
-    entry(id: string): ProductionEntry | undefined;
-    serverEntry(id: string): ProductionEntry | undefined;
     edge(id: string): ProductionEdge | undefined;
-    /** An added entry's place, where the viewer asked for it; the sheet settles it on the grid once drawn. */
-    placeAt(id: string, at: Point): void;
 };
+
+type ProductionEntries = DraftedCollection<ProductionDocument, ProductionEntry, ResourceDraft | CraftDraft>;
 
 // The menu a dropped link asks its question in, as the renderer names it.
 const LinkMenuName = "graph-link-menu";
@@ -34,10 +30,12 @@ export class ProductionEditing {
     // The page's culture: a field opens on the number as the sheet writes it, and reads the viewer's back the same way.
     private readonly number: NumberWriter;
     private readonly decimalSeparator: string;
+    private readonly entries: ProductionEntries;
     private readonly host: ProductionEditingHost;
 
-    public constructor(services: CanvasServices<ProductionDocument>, host: ProductionEditingHost) {
+    public constructor(services: CanvasServices<ProductionDocument>, entries: ProductionEntries, host: ProductionEditingHost) {
         this.services = services;
+        this.entries = entries;
         this.host = host;
         this.number = numberWriter(services.context.numbers, services.root);
         this.decimalSeparator = services.context.numbers.readCulture(services.root).decimalSeparator;
@@ -47,116 +45,46 @@ export class ProductionEditing {
         return this.services.documentState.document;
     }
 
-    /** The draft entry for a resource or craft, created from what's drawn on first change, with the server's kept beside it to tell a later server change apart. */
-    private draftOf(id: string): ResourceDraft | CraftDraft | null {
-        const draft = this.document.draft;
-        const existing = draft.resources.find(entry => entry.id === id) ?? draft.crafts.find(entry => entry.id === id);
-
-        if (existing !== undefined)
-            return existing;
-
-        const entry = this.host.entry(id);
-
-        if (entry === undefined)
-            return null;
-
-        const server = this.host.serverEntry(id);
-        const baseline = server === undefined ? null : JSON.stringify(server);
-
-        if (entry.kind === "craft") {
-            const craft: CraftDraft = { ...craftDraft(entry), baseline };
-
-            draft.crafts.push(craft);
-            return craft;
-        }
-
-        const resource: ResourceDraft = { ...resourceDraft(entry), baseline };
-
-        draft.resources.push(resource);
-        return resource;
-    }
-
     private craftOf(id: string): CraftDraft | null {
-        const entry = this.host.entry(id)?.kind === "craft" ? this.draftOf(id) : null;
+        const entry = this.entries.item(id)?.kind === "craft" ? this.entries.draftOf(id) : null;
 
         return entry === null ? null : entry as CraftDraft;
     }
 
-    public rename(id: string, title: string | null): void {
-        const entry = this.draftOf(id);
-
-        if (entry !== null)
-            entry.title = title;
-    }
-
-    public paint(id: string, color: string | null): void {
-        const entry = this.draftOf(id);
-
-        if (entry !== null)
-            entry.color = color;
-    }
-
     /** A resource of the viewer's own where the pointer last stood, chosen, and named at once. */
     public addResource(): void {
-        const id = freeKey("resource", this.keys());
-        const at = this.services.pointerScene();
+        const title = this.services.context.strings.text("ui.graph.new-resource");
 
-        this.document.draft.resources.push({
-            id,
-            title: this.services.context.strings.text("ui.graph.new-resource"),
-            icon: null,
-            color: null,
-            tooltip: null,
-            image: null,
-            category: null,
-            unit: null,
-            cost: null,
-            created: true,
-            baseline: null
-        });
-
-        this.host.placeAt(id, at);
-        this.services.selection.selectOnly(id);
-        this.services.documentState.edited();
-        this.services.renameItem(id);
-    }
-
-    private keys(): Set<string> {
-        // What is drawn holds the server's entries and the viewer's; one the viewer removed is only in the draft until the save.
-        return takenKeys(this.host.entries(), [], this.document.draft.removed);
+        this.entries.add("resource", id => ({ id, title, icon: null, color: null, tooltip: null, image: null, category: null, unit: null, cost: null, created: true, baseline: null }));
     }
 
     /**
-     * Entries taken out: one the viewer added simply goes from the draft, and the server's own is marked removed for the save. A removed
-     * resource leaves the crafts that named it, and a craft that took nothing else goes with it.
+     * Entries taken out. A removed resource leaves the crafts that named it — a craft that took nothing else goes with it — and the
+     * plan's targets and what it brings in: left there, they would name the next resource added under its key.
      */
     public removeEntries(ids: ReadonlySet<string>): void {
-        const draft = this.document.draft;
-        const resources = new Set<string>();
+        const resources = new Set([...ids].filter(id => this.entries.item(id)?.kind === "resource"));
 
-        for (const id of ids) {
-            const created = [...draft.resources, ...draft.crafts].some(entry => entry.id === id && entry.created);
+        this.entries.remove(ids);
 
-            if (this.host.entry(id)?.kind === "resource")
-                resources.add(id);
+        if (resources.size === 0)
+            return;
 
-            draft.resources = draft.resources.filter(entry => entry.id !== id);
-            draft.crafts = draft.crafts.filter(entry => entry.id !== id);
+        this.dropResources(resources);
 
-            if (!created && this.host.serverEntry(id) !== undefined && !draft.removed.includes(id))
-                draft.removed.push(id);
-        }
+        const plan = this.document.plan;
+        const bought = plan.bought ?? [];
 
-        if (resources.size > 0)
-            this.dropResources(resources);
+        if (plan.targets.some(target => resources.has(target.resource)) || bought.some(id => resources.has(id)))
+            this.document.plan = { ...plan, targets: plan.targets.filter(target => !resources.has(target.resource)), bought: bought.filter(id => !resources.has(id)) };
     }
 
     /** The crafts still standing that name removed resources, without them; one left taking nothing goes too. */
     private dropResources(resources: ReadonlySet<string>): void {
         const emptied = new Set<string>();
 
-        for (const entry of this.host.entries()) {
-            if (entry.kind !== "craft" || !this.stands(entry.id) || withoutResources(entry, resources) === null)
+        for (const entry of this.entries.items) {
+            if (entry.kind !== "craft" || !this.entries.stands(entry.id) || withoutResources(entry, resources) === null)
                 continue;
 
             // The draft rather than what was drawn: an edge taken out in the same press has already changed it.
@@ -177,13 +105,6 @@ export class ProductionEditing {
 
         if (emptied.size > 0)
             this.removeEntries(emptied);
-    }
-
-    /** Whether an entry is still there to change: drafted, or the server's and not removed; the drawing is not redone within one press. */
-    private stands(id: string): boolean {
-        const draft = this.document.draft;
-
-        return draft.crafts.some(entry => entry.id === id) || draft.resources.some(entry => entry.id === id) || (this.host.serverEntry(id) !== undefined && !draft.removed.includes(id));
     }
 
     /** Ingredients and products taken out of their crafts; an edge of a craft drawn on its own edges is one of its ingredients, and a craft left with none goes with its last edge. */
@@ -224,8 +145,8 @@ export class ProductionEditing {
     private asked: { readonly from: string; readonly to: string; readonly craft: string } | null = null;
 
     private canLink(from: string, to: string): boolean {
-        const source = this.host.entry(from);
-        const target = this.host.entry(to);
+        const source = this.entries.item(from);
+        const target = this.entries.item(to);
 
         if (source === undefined || target === undefined)
             return false;
@@ -240,8 +161,8 @@ export class ProductionEditing {
         if (!this.canLink(from, to))
             return;
 
-        const source = this.host.entry(from)!;
-        const target = this.host.entry(to)!;
+        const source = this.entries.item(from)!;
+        const target = this.entries.item(to)!;
 
         if (source.kind === "resource" && target.kind === "resource") {
             const recipe = this.soleRecipe(from, to);
@@ -272,7 +193,7 @@ export class ProductionEditing {
 
     /** The one recipe that makes a resource, where it is drawn as its edges and does not take the other resource already. */
     private soleRecipe(from: string, to: string): string | null {
-        const makers = this.host.entries().filter((entry): entry is Craft => entry.kind === "craft" && entry.products.some(amount => amount.resource === to));
+        const makers = this.entries.items.filter((entry): entry is Craft => entry.kind === "craft" && entry.products.some(amount => amount.resource === to));
 
         return makers.length === 1 && this.host.collapsed(makers[0].id) && !makers[0].ingredients.some(amount => amount.resource === from) ? makers[0].id : null;
     }
@@ -280,7 +201,7 @@ export class ProductionEditing {
     /** A craft of one of each, placed by the layout between the two it joins. */
     private addRecipe(from: string, to: string): void {
         this.document.draft.crafts.push({
-            id: freeKey("craft", this.keys()),
+            id: this.entries.freeKey("craft"),
             title: null,
             icon: null,
             color: null,
@@ -353,7 +274,7 @@ export class ProductionEditing {
 
     /** The field over how long a run of a craft lasts, in seconds: over the craft's own pill, or over an edge it is drawn as. */
     public editTime(id: string): void {
-        const entry = this.host.entry(id);
+        const entry = this.entries.item(id);
         const rect = this.host.collapsed(id) ? null : this.services.nodeRect(id);
         const edge = this.host.craftEdge(id);
         const at = rect !== null ? { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 } : edge === undefined ? null : edgeMiddle(this.services, edge);

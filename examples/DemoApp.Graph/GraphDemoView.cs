@@ -75,7 +75,7 @@ public abstract class GraphDemoView : UIViewBase
         var rows = Math.Clamp(CountLines(view) + 1, 3, 24);
 
         return new FlyoutComponent()
-            .SetFlyoutPlacement(UIPopupPlacement.BottomEnd)
+            .SetPopupPlacement(UIPopupPlacement.BottomEnd)
             .SetHorizontalAlignment(UIAlignment.End)
             .SetVerticalAlignment(UIAlignment.Center)
             // Smaller than a small button's 28px, to fit the title row a group without the button has.

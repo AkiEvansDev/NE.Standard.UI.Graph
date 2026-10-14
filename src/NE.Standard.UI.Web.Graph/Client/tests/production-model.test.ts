@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { layered } from "../src/graph/layered.ts";
 import { formatAmount, formatTime, parsePositive } from "../src/production/craft-view.ts";
-import { freeKey, takenKeys } from "../src/graph/draft.ts";
-import { craftDraft, draftConflicts, drawProduction, overlayDraft, readEntry, readProductionDocument, readSpan, resourceDraft, withoutResources, writeSpan } from "../src/production/model.ts";
+import { conflicts, freeKey, takenKeys } from "../src/graph/draft.ts";
+import { craftDraft, drawProduction, overlayDraft, readEntry, readProductionDocument, readSpan, resourceDraft, writeSpan } from "../src/production/model.ts";
 import type { Craft, ProductionDraft, ProductionEntry, Resource } from "../src/production/model.ts";
 
 function resource(id: string): Resource {
@@ -99,8 +99,8 @@ test("a drafted entry conflicts when the server changed it since", () => {
     const draft: ProductionDraft = { resources: [], crafts: [{ ...craftDraft(catalogue[4] as Craft), baseline }], removed: [] };
     const later = catalogue.map(entry => (entry.id === "make-x" ? craft("make-x", [["y", 20]], [["x", 10]]) : entry));
 
-    assert.equal(draftConflicts(catalogue, draft).size, 0);
-    assert.equal(draftConflicts(later, draft).get("make-x"), "changed");
+    assert.equal(conflicts(catalogue, draft.crafts).size, 0);
+    assert.equal(conflicts(later, draft.crafts).get("make-x"), "changed");
 });
 
 test("a document's draft comes off the wire with both lists and a craft's time as a span", () => {
@@ -140,21 +140,6 @@ test("a resource several crafts make is left out, so neither run speaks for the 
     // Neither maker of X is collapsed: a junction is what says which edges are one run.
     assert.equal(drawing.collapsed.has("make-x"), false);
     assert.equal(drawing.collapsed.has("spare-x"), false);
-});
-
-test("a removed resource leaves the crafts that named it, and one left taking nothing goes with it", () => {
-    const removed = new Set(["z", "g"]);
-
-    // Smelt took only Z: taking nothing, it would make G from nothing, and drawn on its edges it would have none left.
-    assert.equal(withoutResources(craft("smelt", [["z", 1]], [["g", 2]]), removed)?.goes, true);
-
-    const kept = withoutResources(craft("make-y", [["x", 5], ["g", 1]], [["y", 1]]), removed);
-
-    assert.deepEqual(kept, { ingredients: [{ resource: "x", amount: 5 }], products: [{ resource: "y", amount: 1 }], goes: false });
-    assert.equal(withoutResources(craft("make-y", [["x", 5]], [["y", 1]]), removed), null);
-    // A source of the catalogue's own takes nothing from the start: it goes only once it makes nothing either.
-    assert.equal(withoutResources(craft("mine", [], [["g", 1], ["y", 1]]), removed)?.goes, false);
-    assert.equal(withoutResources(craft("dig", [], [["g", 1]]), removed)?.goes, true);
 });
 
 test("a new entry never takes the key of one the viewer removed before the save", () => {

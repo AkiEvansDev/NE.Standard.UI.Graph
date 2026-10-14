@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { edgeSides } from "../src/graph/layered-sheet.ts";
+import type { CanvasServices } from "../src/canvas/canvas-kind.ts";
+import type { LayeredDocument } from "../src/graph/layered-sheet.ts";
+import { edgeSides, LayeredSheet } from "../src/graph/layered-sheet.ts";
+import { real } from "./fake-dom.ts";
 
 const plant = { x: 200, y: 0, width: 60, height: 60 };
 const seed = { x: 0, y: 0, width: 60, height: 60 };
@@ -33,4 +36,14 @@ test("in a vertical layout an edge meeting a node's bottom ends under what the n
     assert.deepEqual(edgeSides(below, seed, "up", false, false, feet), { start: { x: 30, y: 200 }, end: { x: 30, y: 98 } });
     assert.deepEqual(edgeSides(below, seed, "down", true, false, feet), { start: { x: 21, y: 200 }, end: { x: 21, y: 98 } });
     assert.deepEqual(edgeSides(seed, plant, "right", false, false, feet), { start: { x: 60, y: 30 }, end: { x: 200, y: 30 } }, "a side is met at the node's own middle");
+});
+
+test("a node added under the key of one removed after the viewer moved it takes that place over rather than standing in two", () => {
+    const document: LayeredDocument = { nodes: [{ id: "node-1", x: 300, y: 300 }], edges: [], groups: [] };
+    const services = real<CanvasServices<LayeredDocument>>({ root: { getAttribute: () => null }, documentState: { document } });
+    const sheet = new LayeredSheet(services, { nodeIds: () => [], links: () => [], layoutKey: () => "" }, { nodeGap: 32 });
+
+    sheet.placeAt("node-1", { x: 10, y: 20 });
+
+    assert.deepEqual(document.nodes, [{ id: "node-1", x: 10, y: 20, pinned: false }]);
 });

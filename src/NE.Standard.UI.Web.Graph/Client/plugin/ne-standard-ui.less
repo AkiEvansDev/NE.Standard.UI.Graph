@@ -54,8 +54,13 @@
 @ui-list-entry-radius: ~"calc(var(--ui-radius-button) * 2 / 3)";
 
 // How far past its element the keyboard's frame reaches where it is drawn outside (its 2 px gap and its 2 px line: a link, a toggle's
-// row): the room a clipping panel leaves its children past its edge. A link among running words keeps closer (core/keyboard.less).
-@ui-keyboard-frame-reach: 4px;
+// row; a quiet expander's header, padded and pulled back out by its air): the room a clipping panel leaves its children past its edge.
+// A link among running words keeps closer (core/keyboard.less).
+@ui-keyboard-frame-reach: 6px;
+
+// The air inside a quiet expander's header, round its words, that its keyboard frame stands in (components/ui-expander.less).
+@ui-quiet-header-air-y: @ui-space-1;
+@ui-quiet-header-air-x: 6px;
 
 // The keyboard's frame's corner, one everywhere it is drawn: a button's, so a theme's shape scales it with the controls.
 @ui-keyboard-frame-radius: var(--ui-radius-button);
@@ -103,7 +108,7 @@
 // (a filled button or badge, a Background) and is reset where a ground of its own is opaque (a popup, a raised or flat surface); the root's
 // `--ui-text-muted` is fixed to the page's ink and never sees it, so a part that can stand on a filled ground reads these.
 @ui-text-ink: var(--ui-faint-base, var(--ui-color-on-surface));
-// Muted is the ink at 68% on the page and at 87% on a filled ground, which reads 4.5:1 on every theme fill (Success, the lowest,
+// Muted is the ink at 75% on the page and at 87% on a filled ground, which reads 4.5:1 on every theme fill (Success, the lowest,
 // 4.6:1). One expression rather than a second property to set beside every base: the base's own veil, mixed under the page's
 // share, lifts the ink only where a base is set — unset or reset, the veil is transparent and the page's muted is what it was.
 @ui-text-muted-share: 0.75;
@@ -286,6 +291,9 @@
 @ui-glyph-drag-indicator: "\e945";
 @ui-glyph-unfold-less: "\e5d6";
 @ui-glyph-history: "\e8b3";
+@ui-glyph-share: "\e80d";
+@ui-glyph-send: "\e163";
+@ui-glyph-rename: "\e9a2"; // drive_file_rename_outline
 // Files and data, and an application's own frame.
 @ui-glyph-folder: "\e2c7";
 @ui-glyph-create-new-folder: "\e2cc";
@@ -782,6 +790,41 @@
     }
 }
 
+// --- mixins/scroll-room.less ---
+
+// The overlay bar's room as a box keeps it (core/scrollbar.less writes which boxes keep it): each side at least the room where the bar
+// stands, else the box's own padding there.
+
+// A box's sides with no Padding of its author's — a scroller's, a region's root's; 0 on any other box, which keeps no room.
+@ui-scroll-room-padding: ~"0 max(var(--ui-scroll-room-right), var(--ui-scroll-cap)) var(--ui-scroll-room-x) max(var(--ui-scroll-room-left), var(--ui-scroll-cap))";
+
+@ui-scrollers-y: ~":is(.ui-items-view__host, .ui-items-view > [data-ui-items-host], .ui-tree__host, .ui-scroll):is(.ui-scroll-y--auto, .ui-scroll-y--always), .ui-text-area__field";
+@ui-scrollers-x: ~":is(.ui-items-view__host, .ui-items-view > [data-ui-items-host], .ui-tree__host, .ui-scroll):is(.ui-scroll-x--auto, .ui-scroll-x--always)";
+
+// Keeps the room down the box's inline end, where an upright bar stands in either direction.
+.ui-scroll-room-y() {
+    --ui-scroll-room-y: var(--ui-scrollbar-room);
+    --ui-scroll-room-right: var(--ui-scroll-room-y);
+
+    &:dir(rtl) {
+        --ui-scroll-room-right: 0px;
+        --ui-scroll-room-left: var(--ui-scroll-room-y);
+    }
+}
+
+// Keeps the room down the inline end only while the box holds more than it shows, read off its own scroll timeline; where none runs,
+// it keeps none. One value from end to end, so less motion's zero duration (core/preferences.less) still keeps it while the timeline runs.
+.ui-scroll-room-y-while-overflowing() {
+    @media @{ui-can-hover} and (forced-colors: none) {
+        @supports (animation-timeline: scroll()) {
+            html[data-ui-overlay-scrollbars] & {
+                animation: ui-scroll-room-overflowing linear both;
+                animation-timeline: scroll(self block);
+            }
+        }
+    }
+}
+
 // --- mixins/popup.less ---
 
 // A floating panel's look alone — edge, corners, ground, elevation — for a panel not placed as a popup (a find panel in its field).
@@ -883,10 +926,15 @@
     }
 }
 
-// Caps a list-shaped popup to the viewport height; skip it where a tail is drawn outside the box, since overflow would clip it.
-.ui-popup-scroll() {
+// Caps a list-shaped popup to the viewport height, padded @padding, its inline end widened to the room only while it overflows: sized as
+// it opens, it has no rows to jump, and one that fits stays even on both sides (core/scrollbar.less). Where no scroll timeline runs, the
+// thumb stands over the entries' own padding. Skip it where a tail is drawn outside the box, since overflow would clip it.
+.ui-popup-scroll(@padding: 0px) {
     max-height: calc(100dvh - 2 * @ui-popup-viewport-margin);
     overflow: auto;
+    padding: @padding;
+    padding-inline-end: max(if((length(@padding) > 1), extract(@padding, 2), @padding), var(--ui-scroll-room-y));
+    .ui-scroll-room-y-while-overflowing();
 }
 
 // A list of entries floating over the page — a context menu, a split button's, a collapsed menu's flyout, a tab strip's overflow, the
@@ -894,10 +942,9 @@
 // round its entries.
 .ui-popup-list(@min-width: 10rem) {
     .ui-popup-surface(@ui-z-list);
-    .ui-popup-scroll();
+    .ui-popup-scroll(@ui-space-1);
     .ui-popup-closed();
     min-width: @min-width;
-    padding: @ui-space-1;
 }
 
 // A short strip of icons floating over what it acts on — a row's action bar, a code field's format bar — placed as every popup is,
@@ -1068,6 +1115,22 @@
     .ui-responsive-property(border-radius, --ui-border-radius, var(--ui-radius-input));
     background: var(--ui-field-rest);
     transition: border-color @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;
+}
+
+// An input's root: its caption, its row and its message down a column, centred across a row like the rest of the family (down a
+// column the panel decides), as tall as they stand and never wider than its room. `inline-flex` where the root shrinks to its
+// field, `flex` where it takes the line; `@capped: false` where a rule of its own caps the width.
+.ui-input-root(@display: flex; @capped: true) {
+    display: @display;
+    flex-direction: column;
+    gap: @ui-space-1;
+    align-self: var(--ui-align-v, center);
+    .ui-responsive-property(height, --ui-height, fit-content);
+    font: inherit;
+
+    & when (@capped = true) {
+        .ui-responsive-property(max-width, --ui-max-width, 100%);
+    }
 }
 
 .ui-input-field() {

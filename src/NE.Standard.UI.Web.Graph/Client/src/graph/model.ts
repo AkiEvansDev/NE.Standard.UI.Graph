@@ -3,8 +3,8 @@
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
 import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
-import type { DraftConflict } from "./draft.ts";
-import { conflicts, overlay } from "./draft.ts";
+import type { DraftModel } from "./draft.ts";
+import { overlay } from "./draft.ts";
 
 type GraphLink = {
     readonly id: string;
@@ -124,9 +124,50 @@ export function overlayDraft(server: readonly GraphNode[], draft: GraphDraft): G
     return overlay(server, draft.nodes, draft.removed, fromDraft);
 }
 
-/** Every drafted node the server moved under the viewer, by key. */
-export function draftConflicts(server: readonly GraphNode[], draft: GraphDraft): Map<string, DraftConflict> {
-    return conflicts(server, draft.nodes);
+/** How the graph keeps its draft: one list of nodes, each carrying the links it leaves by. */
+export const GraphDraftModel: DraftModel<GraphDocument, GraphNode, GraphNodeDraft> = {
+    read: readGraphNode,
+    overlay: (server, document) => overlayDraft(server, document.draft),
+    lists: document => [document.draft.nodes],
+    listOf: document => document.draft.nodes,
+    toEntry: toDraft,
+    prefix: () => "node",
+    rekey: rekeyNode
+};
+
+/** The links the draft draws into the viewer's node and out of it, under keys of its new key, and the bends the viewer gave them. */
+function rekeyNode(document: GraphDocument, from: string, to: string, nodes: readonly GraphNode[]): void {
+    const taken = new Set([...nodes, ...document.draft.nodes].flatMap(node => node.links.map(link => link.id)));
+    const renamed = new Map<string, string>();
+
+    for (const entry of document.draft.nodes) {
+        entry.links = entry.links.map(link => {
+            if (entry.id !== to && link.to !== from)
+                return link;
+
+            const target = link.to === from ? to : link.to;
+            const id = linkKey(entry.id, target, taken);
+
+            taken.add(id);
+            renamed.set(link.id, id);
+
+            return { ...link, id, to: target };
+        });
+    }
+
+    for (const edge of document.edges)
+        edge.id = renamed.get(edge.id) ?? edge.id;
+}
+
+/** The key of a link the viewer draws: its two ends, and a serial when the two are linked already. */
+export function linkKey(from: string, to: string, taken: ReadonlySet<string>): string {
+    let id = `${from}>${to}`;
+    let serial = 2;
+
+    while (taken.has(id))
+        id = `${from}>${to}~${serial++}`;
+
+    return id;
 }
 
 /** One node off the wire, or nothing for a value that has no key. */

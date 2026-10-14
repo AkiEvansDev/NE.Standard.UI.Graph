@@ -145,7 +145,14 @@ export class LayeredSheet {
 
     /** A node the viewer added, standing where they asked for it and settled on the grid once drawn. */
     public placeAt(id: string, at: Point): void {
-        this.document.nodes.push({ id, x: at.x, y: at.y, pinned: false });
+        const nodes = this.document.nodes;
+        // A removed node the viewer had moved keeps its place; one added under its key since takes that place over, not a second one.
+        const kept = nodes.findIndex(node => node.id === id);
+
+        if (kept >= 0)
+            nodes.splice(kept, 1);
+
+        nodes.push({ id, x: at.x, y: at.y, pinned: false });
         this.placements = null;
         this.settling.add(id);
     }

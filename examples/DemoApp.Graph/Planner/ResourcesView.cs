@@ -61,21 +61,14 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .SetRow(1, UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Star())
-            // A grid, not a row: in a narrow pane a row wraps the button under the field. The button's column is as wide as its
-            // words, since a share of the pane squeezed them; the field takes the rest.
-            .AddChild(new ContainerComponent()
-                .SetColumn(24, UIGridUnit.Auto())
-                // Tonal: a lone field beside its own button.
-                .AddChild(new TextInputComponent(SearchId)
-                    .SetAppearance(UIInputAppearance.Tonal)
-                    .SetSearch("planner.search")
-                    .SetDebounceMilliseconds(150)
-                    .SetPlacement(1, 1, 23, 1)
-                )
-                .AddChild(UIButtons.Primary("planner.add", MaterialIcons.Outlined(PlannerIcons.Add))
-                    .OnClick(nameof(ResourcesController.Add))
-                    .SetMargin(UIThickness.All(8, 0, 0, 0))
-                    .SetPlacement(24, 1, 1, 1)
+            // The button as wide as its words, since a share of the pane squeezed them; the field takes the rest. Tonal: a lone field
+            // beside its own button.
+            .AddChild(UILayout.Ends(
+                    new TextInputComponent(SearchId)
+                        .SetAppearance(UIInputAppearance.Tonal)
+                        .SetSearch("planner.search")
+                        .SetDebounceMilliseconds(150),
+                    UIButtons.Primary("planner.add", MaterialIcons.Outlined(PlannerIcons.Add)).OnClick(nameof(ResourcesController.Add))
                 )
                 .SetPlacement(1, 1, 24, 1)
             )
@@ -112,22 +105,10 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 .SetPlacement(1, 3, 24, 1)
             );
 
-    private static SurfaceComponent CreateEmpty()
-        => new SurfaceComponent()
-            .SetSurface(UISurfaceStyle.Tinted)
+    private static ContainerComponent CreateEmpty()
+        => UIPage.Empty(MaterialIcons.Outlined(PlannerIcons.Resource), "planner.resources.none-open", "planner.resources.none-open.description")
             .SetMinHeight(UILayoutLength.Absolute(320))
-            .BindVisibility(nameof(ResourcesController.EmptyVisibility))
-            .SetContent(new TextComponent()
-                .SetIcon(MaterialIcons.Outlined(PlannerIcons.Resource))
-                .SetIconColor(UIThemeColor.Muted)
-                .SetTitle("planner.resources.none-open")
-                .SetDescription("planner.resources.none-open.description")
-                .SetWrapMode(UITextWrapMode.Wrap)
-                .Muted()
-                .SetTextAlignment(UITextAlignment.Center)
-                .SetHorizontalAlignment(UIAlignment.Center)
-                .SetVerticalAlignment(UIAlignment.Center)
-            );
+            .BindVisibility(nameof(ResourcesController.EmptyVisibility));
 
     /// <summary>The resource and its recipe; every field writes as it changes.</summary>
     private static StackPanelComponent CreateForm()

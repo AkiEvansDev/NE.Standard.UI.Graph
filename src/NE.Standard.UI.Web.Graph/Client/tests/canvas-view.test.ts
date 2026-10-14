@@ -197,3 +197,18 @@ test("the view keeps whether it is a fit and the size it was made for, and lets 
     canvas.view.dispose();
     assert.equal(canvas.watching(), false);
 });
+
+test("a canvas whose root came back on the page watches its size again and refits its fit to it", () => {
+    const canvas = stage(390, 600);
+
+    canvas.view.fit();
+    canvas.view.dispose();
+    canvas.view.watchSize();
+    assert.equal(canvas.watching(), true);
+
+    canvas.resize(1366, 600);
+    assert.deepEqual(place(canvas.view), fittedAt(1366, 600));
+
+    canvas.view.dispose();
+    assert.equal(canvas.watching(), false);
+});

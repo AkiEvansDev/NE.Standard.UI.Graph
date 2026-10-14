@@ -9,7 +9,7 @@ import { broughtIn } from "./plan.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
 import { rateSuffix } from "./plan-view.ts";
 import type { PlanReading } from "./plan-view.ts";
-import { formatTime, numberWriter, parsePositive } from "./craft-view.ts";
+import { formatTime, numberWriter } from "./craft-view.ts";
 import type { NumberWriter } from "./craft-view.ts";
 
 const PanelSelector = "[data-ui-graph-plan]";
@@ -265,18 +265,16 @@ export class PlanPanel {
         return row;
     }
 
-    /**
-     * An amount typed over a target, read as the chip over its node reads one: a number above zero is the new target, an emptied field
-     * takes the target off, anything else leaves the old one standing.
-     */
+    /** An amount typed over a target: a number above zero is the new target, an emptied field takes the target off, anything else leaves the old one standing. */
     private setAmount(resource: string, field: HTMLElement, value: unknown): void {
         if (typeof value !== "number" && String(value ?? "").trim().length === 0) {
             this.removeTarget(resource, field);
             return;
         }
 
-        const decimalSeparator = this.services.context.numbers.readCulture(this.services.root).decimalSeparator;
-        const amount = typeof value === "number" ? value > 0 ? value : null : parsePositive(String(value), decimalSeparator);
+        // The field's own value, invariant whatever the page's culture: not the text a viewer types over a chip.
+        const read = typeof value === "number" ? value : this.services.context.numbers.parseInvariant(String(value));
+        const amount = read !== null && read > 0 ? read : null;
 
         if (amount === null) {
             // The field is put back to what the plan still says.

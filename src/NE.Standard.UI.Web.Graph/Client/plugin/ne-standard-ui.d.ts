@@ -689,6 +689,11 @@ declare module "ne-standard-ui" {
     export type ShortcutWords = {
         /** An authored chord (`Ctrl+B`) as the reader's platform writes it — `Ctrl+B`, and `⌘B` on macOS; null for one naming no key. */
         words(chord: string): string | null;
+        /**
+         * An authored chord as `aria-keyshortcuts` names it, in UI Events' words — `Control+B`, and `Control+B Meta+B` on macOS, where ⌘
+         * presses an authored Ctrl too; null for one naming no key.
+         */
+        aria(chord: string): string | null;
         /** Whether a key is the authored chord: by physical key, every modifier exact, an authored Ctrl answering to ⌘ on macOS. */
         matches(event: KeyboardEvent, chord: string): boolean;
         /** Whether a key is part of an input method's composition — Safari's composing Enter included — and so no key of the package's. */

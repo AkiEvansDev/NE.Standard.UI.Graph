@@ -40,7 +40,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                 .BindSelectedKey(nameof(BuildsController.SelectedKey))
                 .SetRenamable(true)
                 .SetTabMenuEntries(UITabMenuEntries.Rename | UITabMenuEntries.Pin | UITabMenuEntries.Delete)
-                .OnItemRemove(nameof(BuildsController.AskDelete))
+                .OnItemRemoveWithItemKey(nameof(BuildsController.AskDelete))
                 // Held by the top, as the buttons are: the view's box is its strip plus the selected page's rule and air, so centring it
                 // would set the captions above the buttons' middle.
                 .SetVerticalAlignment(UIAlignment.Start)
@@ -58,25 +58,16 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
             );
 
     private static SurfaceComponent CreateEmpty()
-        => new SurfaceComponent()
-            .SetSurface(UISurfaceStyle.Tinted)
-            .SetPadding(UIThickness.Uniform(16))
-            .SetMargin(UIThickness.All(0, 0, 0, 16))
-            .BindVisibility(nameof(BuildsController.EmptyVisibility))
-            .SetContent(UILayout.Row(16,
-                new TextComponent()
-                    .SetIcon(MaterialIcons.Outlined(PlannerIcons.Resource))
-                    .SetIconColor(UIThemeColor.Muted)
-                    .SetTitle("planner.builds.empty")
-                    .SetDescription("planner.builds.empty.description")
-                    .SetWrapMode(UITextWrapMode.Wrap)
-                    .SetVerticalAlignment(UIAlignment.Center),
-                new LinkComponent()
-                    .SetTitle("planner.builds.open-resources")
-                    .SetUrl(ResourcesRoute)
-                    .SetVerticalAlignment(UIAlignment.Center)
+        => UIPage.Band(
+                UIPage.Empty(
+                    MaterialIcons.Outlined(PlannerIcons.Resource),
+                    "planner.builds.empty",
+                    "planner.builds.empty.description",
+                    new LinkComponent().SetTitle("planner.builds.open-resources").SetUrl(ResourcesRoute)
                 )
-            );
+            )
+            .SetMargin(UIThickness.All(0, 0, 0, 16))
+            .BindVisibility(nameof(BuildsController.EmptyVisibility));
 
     /// <summary>
     /// The plan drawn: only what takes part, with its totals. Every edit is saved as it is made, so a target named in the panel is the

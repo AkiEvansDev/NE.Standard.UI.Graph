@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { freeKey, resolveConflict, takenKeys } from "../src/graph/draft.ts";
-import { draftConflicts, graphEdges, overlayDraft, readGraphDocument, readGraphNode, toDraft } from "../src/graph/model.ts";
+import { conflicts, freeKey, takenKeys } from "../src/graph/draft.ts";
+import { graphEdges, overlayDraft, readGraphDocument, readGraphNode, toDraft } from "../src/graph/model.ts";
 import type { GraphDraft, GraphNode } from "../src/graph/model.ts";
 
 function node(id: string, title: string, ...to: string[]): GraphNode {
@@ -40,39 +40,12 @@ test("a drafted node conflicts when the server changed it since, dropped it, or 
     };
 
     const later = [node("a", "A changed there", "b"), server[1], server[2]];
-    const conflicts = draftConflicts(later, draft);
+    const found = conflicts(later, draft.nodes);
 
-    assert.equal(conflicts.get("a"), "changed");
-    assert.equal(conflicts.has("b"), false);
-    assert.equal(conflicts.get("gone"), "removed");
-    assert.equal(conflicts.get("c"), "changed");
-});
-
-test("a conflict is answered: the server's taken lets the change go, one's own kept ties it to the server as it now stands", () => {
-    const later = [node("a", "A changed there", "b"), server[1], server[2]];
-    const draft: GraphDraft = {
-        nodes: [
-            { ...toDraft(server[0]), title: "mine", baseline: JSON.stringify(server[0]) },
-            { ...toDraft(node("gone", "Gone")), title: "kept", baseline: "{}" },
-            { ...toDraft(node("c", "Taken")), created: true }
-        ],
-        removed: []
-    };
-
-    // Kept: every mark goes, and what the save writes is still the viewer's own.
-    for (const id of ["a", "gone", "c"])
-        assert.equal(resolveConflict(draft.nodes, id, later.find(candidate => candidate.id === id), true), true);
-
-    assert.equal(draftConflicts(later, draft).size, 0);
-    assert.equal(overlayDraft(later, draft).find(candidate => candidate.id === "a")!.title, "mine");
-    // The one the server dropped is the viewer's to add now; the key the server took is a change to the server's node.
-    assert.equal(draft.nodes.find(entry => entry.id === "gone")!.created, true);
-    assert.equal(draft.nodes.find(entry => entry.id === "c")!.created, false);
-
-    // Taken: the entry leaves the draft, and the node is the server's again.
-    assert.equal(resolveConflict(draft.nodes, "a", later[0], false), true);
-    assert.equal(overlayDraft(later, draft).find(candidate => candidate.id === "a")!.title, "A changed there");
-    assert.equal(resolveConflict(draft.nodes, "a", later[0], false), false);
+    assert.equal(found.get("a"), "changed");
+    assert.equal(found.has("b"), false);
+    assert.equal(found.get("gone"), "removed");
+    assert.equal(found.get("c"), "changed");
 });
 
 test("a document's draft comes off the wire whole, a shape in the server's spelling", () => {

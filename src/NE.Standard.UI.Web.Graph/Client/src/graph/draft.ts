@@ -3,10 +3,28 @@
 
 /** What every draft entry carries beside the item's own state. */
 export type DraftEntry = {
-    readonly id: string;
-    readonly created: boolean;
+    id: string;
+    created: boolean;
     /** The server's item, as JSON, when the viewer first changed it; unset for an item the viewer added. */
-    readonly baseline: string | null;
+    baseline: string | null;
+};
+
+/** How a kind keeps its draft, as `DraftedCollection` reaches it: the wire, the overlay, the entry lists, and a key moved. */
+export type DraftModel<TDocument, TItem extends { readonly id: string }, TEntry extends DraftEntry> = {
+    /** One item of the bound collection off the wire, or nothing for a value with no key. */
+    read(value: unknown): TItem | null;
+    /** The items to draw: the server's with the document's draft laid over them by key. */
+    overlay(server: readonly TItem[], document: TDocument): TItem[];
+    /** Every list of entries the draft keeps; a production draft keeps resources and crafts apart. */
+    lists(document: TDocument): readonly TEntry[][];
+    /** The list an entry goes in. */
+    listOf(document: TDocument, entry: TEntry): TEntry[];
+    /** An item's state as an entry, not yet marked added or tied to the server's item. */
+    toEntry(item: TItem): TEntry;
+    /** What the key of an entry of the viewer's own starts with. */
+    prefix(entry: TEntry): string;
+    /** Every reference the draft and the document hold to the viewer's item moved to the key it was given; `items` are the ones drawn. */
+    rekey(document: TDocument, from: string, to: string, items: readonly TItem[]): void;
 };
 
 /** How a drafted item stands against the server: changed there since, or gone from there. */
@@ -58,26 +76,6 @@ export function conflicts(server: readonly { readonly id: string }[], entries: r
     }
 
     return found;
-}
-
-/** Resolves a conflict: taking the server's drops the draft entry; keeping the viewer's re-bases it on the current server item (or marks it added if dropped). */
-export function resolveConflict<TEntry extends DraftEntry>(entries: TEntry[], id: string, server: object | undefined, keepMine: boolean): boolean {
-    const index = entries.findIndex(entry => entry.id === id);
-
-    if (index < 0)
-        return false;
-
-    if (keepMine) {
-        const entry = entries[index] as { created: boolean; baseline: string | null };
-
-        entry.created = server === undefined;
-        entry.baseline = server === undefined ? null : JSON.stringify(server);
-    }
-    else {
-        entries.splice(index, 1);
-    }
-
-    return true;
 }
 
 /** Every key a new entry must not take: the server's items, drawn or removed, and every entry of the draft. */

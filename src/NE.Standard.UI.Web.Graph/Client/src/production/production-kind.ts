@@ -7,15 +7,12 @@ import type { CollectionChange } from "ne-standard-ui";
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { checkMenuEntries, enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
-import { readJson } from "../canvas/canvas-model.ts";
 import { EditStructureAttribute, ModeAttribute, NodeShapeAttribute } from "../canvas/canvas-settings.ts";
 import { Picker } from "../canvas/picker.ts";
 import type { PickerEntry } from "../canvas/picker.ts";
 import { renderCard } from "../graph/card-view.ts";
-import type { DraftConflict } from "../graph/draft.ts";
-import { resolveConflict } from "../graph/draft.ts";
-import { CaptionRoom, circleBox, NodesAttribute } from "../graph/layered-kind.ts";
-import { applyCollectionChange } from "../graph/keyed-list.ts";
+import { DraftedCollection } from "../graph/drafted-collection.ts";
+import { CaptionRoom, circleBox } from "../graph/layered-kind.ts";
 import { LayeredSheet } from "../graph/layered-sheet.ts";
 import { HandleAttribute, openChipField } from "../graph/link-drag.ts";
 import type { GraphNodeShape } from "../graph/model.ts";
@@ -23,8 +20,8 @@ import { readShape } from "../graph/model.ts";
 import { formatAmount, formatOutput, numberWriter, parsePositive, renderCraft } from "./craft-view.ts";
 import type { NumberWriter } from "./craft-view.ts";
 import { ProductionEditing } from "./production-editing.ts";
-import type { ProductionDocument, ProductionEdge, ProductionEntry, Resource, ResourceOutput } from "./model.ts";
-import { drawProduction, draftConflicts, overlayDraft, readEntry, readProductionDocument } from "./model.ts";
+import type { CraftDraft, ProductionDocument, ProductionEdge, ProductionEntry, Resource, ResourceDraft, ResourceOutput } from "./model.ts";
+import { drawProduction, ProductionDraftModel, readProductionDocument } from "./model.ts";
 import { solvePlan } from "./plan.ts";
 import type { PlanRequest } from "./plan.ts";
 import { PlanPanel } from "./plan-panel.ts";
@@ -59,18 +56,12 @@ export class ProductionKind implements CanvasKind {
     // The page's culture, read once: every number the sheet writes, and how a typed one is read back.
     private readonly number: NumberWriter;
     private readonly decimalSeparator: string;
+    private readonly entries: DraftedCollection<ProductionDocument, ProductionEntry, ResourceDraft | CraftDraft>;
     private readonly editing: ProductionEditing;
     private readonly sheet: LayeredSheet;
     private readonly panel: PlanPanel;
     private readonly picker: Picker<PickerEntry> | null;
 
-    private readonly server: ProductionEntry[];
-    private serverById = new Map<string, ProductionEntry>();
-    private serverVersion = 0;
-    private structureKey = "";
-    private entries: ProductionEntry[] = [];
-    private entryById = new Map<string, ProductionEntry>();
-    private conflicts = new Map<string, DraftConflict>();
     private links: ProductionEdge[] = [];
     private linkById = new Map<string, ProductionEdge>();
     // The crafts drawn as a mark on one edge: they are not items of the sheet, so they take no layer of their own.
@@ -85,20 +76,14 @@ export class ProductionKind implements CanvasKind {
     private failure: "infeasible" | "unsettled" | null = null;
 
     public constructor(services: CanvasServices<ProductionDocument>) {
-        const read = readJson(services.root.getAttribute(NodesAttribute));
-
         this.services = services;
         this.number = numberWriter(services.context.numbers, services.root);
         this.decimalSeparator = services.context.numbers.readCulture(services.root).decimalSeparator;
-        this.server = Array.isArray(read) ? read.map(readEntry).filter((entry): entry is ProductionEntry => entry !== null) : [];
-        this.editing = new ProductionEditing(services, {
-            entries: () => this.entries,
+        this.entries = new DraftedCollection(services, ProductionDraftModel, (id, at) => this.sheet.placeAt(id, at));
+        this.editing = new ProductionEditing(services, this.entries, {
             collapsed: (id: string) => this.collapsed.has(id),
             craftEdge: (id: string) => this.links.find(link => link.craft === id)?.id,
-            entry: id => this.entryById.get(id),
-            serverEntry: id => this.serverById.get(id),
-            edge: id => this.linkById.get(id),
-            placeAt: (id, at) => this.sheet.placeAt(id, at)
+            edge: id => this.linkById.get(id)
         });
         this.sheet = new LayeredSheet(services, {
             nodeIds: () => this.drawn.map(entry => entry.id),
@@ -110,8 +95,8 @@ export class ProductionKind implements CanvasKind {
             nodeBox: (_id, width, height, widest) => (this.shape === "icon" ? circleBox(width, height, widest) : { width, height }),
             // A resource's card is long enough to set its edges apart along, as a layered graph's; a craft's pill and a circle meet
             // their edges at the middle.
-            spreadsEnds: id => this.shape === "card" && this.entryById.get(id)?.kind !== "craft",
-            footRoom: id => (this.shape === "icon" && this.entryById.get(id)?.kind !== "craft" ? CaptionRoom : 0)
+            spreadsEnds: id => this.shape === "card" && this.entries.item(id)?.kind !== "craft",
+            footRoom: id => (this.shape === "icon" && this.entries.item(id)?.kind !== "craft" ? CaptionRoom : 0)
         }, { nodeGap: NodeGap, layerGap: LayerGap });
         this.panel = new PlanPanel(services, {
             request: () => this.document.plan,
@@ -119,7 +104,7 @@ export class ProductionKind implements CanvasKind {
             failure: () => this.failure,
             resource: id => this.resource(id),
             craft: id => {
-                const entry = this.entryById.get(id);
+                const entry = this.entries.item(id);
 
                 return entry?.kind === "craft" ? entry : undefined;
             },
@@ -136,7 +121,7 @@ export class ProductionKind implements CanvasKind {
     private targetChoices(): PickerEntry[] {
         const targets = new Set(this.document.plan.targets.map(target => target.resource));
 
-        return this.entries.flatMap(entry => (entry.kind === "resource" && !targets.has(entry.id) ? [{ key: entry.id, title: entry.title ?? entry.id, category: entry.category, icon: entry.image ?? entry.icon }] : []));
+        return this.entries.items.flatMap(entry => (entry.kind === "resource" && !targets.has(entry.id) ? [{ key: entry.id, title: entry.title ?? entry.id, category: entry.category, icon: entry.image ?? entry.icon }] : []));
     }
 
     /** Whether the graph is put to planning rather than to its catalogue. */
@@ -159,32 +144,24 @@ export class ProductionKind implements CanvasKind {
 
     /** A change to the bound catalogue, the initial reset and insert among them: the sheet is drawn again, and a new entry placed. */
     public applyChange(change: CollectionChange): void {
-        applyCollectionChange(this.server, change, readEntry);
-        this.serverVersion++;
-        this.services.draw();
+        this.entries.applyChange(change);
     }
 
     /** The entries and edges drawn, the crafts drawn as marks, and the drafted entries the server moved — only when either side changed. */
     private refresh(): void {
-        const draft = this.document.draft;
         const planning = this.planning;
-        // The document's own edit count, not the draft and the plan stringified: this runs on every pointer move of a drag.
-        const key = `${this.serverVersion}|${this.services.documentState.version}|${planning}|${this.services.settings.readOnly}`;
 
-        if (key === this.structureKey)
+        if (!this.entries.refresh(`${planning}|${this.services.settings.readOnly}`))
             return;
 
-        this.structureKey = key;
-        this.serverById = new Map(this.server.map(entry => [entry.id, entry]));
-        this.entries = overlayDraft(this.server, draft);
-
-        const plan = planning ? solvePlan(this.entries, this.document.plan) : null;
+        const entries = this.entries.items;
+        const plan = planning ? solvePlan(entries, this.document.plan) : null;
 
         this.reading = plan?.status === "Solved" ? readPlan(plan, this.document.plan.period) : null;
         this.failure = plan?.status === "Infeasible" ? "infeasible" : plan?.status === "Unsettled" ? "unsettled" : null;
 
         // A plan draws what takes part in it, and a plan with nothing solved draws nothing: the whole catalogue there read as a plan.
-        const shown = this.reading !== null ? planEntries(this.entries, this.reading) : planning ? [] : this.entries;
+        const shown = this.reading !== null ? planEntries(entries, this.reading) : planning ? [] : entries;
         const drawing = drawProduction(shown);
 
         this.links = drawing.edges;
@@ -192,15 +169,13 @@ export class ProductionKind implements CanvasKind {
         this.outputs = drawing.outputs;
         this.quiet = drawing.quiet;
         this.drawn = shown.filter(entry => !this.collapsed.has(entry.id));
-        this.conflicts = draftConflicts(this.server, draft);
-        this.entryById = new Map(this.entries.map(entry => [entry.id, entry]));
         this.linkById = new Map(this.links.map(link => [link.id, link]));
         this.sheet.structureChanged();
-        this.panel.draw(key);
+        this.panel.draw(this.entries.key);
     }
 
     private resource(id: string): Resource | undefined {
-        const entry = this.entryById.get(id);
+        const entry = this.entries.item(id);
 
         return entry?.kind === "resource" ? entry : undefined;
     }
@@ -218,8 +193,8 @@ export class ProductionKind implements CanvasKind {
     }
 
     public renderItem(item: CanvasItem): HTMLElement {
-        const entry = this.entryById.get(item.id);
-        const conflict = this.conflicts.get(item.id) ?? null;
+        const entry = this.entries.item(item.id);
+        const conflict = this.entries.conflict(item.id);
 
         const words = this.services.context.strings;
 
@@ -288,7 +263,7 @@ export class ProductionKind implements CanvasKind {
     }
 
     public itemColor(item: CanvasItem): string {
-        return this.entryById.get(item.id)?.color ?? "";
+        return this.entries.item(item.id)?.color ?? "";
     }
 
     /** An edge labelled with its amount past where edges leaving one resource have parted (two amounts would overlap beside it); the arrow tells a craft's inputs from its outputs. */
@@ -303,7 +278,7 @@ export class ProductionKind implements CanvasKind {
             ...ends,
             arrow: true,
             // A craft drawn on its own edges is marked there, since it has no item of its own to mark.
-            conflict: link.role === "recipe" && this.conflicts.has(link.craft),
+            conflict: link.role === "recipe" && this.entries.conflict(link.craft) !== null,
             // What the run gives is said by the resource's own chip, so its edge says nothing: the same number twice, a finger's
             // width apart, is what read as noise.
             label: this.quiet.has(link.id) ? null : this.amountOf(link)
@@ -451,14 +426,14 @@ export class ProductionKind implements CanvasKind {
 
     public renameItem(id: string, title: string | null): boolean {
         if (this.editable)
-            this.editing.rename(id, title);
+            this.entries.rename(id, title);
 
         return true;
     }
 
     public paintItem(id: string, color: string | null): boolean {
         if (this.editable)
-            this.editing.paint(id, color);
+            this.entries.paint(id, color);
 
         return true;
     }
@@ -481,19 +456,8 @@ export class ProductionKind implements CanvasKind {
             return true;
         }
 
-        if (key === "graph:take-server" || key === "graph:keep-mine") {
-            const id = this.conflictOf(target);
-
-            if (id !== null && !this.services.settings.readOnly) {
-                const draft = this.document.draft;
-                const keep = key === "graph:keep-mine";
-
-                if (resolveConflict(draft.resources, id, this.serverById.get(id), keep) || resolveConflict(draft.crafts, id, this.serverById.get(id), keep))
-                    this.services.documentState.edited();
-            }
-
+        if (this.entries.answerConflict(key, this.conflictOf(target)))
             return true;
-        }
 
         if (key === BoughtCommand) {
             if (this.planning && target?.kind === "node" && this.isMade(target.id)) {
@@ -555,25 +519,23 @@ export class ProductionKind implements CanvasKind {
 
     /** Whether anything in the catalogue makes the resource: one the plan may bring in rather than make. */
     private isMade(id: string): boolean {
-        return this.entries.some(entry => entry.kind === "craft" && entry.products.some(amount => amount.resource === id && amount.amount > 0));
+        return this.entries.items.some(entry => entry.kind === "craft" && entry.products.some(amount => amount.resource === id && amount.amount > 0));
     }
 
     /** The drafted entry in conflict a menu was opened on: a resource or a craft itself, or the craft an edge is drawn for. */
     private conflictOf(target: MenuTarget | null): string | null {
         const id = target?.kind === "node" ? target.id : target?.kind === "edge" ? this.linkById.get(target.id)?.craft ?? null : null;
 
-        return id !== null && this.conflicts.has(id) ? id : null;
+        return id !== null && this.entries.conflict(id) !== null ? id : null;
     }
 
     /** The structure's entries while the graph allows it; what a run gives and how long it lasts only where a craft was pressed. */
     public syncMenus(editable: boolean, target: MenuTarget | null): void {
         const allowed = editable && this.editable;
-        const conflict = editable && this.conflictOf(target) !== null;
 
-        // A conflict's two answers stand in the menu only of an entry that has one.
-        showMenuEntries(this.services, "graph:take-server", conflict);
-        showMenuEntries(this.services, "graph:keep-mine", conflict);
-        const craft = target?.kind === "node" && this.entryById.get(target.id)?.kind === "craft";
+        this.entries.showConflictAnswers(editable && this.conflictOf(target) !== null);
+
+        const craft = target?.kind === "node" && this.entries.item(target.id)?.kind === "craft";
         const recipe = target?.kind === "edge" && this.linkById.get(target.id)?.role === "recipe";
 
         for (const key of [AddCommand, AmountCommand, DeleteEdgeCommand])

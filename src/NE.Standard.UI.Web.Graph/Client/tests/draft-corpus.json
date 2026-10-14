@@ -1,0 +1,80 @@
+{
+  "cases": [
+    {
+      "case": "a removed resource leaves the crafts that named it",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "coal"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Resource", "id": "slag"},
+        {"kind": "Craft", "id": "alloy", "ingredients": [{"resource": "ore", "amount": 1}, {"resource": "coal", "amount": 1}], "products": [{"resource": "plate", "amount": 1}, {"resource": "slag", "amount": 1}]}
+      ],
+      "removed": ["coal", "slag"],
+      "expected": {
+        "entries": ["ore", "plate", "alloy"],
+        "crafts": {"alloy": {"ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "plate", "amount": 1}]}}
+      }
+    },
+    {
+      "case": "a craft left taking nothing goes with its last ingredient",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "removed": ["ore"],
+      "expected": {"entries": ["plate"], "crafts": {}}
+    },
+    {
+      "case": "a source taking nothing from the start stays while it still makes something, and goes once it makes nothing",
+      "entries": [
+        {"kind": "Resource", "id": "stone"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "mine", "products": [{"resource": "stone", "amount": 1}, {"resource": "plate", "amount": 1}]},
+        {"kind": "Craft", "id": "dig", "products": [{"resource": "plate", "amount": 2}]}
+      ],
+      "removed": ["plate"],
+      "expected": {
+        "entries": ["stone", "mine"],
+        "crafts": {"mine": {"ingredients": [], "products": [{"resource": "stone", "amount": 1}]}}
+      }
+    },
+    {
+      "case": "a craft that loses its only product but still takes something stays",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "ingredients": [{"resource": "ore", "amount": 2}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "removed": ["plate"],
+      "expected": {
+        "entries": ["ore", "smelt"],
+        "crafts": {"smelt": {"ingredients": [{"resource": "ore", "amount": 2}], "products": []}}
+      }
+    },
+    {
+      "case": "a craft that names no removed resource is left as it was",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Resource", "id": "dust"},
+        {"kind": "Craft", "id": "smelt", "ingredients": [{"resource": "ore", "amount": 3}], "products": [{"resource": "plate", "amount": 2}]}
+      ],
+      "removed": ["dust"],
+      "expected": {
+        "entries": ["ore", "plate", "smelt"],
+        "crafts": {"smelt": {"ingredients": [{"resource": "ore", "amount": 3}], "products": [{"resource": "plate", "amount": 2}]}}
+      }
+    },
+    {
+      "case": "a removed craft goes alone, the resources it named staying",
+      "entries": [
+        {"kind": "Resource", "id": "ore"},
+        {"kind": "Resource", "id": "plate"},
+        {"kind": "Craft", "id": "smelt", "ingredients": [{"resource": "ore", "amount": 1}], "products": [{"resource": "plate", "amount": 1}]}
+      ],
+      "removed": ["smelt"],
+      "expected": {"entries": ["ore", "plate"], "crafts": {}}
+    }
+  ]
+}

@@ -102,7 +102,7 @@ function scene(): Scene {
 
         return element.id;
     };
-    const picker = Picker.create(real(fakeDocument.body.children[0]), () => Kinds, { text: key => key }, { ensureId }, icons, roving, focus, { words: () => null, matches: () => false, isComposing: event => event.isComposing, isFieldKey: () => false, isPlainKey: (event, allow) => !event.ctrlKey && !event.metaKey && !event.altKey && (allow?.shift === true || !event.shiftKey) && !event.isComposing, isEscapeClaimed: event => event.isComposing }, entry => chosen.push(entry));
+    const picker = Picker.create(real(fakeDocument.body.children[0]), () => Kinds, { text: key => key }, { ensureId }, icons, roving, focus, { words: () => null, aria: () => null, matches: () => false, isComposing: event => event.isComposing, isFieldKey: () => false, isPlainKey: (event, allow) => !event.ctrlKey && !event.metaKey && !event.altKey && (allow?.shift === true || !event.shiftKey) && !event.isComposing, isEscapeClaimed: event => event.isComposing }, entry => chosen.push(entry));
 
     assert.ok(picker !== null);
 

@@ -3,8 +3,8 @@
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
 import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
-import type { DraftConflict, DraftEntry } from "../graph/draft.ts";
-import { conflicts, overlay } from "../graph/draft.ts";
+import type { DraftEntry, DraftModel } from "../graph/draft.ts";
+import { overlay } from "../graph/draft.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
 
 export type CraftAmount = {
@@ -296,8 +296,8 @@ export function overlayDraft(server: readonly ProductionEntry[], draft: Producti
 
 /**
  * A craft with removed resources' amounts dropped, or nothing when it names none. It goes when left with no ingredient or nothing at
- * all (as `UIProductionDraft.ApplyTo` holds): taking nothing it would make its products from nothing, and one drawn on its edges
- * would have none to be drawn on.
+ * all (as `UIProductionDraft.ApplyTo` holds, both held to `tests/draft-corpus.json`): taking nothing it would make its products from
+ * nothing, and one drawn on its edges would have none to be drawn on.
  */
 export function withoutResources(craft: { readonly ingredients: readonly CraftAmount[]; readonly products: readonly CraftAmount[] }, removed: ReadonlySet<string>): { readonly ingredients: CraftAmount[]; readonly products: CraftAmount[]; readonly goes: boolean } | null {
     const ingredients = craft.ingredients.filter(amount => !removed.has(amount.resource));
@@ -310,9 +310,47 @@ export function withoutResources(craft: { readonly ingredients: readonly CraftAm
     return { ingredients, products, goes: ingredients.length === 0 && (lostIngredient || products.length === 0) };
 }
 
-/** Every drafted entry the server moved under the viewer, by key. */
-export function draftConflicts(server: readonly ProductionEntry[], draft: ProductionDraft): Map<string, DraftConflict> {
-    return conflicts(server, [...draft.resources, ...draft.crafts]);
+/** How the production graph keeps its draft: resources and crafts in lists of their own, one catalogue once laid over the server's. */
+export const ProductionDraftModel: DraftModel<ProductionDocument, ProductionEntry, ResourceDraft | CraftDraft> = {
+    read: readEntry,
+    overlay: (server, document) => overlayDraft(server, document.draft),
+    lists: document => [document.draft.resources, document.draft.crafts],
+    listOf: (document, entry) => (isCraftDraft(entry) ? document.draft.crafts : document.draft.resources),
+    toEntry: entry => (entry.kind === "craft" ? craftDraft(entry) : resourceDraft(entry)),
+    prefix: entry => (isCraftDraft(entry) ? "craft" : "resource"),
+    rekey: rekeyEntry
+};
+
+function isCraftDraft(entry: ResourceDraft | CraftDraft): entry is CraftDraft {
+    return "ingredients" in entry;
+}
+
+/** The amounts, edge bends and plan that name the viewer's resource or craft, moved to its new key. */
+function rekeyEntry(document: ProductionDocument, from: string, to: string): void {
+    const move = (id: string): string => (id === from ? to : id);
+    const renamed = new Map<string, string>();
+
+    for (const craft of document.draft.crafts) {
+        const was = craft.id === to ? from : craft.id;
+
+        if (was !== craft.id || craft.ingredients.some(amount => amount.resource === from) || craft.products.some(amount => amount.resource === from)) {
+            for (const amount of craft.ingredients)
+                renamed.set(ingredientEdge(was, amount.resource), ingredientEdge(craft.id, move(amount.resource)));
+
+            for (const amount of craft.products)
+                renamed.set(productEdge(was, amount.resource), productEdge(craft.id, move(amount.resource)));
+
+            craft.ingredients = craft.ingredients.map(amount => ({ ...amount, resource: move(amount.resource) }));
+            craft.products = craft.products.map(amount => ({ ...amount, resource: move(amount.resource) }));
+        }
+    }
+
+    for (const edge of document.edges)
+        edge.id = renamed.get(edge.id) ?? edge.id;
+
+    const plan = document.plan;
+
+    document.plan = { ...plan, targets: plan.targets.map(target => ({ ...target, resource: move(target.resource) })), bought: (plan.bought ?? []).map(move) };
 }
 
 /** How the catalogue is drawn: its edges, the crafts that took no room of their own, and what each resource says on itself. */

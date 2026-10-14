@@ -90,8 +90,14 @@ export class GraphEngine {
 
         for (const root of roots) {
             const kind = this.kinds.get(root.getAttribute(KindAttribute) ?? "");
+            const known = this.canvases.get(root);
 
-            if (kind !== undefined && !this.canvases.has(root)) {
+            // A root back on the page keeps the canvas it had: its listeners are still on it, so a second canvas would answer twice.
+            if (known !== undefined && !this.live.has(known)) {
+                known.revive();
+                this.live.add(known);
+            }
+            else if (kind !== undefined && known === undefined) {
                 const canvas = new Canvas(root, this.context, kind);
 
                 this.canvases.set(root, canvas);
@@ -324,6 +330,12 @@ class Canvas {
         this.render.dispose();
         this.view.dispose();
         this.kind.dispose?.();
+    }
+
+    /** The root is back on the page: the watch on the canvas's size again, and the sheet drawn, which watches every node's size anew. */
+    public revive(): void {
+        this.view.watchSize();
+        this.draw();
     }
 
     /**
