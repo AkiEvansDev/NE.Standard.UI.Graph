@@ -71,7 +71,8 @@ export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftV
         root.append(entry, handle);
     }
 
-    const words = craft.tooltip ?? describe(craft, options.resource, options.number);
+    // The words composed here read as written — a resource the viewer named `a*b` among them — where the application's are markup.
+    const words = craft.tooltip ?? options.tooltips.escape(describe(craft, options.resource, options.number));
 
     hoverTooltip(root, words, options.tooltips);
 

@@ -141,7 +141,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
             UINodeEditor.Time => new TimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
             UINodeEditor.DateTime => new DateTimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
             // Large draws the framework's picture field showing the whole image; small shows the address with a file-choose button.
-            UINodeEditor.Image when pin.Large => new ImageInputComponent().SetShape(UIImageInputShape.Picture).SetFit(UIImageFit.Contain),
+            UINodeEditor.Image when pin.Large => new ImageInputComponent().SetVariant(UIImageInputVariant.Picture).SetFit(UIImageFit.Contain),
             UINodeEditor.Image => Limited(new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetTrailingAction(GlyphButton(UIGlyphs.MoreHorizontal, UIGraphWords.ChooseFile)), pin),
             UINodeEditor.List => ListRowEditor(pin),
             _ => null

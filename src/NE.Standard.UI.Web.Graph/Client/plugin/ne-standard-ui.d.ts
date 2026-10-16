@@ -187,14 +187,17 @@ declare module "ne-standard-ui" {
         text(key: string): string;
         /**
          * The word with its `{name}` placeholders filled: a numeric `count` picks the plural, a `{ text }` resolves as `resolveText`, a
-         * `Moment` is written in the reader's zone (a relative one is written once: `write` keeps it current).
+         * `Moment` is written in the reader's zone (a relative one is written once: `write` keeps it current). With `markup`, for words a
+         * tooltip reads as inline markup, a string argument (an author's `{ text }` too) is escaped to show as written, as `write` escapes
+         * on the tooltip; the key's own words still read as markup.
          */
-        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string } | Moment>>): string;
+        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string } | Moment>>, markup?: boolean): string;
         /** An author's text as shown: looked up as a plain value (under key prefixes only a prefixed one), else itself; `WebWords.WriteText`. */
         resolveText(text: string): string;
         /**
          * Writes a word on an attribute, or the text where `attribute` is null, marked with its key so a language switch rewrites it — and
-         * the page's relative clock, where an argument is a relative `Moment`.
+         * the page's relative clock, where an argument is a relative `Moment`. On the tooltip (`data-ui-tooltip`), which reads inline
+         * markup, a string argument (an author's `{ text }` too) is escaped to show as written; the key's own words still read as markup.
          */
         write(element: Element, attribute: string | null, key: string, args?: Readonly<Record<string, unknown>> | null): void;
         /** Hears every change of the words after the framework rewrote its own, for words `write` did not mark; answers the stop. */
@@ -561,6 +564,11 @@ declare module "ne-standard-ui" {
         itemOf(row: Element): unknown;
         /** A virtualized host's items as its rules order and filter them, for a total; null where the page's rows or a window's source answer. */
         itemsOf(host: Element): readonly unknown[] | null;
+        /**
+         * A number that moves whenever `itemsOf` may answer otherwise — an item changed, came or went, or the rules ran again — and never
+         * for a scroll: a total reads the items again only when it moved. Null where `itemsOf` is.
+         */
+        itemsVersion(host: Element): number | null;
         /**
          * An item's value at a dotted path, read as a binding reads it (CLR name, camel case, any case): null for a property the item
          * does not carry (the wire leaves a null out), undefined where a step cannot be taken.

@@ -141,7 +141,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 // A picture of the resource's own, worn over the glyph wherever the resource is drawn; the glyph is what is left without one.
                 UILayout.Row(12,
                     new ImageInputComponent()
-                        .SetShape(UIImageInputShape.Avatar)
+                        .SetVariant(UIImageInputVariant.Avatar)
                         .SetPlaceholderIcon(MaterialIcons.Outlined(PlannerIcons.Picture))
                         .SetMaxFileSize(PlannerPictures.MaxBytes)
                         .BindValue(nameof(ResourcesController.Picture))

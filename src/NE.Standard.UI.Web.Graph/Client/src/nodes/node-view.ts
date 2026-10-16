@@ -470,14 +470,14 @@ function renderPin(node: DocumentNode, pin: Pin, type: string, direction: "in" |
     // say it.
     const words = options.words;
     const description = pin.description ?? "";
-    const named = words.format("ui.graph.pin-type", { name: pin.title, type: typeName(type, pin.multiple === true, options) });
+    const named = words.format("ui.graph.pin-type", { name: options.tooltips.escape(pin.title), type: typeName(type, pin.multiple === true, options) });
 
     hoverTooltip(mark, description.length > 0 ? `${named}\n${description}` : named, options.tooltips);
 
     return mark;
 }
 
-/** A pin type as a person reads it: a built-in one in the page's words, a list of its element, an enum or a class by the catalogue's name for it, a pin taking several said so. */
+/** A pin type as a person reads it in the pin's tooltip: a built-in one in the page's words, a list of its element, an enum or a class by the catalogue's name for it, a pin taking several said so. */
 function typeName(type: string, many: boolean, options: NodeViewOptions): string {
     const words = options.words;
     const read = (id: string): string => {
@@ -491,7 +491,8 @@ function typeName(type: string, many: boolean, options: NodeViewOptions): string
 
         const title = options.typeTitles.get(id);
 
-        return title === undefined ? (id.startsWith(EnumPrefix) ? id.slice(EnumPrefix.length) : id) : title;
+        // The catalogue's name for a type, or its id, reads as written in the tooltip; the page's own words above stay as they are.
+        return options.tooltips.escape(title === undefined ? (id.startsWith(EnumPrefix) ? id.slice(EnumPrefix.length) : id) : title);
     };
 
     return many ? words.format("ui.graph.pin-many", { type: read(type) }) : read(type);

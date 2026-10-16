@@ -33,6 +33,8 @@
 // A field says its own size too — see UIInputSize. A small one is a line of caption text with room for a glyph, for a dense surface.
 @ui-control-height-sm: 1.5rem;
 @ui-control-height-lg: 3rem;
+// A small field's side padding, and the gap between the parts of its row: half a medium field's padding, for a caption line.
+@ui-field-padding-sm: 0.375rem;
 
 // The icon scale: every glyph's and icon's size is one of these whole pixels, in rem at the default 16 px root. At a fraction of its
 // text (1.25em of 14 px) an icon lands on half a pixel, where the icon fonts round their ascent and stand the glyph off centre.
@@ -148,6 +150,9 @@
 // neutral colour; the preset's reply or pin wears the brand or its author's colour.
 @ui-quote-stroke: 3px;
 @ui-quote-ink: var(--ui-color-border);
+
+// A message's severity, drawn as a bar down its leading edge: a toast's and a validation tooltip's, one width.
+@ui-severity-stroke: 3px;
 
 // A thing being dragged stays in its place as a ghost (a column's caption, a tab, a tree row), so the gap it will leave is what moves.
 @ui-drag-ghost-opacity: 0.45;
@@ -453,6 +458,32 @@
     touch-action: manipulation;
 }
 
+// The least a pointer's target measures (WCAG 2.5.8, target size).
+@ui-hit-target: 24px;
+
+// A control drawn smaller than a target takes the press over a target's square round its middle, on its `@layer` pseudo-element: it
+// draws nothing and takes no room, so nothing moves. Where a neighbour shares its column it grows one way only, `@block: start` up (an
+// upper stepper) or `end` down, so neither takes the other's press. The host is positioned and leaves `@layer` free.
+.ui-hit-area(@layer: after; @block: both) {
+    @pseudo: ~"::@{layer}";
+
+    &@{pseudo} {
+        content: "";
+        position: absolute;
+        inset: ~"min(0px, calc(50% - @{ui-hit-target} / 2))";
+
+        & when (@block = start) {
+            top: ~"min(0px, calc(100% - @{ui-hit-target}))";
+            bottom: 0;
+        }
+
+        & when (@block = end) {
+            top: 0;
+            bottom: ~"min(0px, calc(100% - @{ui-hit-target}))";
+        }
+    }
+}
+
 // Hides the native control visually while keeping it in the tab order and accessibility tree, which display: none would not.
 // Its parent is positioned: placed by a far ancestor, a focusable one is scrolled to where it landed when it takes the focus.
 .ui-visually-hidden() {
@@ -493,6 +524,10 @@
 // A button that answers the pointer: not disabled or loading, nor holding a popup the pointer is in (`:hover` holds on ancestors;
 // owned-popup.ts marks the owner). State rules and take-backs all spell it, so they tie (the popup part weighs nothing).
 @ui-button-live: ~":not(.ui-disabled):not(.ui-loading):not(:disabled):where(:not([data-ui-popup-hover]))";
+
+// A split button whose two parts answer the pointer apart; one in menu mode answers on its root, as a button does.
+@ui-split-parts: ~'.ui-split-button:not([data-ui-split-mode="menu"])';
+@ui-not-split-parts: ~":not(@{ui-split-parts})";
 
 // A field root that answers the pointer: not disabled or read-only (a read-only one keeps its focus edge, but lifts nothing).
 @ui-field-live: ~":not(.ui-disabled):not(.ui-readonly)";
@@ -729,6 +764,19 @@
 // it, 2 px by default, the host taking the corner that keeps the frame's one radius.
 .ui-keyboard-frame-outside(@gap: 2px) {
     .ui-keyboard-frame(@host: ~"calc(@{ui-keyboard-frame-radius} - 2px - @{gap})"; @offset: @gap);
+}
+
+// Inside a host that draws a 2 px mark under its edge (a tab's caption over its chosen line): `@gap` in from it on three sides, the fourth
+// on the mark, so frame and line read as one. The host reaches down over the mark while framed, a transparent border its margin takes
+// back, so nothing moves and the mark, placed from the padding box, stays; it takes the corner that keeps the frame's one radius (`@takes:
+// chain` on a root an author's corners are written on). Not a pseudo-element: a caption's are its line, its loading ring, its picture's blur.
+.ui-keyboard-frame-inset(@gap: 2px; @takes: true) {
+    .ui-keyboard-frame(@host: ~"calc(@{ui-keyboard-frame-radius} + @{gap})"; @takes: @takes; @offset: ~"calc(-2px - @{gap})");
+
+    @media (forced-colors: none) {
+        margin-bottom: ~"calc(-2px - @{gap})";
+        border-bottom: ~"calc(2px + @{gap})" solid transparent;
+    }
 }
 
 // What a drop target wears while something it takes is over it (runtime.less, a field's box in ui-input.less): a dashed edge inside
@@ -1170,7 +1218,8 @@
 @ui-adornment-live: ~":not(:disabled, [aria-disabled='true'])";
 
 // A glyph button inside a field (a clear, a picker toggle): round, borderless, muted. Hover moves its ink alone — the row already
-// lifts, and a wash too would read as a button on a button — and nothing while `aria-disabled` (a read-only field's toggle).
+// lifts, and a wash too would read as a button on a button — and nothing while `aria-disabled` (a read-only field's toggle). Drawn
+// smaller than a target, it takes a target's press round it (`::after`; its glyph is its `::before`).
 .ui-field-adornment() {
     position: relative;
     display: inline-flex;
@@ -1186,6 +1235,7 @@
     color: var(--ui-text-muted);
     cursor: pointer;
     .ui-interactive-base();
+    .ui-hit-area();
     transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
     @media @{ui-can-hover} {
@@ -1210,10 +1260,7 @@
     margin-right: -@ui-space-1;
     cursor: default;
 
-    > .ui-button,
-    > .ui-flyout > .ui-flyout__anchor > .ui-button {
-        .ui-field-action-button();
-    }
+    .ui-field-action-buttons();
 
     // The leading group (the caller's class with `--leading`) follows the value in the tab order and stands first all the same,
     // before a caption inside too.
@@ -1221,6 +1268,14 @@
         order: -1;
         margin-right: 0;
         margin-left: -@ui-space-1;
+    }
+}
+
+// A group's own buttons, a flyout's anchor among them, each as a field's action.
+.ui-field-action-buttons() {
+    > .ui-button,
+    > .ui-flyout > .ui-flyout__anchor > .ui-button {
+        .ui-field-action-button();
     }
 }
 
@@ -1318,7 +1373,10 @@
     padding-left: 0.4em;
 }
 
+// One of a stepper's two arrows. Half a field's height, it takes a target's press past its box (`::after`; its chevron is its
+// `::before`): the upper one upward, the lower one downward, so neither takes the other's.
 .ui-field-step() {
+    position: relative;
     display: flex;
     flex: 1 1 0;
     align-items: center;
@@ -1348,6 +1406,24 @@
 
     &::before {
         .ui-chevron(@ui-glyph-xs);
+    }
+
+    // Each grows only as far as the field's edge, the stepper's step (`@ui-space-1`) out: on a small field a target's square reached
+    // 12 px past it, into the caption's line above and the next row below.
+    &:first-child {
+        .ui-hit-area(after; start);
+
+        &::after {
+            top: ~"clamp(calc(-1 * @{ui-space-1}), calc(100% - @{ui-hit-target}), 0px)";
+        }
+    }
+
+    &:last-child {
+        .ui-hit-area(after; end);
+
+        &::after {
+            bottom: ~"clamp(calc(-1 * @{ui-space-1}), calc(100% - @{ui-hit-target}), 0px)";
+        }
     }
 }
 
@@ -1511,21 +1587,21 @@
     }
 
     @media @{ui-can-hover} {
-        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-row-own}@{ui-button-live}:hover,
-        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-not-split-parts}@{ui-row-own}@{ui-button-live}:hover,
+        @{ui-split-parts}:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
             background-color: transparent;
         }
 
-        // The parts, never a root (a split button's hovered part alone): a filter makes the root the containing block of a popup
+        // The parts, never a root (a two-part split button's hovered part alone): a filter makes the root the containing block of a popup
         // inside it, which would jump.
-        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-row-own}@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
-        .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-not-split-parts}@{ui-row-own}@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
+        @{ui-split-parts}:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
             .ui-brighten-hover();
         }
     }
 
-    :is(.ui-button--ghost, .ui-button--outline, .ui-button--link):not(.ui-split-button)@{ui-row-own}@{ui-button-live}:active,
-    .ui-split-button:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):active {
+    :is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-not-split-parts}@{ui-row-own}@{ui-button-live}:active,
+    @{ui-split-parts}:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):active {
         background-color: var(--ui-wash-active);
     }
 }

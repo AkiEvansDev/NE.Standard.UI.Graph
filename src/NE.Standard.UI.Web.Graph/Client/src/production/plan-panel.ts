@@ -368,8 +368,8 @@ export class PlanPanel {
         name.type = "button";
         name.className = "ui-graph__plan-name";
         name.setAttribute("data-ui-graph-plan-item", id);
-        // A name too long for its column ends in an ellipsis; the whole of it is what the pointer reads, in the page's tooltip.
-        name.setAttribute(this.services.context.names.tooltip, title);
+        // A name too long for its column ends in an ellipsis; the pointer reads the whole of it, escaped, as the tooltip reads markup.
+        name.setAttribute(this.services.context.names.tooltip, this.services.context.tooltips.escape(title));
 
         if (icon !== null) {
             const box = document.createElement("span");

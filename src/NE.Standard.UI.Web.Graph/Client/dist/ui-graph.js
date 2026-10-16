@@ -2313,7 +2313,7 @@ function kn(e, t, n) {
 		let e = document.createElement("span"), t = document.createElement("span");
 		e.className = "ui-graph__handle", e.setAttribute(xn, ""), t.className = "ui-graph__entry", t.setAttribute(Sn, ""), r.append(t, e);
 	}
-	let c = t.tooltip ?? (i ? a : null);
+	let c = t.tooltip ?? (i ? n.tooltips.escape(a) : null);
 	return c !== null && S(r, c, n.tooltips), r;
 }
 function An(e, t, n) {
@@ -4201,7 +4201,7 @@ function V(e, t, n, r, i) {
 	let a = document.createElement("span");
 	a.className = "ui-graph__pin", a.setAttribute(z, t.name), a.setAttribute(Yi, r), a.setAttribute(Xi, n), a.style.setProperty("--ui-graph-pin-color", i.pinColor(n)), t.multiple === !0 && a.setAttribute(aa, ""), i.isConnected(e.id, t.name, r) && a.classList.add("ui-graph__pin--filled"), (r === "out" || t.required !== !0) && a.setAttribute(oa, "");
 	let o = i.words, s = t.description ?? "", c = o.format("ui.graph.pin-type", {
-		name: t.title,
+		name: i.tooltips.escape(t.title),
 		type: ja(n, t.multiple === !0, i)
 	});
 	return S(a, s.length > 0 ? `${c}\n${s}` : c, i.tooltips), a;
@@ -4212,7 +4212,7 @@ function ja(e, t, n) {
 		let t = sa[e];
 		if (t !== void 0) return r.text(t);
 		let a = n.typeTitles.get(e);
-		return a === void 0 ? e.startsWith(la) ? e.slice(5) : e : a;
+		return n.tooltips.escape(a === void 0 ? e.startsWith(la) ? e.slice(5) : e : a);
 	};
 	return t ? r.format("ui.graph.pin-many", { type: i(e) }) : i(e);
 }
@@ -5396,7 +5396,7 @@ function es(e, t, n) {
 		let e = document.createElement("span"), t = document.createElement("span");
 		e.className = "ui-graph__handle", e.setAttribute(xn, ""), t.className = "ui-graph__entry", t.setAttribute(Sn, ""), r.append(t, e);
 	}
-	return S(r, t.tooltip ?? ts(t, n.resource, n.number), n.tooltips), r;
+	return S(r, t.tooltip ?? n.tooltips.escape(ts(t, n.resource, n.number)), n.tooltips), r;
 }
 function ts(e, t, n) {
 	let r = (e) => e.map((e) => `${ns(e.amount, t(e.resource)?.unit ?? null, n)} ${t(e.resource)?.title ?? e.resource}`).join(" + ");
@@ -6250,7 +6250,7 @@ var nc = "[data-ui-graph-plan]", rc = "[data-ui-graph-plan-targets]", ic = "[dat
 	}
 	nameOf(e, t, n) {
 		let r = document.createElement("button"), i = document.createElement("span");
-		if (r.type = "button", r.className = "ui-graph__plan-name", r.setAttribute("data-ui-graph-plan-item", e), r.setAttribute(this.services.context.names.tooltip, t), n !== null) {
+		if (r.type = "button", r.className = "ui-graph__plan-name", r.setAttribute("data-ui-graph-plan-item", e), r.setAttribute(this.services.context.names.tooltip, this.services.context.tooltips.escape(t)), n !== null) {
 			let e = document.createElement("span");
 			e.className = "ui-graph__plan-icon", e.setAttribute("aria-hidden", "true"), this.services.context.icons.apply(e, n), r.append(e);
 		}

@@ -66,8 +66,8 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
         root.append(entry, handle);
     }
 
-    // A circle's title, small under it, is also what the pointer reads when the node names no words of its own.
-    const words = node.tooltip ?? (round ? title : null);
+    // A circle's title is also what the pointer reads where the node names no words of its own — escaped: a name is no markup.
+    const words = node.tooltip ?? (round ? options.tooltips.escape(title) : null);
 
     if (words !== null)
         hoverTooltip(root, words, options.tooltips);
