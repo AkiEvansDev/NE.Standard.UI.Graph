@@ -4,6 +4,8 @@
 @import (reference) "../../plugin/ne-standard-ui.less";
 
 .ui-graph__craft {
+    --ui-graph-node-radius: 999px;
+
     flex-direction: row;
     align-items: center;
     gap: @ui-space-2;
@@ -12,7 +14,6 @@
     min-height: 0;
     padding: 0.125rem @ui-space-2;
     border-color: var(--ui-graph-node-ink);
-    border-radius: 999px;
     box-shadow: none;
     line-height: 1.25rem;
     white-space: nowrap;

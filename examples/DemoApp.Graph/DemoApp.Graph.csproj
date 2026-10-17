@@ -11,7 +11,7 @@
 
   <!-- The planner keeps its catalogue and its builds in a SQLite file beside the host. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.13" />
   </ItemGroup>
 
   <!-- The framework is a sibling in the monorepo and a package in the mirror, where this demo is the whole

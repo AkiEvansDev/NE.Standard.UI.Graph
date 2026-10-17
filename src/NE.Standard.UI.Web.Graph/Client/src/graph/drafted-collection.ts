@@ -154,6 +154,40 @@ export class DraftedCollection<TDocument extends DraftedDocument, TItem extends 
         this.services.renameItem(entry.id);
     }
 
+    /**
+     * Copies of items as the viewer's own under free keys, each `step` off its original's place; `copy` then shapes each copy's state
+     * — what it keeps of its edges — with the copies' keys by their originals'. The copies' keys; the caller chooses them.
+     */
+    public duplicate(ids: Iterable<string>, step: number, copy: (entry: TEntry, keys: ReadonlyMap<string, string>) => void): string[] {
+        const document = this.document;
+        const keys = new Map<string, string>();
+        const copies: TEntry[] = [];
+
+        for (const id of ids) {
+            const item = this.drawnById.get(id);
+
+            if (item === undefined || keys.has(id))
+                continue;
+
+            const entry = this.model.toEntry(item);
+            const place = document.nodes.find(node => node.id === id);
+
+            // Each into the draft before the next key is asked for, so two copies never take one key.
+            entry.id = this.freeKey(this.model.prefix(entry));
+            entry.created = true;
+            entry.baseline = null;
+            this.model.listOf(document, entry).push(entry);
+            this.placeAt(entry.id, place === undefined ? this.services.pointerScene() : { x: place.x + step, y: place.y + step });
+            keys.set(id, entry.id);
+            copies.push(entry);
+        }
+
+        for (const entry of copies)
+            copy(entry, keys);
+
+        return copies.map(entry => entry.id);
+    }
+
     /** Items taken out: one the viewer added simply goes from the draft, and the server's own is marked removed for the save. */
     public remove(ids: Iterable<string>): void {
         const document = this.document;

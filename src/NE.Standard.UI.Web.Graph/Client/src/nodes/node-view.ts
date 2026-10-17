@@ -17,6 +17,8 @@ export const HeadAttribute = "data-ui-graph-head";
 export const ValueAttribute = "data-ui-graph-value";
 export const DisplayAttribute = "data-ui-graph-display";
 export const UploadAttribute = "data-ui-graph-uploading";
+/** On a node the viewer turned off for a run: drawn dimmed. */
+const OffAttribute = "data-ui-graph-off";
 /** The menu the right button opens on a pin's row — `UIGraphMenus.Pin` on the server — over the node's own. */
 export const PinMenuName = "graph-pin-menu";
 /** On every part a right press opens a pin's menu from: the pin's name, and whether it is an input or an output. */
@@ -115,6 +117,9 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
 
     if (node.pinned === true)
         root.setAttribute("data-ui-graph-pinned", "");
+
+    if (node.enabled === false)
+        root.setAttribute(OffAttribute, "");
 
     if (type?.compact === true)
         return renderCompact(root, node, type, options);

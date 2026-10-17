@@ -10,6 +10,11 @@
         outline-offset: 0;
     }
 
+    // The outline is the chosen edge here; the thickening, in the mode's edge colour, would only blur it.
+    .ui-graph__node[data-ui-graph-selected]::after {
+        display: none;
+    }
+
     // A plan target, whose success edge the mode paints over: a double outline in the text's colour, in the selection's when chosen.
     .ui-graph__node[data-ui-graph-target] {
         outline: 3px double CanvasText;

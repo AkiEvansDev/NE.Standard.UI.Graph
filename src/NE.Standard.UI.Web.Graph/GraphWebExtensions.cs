@@ -12,7 +12,7 @@ public static class GraphWebExtensions
     private const string AssemblyName = "NE.Standard.UI.Web.Graph";
 
     /// <summary>
-    /// Registers the node canvas, graph and production graph renderers, their words, and the package's embedded script and
+    /// Registers the node canvas, its parameters, graph and production graph renderers, their words, and the package's embedded script and
     /// stylesheet. Idempotent.
     /// </summary>
     public static IServiceCollection AddGraph(this IServiceCollection services)
@@ -20,6 +20,7 @@ public static class GraphWebExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, NodesComponentRenderer>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, NodesParametersComponentRenderer>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, LayeredGraphComponentRenderer>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, ProductionGraphComponentRenderer>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IUIStringsSource, GraphStrings>());

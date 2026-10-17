@@ -71,6 +71,8 @@ export type NodeType = {
 export type DocumentNode = CanvasItem & {
     type: string;
     values: Record<string, unknown>;
+    /** Whether a run takes the node in; turned off, a run passes it over, and what it feeds takes its own value. */
+    enabled?: boolean;
 };
 
 export type DocumentEdge = CanvasEdge & {
@@ -91,7 +93,7 @@ export type GraphDocument = {
     edges: DocumentEdge[];
     groups: CanvasGroup[];
     key: string | null;
-    /** The inputs set out in the parameters panel, in the order they were added. */
+    /** The inputs set out as the sheet's parameters, in the order they were added. */
     parameters: DocumentParameter[];
 };
 
@@ -131,6 +133,7 @@ function readNode(node: DocumentNode): DocumentNode {
         color: node.color ?? null,
         pinned: node.pinned === true,
         collapsed: node.collapsed === true,
+        enabled: node.enabled !== false,
         values: { ...node.values },
         width: readSize(node.width),
         height: readSize(node.height)
@@ -221,7 +224,12 @@ export function canResetPin(document: GraphDocument, types: ReadonlyMap<string, 
     if (document.edges.some(edge => isEdgeOn(edge, nodeId, pinName, direction)))
         return true;
 
-    return direction === "in" && holdsValue(pin) && JSON.stringify(node.values[pinName] ?? pin.defaultValue ?? null) !== JSON.stringify(pin.defaultValue ?? null);
+    return direction === "in" && isOffDefault(node, pin);
+}
+
+/** Whether an input keeps a value of its own that is not its kind's default. */
+function isOffDefault(node: DocumentNode, pin: Pin): boolean {
+    return holdsValue(pin) && JSON.stringify(node.values[pin.name] ?? pin.defaultValue ?? null) !== JSON.stringify(pin.defaultValue ?? null);
 }
 
 /** A pin back to where a new node's stands: every edge on it let go and, for an input with a value of its own, the kind's default. */
@@ -234,8 +242,49 @@ export function resetPin(document: GraphDocument, types: ReadonlyMap<string, Nod
 
     document.edges = document.edges.filter(edge => !isEdgeOn(edge, nodeId, pinName, direction));
 
-    if (direction === "in" && holdsValue(pin))
-        node.values[pinName] = pin.defaultValue ?? null;
+    if (direction === "in")
+        putBack(node, pin);
+}
+
+/** An input with a value of its own back on its kind's default. */
+function putBack(node: DocumentNode, pin: Pin): void {
+    if (holdsValue(pin))
+        node.values[pin.name] = pin.defaultValue ?? null;
+}
+
+/** Whether any input of a node holds a value other than its kind's default — a state among them. */
+export function canResetValues(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string): boolean {
+    const node = document.nodes.find(candidate => candidate.id === nodeId);
+
+    return node !== undefined && (types.get(node.type)?.inputs.some(pin => isOffDefault(node, pin)) ?? false);
+}
+
+/** Every input of a node back to its kind's default, as each pin's Reset puts its own, its wires left as they are. */
+export function resetValues(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string): void {
+    const node = document.nodes.find(candidate => candidate.id === nodeId);
+
+    if (node === undefined)
+        return;
+
+    for (const pin of types.get(node.type)?.inputs ?? []) {
+        if (isOffDefault(node, pin))
+            putBack(node, pin);
+    }
+}
+
+/** Whether an edge leaves or enters the node. */
+export function hasEdges(document: GraphDocument, nodeId: string): boolean {
+    return document.edges.some(edge => edge.fromNode === nodeId || edge.toNode === nodeId);
+}
+
+/** Every edge of the nodes taken out; whether there was one. */
+export function disconnect(document: GraphDocument, nodeIds: ReadonlySet<string>): boolean {
+    const kept = document.edges.filter(edge => !nodeIds.has(edge.fromNode) && !nodeIds.has(edge.toNode));
+    const changed = kept.length !== document.edges.length;
+
+    document.edges = kept;
+
+    return changed;
 }
 
 function isEdgeOn(edge: DocumentEdge, nodeId: string, pinName: string, direction: "in" | "out"): boolean {

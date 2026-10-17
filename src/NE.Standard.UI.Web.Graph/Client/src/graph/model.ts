@@ -159,6 +159,22 @@ function rekeyNode(document: GraphDocument, from: string, to: string, nodes: rea
         edge.id = renamed.get(edge.id) ?? edge.id;
 }
 
+/** A copy's links: only those to another copy, aimed at that copy under a key of their own; one to a node left behind goes. */
+export function copiedLinks(copy: GraphNodeDraft, keys: ReadonlyMap<string, string>, taken: Set<string>): GraphLink[] {
+    return copy.links.flatMap(link => {
+        const to = keys.get(link.to);
+
+        if (to === undefined)
+            return [];
+
+        const id = linkKey(copy.id, to, taken);
+
+        taken.add(id);
+
+        return [{ ...link, id, to }];
+    });
+}
+
 /** The key of a link the viewer draws: its two ends, and a serial when the two are linked already. */
 export function linkKey(from: string, to: string, taken: ReadonlySet<string>): string {
     let id = `${from}>${to}`;

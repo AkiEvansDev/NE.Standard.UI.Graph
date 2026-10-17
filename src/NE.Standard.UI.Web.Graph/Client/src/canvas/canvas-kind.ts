@@ -110,6 +110,17 @@ export type CanvasKind = {
     /** What the last copy became once pasted, by the new items' ids; nothing when there was nothing to paste. */
     paste(): readonly string[] | null;
     /**
+     * Copies of the items a step off their originals, an edge between two of them copied with them and one to an item left behind
+     * not, by the copies' ids; nothing where the kind copies none of them. The clipboard stays as it was.
+     */
+    duplicate(itemIds: ReadonlySet<string>): readonly string[] | null;
+    /** Whether Duplicate copies the item. */
+    canDuplicate(id: string): boolean;
+    /** Every edge of the items taken out; `false` where there was none, or the kind refuses — the document stays as it was. */
+    disconnect(itemIds: ReadonlySet<string>): boolean;
+    /** Whether the item has an edge Disconnect all would take out. */
+    canDisconnect(id: string): boolean;
+    /**
      * The chosen items and edges taken out of the document, and whatever of the kind's own hangs on them; `false` where the kind
      * refuses them — the document stays as it was.
      */

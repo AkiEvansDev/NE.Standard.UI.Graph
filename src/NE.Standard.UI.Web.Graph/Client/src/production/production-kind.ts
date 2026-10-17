@@ -402,12 +402,41 @@ export class ProductionKind implements CanvasKind {
 
     // --- editing: the catalogue into the draft, when the graph allows it ----------------------------------------------------------
 
-    // A copy of a resource or a craft would need a key of the application's own, which the canvas cannot make up: no clipboard.
+    // No clipboard: a copy carried off the sheet is not the draft's; Duplicate copies a resource in place, under a key made as Add
+    // resource makes one.
     public copy(): void {
     }
 
     public paste(): readonly string[] | null {
         return null;
+    }
+
+    /** Copies of the resources as the viewer's own; a recipe is its edges, so a copy of one without them would be nothing. */
+    public duplicate(itemIds: ReadonlySet<string>): readonly string[] | null {
+        const resources = [...itemIds].filter(id => this.canDuplicate(id));
+        // A resource carries no edge of its own — its links are its recipes' amounts — so a copy has nothing to shape.
+        const copies = resources.length === 0 ? [] : this.entries.duplicate(resources, this.services.settings.gridSize * 2, () => {});
+
+        return copies.length === 0 ? null : copies;
+    }
+
+    public canDuplicate(id: string): boolean {
+        return this.editable && this.resource(id) !== undefined;
+    }
+
+    /** A resource's edges are its recipes' amounts: each taken out as Delete takes one, a recipe left with nothing going with it. */
+    public disconnect(itemIds: ReadonlySet<string>): boolean {
+        const resources = new Set([...itemIds].filter(id => this.canDisconnect(id)));
+        const edges = this.links.filter(link => resources.has(link.from) || resources.has(link.to));
+
+        this.editing.removeEdges(new Set(edges.map(edge => edge.id)));
+
+        return edges.length > 0;
+    }
+
+    /** On a resource with an edge; a recipe's edges are what it is, so Delete takes it rather than leaving it empty. */
+    public canDisconnect(id: string): boolean {
+        return this.editable && this.resource(id) !== undefined && this.links.some(link => link.from === id || link.to === id);
     }
 
     public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean {

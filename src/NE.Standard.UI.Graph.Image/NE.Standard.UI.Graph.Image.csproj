@@ -18,9 +18,9 @@
   <!-- The pixels are SkiaSharp's. Its own package carries the Windows and macOS natives; Linux is the host most servers run on,
        so the dependency-free Linux build comes with this package rather than being left for each application to find. -->
   <ItemGroup>
-    <PackageReference Include="SkiaSharp" Version="4.152.1" />
-    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.152.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
   </ItemGroup>
 
   <!-- The store serves what it keeps through the framework's content endpoint (the Shell's contracts): a sibling in the monorepo,

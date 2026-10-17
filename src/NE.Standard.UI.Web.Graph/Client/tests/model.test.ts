@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canConnect, canResetPin, createNode, dropParameter, duplicate, edgesInto, isParameterAllowed, isPinVisible, readDocument, resetPin, resolveOutputType, showsPicture, slice } from "../src/nodes/model.ts";
+import { canConnect, canResetPin, canResetValues, createNode, disconnect, dropParameter, duplicate, edgesInto, hasEdges, isParameterAllowed, isPinVisible, readDocument, resetPin, resetValues, resolveOutputType, showsPicture, slice } from "../src/nodes/model.ts";
 import type { GraphDocument, NodeType, Pin } from "../src/nodes/model.ts";
 
 const numberType: NodeType = {
@@ -320,6 +320,39 @@ test("a pin with nothing to reset offers none: a default value, an absent one, a
     resetPin(document, fieldTypes, "b", "Values", "in");
 
     assert.deepEqual(document.nodes[1].values["Values"], []);
+});
+
+test("a node's values reset as each pin's would, a hidden state among them, and its wires stay", () => {
+    const document = fieldsSheet();
+
+    document.nodes[1].values["Kept"] = 4;
+
+    assert.equal(canResetValues(document, fieldTypes, "b"), true);
+    resetValues(document, fieldTypes, "b");
+
+    assert.deepEqual(document.nodes[1].values, { Amount: 1, Values: [], Kept: 0 });
+    assert.equal(document.edges.length, 1);
+    assert.equal(canResetValues(document, fieldTypes, "b"), false);
+    assert.equal(canResetValues(document, fieldTypes, "gone"), false);
+});
+
+test("disconnecting nodes takes out every edge they have, either way, and says whether there was one", () => {
+    const document = fieldsSheet();
+
+    assert.equal(hasEdges(document, "a"), true);
+    assert.equal(hasEdges(document, "b"), true);
+    assert.equal(disconnect(document, new Set(["a"])), true);
+    assert.deepEqual(document.edges, []);
+    assert.equal(hasEdges(document, "b"), false);
+    assert.equal(disconnect(document, new Set(["b"])), false);
+});
+
+test("a node turned off is read off the wire and stays off in a copy of it", () => {
+    const read = readDocument({ nodes: [{ id: "a", type: "Number", enabled: false }, { id: "b", type: "Number" }] });
+
+    assert.equal(read.nodes[0].enabled, false);
+    assert.equal(read.nodes[1].enabled, true);
+    assert.equal(duplicate(slice(read, new Set(["a"])), 40, 40).nodes[0].enabled, false);
 });
 
 test("a display shows a picture by type: its own pin's, or an output of a picture's feeding it, through what passes it on", () => {

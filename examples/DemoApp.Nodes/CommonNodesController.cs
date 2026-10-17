@@ -36,7 +36,7 @@ internal sealed partial class CommonNodesController() : NodesSheetController(Can
                 new UINodeEdge("e-3", join.Id, nameof(JoinNode.Text), joined.Id, nameof(DisplayNode.Value)),
                 new UINodeEdge("e-4", counter.Id, nameof(CounterNode.Value), counted.Id, nameof(DisplayNode.Value))
             ])
-            // Two inputs set out in the parameters panel from the start: edited there as well as on their nodes.
+            // Two inputs set out in the parameters column from the start: edited there as well as on their nodes.
             .WithParameters(new UINodeParameter(number.Id, nameof(NumberNode.Value)), new UINodeParameter(counter.Id, nameof(CounterNode.To)));
     }
 }

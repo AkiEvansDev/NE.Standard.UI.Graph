@@ -80,3 +80,60 @@ test("the corner menu's switch is one square folded and open, first in its head,
     // The head keeps the core bar's own gap and row: no reversed row, no gap of the package's.
     assert.doesNotMatch(css, /\.ui-graph__menu-panel > \.ui-menu > \.ui-collapsible__bar \{[^}]*(flex-direction|gap)/);
 });
+
+test("a chosen node's edge thickens outward over its own, in its own colour and dashes, under its pins and contents", () => {
+    const rule = (selector: string): string => {
+        const at = css.indexOf(`\n${selector} {`);
+
+        return at < 0 ? "" : css.slice(at, css.indexOf("}", at));
+    };
+    // Every rule of the node's own, wherever a stylesheet of the package writes one.
+    const node = [...css.matchAll(/\n\.ui-graph__node \{([^}]*)\}/g)].map(match => match[1]).join("");
+    const thickening = rule(".ui-graph__node[data-ui-graph-selected]::after");
+
+    // The node's border is never widened: that would narrow its contents and move its pins.
+    assert.match(node, /border: var\(--ui-graph-node-border\) solid var\(--ui-color-border\);/);
+    assert.match(node, /--ui-graph-node-chosen-edge: 2px;/);
+    assert.match(node, /isolation: isolate;/);
+    assert.match(thickening, /inset: calc\(-1 \* \(var\(--ui-graph-node-border\) \+ var\(--ui-graph-node-chosen-edge\)\)\);/);
+    assert.match(thickening, /z-index: -1;/);
+    assert.match(thickening, /border: calc\(var\(--ui-graph-node-border\) \+ var\(--ui-graph-node-chosen-edge\)\) solid;/);
+    assert.match(thickening, /border-color: inherit;\s*border-style: inherit;/);
+    assert.match(thickening, /pointer-events: none;/);
+    // A circle's own edge is wider, and the thickening follows it.
+    assert.match(rule(".ui-graph__bubble"), /--ui-graph-node-border: 2px;\s*--ui-graph-node-radius: 50%;/);
+    assert.match(css.slice(css.indexOf("@media (forced-colors: active)")), /\.ui-graph__node\[data-ui-graph-selected\]::after \{\s*display: none;/);
+});
+
+test("a layered graph's pulled wire is lit, dashed, and lifted toward white on a dark sheet; the node canvas's stays plain", () => {
+    // The node canvas's: dashed alone, in its pin's colour.
+    assert.match(/\n\s*\.ui-graph__edge-line--pending \{([^}]*)\}/.exec(css)?.[1] ?? "", /^\s*stroke-dasharray: 6 4;\s*$/);
+
+    const pending = /\n\s*\.ui-graph:not\(\[data-ui-graph-kind="nodes"\]\) \.ui-graph__edge-line--pending \{([^}]*)\}/.exec(css)?.[1] ?? "";
+
+    assert.match(pending, /stroke-width: 3;/);
+    assert.match(pending, /filter: drop-shadow\(0 0 3px var\(--ui-graph-pin-color\)\);/);
+    assert.match(pending, /stroke: light-dark\(var\(--ui-graph-pin-color\), color-mix\(in oklab, var\(--ui-graph-pin-color\) 70%, white\)\);/);
+    assert.match(pending, /stroke-dasharray: 8 4;/);
+    // A pull starts on a chosen node, whose focus dims every other line: the wire in hand stays whole.
+    assert.match(/\n\.ui-graph--edge-focus \.ui-graph__edge-line--pending \{([^}]*)\}/.exec(css)?.[1] ?? "", /^\s*opacity: 1;\s*$/);
+});
+
+test("the parameters stand beside the canvas in a column of their own; nothing of them stands over the sheet", () => {
+    const rule = (selector: string): string => {
+        const at = css.indexOf(`\n${selector} {`);
+
+        return at < 0 ? "" : css.slice(at, css.indexOf("}", at));
+    };
+    const column = rule(".ui-graph-parameters");
+
+    // A card in the page's flow, scrolling its rows; not a panel over the sheet.
+    assert.match(column, /flex-direction: column;/);
+    assert.match(column, /overflow: hidden auto;/);
+    assert.doesNotMatch(column, /position|z-index/);
+    assert.doesNotMatch(css, /ui-graph__parameters[\s,{]|ui-graph__parameters-(toggle|icon|chevron|body)|ui-graph__lead|--ui-graph-lead-top|data-ui-graph-parameters\]/);
+    // The corner menu stands alone in its corner again, under the run line where there is one; the plan over the trailing side.
+    assert.match(rule(".ui-graph__menu-panel"), /position: absolute;\s*top: 0\.5rem;\s*left: 0\.5rem;/);
+    assert.match(css, /\.ui-graph\[data-ui-graph-run-progress\] \.ui-graph__menu-panel \{\s*top: calc\(var\(--ui-graph-run-height\) \+ 0\.5rem\);/);
+    assert.match(rule(".ui-graph .ui-graph__plan"), /position: absolute;\s*right: 0\.5rem;/);
+});

@@ -144,8 +144,18 @@
     filter: drop-shadow(0 0 3px var(--ui-graph-pin-color));
 }
 
+    // The wire being pulled, dashed as not yet made.
     .ui-graph__edge-line--pending {
         stroke-dasharray: 6 4;
+    }
+
+    // On a layered graph it is lit as a chosen line is, in its colour lifted toward white on a dark sheet as a node's ink is: drawn
+    // in the brand's deep ink, a thin dashed line sank into a dark sheet. The node canvas's wire in its pin's colour reads as it was,
+    // and lit it glared.
+    .ui-graph:not([data-ui-graph-kind="nodes"]) .ui-graph__edge-line--pending {
+        .ui-graph-edge-line-lit();
+        stroke: light-dark(var(--ui-graph-pin-color), color-mix(in oklab, var(--ui-graph-pin-color) 70%, white));
+        stroke-dasharray: 8 4;
     }
 
     // An edge running against the layers is the one a cycle was broken at: dashed, so the part fed back reads as fed back.
@@ -185,6 +195,11 @@
 }
 
 .ui-graph--edge-focus [data-ui-graph-related] {
+    opacity: 1;
+}
+
+// The wire being pulled is the one thing in hand: a pull starts on a chosen node, whose focus dimmed it with the other lines.
+.ui-graph--edge-focus .ui-graph__edge-line--pending {
     opacity: 1;
 }
 
@@ -515,8 +530,8 @@
 }
 
 // --- a panel over the sheet's trailing side ----------------------------------------------------------------------------------
-// The production graph's plan and the node canvas's parameters: a card over the trailing side, folded to its switch by the
-// framework's collapsible (`ui-collapsible`), its body scrolling under the switch. A kind places (`top`), sizes and shows it.
+// The production graph's plan: a card over the trailing side, folded to its switch by the framework's collapsible
+// (`ui-collapsible`), its body scrolling under the switch. A kind places (`top`), sizes and shows it.
 
 .ui-graph-side-panel(@width; @body) {
     position: absolute;

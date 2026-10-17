@@ -1,4 +1,4 @@
-// A side panel's fold against the one the server drew it with: the parameters panel arrives folded, the plan open — folded where the
+// A side panel's fold against the one the server drew it with: a panel drawn folded arrives folded, the plan open — folded where the
 // stylesheet says the window is too narrow for it — and only the viewer's departure from that is stored for the canvas.
 
 import assert from "node:assert/strict";
@@ -29,8 +29,8 @@ function memoryStore(initial: string | null = null): { store: ClientStore; store
 }
 
 function panel(folded: boolean): { panel: FakeElement; toggle: FakeElement } {
-    const toggle = FakeElement.of("ui-graph__parameters-toggle", { "data-ui-collapse-toggle": "", "aria-expanded": folded ? "false" : "true" }, "button");
-    const aside = FakeElement.of("ui-graph__parameters", folded ? { [Collapsed]: "" } : {}, "aside").append(toggle);
+    const toggle = FakeElement.of("ui-graph__panel-toggle", { "data-ui-collapse-toggle": "", "aria-expanded": folded ? "false" : "true" }, "button");
+    const aside = FakeElement.of("ui-graph__panel", folded ? { [Collapsed]: "" } : {}, "aside").append(toggle);
 
     return { panel: aside, toggle };
 }
@@ -38,7 +38,7 @@ function panel(folded: boolean): { panel: FakeElement; toggle: FakeElement } {
 test("a panel drawn folded stays folded with nothing stored, and opened by the viewer it is stored open", () => {
     const { store, stored } = memoryStore();
     const { panel: aside, toggle } = panel(true);
-    const fold = new SidePanelFold(store, real(FakeElement.of("ui-graph")), real(aside), "parameters");
+    const fold = new SidePanelFold(store, real(FakeElement.of("ui-graph")), real(aside), "panel");
 
     assert.equal(aside.hasAttribute(Collapsed), true);
 
@@ -55,7 +55,7 @@ test("a panel drawn folded stays folded with nothing stored, and opened by the v
 test("a stored open panel opens a panel drawn folded, and a stored fold folds one drawn open", () => {
     const folded = panel(true);
 
-    new SidePanelFold(memoryStore("open").store, real(FakeElement.of("ui-graph")), real(folded.panel), "parameters");
+    new SidePanelFold(memoryStore("open").store, real(FakeElement.of("ui-graph")), real(folded.panel), "panel");
     assert.equal(folded.panel.hasAttribute(Collapsed), false);
     assert.equal(folded.toggle.getAttribute("aria-expanded"), "true");
 

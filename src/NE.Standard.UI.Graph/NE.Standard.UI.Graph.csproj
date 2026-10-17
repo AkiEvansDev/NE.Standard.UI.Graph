@@ -12,7 +12,7 @@
 
   <!-- AddGraphFiles is how an application opens folders to the file kinds. -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
   </ItemGroup>
 
   <!-- The framework is a sibling in the monorepo and a package in this slice's mirror. Either way the

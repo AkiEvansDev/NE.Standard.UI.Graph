@@ -467,8 +467,9 @@ public sealed class UINodeCatalog
     /// and the edges between them.
     /// </summary>
     /// <remarks>
-    /// A node of a kind this catalogue does not know is left out. The document may be the browser's, so a node with no id or no
-    /// kind, a node whose id an earlier one took and an edge that names no pin are left out too.
+    /// A node of a kind this catalogue does not know is left out, and so is a node the viewer turned off (<see cref="UINode.Enabled"/>)
+    /// with every edge it has. The document may be the browser's, so a node with no id or no kind, a node whose id an earlier one
+    /// took and an edge that names no pin are left out too.
     /// </remarks>
     public UINodeNetwork Materialize(UINodeDocument document)
     {
@@ -479,7 +480,8 @@ public sealed class UINodeCatalog
 
         foreach (UINode node in document.Nodes)
         {
-            if (string.IsNullOrEmpty(node.Id) || string.IsNullOrEmpty(node.Type) || byId.ContainsKey(node.Id))
+            // A node turned off is not there for a run: its edges go with it, so what it fed takes its own value, as though unwired.
+            if (!node.Enabled || string.IsNullOrEmpty(node.Id) || string.IsNullOrEmpty(node.Type) || byId.ContainsKey(node.Id))
                 continue;
 
             if (!_clrTypes.TryGetValue(node.Type, out Type? clrType) || Activator.CreateInstance(clrType) is not { } instance)

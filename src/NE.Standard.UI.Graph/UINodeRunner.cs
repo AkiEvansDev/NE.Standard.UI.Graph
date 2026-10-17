@@ -101,7 +101,8 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     /// </summary>
     /// <remarks>
     /// A failed node's branch stops there — nodes fed by it are skipped, others run normally. A node on a cycle fails the same
-    /// way, waiting for itself; unrelated chains still complete. A kind that does no work and has no pin — a note — is passed over.
+    /// way, waiting for itself; unrelated chains still complete. A kind that does no work and has no pin — a note — is passed over,
+    /// and so is a node turned off, whose inputs it fed take their own values.
     /// </remarks>
     public async Task<UINodeRunResult> RunAsync(UINodeDocument document, CancellationToken cancellationToken = default)
     {

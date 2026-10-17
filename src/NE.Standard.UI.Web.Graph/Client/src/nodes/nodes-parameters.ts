@@ -1,23 +1,21 @@
-// The parameters panel under the run panel: the inputs set out as the sheet's parameters (`GraphDocument.parameters`), each with its
-// node's own field bound to the same value, so an edit in either shows in the other. The markup is the renderer's; rows are written here.
+// The sheet's parameters in the column a `NodesParametersComponent` aimed at the canvas stands beside it: the inputs set out as the
+// sheet's parameters (`GraphDocument.parameters`), each with its node's own field bound to the same value, so an edit in either
+// shows in the other. The column's markup is its renderer's, found on the page by the canvas's id; rows are written here.
 
-import { CoreNames } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
-import { focusablePart, focusAfterRemoval, SidePanelFold } from "../canvas/side-panel.ts";
+import { focusablePart } from "../canvas/side-panel.ts";
 import type { DocumentNode, DocumentParameter, GraphDocument, NodeType, Pin } from "./model.ts";
 import { dropParameter, findPin, isParameterAllowed } from "./model.ts";
 import { captionInField } from "./node-view.ts";
 
-const PanelSelector = "[data-ui-graph-parameters-panel]";
+/** On a parameters column (`NodesParametersComponentRenderer.TargetAttribute`): the id of the canvas whose parameters it shows. */
+export const ParametersTargetAttribute = "data-ui-graph-parameters-for";
 const ListSelector = "[data-ui-graph-parameters-list]";
-// On the root of a canvas that sets its parameters out (`NodesComponent.ShowParameters`).
-const ShownAttribute = "data-ui-graph-parameters";
 const NodeAttribute = "data-ui-graph-parameter-node";
 const PinAttribute = "data-ui-graph-parameter-pin";
 const RemoveAttribute = "data-ui-graph-parameter-remove";
 const EditorPrefix = "graph-editor:";
 const RemoveRegion = "graph-list-remove";
-const StoreKey = "parameters";
 // `GraphStrings.ShowNode` on the server: what a parameter's name does when pressed.
 const ShowNodeKey = "ui.graph.show-node";
 const RowClass = "ui-graph__parameter";
@@ -27,7 +25,7 @@ const PinNameClass = "ui-graph__parameter-pin";
 const FieldClass = "ui-graph__parameter-field";
 // What the keyboard can stand on inside a field the panel clones: the field itself, or its own control.
 
-/** What the panel asks of the node canvas it stands on. */
+/** What the column asks of the node canvas it shows the parameters of. */
 export type NodesParametersHost = {
     readonly types: ReadonlyMap<string, NodeType>;
     /** A value typed into a parameter's field: the same edit the node's own field makes. */
@@ -54,26 +52,33 @@ type FocusedPart = { readonly row: string; readonly part: string };
 export class NodesParameters {
     private readonly services: CanvasServices<GraphDocument>;
     private readonly host: NodesParametersHost;
-    private readonly panel: HTMLElement | null;
-    private readonly list: HTMLElement | null;
-    private readonly fold: SidePanelFold;
-    // What the rows were last drawn for: they are drawn again only when it changes, so a field being typed into is not replaced
-    // under the caret; a value alone is written into the field already there.
+    // What the rows were last drawn for, and into which list: they are drawn again only when either changes, so a field being typed
+    // into is not replaced under the caret; a value alone is written into the field already there.
     private drawnKey = "";
+    private drawnList: HTMLElement | null = null;
     private readonly fields = new Map<string, { field: HTMLElement; found: Found }>();
     private readonly rows = new Map<string, HTMLElement>();
+    // The columns this canvas listens on: a column drawn again is a new element, and needs its listener anew.
+    private readonly heard = new WeakSet<HTMLElement>();
 
     public constructor(services: CanvasServices<GraphDocument>, host: NodesParametersHost) {
         this.services = services;
         this.host = host;
-        this.panel = services.root.querySelector<HTMLElement>(PanelSelector);
-        this.list = this.panel?.querySelector<HTMLElement>(ListSelector) ?? null;
-        this.fold = new SidePanelFold(services.context.store, services.root, this.panel, StoreKey);
     }
 
-    /** Whether the canvas sets parameters out at all; read each time, since a bound `ShowParameters` moves without a render. */
+    /**
+     * The column aimed at this canvas, looked up each time: it may be drawn before the canvas or after it, or drawn again, and the
+     * canvas's root may be drawn again under the same id.
+     */
+    private get panel(): HTMLElement | null {
+        const id = this.services.root.getAttribute(this.services.context.names.componentId);
+
+        return id === null ? null : this.services.context.root.querySelector<HTMLElement>(`[${ParametersTargetAttribute}="${CSS.escape(id)}"]`);
+    }
+
+    /** Whether a column on the page shows this canvas's parameters; only then does a pin's menu offer to set one out. */
     public get shown(): boolean {
-        return this.services.root.hasAttribute(ShownAttribute);
+        return this.panel !== null;
     }
 
     private get document(): GraphDocument {
@@ -113,77 +118,98 @@ export class NodesParameters {
         document.parameters = document.parameters.filter(parameter => !nodeIds.has(parameter.node));
     }
 
-    public contains(target: Element): boolean {
-        return this.panel !== null && this.panel.contains(target);
-    }
-
-    /** A click on the panel's own parts: its fold, a parameter's remove, a parameter's name. */
-    public press(target: Element): boolean {
-        if (this.panel === null || !this.panel.contains(target))
-            return false;
-
-        if (this.fold.press(target))
-            return true;
+    /**
+     * A press in the column: a parameter's remove, a parameter's name. A canvas whose root left the page lets its column go to the
+     * canvas drawn in its place, which listens on it too.
+     */
+    private press(panel: HTMLElement, target: Element): void {
+        if (!this.services.root.isConnected)
+            return;
 
         const removed = target.closest<HTMLElement>(`[${RemoveAttribute}]`);
 
         if (removed !== null) {
-            this.remove(removed);
-            return true;
+            this.remove(panel, removed);
+            return;
         }
 
         const named = target.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute);
 
         if (named !== null && named !== undefined)
             this.host.show(named);
-
-        return true;
     }
 
-    /** Takes a parameter back, handing the focus on its remove to the next row's remove, else the panel's switch, rather than dropping it with the row. */
-    private remove(button: HTMLElement): void {
+    /**
+     * Takes a parameter back, handing the focus on its remove to the next row's remove, else the column itself (a holder of the
+     * keyboard), rather than dropping it to the page with the row.
+     */
+    private remove(panel: HTMLElement, button: HTMLElement): void {
+        const list = panel.querySelector<HTMLElement>(ListSelector);
         const row = button.closest<HTMLElement>(`.${RowClass}`);
-        const at = row === null || this.list === null ? -1 : [...this.list.children].indexOf(row);
+        const at = row === null || list === null ? -1 : [...list.children].indexOf(row);
         const focused = button.contains(document.activeElement);
 
         this.toggle(button.getAttribute(NodeAttribute) ?? "", button.getAttribute(PinAttribute) ?? "");
 
-        if (!focused || this.list === null || this.list.contains(document.activeElement))
+        if (!focused || list === null || list.contains(document.activeElement))
             return;
 
-        focusAfterRemoval(this.list.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? null, this.panel?.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`) ?? null, this.services.context.focus);
+        const next = focusablePart(list.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? null, this.services.context.focus);
+
+        (next ?? panel).focus({ preventScroll: true });
     }
 
-    /** Redraws the rows only when which parameters show changed (the focus kept on its part of a row); otherwise gives each field not under the caret its value. */
+    /**
+     * Redraws the rows only when which parameters show changed, or the column was drawn anew (the focus kept on its part of a row);
+     * otherwise gives each field not under the caret its value. No column aimed at the canvas, nothing is drawn.
+     */
     public draw(): void {
-        if (this.list === null)
+        const panel = this.panel;
+        const list = panel?.querySelector<HTMLElement>(ListSelector) ?? null;
+
+        if (panel === null || list === null)
             return;
+
+        this.listen(panel);
 
         const found = this.find();
         const readOnly = this.services.settings.readOnly;
         const key = JSON.stringify([readOnly, found.map(entry => [entry.parameter.node, entry.parameter.pin, entry.node.title ?? null])]);
 
-        if (key === this.drawnKey) {
+        if (key === this.drawnKey && list === this.drawnList) {
             for (const entry of found)
                 this.showValue(entry.node.id, entry.pin.name, entry.node.values[entry.pin.name]);
 
             return;
         }
 
-        const focused = this.focusedPart();
+        const focused = this.focusedPart(list);
 
         this.drawnKey = key;
+        this.drawnList = list;
         this.fields.clear();
         this.rows.clear();
-        this.list.replaceChildren(...found.map(entry => this.row(entry, readOnly)));
+        list.replaceChildren(...found.map(entry => this.row(entry, readOnly)));
         this.restoreFocus(focused);
     }
 
+    /** Hears the column's presses, once per column element. */
+    private listen(panel: HTMLElement): void {
+        if (this.heard.has(panel))
+            return;
+
+        this.heard.add(panel);
+        panel.addEventListener("click", event => {
+            if (event.target instanceof Element)
+                this.press(panel, event.target);
+        });
+    }
+
     /** Where in the rows the focus stands, if it does: the row's input and the part of the row. */
-    private focusedPart(): FocusedPart | null {
+    private focusedPart(list: HTMLElement): FocusedPart | null {
         const active = document.activeElement;
 
-        if (active === null || this.list === null || !this.list.contains(active))
+        if (active === null || !list.contains(active))
             return null;
 
         for (const [key, row] of this.rows) {

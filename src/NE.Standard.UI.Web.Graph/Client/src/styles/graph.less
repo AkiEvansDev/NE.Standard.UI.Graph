@@ -54,6 +54,8 @@
 // The picture or icon alone, ringed in the node's colour; the node's own selection/state ring reuses the same frame, so it follows the circle.
 .ui-graph__bubble {
     --ui-graph-bubble-size: 3.5rem;
+    --ui-graph-node-border: 2px;
+    --ui-graph-node-radius: 50%;
 
     align-items: center;
     justify-content: center;
@@ -61,8 +63,7 @@
     height: var(--ui-graph-bubble-size);
     min-height: 0;
     padding: 0;
-    border: 2px solid var(--ui-graph-node-ink);
-    border-radius: 50%;
+    border-color: var(--ui-graph-node-ink);
     cursor: move;
     .ui-user-select(none);
 }

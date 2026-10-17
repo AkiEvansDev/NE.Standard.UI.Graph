@@ -25,9 +25,6 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
     /// <summary>On the root of a canvas that shows its run panel.</summary>
     public const string RunPanelAttribute = "data-ui-graph-run-panel";
 
-    /// <summary>On the root of a canvas that sets its parameters out in a panel, and offers an input's menu entry for it.</summary>
-    public const string ParametersAttribute = "data-ui-graph-parameters";
-
     public override string ComponentTypeKey => NodesComponent.ComponentTypeKey;
 
     protected override string KindName => "nodes";
@@ -41,7 +38,6 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
         RenderFlagAttribute(context, root, NodesComponent.ShowRunProgressProperty, RunProgressAttribute);
         RenderFlagAttribute(context, root, NodesComponent.ShowRunPanelProperty, RunPanelAttribute);
-        RenderFlagAttribute(context, root, NodesComponent.ShowParametersProperty, ParametersAttribute);
         RenderCatalog(context, root);
 
         // Beside the node, group and edge menus the canvas renders for every kind: a node canvas's pins have one of their own.
@@ -124,30 +120,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             RenderBarButton(context, panel, "data-ui-graph-run-all", GraphStrings.RunAll, UIGlyphs.FastForward);
             RenderBarButton(context, panel, "data-ui-graph-run-stop", GraphStrings.Stop, UIGlyphs.Stop);
         });
-
-        RenderParametersPanel(context, viewport);
     }
-
-    /// <summary>The parameters panel under the run panel, a row per input set out as a parameter, which the engine writes.</summary>
-    /// <remarks>
-    /// Always in the markup, shown by the root's flag as the run panel is; folded until the viewer opens it, its gear alone, so the
-    /// sheet opens clear.
-    /// </remarks>
-    private void RenderParametersPanel(WebRenderContext context, IHtmlElementBuilder viewport)
-        => RenderSidePanel(context, viewport, "parameters", GraphStrings.Parameters, "data-ui-graph-parameters-panel", UIGlyphs.Settings, folded: true, body =>
-        {
-            _ = body.Element("div", list =>
-            {
-                _ = list.Class($"{ClassName}__parameters-list");
-                _ = list.Attribute("data-ui-graph-parameters-list");
-            });
-
-            _ = body.Element("p", empty =>
-            {
-                _ = empty.Class($"{ClassName}__parameters-empty");
-                WebWords.Write(context, empty, null, GraphStrings.ParametersEmpty);
-            });
-        });
 
     /// <summary>
     /// The log at the canvas's foot, folded to a strip until pressed: what nodes wrote and what stopped them, each line naming its

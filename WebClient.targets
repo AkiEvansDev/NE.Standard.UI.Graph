@@ -9,6 +9,18 @@
     <None Remove="Client\node_modules\**" />
   </ItemGroup>
 
+  <!-- What the client's tests and build read: its own files but the installed packages and its outputs, the parity corpora under
+       eng/ its tests read, and this file. A build after none of them changed - a change to the C# alone - runs neither again. -->
+  <ItemGroup Condition="'$(BuildsWebClient)' == 'true'">
+    <WebClientInput Include="Client\**\*" Exclude="Client\node_modules\**;Client\dist\**" />
+    <WebClientInput Include="$(MSBuildThisFileDirectory)eng\Tests\Shared\**\*" Condition="'$(InMonorepo)' == 'true'" />
+    <WebClientInput Include="$(MSBuildThisFileFullPath)" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <WebClientStamp>$(IntermediateOutputPath)webclient.stamp</WebClientStamp>
+  </PropertyGroup>
+
   <!-- Installed again whenever the lockfile is newer than the install, not only when there is none: a dependency added
        later (a linter, a bumped tool) would otherwise be missing from a clone that had restored before it. -->
   <Target Name="RestoreWebClientPackages" Condition="'$(BuildsWebClient)' == 'true' and '$(SkipWebClientBuild)' != 'true'" Inputs="$(MSBuildProjectDirectory)\Client\package-lock.json" Outputs="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json">
@@ -16,7 +28,7 @@
     <Touch Files="$(MSBuildProjectDirectory)\Client\node_modules\.package-lock.json" AlwaysCreate="true" />
   </Target>
 
-  <Target Name="BuildWebClientAssets" BeforeTargets="PrepareResources" DependsOnTargets="RestoreWebClientPackages" Condition="'$(BuildsWebClient)' == 'true' and '$(SkipWebClientBuild)' != 'true'">
+  <Target Name="BuildWebClientAssets" BeforeTargets="PrepareResources" DependsOnTargets="RestoreWebClientPackages" Condition="'$(BuildsWebClient)' == 'true' and '$(SkipWebClientBuild)' != 'true'" Inputs="@(WebClientInput)" Outputs="$(WebClientStamp);@(WebClientOutput)">
     <!-- The client's tests read the parity corpora under eng/, which is never mirrored, so they run here and not from
          `npm run build` - the same rule the .NET tests follow: a mirror builds, it does not test. A client with no tests says
          so with `WebClientTests`. -->
@@ -30,6 +42,9 @@
       Command="npm run build" />
 
     <Error Condition="!Exists('%(WebClientOutput.Identity)')" Text="The web client's output was not generated: %(WebClientOutput.Identity)" />
+
+    <!-- Last, so a failed test or build leaves no stamp and the next build runs them again. -->
+    <Touch Files="$(WebClientStamp)" AlwaysCreate="true" />
   </Target>
 
 </Project>

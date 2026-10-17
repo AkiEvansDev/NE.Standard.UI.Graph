@@ -29,13 +29,14 @@ export type MenuScope = {
     readonly context: { readonly names: DomNames; readonly states: ComponentStates };
 };
 
-/** What the menus reach on the coordinator: the kind, the item boxes and sizes a command needs, and the delete it shares with Delete. */
+/** What the menus reach on the coordinator: the kind, the item boxes and sizes a command needs, and the delete and copy it shares with the keys. */
 export type MenusHost = {
     readonly nodeElements: ReadonlyMap<string, HTMLElement>;
     kind(): CanvasKind;
     nodeRect(id: string): Rect | null;
     drawEdges(): void;
     deleteSelection(): void;
+    duplicate(itemIds: ReadonlySet<string>): void;
 };
 
 export class CanvasMenus {
@@ -171,6 +172,13 @@ export class CanvasMenus {
         // A node's own delete takes the node it was opened on, chosen or not.
         this.enableEntries("graph:delete", editable && removable);
 
+        const kind = this.host.kind();
+        const node = this.menuTarget?.kind === "node" ? this.menuTarget.id : null;
+
+        this.enableEntries("graph:duplicate-selection", editable && [...this.selection.nodeIds].some(id => kind.canDuplicate(id)));
+        this.enableEntries("graph:duplicate", editable && node !== null && kind.canDuplicate(node));
+        this.enableEntries("graph:disconnect-all", editable && node !== null && kind.canDisconnect(node));
+
         for (const name of [NodeMenuName, GroupMenuName]) {
             const menu = this.root.querySelector<HTMLElement>(`[${this.context.names.contextMenu}="${name}"]`);
             const item = this.menuItem(name);
@@ -276,6 +284,15 @@ export class CanvasMenus {
             case "graph:group-selection":
                 this.groupSelection();
                 break;
+            case "graph:duplicate-selection":
+                this.host.duplicate(this.selection.nodeIds);
+                break;
+            case "graph:duplicate":
+                this.host.duplicate(new Set(this.menuItems(NodeMenuName).map(item => item.id)));
+                break;
+            case "graph:disconnect-all":
+                this.disconnectItems();
+                break;
             case "graph:arrange":
                 this.arrangeNodes();
                 break;
@@ -295,6 +312,16 @@ export class CanvasMenus {
                 this.host.kind().runCommand(key, this.menuTarget);
                 break;
         }
+    }
+
+    /** Every edge of the node the menu was opened on, and of every other chosen node, taken out as one edit. */
+    private disconnectItems(): void {
+        const items = this.menuItems(NodeMenuName);
+
+        if (items.length === 0 || this.settings.readOnly || !this.host.kind().disconnect(new Set(items.map(item => item.id))))
+            return;
+
+        this.documentState.edited();
     }
 
     /** Pins what the menu was opened on, or lets it go, and every chosen item of its kind with it; the check turns in place. */

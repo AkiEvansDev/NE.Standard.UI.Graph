@@ -118,6 +118,11 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string DefaultColor = UIGraphWords.DefaultColor;
     public const string AddReroute = UIGraphWords.AddReroute;
     public const string ResetNodeState = UIGraphWords.ResetNodeState;
+    public const string DuplicateSelection = UIGraphWords.DuplicateSelection;
+    public const string Duplicate = UIGraphWords.Duplicate;
+    public const string DisconnectAll = UIGraphWords.DisconnectAll;
+    public const string Disabled = UIGraphWords.Disabled;
+    public const string ResetValues = UIGraphWords.ResetValues;
     public const string Caption = UIGraphWords.Caption;
     public const string TakeServer = UIGraphWords.TakeServer;
     public const string KeepMine = UIGraphWords.KeepMine;
@@ -246,6 +251,11 @@ public sealed partial class GraphStrings : IUIStringsSource
         [DefaultColor] = "Default",
         [AddReroute] = "Add reroute",
         [ResetNodeState] = "Reset",
+        [DuplicateSelection] = "Duplicate selection",
+        [Duplicate] = "Duplicate",
+        [DisconnectAll] = "Disconnect all",
+        [Disabled] = "Disabled",
+        [ResetValues] = "Reset values",
         [Caption] = "Caption",
         [TakeServer] = "Take the server's",
         [KeepMine] = "Keep mine",

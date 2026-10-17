@@ -39,7 +39,7 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
 
     /// <summary>Gets the inputs the viewer set out as the sheet's parameters, in the order they were added.</summary>
     /// <remarks>
-    /// Each is edited in the parameters panel as well as on its node (<c>NodesComponent.ShowParameters</c>). As it came off the
+    /// Each is edited in a <see cref="NodesParametersComponent"/> as well as on its node. As it came off the
     /// wire; read them through <see cref="UINodeCatalog.ParametersOf"/>, which passes over one whose node is gone, whose input is
     /// wired or has no field.
     /// </remarks>
@@ -96,7 +96,7 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
         UINode[] nodes = [.. Nodes];
         Dictionary<string, object?> values = new(node.Values, StringComparer.Ordinal) { [pinName] = value };
 
-        nodes[at] = new UINode(node.Id, node.Type, node.X, node.Y, node.Title, node.Color, node.Pinned, node.Collapsed, values, node.Width, node.Height);
+        nodes[at] = new UINode(node.Id, node.Type, node.X, node.Y, node.Title, node.Color, node.Pinned, node.Collapsed, values, node.Width, node.Height, node.Enabled);
 
         return new UINodeDocument(nodes, Edges, Groups, Key, Parameters);
     }
@@ -123,7 +123,7 @@ public sealed class UINodeParameter(string node, string pin)
 /// One node on the canvas: which kind it is, where it stands, and what its inputs were set to.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINode(string id, string type, double x = 0, double y = 0, string? title = null, string? color = null, bool pinned = false, bool collapsed = false, IReadOnlyDictionary<string, object?>? values = null, double? width = null, double? height = null)
+public sealed class UINode(string id, string type, double x = 0, double y = 0, string? title = null, string? color = null, bool pinned = false, bool collapsed = false, IReadOnlyDictionary<string, object?>? values = null, double? width = null, double? height = null, bool enabled = true)
 {
     /// <summary>
     /// Gets the node's own id, unique in the document; an edge names it.
@@ -180,6 +180,12 @@ public sealed class UINode(string id, string type, double x = 0, double y = 0, s
     /// Gets how tall the viewer dragged the node, in canvas units; unset, as tall as its contents make it.
     /// </summary>
     public double? Height { get; } = height;
+
+    /// <summary>
+    /// Gets whether the node takes part in a run; turned off from its menu, a run passes it over, and an input it feeds takes its
+    /// own value, as though unwired. Saved, so a reloaded sheet keeps it off.
+    /// </summary>
+    public bool Enabled { get; } = enabled;
 }
 
 /// <summary>

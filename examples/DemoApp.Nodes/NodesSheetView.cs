@@ -13,6 +13,9 @@ internal abstract class NodesSheetView : NodesDemoView
     // The canvas's least height, in rem; its row holds the same floor in pixels.
     private const double CanvasHeight = 24;
 
+    // The parameters column beside the sheet, in px: a name and a field a row.
+    private const double ParametersWidth = 280;
+
     /// <summary>The page's canvas, by the id its controller addresses it with.</summary>
     protected abstract string CanvasId { get; }
 
@@ -68,35 +71,16 @@ internal abstract class NodesSheetView : NodesDemoView
                 .SetMargin(UIThickness.All(0, 0, 0, 12))
                 .SetPlacement(1, 1, 24, 1)
             )
-            .AddChild(new NodesComponent(CanvasId)
-                .SetCatalog(Kinds)
-                .SetSheetName(SheetName)
-                .SetCanvasHeight(CanvasHeight)
+            // The sheet and its parameters beside it, a pane each: the viewer carries one onto the other's place by its grip, and the
+            // browser keeps the order per page. The parameters keep their width on either side, the sheet taking the rest; on a phone
+            // they stand under the sheet.
+            .AddChild(new PaneContainerComponent($"{CanvasId}-panes")
                 .SetHeight(UILayoutLength.Fill())
-                .SetShowMinimap(true)
-                // Out past the default quarter: a sheet of three columns is wider than a phone's canvas at a quarter of its size.
-                .SetZoomRange(0.1, 2.5)
-                // Run, Run all and Stop in the canvas's top corner; the save command hands a run's save to the package's UINodeRuns.
-                .SetShowRunPanel(true)
-                // Under the run panel: the inputs set out from a pin's menu, edited there as well as on their nodes.
-                .SetShowParameters(true)
-                // A node's frequent entries as icons in a bar above the node pressed: the node menu's own, a press on one its entry's
-                // press; a long press on a phone opens the menu with them atop it.
-                .SetNodeActionBar()
-                .OnStop(nameof(NodesSheetController.Stop))
-                // Held in the browser until a save sends it: the sheet is the viewer's until then.
-                .SetFormId(NodesSheetController.CanvasForm)
-                .BindValue(nameof(NodesSheetController.Sheet), mode: UIBindingMode.OnSubmit)
-                .BindEdgeShape(nameof(NodesSheetController.EdgeShape))
-                .BindSnapToGrid(nameof(NodesSheetController.SnapToGrid))
-                .BindIsReadOnly(nameof(NodesSheetController.ReadOnly))
-                .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "nodes.run-sheet", Icon = NodesIcons.Run })
-                // An entry of the page's own in a node's menu, under the canvas's: the command hears which node.
-                .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "nodes.show-position", Icon = NodesIcons.Position, InActionBar = true })
-                .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"), UIGraphArguments.Target("target"))
-                .OnSave(nameof(NodesSheetController.SaveAsync), UIGraphArguments.Reason("reason"))
-                .OnImageUpload(nameof(NodesSheetController.ImageUploadedAsync))
-                .OnNodeClick(nameof(NodesSheetController.NodeClicked))
+                .SetColumn(UIGridPlacement.GridColumns, UIGridUnit.Absolute(ParametersWidth))
+                .AddRow(UIGridUnit.Auto())
+                .SetSpacing(12)
+                .AddPane("sheet", UIResponsive<UIGridPlacement>.Create(UIGridPlacement.At(1, 1, 24, 1), md: UIGridPlacement.At(1, 1, 23, 2)), CreateCanvas())
+                .AddPane("parameters", UIResponsive<UIGridPlacement>.Create(UIGridPlacement.At(1, 2, 24, 1), md: UIGridPlacement.At(24, 1, 1, 2)), new NodesParametersComponent().SetCanvas(CanvasId), keepsSize: true)
                 .SetPlacement(1, 2, 24, 1)
             )
             .AddChild(UIText.Subtitle(string.Empty)
@@ -111,4 +95,34 @@ internal abstract class NodesSheetView : NodesDemoView
                 .SetPlacement(1, 4, 24, 1)
             )
         );
+
+    /// <summary>The page's canvas: the sheet, its run panel, and the page's own entries in its menus.</summary>
+    private NodesComponent CreateCanvas()
+        => new NodesComponent(CanvasId)
+            .SetCatalog(Kinds)
+            .SetSheetName(SheetName)
+            .SetCanvasHeight(CanvasHeight)
+            .SetHeight(UILayoutLength.Fill())
+            .SetShowMinimap(true)
+            // Out past the default quarter: a sheet of three columns is wider than a phone's canvas at a quarter of its size.
+            .SetZoomRange(0.1, 2.5)
+            // Run, Run all and Stop in the canvas's top corner; the save command hands a run's save to the package's UINodeRuns.
+            .SetShowRunPanel(true)
+            // A node's frequent entries as icons in a bar above the node pressed: the node menu's own, a press on one its entry's
+            // press; a long press on a phone opens the menu with them atop it.
+            .SetNodeActionBar()
+            .OnStop(nameof(NodesSheetController.Stop))
+            // Held in the browser until a save sends it: the sheet is the viewer's until then.
+            .SetFormId(NodesSheetController.CanvasForm)
+            .BindValue(nameof(NodesSheetController.Sheet), mode: UIBindingMode.OnSubmit)
+            .BindEdgeShape(nameof(NodesSheetController.EdgeShape))
+            .BindSnapToGrid(nameof(NodesSheetController.SnapToGrid))
+            .BindIsReadOnly(nameof(NodesSheetController.ReadOnly))
+            .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "nodes.run-sheet", Icon = NodesIcons.Run })
+            // An entry of the page's own in a node's menu, under the canvas's: the command hears which node.
+            .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "nodes.show-position", Icon = NodesIcons.Position, InActionBar = true })
+            .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"), UIGraphArguments.Target("target"))
+            .OnSave(nameof(NodesSheetController.SaveAsync), UIGraphArguments.Reason("reason"))
+            .OnImageUpload(nameof(NodesSheetController.ImageUploadedAsync))
+            .OnNodeClick(nameof(NodesSheetController.NodeClicked));
 }

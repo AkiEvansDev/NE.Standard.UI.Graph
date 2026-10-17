@@ -63,6 +63,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         CanvasMenu = new MenuComponent().AddItems(
         [
             Entry(UIGraphCommands.GroupSelection, UIGraphWords.GroupSelection, UIGlyphs.AspectRatio),
+            Entry(UIGraphCommands.DuplicateSelection, UIGraphWords.DuplicateSelection, UIGlyphs.Copy, "Ctrl+D"),
             Entry(UIGraphCommands.DeleteSelection, UIGraphWords.DeleteSelection, UIGlyphs.Delete),
             Separator(),
             Entry(UIGraphCommands.Arrange, UIGraphWords.Arrange, UIGlyphs.Sort),
@@ -71,9 +72,14 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
 
         ColorChoices = DefaultColorChoices;
 
-        // Pin, rename and delete are what a node is most often asked for: they stand in its action bar (SetNodeActionBar), colour
-        // behind its "…" — a group's band has no bar.
-        NodeMenu = new MenuComponent().AddItems([.. ItemEntries(inActionBar: true), Separator(), DeleteEntry()]);
+        // Pin, rename and delete are what a node is most often asked for: they stand in its action bar (SetNodeActionBar); what is
+        // done to the node leads its "…", colour under it. A group's band has no bar, and nothing to copy or cut loose.
+        NodeMenu = new MenuComponent().AddItems(
+        [
+            .. ItemEntries(inActionBar: true, Entry(UIGraphCommands.Duplicate, UIGraphWords.Duplicate, UIGlyphs.Copy, "Ctrl+D"), Entry(UIGraphCommands.DisconnectAll, UIGraphWords.DisconnectAll, UIGlyphs.Cut)),
+            Separator(),
+            DeleteEntry()
+        ]);
         GroupMenu = new MenuComponent().AddItems(ItemEntries(inActionBar: false));
 
         // Delete is every edge's; what else an edge's menu offers is the kind's, put ahead of it.
@@ -91,8 +97,11 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         _ = SetContextMenu(CanvasMenu);
     }
 
-    /// <summary>What an item's menu and a group's menu both hold — built once for each, since an entry stands in one menu only.</summary>
-    private MenuItem[] ItemEntries(bool inActionBar)
+    /// <summary>
+    /// What an item's menu and a group's menu both hold — built once for each, since an entry stands in one menu only — with the
+    /// menu's own commands between the name and the colour, a rule over the colour.
+    /// </summary>
+    private MenuItem[] ItemEntries(bool inActionBar, params MenuItem[] commands)
     {
         MenuItem color = Entry(UIGraphCommands.Color, UIGraphWords.Color, UIGlyphs.Colorize, kind: UIMenuItemKind.Select);
         MenuItem pin = Entry(UIGraphCommands.Pin, UIGraphWords.Pinned, UIGlyphs.Pin, kind: UIMenuItemKind.Check);
@@ -103,7 +112,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         pin.InActionBar = inActionBar;
         rename.InActionBar = inActionBar;
 
-        return [pin, rename, color];
+        return commands.Length == 0 ? [pin, rename, color] : [pin, rename, .. commands, Separator(), color];
     }
 
     /// <summary>A node's own delete, last and in the danger colour, as a destructive entry stands; the selection goes with the node.</summary>
@@ -177,7 +186,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public MenuComponent CanvasMenu { get; }
 
     /// <summary>
-    /// Gets the menu the right button opens on an item: pin, rename, colour and delete.
+    /// Gets the menu the right button opens on an item: pin, rename, duplicate, disconnect all, colour and delete.
     /// </summary>
     public MenuComponent NodeMenu { get; }
 
@@ -338,19 +347,19 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         if (entries.Length == 0)
             return Self;
 
-        InsertAheadOfDelete([Separator(), .. entries]);
+        InsertAhead(UIGraphCommands.Delete, [Separator(), .. entries]);
 
         return Self;
     }
 
     /// <summary>
-    /// Puts entries into the node menu ahead of Delete and the rule over it, found by Delete's command so a kind's own entries or a
-    /// removed Delete cannot shift them; at the end where the menu holds no Delete.
+    /// Puts entries into the node menu ahead of one command's entry and the rule over it, found by its command so a kind's own
+    /// entries or a removed entry cannot shift them; at the end where the menu holds no such entry.
     /// </summary>
-    private void InsertAheadOfDelete(MenuItem[] entries)
+    private void InsertAhead(string command, MenuItem[] entries)
     {
         IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
-        var at = Array.FindIndex(items, static item => string.Equals(item.Id, UIGraphCommands.Delete, StringComparison.Ordinal));
+        var at = Array.FindIndex(items, item => string.Equals(item.Id, command, StringComparison.Ordinal));
 
         if (at < 0)
             at = items.Length;
@@ -484,12 +493,12 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public T SetNodeActionBar()
         => SetNodeActionBar(true);
 
-    /// <summary>A kind's own entry of the node menu, after the shared ones and ahead of the rule over Delete, which stays last.</summary>
+    /// <summary>A kind's own entry of the node menu, after Duplicate and Disconnect all and ahead of the rule over Colour.</summary>
     protected void AddNodeEntry(MenuItem entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        InsertAheadOfDelete([entry]);
+        InsertAhead(UIGraphCommands.Color, [entry]);
     }
 
     /// <summary>A built-in entry a kind puts ahead of the shared ones in a menu, as the node canvas puts Add node.</summary>

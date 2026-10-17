@@ -87,6 +87,8 @@
 @ui-z-drawer-veil: 49;
 @ui-z-drawer: 50;
 @ui-z-tooltip: 60;
+// The bar along the window's top while the page's own load is under way: over everything on the page, under a dialog and a notice.
+@ui-z-navigation: 70;
 @ui-z-dialog: 100;
 @ui-z-notification: 200;
 
@@ -1309,6 +1311,17 @@
     .ui-input--small &:not(.ui-split-button),
     .ui-input--small & > .ui-split-button__main {
         .ui-responsive-property(padding, --ui-padding, 0 @ui-space-1);
+    }
+
+    // An icon alone takes a small button's glyph and a hair of padding, square at the line's height: at its own 18 px and 4 px round
+    // it stood 28 px tall and stretched the 24 px line. An authored IconSize keeps its own.
+    .ui-input--small &:not(.ui-split-button)[data-ui-text-icon]:not([data-ui-text-title]),
+    .ui-input--small &[data-ui-text-icon]:not([data-ui-text-title]) > .ui-split-button__main {
+        .ui-responsive-property(padding, --ui-padding, 0.125rem);
+    }
+
+    .ui-input--small &[data-ui-text-icon]:not([data-ui-text-title]) .ui-text__icon:not(.ui-icon-size--small, .ui-icon-size--medium, .ui-icon-size--large) {
+        font-size: @ui-glyph-md;
     }
 
     > .ui-button__content.ui-text-type--body,

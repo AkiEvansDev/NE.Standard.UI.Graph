@@ -10,7 +10,7 @@ import type { DraftEntry, DraftModel } from "../src/graph/draft.ts";
 import { DraftedCollection, NodesAttribute } from "../src/graph/drafted-collection.ts";
 import { GraphEditing } from "../src/graph/graph-editing.ts";
 import type { GraphDocument, GraphNode, GraphNodeDraft } from "../src/graph/model.ts";
-import { GraphDraftModel, graphEdges, readGraphNode, toDraft } from "../src/graph/model.ts";
+import { copiedLinks, GraphDraftModel, graphEdges, readGraphNode, toDraft } from "../src/graph/model.ts";
 import type { Craft, CraftDraft, ProductionDocument, Resource, ResourceDraft } from "../src/production/model.ts";
 import { ProductionDraftModel, craftDraft, readEntry, resourceDraft } from "../src/production/model.ts";
 import { ProductionEditing } from "../src/production/production-editing.ts";
@@ -111,6 +111,28 @@ test("a removed node takes the links into it out of the draft, so a node added u
 
     assert.equal(items.item("node-1")?.title, "ui.graph.new-node");
     assert.deepEqual(graphEdges(items.items), []);
+});
+
+test("duplicated nodes are the viewer's own under free keys, a step off their originals, linked only to one another", () => {
+    const document = graphDocument([]);
+
+    document.nodes.push({ id: "a", x: 40, y: 80 }, { id: "b", x: 200, y: 80 });
+
+    const { items, services } = stage([node("a", "A", "b", "c"), node("b", "B", "c"), node("c", "C")], document, GraphDraftModel);
+    const taken = new Set(graphEdges(items.items).map(link => link.id));
+    const copies = items.duplicate(["a", "b", "missing"], 40, (entry, keys) => {
+        entry.links = copiedLinks(entry, keys, taken);
+    });
+
+    services.documentState.edited();
+    items.refresh();
+
+    assert.deepEqual(copies, ["node-1", "node-2"]);
+    assert.equal(items.item("node-1")!.title, "A");
+    assert.deepEqual(document.draft.nodes.map(entry => [entry.id, entry.created, entry.baseline]), [["node-1", true, null], ["node-2", true, null]]);
+    assert.deepEqual(document.nodes.slice(2), [{ id: "node-1", x: 80, y: 120 }, { id: "node-2", x: 240, y: 120 }]);
+    // The originals keep their links; the copies carry only the one between them.
+    assert.deepEqual(graphEdges(items.items).map(link => `${link.from}>${link.to}`), ["a>b", "a>c", "b>c", "node-1>node-2"]);
 });
 
 function productionDocument(resources: ResourceDraft[], crafts: CraftDraft[], plan: ProductionDocument["plan"]): ProductionDocument {

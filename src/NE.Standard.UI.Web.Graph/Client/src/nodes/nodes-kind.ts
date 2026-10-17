@@ -4,13 +4,13 @@
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { snapBoxes } from "../canvas/canvas-drag.ts";
 import { cloneTemplate, CoreNames, NodeAttribute } from "../canvas/canvas-dom.ts";
-import { enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
+import { checkMenuEntries, enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
 import { newId, readJson } from "../canvas/canvas-model.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
-import { AnyType, canResetPin, createNode, duplicate, edgeInto, findPin, readDocument, resetPin, resolveOutputType, slice } from "./model.ts";
+import { AnyType, canResetPin, canResetValues, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, resetPin, resetValues, resolveOutputType, slice } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
 import { NodesParameters } from "./nodes-parameters.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
@@ -21,8 +21,8 @@ import { HeadAttribute, PinAttribute, PinDirectionAttribute, PinMenuAttribute, P
 
 // A node's editor — the framework's own component, its open list among it — whose pointer, wheel and keys are its own.
 const EditorSelector = ".ui-graph__editor";
-// The panels a node canvas stands over its sheet: the log, the run line, the run panel and the parameters panel.
-const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel, [data-ui-graph-parameters-panel]";
+// The panels a node canvas stands over its sheet: the log, the run line and the run panel.
+const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel";
 const CatalogAttribute = "data-ui-graph-catalog";
 // The kind every catalogue carries (`RerouteNode` on the server), which a wire's menu puts on the wire.
 const RerouteKey = "graph.reroute";
@@ -32,6 +32,8 @@ const RerouteHalfHeight = 12;
 const AddParameterCommand = "graph:add-parameter";
 const RemoveParameterCommand = "graph:remove-parameter";
 const ResetPinCommand = "graph:reset-pin";
+const DisableCommand = "graph:disable";
+const ResetValuesCommand = "graph:reset-values";
 
 /** The pin a pin's menu was opened on. */
 type PinTarget = { readonly node: string; readonly pin: string; readonly direction: "in" | "out" };
@@ -165,6 +167,11 @@ export class NodesKind implements CanvasKind {
         this.fitFirstDraw();
     }
 
+    /** A parameters column aimed at this canvas arrived on the page — drawn after the canvas, or drawn again: its rows are written. */
+    public parametersArrived(): void {
+        this.parameters.draw();
+    }
+
     /**
      * The first document that holds a node opens whole, as Arrange leaves one and as the layered sheet opens (`CanvasView.fitSheet`:
      * a returning viewer's kept view stands, a hidden canvas fits once shown). An empty first document fits nothing, so a sheet
@@ -271,7 +278,7 @@ export class NodesKind implements CanvasKind {
 
     // --- values ------------------------------------------------------------------------------------------------------------------
 
-    /** One value typed into a node's field or the parameters panel's; the other is updated in place. */
+    /** One value typed into a node's field or the parameters column's; the other is updated in place. */
     private setValue(nodeId: string, pinName: string, value: unknown, fromPanel = false): void {
         const node = this.document.nodes.find(candidate => candidate.id === nodeId);
 
@@ -392,9 +399,6 @@ export class NodesKind implements CanvasKind {
     }
 
     public chrome(target: Element): boolean {
-        if (this.parameters.press(target))
-            return true;
-
         if (target.closest("[data-ui-graph-log-toggle]") !== null) {
             this.log.setLogOpen(!this.log.isLogOpen(), true);
             return true;
@@ -444,6 +448,32 @@ export class NodesKind implements CanvasKind {
         this.clipboard = slice(this.document, new Set(copy.nodes.map(node => node.id)));
 
         return copy.nodes.map(node => node.id);
+    }
+
+    /** A paste of the nodes straight away, a step off, the clipboard left alone. */
+    public duplicate(itemIds: ReadonlySet<string>): readonly string[] | null {
+        const step = this.services.settings.gridSize * 2;
+        const copy = duplicate(slice(this.document, itemIds), step, step);
+
+        if (copy.nodes.length === 0)
+            return null;
+
+        this.document.nodes.push(...copy.nodes);
+        this.document.edges.push(...copy.edges);
+
+        return copy.nodes.map(node => node.id);
+    }
+
+    public canDuplicate(id: string): boolean {
+        return this.document.nodes.some(node => node.id === id);
+    }
+
+    public disconnect(itemIds: ReadonlySet<string>): boolean {
+        return disconnect(this.document, itemIds);
+    }
+
+    public canDisconnect(id: string): boolean {
+        return hasEdges(this.document, id);
     }
 
     public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean {
@@ -532,6 +562,18 @@ export class NodesKind implements CanvasKind {
 
                 return true;
 
+            case DisableCommand:
+                if (target?.kind === "node")
+                    this.toggleEnabled(target.id);
+
+                return true;
+
+            case ResetValuesCommand:
+                if (target?.kind === "node")
+                    this.resetValues(target.id);
+
+                return true;
+
             case AddParameterCommand:
             case RemoveParameterCommand:
                 if (this.pinTarget !== null)
@@ -587,11 +629,15 @@ export class NodesKind implements CanvasKind {
     }
 
     public syncMenus(editable: boolean, target: MenuTarget | null): void {
-        for (const key of ["graph:add-node", "graph:add-reroute", "graph:delete-edge", "graph:reset-state"])
+        for (const key of ["graph:add-node", "graph:add-reroute", "graph:delete-edge", "graph:reset-state", DisableCommand])
             enableMenuEntries(this.services, key, editable);
 
+        const node = target?.kind === "node" ? target.id : null;
+
         // Reset stands only in the menu of a node whose kind keeps a state.
-        showMenuEntries(this.services, "graph:reset-state", target?.kind === "node" && this.statePins(target.id).length > 0);
+        showMenuEntries(this.services, "graph:reset-state", node !== null && this.statePins(node).length > 0);
+        checkMenuEntries(this.services, DisableCommand, node !== null && this.document.nodes.find(candidate => candidate.id === node)?.enabled === false);
+        enableMenuEntries(this.services, ResetValuesCommand, editable && node !== null && canResetValues(this.document, this.types, node));
         this.syncPinMenu();
     }
 
@@ -661,6 +707,45 @@ export class NodesKind implements CanvasKind {
             node.values[pin.name] = pin.defaultValue ?? null;
 
         this.services.documentState.edited();
+    }
+
+    /** The node turned off for a run, or on again, and every other chosen node with it, as the first one turns; one edit. */
+    private toggleEnabled(nodeId: string): void {
+        const nodes = this.menuNodes(nodeId);
+
+        if (this.services.settings.readOnly || nodes.length === 0)
+            return;
+
+        const enabled = nodes[0].enabled === false;
+
+        for (const node of nodes) {
+            node.enabled = enabled;
+
+            if (!enabled)
+                this.log.forgetNode(node.id);
+        }
+
+        this.services.documentState.edited();
+    }
+
+    /** Every input of the node, and of every other chosen node, back to its kind's default, as one edit. */
+    private resetValues(nodeId: string): void {
+        const nodes = this.menuNodes(nodeId).filter(node => canResetValues(this.document, this.types, node.id));
+
+        if (this.services.settings.readOnly || nodes.length === 0)
+            return;
+
+        for (const node of nodes)
+            resetValues(this.document, this.types, node.id);
+
+        this.services.documentState.edited();
+    }
+
+    /** The node a menu was opened on, first, and every other chosen node, as the core's Pin and Colour take them. */
+    private menuNodes(nodeId: string): DocumentNode[] {
+        const node = this.document.nodes.find(candidate => candidate.id === nodeId);
+
+        return node === undefined ? [] : [node, ...this.document.nodes.filter(candidate => candidate !== node && this.services.selection.has(candidate.id))];
     }
 
     private statePins(nodeId: string): Pin[] {

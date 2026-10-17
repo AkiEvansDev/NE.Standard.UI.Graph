@@ -25,6 +25,24 @@ public static class UIGraphCommands
     /// <summary>Puts a frame around the chosen nodes.</summary>
     public const string GroupSelection = Prefix + "group-selection";
 
+    /// <summary>Copies the chosen nodes a step off, as Ctrl+D does: an edge between two of them is copied, one to a node left behind is not.</summary>
+    public const string DuplicateSelection = Prefix + "duplicate-selection";
+
+    /// <summary>Copies the node the menu was opened on, and every other chosen with it, as <see cref="DuplicateSelection"/> does.</summary>
+    public const string Duplicate = Prefix + "duplicate";
+
+    /// <summary>Takes out every edge of the node the menu was opened on, and of every other chosen with it.</summary>
+    public const string DisconnectAll = Prefix + "disconnect-all";
+
+    /// <summary>
+    /// On the node canvas: turns the node the menu was opened on, and every other chosen with it, off or on again — the entry is
+    /// checked while it is off. A run passes a node that is off over, and what it feeds takes its own value, as though unwired.
+    /// </summary>
+    public const string Disable = Prefix + "disable";
+
+    /// <summary>On the node canvas: puts every input value of the node the menu was opened on, and of every other chosen with it, back to its kind's default.</summary>
+    public const string ResetValues = Prefix + "reset-values";
+
     /// <summary>Lays the document out from its inputs to its outputs.</summary>
     public const string Arrange = Prefix + "arrange";
 
@@ -87,7 +105,7 @@ public static class UIGraphCommands
     /// <summary>Puts every state value of the node the menu was opened on back to its default — a counter to its start.</summary>
     public const string ResetState = Prefix + "reset-state";
 
-    /// <summary>Sets the input the pin's menu was opened on out as a parameter of the sheet (<c>NodesComponent.ShowParameters</c>).</summary>
+    /// <summary>Sets the input the pin's menu was opened on out as a parameter of the sheet (<see cref="NodesParametersComponent"/>).</summary>
     public const string AddParameter = Prefix + "add-parameter";
 
     /// <summary>Takes the input the pin's menu was opened on back out of the sheet's parameters.</summary>
@@ -255,6 +273,21 @@ public static class UIGraphWords
 
     /// <summary>A node's menu entry that puts its state back to where it starts.</summary>
     public const string ResetNodeState = "ui.graph.reset-node-state";
+
+    /// <summary>The sheet's menu entry that copies what is chosen.</summary>
+    public const string DuplicateSelection = "ui.graph.duplicate-selection";
+
+    /// <summary>A node's menu entry that copies it.</summary>
+    public const string Duplicate = "ui.graph.duplicate";
+
+    /// <summary>A node's menu entry that takes out every edge it has.</summary>
+    public const string DisconnectAll = "ui.graph.disconnect-all";
+
+    /// <summary>A node's menu entry that turns it off for a run, checked while it is.</summary>
+    public const string Disabled = "ui.graph.disabled";
+
+    /// <summary>A node's menu entry that puts every input value back to its default.</summary>
+    public const string ResetValues = "ui.graph.reset-values";
 
     /// <summary>A layered graph's edge entry that opens a field over its caption.</summary>
     public const string Caption = "ui.graph.caption";

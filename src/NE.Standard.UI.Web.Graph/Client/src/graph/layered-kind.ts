@@ -13,7 +13,7 @@ import { GraphEditing } from "./graph-editing.ts";
 import { LayeredSheet } from "./layered-sheet.ts";
 import { HandleAttribute } from "./link-drag.ts";
 import type { GraphDocument, GraphEdge, GraphNode, GraphNodeDraft, GraphNodeShape } from "./model.ts";
-import { GraphDraftModel, graphEdges, readGraphDocument, readShape } from "./model.ts";
+import { copiedLinks, GraphDraftModel, graphEdges, readGraphDocument, readShape } from "./model.ts";
 
 const NodeGap = 32;
 /**
@@ -180,12 +180,41 @@ export class LayeredKind implements CanvasKind {
 
     // --- editing: the nodes and links into the draft, when the graph allows it -------------------------------------------------------
 
-    // A copy of the application's node would need a key of the application's own, which the canvas cannot make up: no clipboard.
+    // No clipboard: a copy carried off the sheet is not the draft's; Duplicate copies in place, under a key made as Add node makes one.
     public copy(): void {
     }
 
     public paste(): readonly string[] | null {
         return null;
+    }
+
+    /** Copies as the viewer's own nodes under keys the canvas makes, as Add node makes one; a link stays only between two copies. */
+    public duplicate(itemIds: ReadonlySet<string>): readonly string[] | null {
+        if (!this.editable)
+            return null;
+
+        const taken = new Set([...this.nodes.items, ...this.services.documentState.document.draft.nodes].flatMap(node => node.links.map(link => link.id)));
+        const copies = this.nodes.duplicate(itemIds, this.services.settings.gridSize * 2, (entry, keys) => {
+            entry.links = copiedLinks(entry, keys, taken);
+        });
+
+        return copies.length === 0 ? null : copies;
+    }
+
+    public canDuplicate(id: string): boolean {
+        return this.editable && this.nodes.item(id) !== undefined;
+    }
+
+    public disconnect(itemIds: ReadonlySet<string>): boolean {
+        const links = this.editable ? this.links.filter(link => itemIds.has(link.from) || itemIds.has(link.to)) : [];
+
+        this.editing.removeLinks(new Set(links.map(link => link.id)));
+
+        return links.length > 0;
+    }
+
+    public canDisconnect(id: string): boolean {
+        return this.editable && this.links.some(link => link.from === id || link.to === id);
     }
 
     public remove(itemIds: ReadonlySet<string>, edgeIds: ReadonlySet<string>): boolean {

@@ -11,7 +11,7 @@
     --ui-graph-foot-height: var(--ui-graph-log-strip-height);
 }
 
-    // The log opened is what the canvas's foot is: the corner stands on it, and the parameters panel ends above the corner.
+    // The log opened is what the canvas's foot is: the corner stands on it.
     .ui-graph[data-ui-graph-kind="nodes"][data-ui-graph-log-open] {
         --ui-graph-foot-height: var(--ui-graph-log-height);
     }
@@ -29,6 +29,10 @@
     // The colour as it is drawn: the theme's series colours are set deep for a light ground, so on a dark one they are lifted
     // toward white, or a node's strip, icon and head would sink into the surface around them.
     --ui-graph-node-ink: light-dark(var(--ui-graph-node-color), color-mix(in oklab, var(--ui-graph-node-color) 70%, white));
+    // The edge and corner every shape sets here rather than on its own border, so a chosen one's thicker edge follows them.
+    --ui-graph-node-border: var(--ui-border-width);
+    --ui-graph-node-radius: var(--ui-radius-card);
+    --ui-graph-node-chosen-edge: 2px;
 
     display: flex;
     flex-direction: column;
@@ -38,11 +42,13 @@
     // A dragged size is a floor, never a cage: the kind's least width and the contents' own height still have the last word.
     width: max(var(--ui-graph-node-min-width), calc(var(--ui-graph-node-w, 0) * 1px));
     min-height: calc(var(--ui-graph-node-h, 0) * 1px);
-    border: var(--ui-border-width) solid var(--ui-color-border);
-    border-radius: var(--ui-radius-card);
+    border: var(--ui-graph-node-border) solid var(--ui-color-border);
+    border-radius: var(--ui-graph-node-radius);
     background: var(--ui-color-surface);
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
+    // Its own stack, so the chosen edge's thickening (below) paints over its ground and under its pins.
+    isolation: isolate;
     .ui-elevation-1();
 }
 
@@ -52,6 +58,20 @@
     .ui-graph__node[data-ui-graph-selected] {
         border-color: var(--ui-color-primary);
         box-shadow: 0 0 12px 1px color-mix(in srgb, var(--ui-color-primary) 55%, transparent);
+    }
+
+    // Chosen, the edge thickens outward by `--ui-graph-node-chosen-edge`: a wider border would narrow the contents and move the pins.
+    // It wears the edge's own colour and dashes (a failure's, a conflict's, a run's state), over the border and under the pins.
+    .ui-graph__node[data-ui-graph-selected]::after {
+        content: "";
+        position: absolute;
+        inset: calc(-1 * (var(--ui-graph-node-border) + var(--ui-graph-node-chosen-edge)));
+        z-index: -1;
+        border: calc(var(--ui-graph-node-border) + var(--ui-graph-node-chosen-edge)) solid;
+        border-color: inherit;
+        border-style: inherit;
+        border-radius: calc(var(--ui-graph-node-radius) + var(--ui-graph-node-chosen-edge));
+        pointer-events: none;
     }
 
     .ui-graph__node[data-ui-graph-state="running"] {
@@ -125,6 +145,11 @@
 .ui-graph__node[data-ui-graph-collapsed] {
     width: max-content;
     min-width: max(7.5rem, calc(var(--ui-graph-node-w, 0) * 1px));
+}
+
+// A node turned off for a run stands dimmed, its pins and glow with it; it is still chosen, moved and typed into as any other.
+.ui-graph__node[data-ui-graph-off] {
+    opacity: 0.45;
 }
 
 // Folded, the node is its head alone: no divider, and the head takes the corners the open body rounds.
@@ -948,89 +973,30 @@ dialog.ui-graph__picker {
         color: var(--ui-color-primary-ink);
     }
 
-// --- the parameters panel ---------------------------------------------------------------------------------------------------------
-// Under the run panel, on the trailing side as the production graph's plan stands (canvas.less's side panel): shown only on a
-// canvas that sets parameters out, and ending above the zoom bar however many there are.
+// --- the parameters column ------------------------------------------------------------------------------------------------------
+// A `NodesParametersComponent` beside its canvas, not over it: a card of its own whose title names it (a pane container's grip reads
+// it), the canvas's rows under the title, scrolling where the column is shorter than they are.
 
-.ui-graph {
-    // The run panel's own height: its small buttons in a padded frame, as the zoom bar's corner is.
-    --ui-graph-run-panel-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width));
-    // Where the parameters panel starts: under the run line, and under the run panel where the canvas shows one.
-    --ui-graph-parameters-top: @ui-space-2;
-    --ui-graph-parameters-width: 18rem;
+.ui-graph-parameters {
+    display: flex;
+    flex-direction: column;
+    gap: @ui-space-2;
+    // Through the component's own tiers, so a MinWidth, MinHeight or Padding set on it still wins.
+    .ui-responsive-property(min-width, --ui-min-width, 0);
+    .ui-responsive-property(min-height, --ui-min-height, 0);
+    .ui-responsive-property(padding, --ui-padding, @ui-space-3);
+    overflow: hidden auto;
+    border: var(--ui-border-width) solid var(--ui-color-border);
+    border-radius: var(--ui-radius-card);
+    .ui-graph-surface-ground();
+    color: var(--ui-color-on-surface);
+    font-size: var(--ui-text-caption-font-size);
+    // A holder of the keyboard, as a dialog's surface is: it takes the focus back from a field, and wears no ring for it.
+    outline: none;
 }
 
-    .ui-graph[data-ui-graph-run-progress] {
-        --ui-graph-parameters-top: calc(var(--ui-graph-run-height) + @ui-space-2);
-    }
-
-    .ui-graph[data-ui-graph-run-panel] {
-        --ui-graph-parameters-top: calc(@ui-space-2 * 2 + var(--ui-graph-run-panel-height));
-    }
-
-    .ui-graph[data-ui-graph-run-progress][data-ui-graph-run-panel] {
-        --ui-graph-parameters-top: calc(var(--ui-graph-run-height) + @ui-space-2 * 2 + var(--ui-graph-run-panel-height));
-    }
-
-.ui-graph .ui-graph__parameters {
-    .ui-graph-side-panel(var(--ui-graph-parameters-width); ~".ui-graph__parameters-body");
-    top: var(--ui-graph-parameters-top);
-    display: none;
-    max-height: calc(100% - var(--ui-graph-parameters-top) - 2 * @ui-space-2 - var(--ui-graph-corner-height) - var(--ui-graph-foot-height));
-}
-
-    .ui-graph[data-ui-graph-parameters] .ui-graph__parameters {
-        display: flex;
-    }
-
-.ui-graph__parameters-toggle {
-    .ui-graph-side-toggle();
-}
-
-.ui-graph__parameters-chevron {
-    .ui-graph-side-chevron(~".ui-graph__parameters");
-}
-
-// The gear stands for the panel once folded; open, the word and the chevron do.
-.ui-graph__parameters-icon {
-    .ui-glyph-host();
-    display: none;
-    font-size: @ui-glyph-md;
-}
-
-// Folded, a small block the run panel's height and corners, under it: the gear alone, the name kept on the gear's tooltip. The
-// gear answers the pointer as the corner menu's switch does — the frame's wash, reaching its edges, and the ink coming up.
-.ui-graph .ui-graph__parameters[data-ui-collapsed]:not([data-ui-folding]) {
-    border-radius: var(--ui-radius-button);
-    box-shadow: none;
-
-    > .ui-graph__parameters-toggle {
-        justify-content: center;
-        width: calc(var(--ui-graph-run-panel-height) - 2 * var(--ui-border-width));
-        height: calc(var(--ui-graph-run-panel-height) - 2 * var(--ui-border-width));
-        padding: 0;
-        border-radius: calc(var(--ui-radius-button) - var(--ui-border-width));
-        color: var(--ui-text-muted);
-        .ui-reveal-hover();
-
-        > :not(.ui-graph__parameters-icon) {
-            display: none;
-        }
-
-        > .ui-graph__parameters-icon {
-            display: inline-flex;
-        }
-
-        @media @{ui-can-hover} {
-            &:hover {
-                color: var(--ui-color-on-surface);
-            }
-        }
-    }
-}
-
-.ui-graph__parameters-body {
-    .ui-graph-side-body();
+.ui-graph-parameters__title {
+    margin: 0;
 }
 
 .ui-graph__parameters-list {

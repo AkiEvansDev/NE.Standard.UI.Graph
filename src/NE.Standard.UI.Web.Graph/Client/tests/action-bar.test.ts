@@ -31,21 +31,32 @@ type Scene = {
     readonly chosen: string[];
     readonly disabled: Map<FakeElement, boolean>;
     readonly deleted: () => number;
+    readonly duplicated: string[][];
+    readonly disconnected: string[][];
+    readonly duplicate: FakeElement;
+    readonly disconnect: FakeElement;
 };
 
 function entry(key: string): FakeElement {
     return FakeElement.of("ui-menu__item", { "data-ui-key": key }, "li").append(FakeElement.of("ui-menu-item", {}, "a"));
 }
 
-/** A canvas of two nodes, the first pinned, with its node menu holding the pin and the delete; nothing chosen. */
-function scene(readOnly = false): Scene {
+/**
+ * A canvas of two nodes, the first pinned and the second wired, with its node menu holding the pin, duplicate, disconnect and
+ * delete; `chosenIds` chosen.
+ */
+function scene(readOnly = false, chosenIds: readonly string[] = []): Scene {
     const pinEntry = entry("graph:pin");
+    const duplicateEntry = entry("graph:duplicate");
+    const disconnectEntry = entry("graph:disconnect-all");
     const deleteEntry = entry("graph:delete");
-    const menu = FakeElement.of("ui-context-menu", { "data-ui-context-menu": NodeMenuName }).append(pinEntry, deleteEntry);
+    const menu = FakeElement.of("ui-context-menu", { "data-ui-context-menu": NodeMenuName }).append(pinEntry, duplicateEntry, disconnectEntry, deleteEntry);
     const node = FakeElement.of("ui-graph__node", { "data-ui-graph-node": "a" }).append(FakeElement.of("ui-graph__node-head"));
     const root = FakeElement.of("ui-graph").append(FakeElement.of("ui-graph__scene").append(node), menu);
     const chosen: string[] = [];
     const disabled = new Map<FakeElement, boolean>();
+    const duplicated: string[][] = [];
+    const disconnected: string[][] = [];
     let deleted = 0;
 
     const context = real<PluginEngineContext>({
@@ -56,12 +67,16 @@ function scene(readOnly = false): Scene {
         items: () => [{ id: "a", x: 0, y: 0, pinned: true }, { id: "b", x: 0, y: 0 }],
         syncMenus: () => undefined,
         canEditItems: () => true,
-        hasEdgeMenu: () => false
+        hasEdgeMenu: () => false,
+        canDuplicate: () => true,
+        canDisconnect: (id: string) => id === "b",
+        disconnect: (ids: ReadonlySet<string>) => disconnected.push([...ids]) > 0
     };
     const selection = {
-        size: 0,
+        size: chosenIds.length,
         edgeSize: 0,
-        has: () => false,
+        nodeIds: new Set(chosenIds),
+        has: (id: string) => chosenIds.includes(id),
         chooseForMenu: (id: string) => chosen.push(id)
     };
     const host = {
@@ -69,13 +84,14 @@ function scene(readOnly = false): Scene {
         kind: () => kind,
         nodeRect: () => null,
         drawEdges: () => undefined,
-        deleteSelection: () => deleted++
+        deleteSelection: () => deleted++,
+        duplicate: (ids: ReadonlySet<string>) => duplicated.push([...ids])
     };
 
     const menus = new CanvasMenus(
         real(root),
         context,
-        real({ document: { groups: [] } }),
+        real({ document: { groups: [] }, edited: () => undefined }),
         real(selection),
         real({}),
         real({ readOnly }),
@@ -83,7 +99,19 @@ function scene(readOnly = false): Scene {
         real(FakeElement.of("ui-graph__groups"))
     );
 
-    return { menus, node, pin: pinEntry.children[0], remove: deleteEntry.children[0], chosen, disabled, deleted: () => deleted };
+    return {
+        menus,
+        node,
+        pin: pinEntry.children[0],
+        remove: deleteEntry.children[0],
+        chosen,
+        disabled,
+        deleted: () => deleted,
+        duplicated,
+        disconnected,
+        duplicate: duplicateEntry.children[0],
+        disconnect: disconnectEntry.children[0]
+    };
 }
 
 test("a bar about to show over a node brings its entries up to date for that node, and chooses nothing", () => {
@@ -104,6 +132,26 @@ test("the icon's press asks as a right press does: the node is chosen, and the c
 
     assert.deepEqual(at.chosen, ["a"]);
     assert.equal(at.deleted(), 1);
+});
+
+test("a node's Duplicate copies it with every other chosen node, and Disconnect all asks the kind for them as one", () => {
+    const at = scene(false, ["a", "b"]);
+
+    at.menus.prepareMenus(real(at.node.children[0]));
+    at.menus.run("graph:duplicate", NodeMenuName);
+    at.menus.run("graph:disconnect-all", NodeMenuName);
+
+    assert.deepEqual(at.duplicated, [["a", "b"]]);
+    assert.deepEqual(at.disconnected, [["a", "b"]]);
+});
+
+test("Disconnect all stands enabled only on a node the kind says has an edge to take out", () => {
+    const at = scene();
+
+    at.menus.prepareBar(real(at.node.children[0]));
+
+    assert.equal(at.disabled.get(at.duplicate), false);
+    assert.equal(at.disabled.get(at.disconnect), true);
 });
 
 test("on a read-only canvas the node's Delete is turned off", () => {

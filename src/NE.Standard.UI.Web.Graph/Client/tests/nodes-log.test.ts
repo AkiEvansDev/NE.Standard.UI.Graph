@@ -10,7 +10,7 @@ import type { GraphDocument, NodeType } from "../src/nodes/model.ts";
 
 installFakeDom();
 
-type Scene = { readonly log: NodesLog; readonly toggle: FakeElement; readonly lines: FakeElement };
+type Scene = { readonly log: NodesLog; readonly toggle: FakeElement; readonly lines: FakeElement; readonly nodes: Map<string, FakeElement> };
 
 function scene(): Scene {
     const toggle = FakeElement.of("ui-graph__log-toggle", { "data-ui-graph-log-toggle": "" }, "button");
@@ -32,15 +32,16 @@ function scene(): Scene {
             resolveText: () => assert.fail("a node's own text is never looked up")
         }
     };
+    const nodes = new Map<string, FakeElement>();
     const services = {
         root,
         context,
-        nodeElements: new Map<string, HTMLElement>(),
+        nodeElements: nodes,
         documentState: { document: { nodes: [{ id: "n1", type: "graph.text", title: "Reader" }] } }
     };
     const log = new NodesLog(real<CanvasServices<GraphDocument>>(services), new Map<string, NodeType>());
 
-    return { log, toggle, lines };
+    return { log, toggle, lines, nodes };
 }
 
 function nodeButton(line: FakeElement | undefined): FakeElement {
@@ -103,4 +104,22 @@ test("a line leaving with no keyboard on it moves the keyboard nowhere", () => {
     page.log.clearLog();
 
     assert.equal(fakeDocument.activeElement, outside);
+});
+
+test("a node turned off loses what the last run left on it at its next redraw, while another keeps its", () => {
+    const page = scene();
+
+    page.nodes.set("n1", FakeElement.of("ui-graph__node"));
+    page.nodes.set("n2", FakeElement.of("ui-graph__node"));
+    page.log.setStatus("n1", "Done", null, null);
+    page.log.setStatus("n2", "Done", null, null);
+    page.log.forgetNode("n1");
+
+    // Drawn afresh, as the edit that turned it off draws the sheet.
+    page.nodes.set("n1", FakeElement.of("ui-graph__node"));
+    page.nodes.set("n2", FakeElement.of("ui-graph__node"));
+    page.log.reapplyToRedrawnNodes(new Set(["n1", "n2"]));
+
+    assert.equal(page.nodes.get("n1")!.getAttribute("data-ui-graph-state"), null);
+    assert.equal(page.nodes.get("n2")!.getAttribute("data-ui-graph-state"), "done");
 });

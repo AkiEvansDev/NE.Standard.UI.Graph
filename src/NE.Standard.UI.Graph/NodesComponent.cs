@@ -25,7 +25,10 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         // A reroute is a shape of the sheet, not a kind to look for: its own entry, not a line of the picker.
         PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add), Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route), Separator());
         PrependEntries(EdgeMenu, Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route));
-        // Shown only on a node whose kind keeps a state; a hidden state has no reset button of its own.
+        // What a run makes of a node: off for the run, its values as a new node's; the state's own reset shown only on a node whose
+        // kind keeps one, since a hidden state has no reset button of its own.
+        AddNodeEntry(Entry(UIGraphCommands.Disable, UIGraphWords.Disabled, UIGlyphs.Block, kind: UIMenuItemKind.Check));
+        AddNodeEntry(Entry(UIGraphCommands.ResetValues, UIGraphWords.ResetValues, UIGlyphs.Restart));
         AddNodeEntry(Entry(UIGraphCommands.ResetState, UIGraphWords.ResetNodeState, UIGlyphs.Restart));
 
         // A pin's row opens its own menu over the node's; the engine shows and enables each entry for the pin as it opens.
@@ -79,17 +82,6 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     /// </remarks>
     [UIComponentProperty(DefaultValue = false)]
     public bool? ShowRunPanel { get; set; }
-
-    /// <summary>
-    /// Gets or sets whether the canvas carries a parameters panel under its run panel, where the inputs set out from their rows'
-    /// menus are edited as well as on their nodes.
-    /// </summary>
-    /// <remarks>
-    /// The set is the sheet's own, <see cref="UINodeDocument.Parameters"/>, saved with it. Only an input with a field of its own
-    /// that no wire feeds can be one; wiring it takes it out.
-    /// </remarks>
-    [UIComponentProperty(DefaultValue = false)]
-    public bool? ShowParameters { get; set; }
 
     /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
     public T SetCatalog(params Type[] nodeTypes)

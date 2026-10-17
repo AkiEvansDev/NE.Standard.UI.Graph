@@ -217,6 +217,7 @@ class Canvas {
             drawGroups: () => this.render.drawGroups(),
             drawMinimap: () => this.view.drawMinimap(),
             deleteSelection: () => this.deleteSelection(),
+            duplicate: (itemIds: ReadonlySet<string>) => this.duplicate(itemIds),
             // While something stands chosen the sheet's Escape is its own, letting go of it: a dialog or a drawer around the canvas stays.
             chosenChanged: (any: boolean) => this.viewport.toggleAttribute(context.names.ownsKeys, any)
         };
@@ -368,6 +369,20 @@ class Canvas {
             return;
 
         this.selection.selectOnlyMany(pasted);
+        this.documentState.edited();
+    }
+
+    /** Copies of the items, chosen in their place, as a paste leaves its copy — without going through the clipboard. */
+    private duplicate(itemIds: ReadonlySet<string>): void {
+        if (this.settings.readOnly || itemIds.size === 0)
+            return;
+
+        const copies = this.kind.duplicate(itemIds);
+
+        if (copies === null || copies.length === 0)
+            return;
+
+        this.selection.selectOnlyMany(copies);
         this.documentState.edited();
     }
 
@@ -958,6 +973,11 @@ class Canvas {
         else if (chord("Ctrl+V")) {
             event.preventDefault();
             this.paste();
+        }
+        else if (chord("Ctrl+D")) {
+            // Held here before the page's own chord of the menus' Duplicate, which would copy a second time.
+            event.preventDefault();
+            this.duplicate(this.selection.nodeIds);
         }
         else if (chord("Ctrl+Z")) {
             event.preventDefault();

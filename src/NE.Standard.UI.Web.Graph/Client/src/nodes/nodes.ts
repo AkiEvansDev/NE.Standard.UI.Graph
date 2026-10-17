@@ -5,6 +5,7 @@ import type { EffectContext, GlobalApi } from "ne-standard-ui";
 import type { GraphEngine } from "../canvas/canvas.ts";
 import { findCanvas } from "../canvas/canvas.ts";
 import { NodesKind } from "./nodes-kind.ts";
+import { ParametersTargetAttribute } from "./nodes-parameters.ts";
 import { StopEventName } from "./nodes-run-panel.ts";
 import { UploadEventName } from "./nodes-upload.ts";
 
@@ -112,4 +113,18 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
 
     // The run panel's Stop, while a run is on.
     api.registerEvent<CustomEvent>(StopEventName, {});
+
+    // A parameters column that arrives on the page — drawn after its canvas, or drawn again — takes its rows from the canvas it is
+    // aimed at; one drawn before its canvas is found by the canvas's first draw.
+    api.registerEngine(context => {
+        context.observeComponents(context.root, `[${ParametersTargetAttribute}]`, { childList: true }, panels => {
+            for (const panel of panels) {
+                const id = Number(panel.getAttribute(ParametersTargetAttribute));
+                const canvas = Number.isInteger(id) && id > 0 ? context.dom.findComponent(id, []) : null;
+
+                if (canvas !== null)
+                    engine()?.kindOf(canvas, NodesKind)?.parametersArrived();
+            }
+        });
+    });
 }

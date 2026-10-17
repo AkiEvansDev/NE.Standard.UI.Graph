@@ -95,6 +95,15 @@ export class NodesLog {
         }
     }
 
+    /**
+     * A node turned off for runs: the state and the displays the last run left on it go with its next redraw, as a gone node's do —
+     * no later run reports on it, so they would stand as though it still ran.
+     */
+    public forgetNode(nodeId: string): void {
+        this.statuses.delete(nodeId);
+        this.displays.delete(nodeId);
+    }
+
     /** A node's state, progress and message; idle with nothing to say clears the line, and a redraw writes it again. */
     public setStatus(nodeId: string, state: string, progress: number | null, message: Said): void {
         const status: NodeStatus = { state: state.toLowerCase(), progress, message };
