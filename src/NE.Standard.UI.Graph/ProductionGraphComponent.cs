@@ -28,7 +28,7 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         // A resource is its icon, its name standing under it: a production graph is read by its shapes before its captions.
         NodeShape = UIGraphNodeShape.Icon;
 
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddResource, UIGlyphs.Add), Separator());
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddResource, UIGlyphs.Add));
         // Target and Brought in are a plan's, and stand in the menu only of a graph that plans.
         PrependEntries(NodeMenu, Entry(UIGraphCommands.CraftTime, UIGraphWords.CraftTime, UIGlyphs.Hourglass), Entry(UIGraphCommands.Target, UIGraphWords.Target, UIGlyphs.Flag), Entry(UIGraphCommands.Bought, UIGraphWords.Bought, UIGlyphs.Download, kind: UIMenuItemKind.Check));
         // An edge that is a whole recipe carries the run: what it takes, what it gives and how long it lasts are all edited on it.

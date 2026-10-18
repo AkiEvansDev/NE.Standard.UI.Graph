@@ -125,34 +125,19 @@ public sealed class UIGraphNodeDraft(string id, string? title = null, string? su
     /// <summary>Gets the application's node, as the browser read it, when the viewer first changed it; unset for a node the viewer added.</summary>
     public string? Baseline { get; } = baseline;
 
-    /// <summary>Writes this state onto a node, property by property, leaving alone what already matches.</summary>
+    /// <summary>Writes this state onto a node, property by property, each setter leaving alone what already matches.</summary>
     public void WriteTo(UIGraphNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
 
-        if (node.Title != Title)
-            node.Title = Title;
-
-        if (node.Subtitle != Subtitle)
-            node.Subtitle = Subtitle;
-
-        if (node.Icon != Icon)
-            node.Icon = Icon;
-
-        if (node.Image != Image)
-            node.Image = Image;
-
-        if (node.Shape != Shape)
-            node.Shape = Shape;
-
-        if (node.Color != Color)
-            node.Color = Color;
-
-        if (node.Badge != Badge)
-            node.Badge = Badge;
-
-        if (node.Tooltip != Tooltip)
-            node.Tooltip = Tooltip;
+        node.Title = Title;
+        node.Subtitle = Subtitle;
+        node.Icon = Icon;
+        node.Image = Image;
+        node.Shape = Shape;
+        node.Color = Color;
+        node.Badge = Badge;
+        node.Tooltip = Tooltip;
 
         if (!UIGraphDraftSupport.Same(node.Links, Links))
             node.Links = Links;

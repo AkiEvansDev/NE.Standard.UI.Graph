@@ -1,5 +1,7 @@
-# Runs in the public mirror of the graph. The framework arrives as a package here, so this also proves
-# that the version the component is built against is really on the feed.
+# Runs in every public mirror, the framework's and each package's, copied there as its build.yml by sync.sh. Tests live in the
+# private repository and are not mirrored, so this proves that the sources compile and are formatted - and that what builds
+# against the published packages (a demo; a package against the framework) restores them. That second half is the useful
+# one: it is a real test of what is on the feed.
 name: Build
 
 on:
@@ -32,7 +34,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      # The canvas engine and the stylesheet build from the TypeScript client as part of `dotnet build`.
+      # A TypeScript client or a generated stylesheet builds as part of `dotnet build`, so node has to be here before restore.
       - name: Setup Node
         uses: actions/setup-node@v7
         with:

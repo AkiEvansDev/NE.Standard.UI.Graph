@@ -181,34 +181,19 @@ public sealed class UIResourceDraft(string id, string? title = null, string? ico
     /// <summary>Gets the application's resource, as the browser read it, when the viewer first changed it; unset for one the viewer added.</summary>
     public string? Baseline { get; } = baseline;
 
-    /// <summary>Writes this state onto a resource, property by property, leaving alone what already matches.</summary>
+    /// <summary>Writes this state onto a resource, property by property, each setter leaving alone what already matches.</summary>
     public void WriteTo(UIResource resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
 
-        if (resource.Title != Title)
-            resource.Title = Title;
-
-        if (resource.Icon != Icon)
-            resource.Icon = Icon;
-
-        if (resource.Color != Color)
-            resource.Color = Color;
-
-        if (resource.Tooltip != Tooltip)
-            resource.Tooltip = Tooltip;
-
-        if (resource.Image != Image)
-            resource.Image = Image;
-
-        if (resource.Category != Category)
-            resource.Category = Category;
-
-        if (resource.Unit != Unit)
-            resource.Unit = Unit;
-
-        if (resource.Cost != Cost)
-            resource.Cost = Cost;
+        resource.Title = Title;
+        resource.Icon = Icon;
+        resource.Color = Color;
+        resource.Tooltip = Tooltip;
+        resource.Image = Image;
+        resource.Category = Category;
+        resource.Unit = Unit;
+        resource.Cost = Cost;
     }
 }
 
@@ -249,22 +234,15 @@ public sealed class UICraftDraft(string id, string? title = null, string? icon =
     /// <summary>Gets the application's craft, as the browser read it, when the viewer first changed it; unset for one the viewer added.</summary>
     public string? Baseline { get; } = baseline;
 
-    /// <summary>Writes this state onto a craft, property by property, leaving alone what already matches.</summary>
+    /// <summary>Writes this state onto a craft, property by property, each setter leaving alone what already matches.</summary>
     public void WriteTo(UICraft craft)
     {
         ArgumentNullException.ThrowIfNull(craft);
 
-        if (craft.Title != Title)
-            craft.Title = Title;
-
-        if (craft.Icon != Icon)
-            craft.Icon = Icon;
-
-        if (craft.Color != Color)
-            craft.Color = Color;
-
-        if (craft.Tooltip != Tooltip)
-            craft.Tooltip = Tooltip;
+        craft.Title = Title;
+        craft.Icon = Icon;
+        craft.Color = Color;
+        craft.Tooltip = Tooltip;
 
         if (!UIGraphDraftSupport.Same(craft.Ingredients, Ingredients))
             craft.Ingredients = Ingredients;
@@ -272,7 +250,6 @@ public sealed class UICraftDraft(string id, string? title = null, string? icon =
         if (!UIGraphDraftSupport.Same(craft.Products, Products))
             craft.Products = Products;
 
-        if (craft.Time != Time)
-            craft.Time = Time;
+        craft.Time = Time;
     }
 }

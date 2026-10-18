@@ -307,26 +307,15 @@ internal sealed partial class BuildsController : UIControllerBase
 
     /// <summary>The picked file read, checked and taken in; a goal naming a resource this catalogue lacks is left out.</summary>
     [UICommand]
-    public async Task<UICommandResult> ImportAsync(CancellationToken cancellationToken)
+    public Task<UICommandResult> ImportAsync(CancellationToken cancellationToken)
+        => PlannerFiles.ImportAsync(Context, ImportSelection, TakeImport, cancellationToken);
+
+    private UICommandResult TakeImport(byte[] content)
     {
-        (var content, var uploadError) = await PlannerFiles.ReadUploadAsync(Context, ImportSelection, cancellationToken).ConfigureAwait(false);
-        UICommandResult answer = UICommandResult.Ok();
-
-        // In the runtime's turn: past its first wait the command runs beside the tab, whose values write these members too.
-        _ = await Context.Runtime.InvokeAsync(() => answer = TakeImport(content, uploadError), cancellationToken).ConfigureAwait(false);
-
-        return answer;
-    }
-
-    private UICommandResult TakeImport(byte[]? content, string? uploadError)
-    {
-        if (content is null)
-            return Refuse(uploadError);
-
         (IReadOnlyList<BuildRecord>? builds, var fileError) = PlannerFiles.ReadBuilds(content);
 
         if (builds is null)
-            return Refuse(fileError);
+            return PlannerFiles.Refuse(fileError);
 
         var replace = ImportMode == ReplaceImport;
 
@@ -338,10 +327,6 @@ internal sealed partial class BuildsController : UIControllerBase
 
         return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(taken, UIColorStyle.Success)]);
     }
-
-    /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
-    private static UICommandResult Refuse(string? reason)
-        => UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase(reason ?? "planner.file.nothing-read"), UIColorStyle.Danger)]);
 
     /// <summary>
     /// The canvas sent an edit in its plan panel — a target added, changed or taken off, the period or what is made least of chosen,

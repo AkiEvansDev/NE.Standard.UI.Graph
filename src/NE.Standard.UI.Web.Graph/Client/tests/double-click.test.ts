@@ -14,24 +14,29 @@ function aim(target: FakeElement, isPanel: (target: Element) => boolean = NoPane
 }
 
 /** A sheet holding one node — its head with its name and its body with a field — a group's band, and an edge. */
-function sheet(): { viewport: FakeElement; title: FakeElement; titleText: FakeElement; head: FakeElement; field: FakeElement; band: FakeElement; edge: FakeElement; corner: FakeElement } {
+function sheet(): { viewport: FakeElement; title: FakeElement; titleText: FakeElement; head: FakeElement; field: FakeElement; band: FakeElement; edge: FakeElement; corner: FakeElement; entry: FakeElement } {
     const titleText = FakeElement.of("ui-graph__node-title-text", {}, "span");
     const title = FakeElement.of("ui-graph__node-title").append(titleText);
     const head = FakeElement.of("ui-graph__node-head").append(title);
     const field = FakeElement.of("ui-text-input__row");
     const band = FakeElement.of("ui-graph__group-title");
     const edge = FakeElement.of("ui-graph__edge", { "data-ui-graph-edge": "e1" }, "path");
-    const corner = FakeElement.of("ui-graph__bar-button", {}, "button");
+    // The corner menu panel's switch and an entry of the menu in its body.
+    const corner = FakeElement.of("ui-graph__menu-panel-toggle", { "data-ui-collapse-toggle": "" }, "button");
+    const entry = FakeElement.of("ui-menu-item", {}, "button");
     const viewport = FakeElement.of("ui-graph__viewport").append(
         FakeElement.of("ui-graph__scene").append(
             FakeElement.of("ui-graph__node", { "data-ui-graph-node": "n1" }).append(head, FakeElement.of("ui-graph__node-body").append(field)),
             FakeElement.of("ui-graph__group", { "data-ui-graph-group": "g1" }).append(FakeElement.of("ui-graph__group-band").append(band)),
             FakeElement.of("", {}, "svg").append(edge)
         ),
-        FakeElement.of("", { "data-ui-graph-menu-panel": "graph-menu" }).append(corner)
+        FakeElement.of("ui-graph__menu-panel", { "data-ui-graph-menu-panel": "graph-menu" }, "aside").append(
+            corner,
+            FakeElement.of("ui-graph__menu-panel-body").append(FakeElement.of("ui-menu").append(entry))
+        )
     );
 
-    return { viewport, title, titleText, head, field, band, edge, corner };
+    return { viewport, title, titleText, head, field, band, edge, corner, entry };
 }
 
 test("a double click on a node's name, or the words inside it, renames that node", () => {
@@ -50,11 +55,12 @@ test("a double click elsewhere on a node, or on a group, asks for nothing", () =
 });
 
 test("a double click on the bare sheet is the kind's own, on an edge a reroute point, on the chrome over the sheet nothing", () => {
-    const { viewport, edge, corner } = sheet();
+    const { viewport, edge, corner, entry } = sheet();
 
     assert.deepEqual(aim(viewport), { to: "sheet" });
     assert.deepEqual(aim(edge), { to: "reroute", id: "e1" });
     assert.equal(aim(corner, CornerPanel), null);
+    assert.equal(aim(entry, CornerPanel), null);
 });
 
 test("a circle's name takes no pointer, so a double click on the circle itself renames it; its badge and link handle take nothing", () => {

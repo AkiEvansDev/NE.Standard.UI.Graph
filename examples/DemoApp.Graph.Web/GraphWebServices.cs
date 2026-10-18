@@ -26,6 +26,6 @@ internal static class GraphWebServices
         // and dresses the menu, the node kinds and the planner's resources from it — and the page's own controls from its outlined drawing.
         _ = services.AddMaterialWebIcons(DemoNodeIcons.All);
         _ = services.AddMaterialWebIcons(PlannerIcons.Filled());
-        _ = services.AddMaterialWebIcons(MaterialIconStyle.Outlined, [GraphDemoView.LightIcon, GraphDemoView.DarkIcon, GraphDemoView.CodeIcon, GraphDemoView.CopyIcon, .. PlannerIcons.Outlined]);
+        _ = services.AddMaterialWebIcons(MaterialIconStyle.Outlined, [GraphDemoView.LightIcon, GraphDemoView.DarkIcon, GraphDemoView.CodeIcon, GraphDemoView.CopyIcon, .. PlannerIcons.Outlined, .. GraphDemoView.PageIcons]);
     }
 }

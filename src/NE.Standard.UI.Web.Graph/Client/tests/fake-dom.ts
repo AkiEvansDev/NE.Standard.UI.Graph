@@ -1,8 +1,10 @@
-// A small stand-in for the DOM, for the tests of the canvas's parts that read the focus, containment, a few attributes and classes,
-// and events bubbling up a tree: enough selectors for the canvas's own (classes, attributes, `*`, `:not()`, `:is()`, `:disabled`,
-// `:scope`, the child and descendant combinators), and nothing laid out but what a test says. The core client's `tests/fake-dom.ts`
-// with what a picker and a log need besides (siblings, `insertBefore`, `hidden`, a native Tab stop, a dialog); a copy, since the
-// package builds without the core's sources.
+// A small stand-in for the DOM, for the tests of engines that read the focus, containment, a few attributes and classes, and
+// events bubbling up a tree: enough selectors for the framework's own lists (classes, attributes, roles, `*`, `[name^=value]`,
+// `:not()`, `:is()`, `:disabled`, `:scope`, `:active`, `:focus-visible`, `:modal`, `:popover-open`, the child and descendant
+// combinators), and nothing laid out but what a test says. The window — its timers and capturing listeners — is installed on request
+// (`fakeWindowGlobals`).
+// One file for every client: a package's `tests/fake-dom.ts` is a byte-for-byte copy of this one (PluginApiSyncTests), since a mirror
+// type-checks its tests without the core's sources beside it. Grow this file and copy it over, never a copy.
 
 type Listener = (domEvent: FakeEvent) => void;
 
@@ -12,21 +14,35 @@ export class FakeEvent {
     public readonly key: string;
     public target: FakeElement | null = null;
     public defaultPrevented = false;
-    public readonly isComposing = false;
+    public readonly isComposing: boolean = false;
+    /** Raised by the browser rather than by a script; a test says so where it plays the browser. */
+    public isTrusted = false;
     public shiftKey = false;
-    public readonly altKey = false;
-    public readonly ctrlKey = false;
-    public readonly metaKey = false;
-    /** A click's count of presses: 0 for one a key made (Enter or Space on a button). */
-    public detail = 0;
+    public altKey = false;
+    public ctrlKey = false;
+    public metaKey = false;
 
     public constructor(type: string, key = "") {
         this.type = type;
         this.key = key;
     }
 
+    /** Set by `stopImmediatePropagation`: no listener after the current one hears the event, here or above. */
+    public stopped = false;
+
+    /** Set by `stopPropagation`: the listeners here still hear it, none above. */
+    public stoppedHere = false;
+
     public preventDefault(): void {
         this.defaultPrevented = true;
+    }
+
+    public stopImmediatePropagation(): void {
+        this.stopped = true;
+    }
+
+    public stopPropagation(): void {
+        this.stoppedHere = true;
     }
 }
 
@@ -38,8 +54,8 @@ export class FakeKeyboardEvent extends FakeEvent {
     }
 }
 
-/** The tags a browser gives a Tab stop of their own, with no `tabindex` written. */
-const NativeStops = new Set(["input", "button", "select", "textarea"]);
+/** The elements the browser puts in the tab order with no `tabindex` of their own. */
+const NativeStops = new Set(["button", "input", "select", "textarea"]);
 
 export class FakeElement {
     public readonly tagName: string;
@@ -53,6 +69,10 @@ export class FakeElement {
     /** Laid out but `visibility: hidden` (a fade not yet begun): it keeps its box and refuses the focus. */
     public visible = true;
     public disabled = false;
+    /** A `<dialog>` shown by `showModal()`, which `:modal` matches. */
+    public modal = false;
+    /** A popover shown by `showPopover()`, which `:popover-open` matches. */
+    public popoverOpen = false;
     public id = "";
     /** The box it is laid out in, where a test places it. */
     public rect = { left: 0, top: 0, width: 0, height: 0 };
@@ -62,16 +82,27 @@ export class FakeElement {
         },
         removeProperty(name: string): void {
             delete this[name];
+        },
+        getPropertyValue(name: string): string {
+            return typeof this[name] === "string" ? this[name] : "";
         }
     };
     public readonly dataset: Record<string, string> = {};
     public readonly clientLeft = 0;
     public readonly clientTop = 0;
+    /** Where a scroll box stands; a test lays the boxes out as they stand after it, since nothing here moves them. */
+    public scrollTop = 0;
+    public scrollLeft = 0;
     private readonly listeners = new Map<string, Listener[]>();
     private text = "";
 
     public constructor(tagName = "div") {
         this.tagName = tagName;
+    }
+
+    /** Its tag in lower case, as the browser names an HTML element's. */
+    public get localName(): string {
+        return this.tagName.toLowerCase();
     }
 
     /** An element with classes and attributes, for a line per part of a test's tree. */
@@ -87,8 +118,24 @@ export class FakeElement {
         return element;
     }
 
-    public append(...children: FakeElement[]): this {
-        for (const child of children) {
+    /** A copy of its tag, classes, attributes, data and words, and with `deep` its children's as well; no listeners, as the browser's. */
+    public cloneNode(deep = false): FakeElement {
+        const copy = FakeElement.of(this.className, Object.fromEntries(this.attributes), this.tagName);
+
+        Object.assign(copy.dataset, this.dataset);
+        copy.text = this.text;
+
+        if (deep)
+            copy.append(...this.children.map(child => child.cloneNode(true)));
+
+        return copy;
+    }
+
+    /** Puts the children last, each taken from wherever it stood; a string as a text node, as the browser does. */
+    public append(...children: (FakeElement | string)[]): this {
+        for (const given of children) {
+            const child = typeof given === "string" ? fakeDocument.createTextNode(given) : given;
+
             child.detach();
             child.parent = this;
             this.children.push(child);
@@ -97,30 +144,12 @@ export class FakeElement {
         return this;
     }
 
-    /** Puts the child before `next`, or last where `next` is null; one already in a tree moves. */
-    public insertBefore(child: FakeElement, next: FakeElement | null): FakeElement {
-        if (next === null)
-            return this.appendChild(child);
+    /** Puts the elements right after this one, in their order. */
+    public after(...elements: FakeElement[]): void {
+        const next = this.nextElementSibling;
 
-        child.detach();
-        child.parent = this;
-        this.children.splice(this.children.indexOf(next), 0, child);
-
-        return child;
-    }
-
-    public get firstElementChild(): FakeElement | null {
-        return this.children[0] ?? null;
-    }
-
-    public get lastElementChild(): FakeElement | null {
-        return this.children.at(-1) ?? null;
-    }
-
-    public get nextElementSibling(): FakeElement | null {
-        const siblings = this.parent?.children ?? [];
-
-        return siblings[siblings.indexOf(this) + 1] ?? null;
+        for (const element of elements)
+            this.parent?.insertBefore(element, next);
     }
 
     public appendChild(child: FakeElement): FakeElement {
@@ -131,6 +160,37 @@ export class FakeElement {
 
     public get parentElement(): FakeElement | null {
         return this.parent;
+    }
+
+    public get firstElementChild(): FakeElement | null {
+        return this.children[0] ?? null;
+    }
+
+    public get lastElementChild(): FakeElement | null {
+        return this.children[this.children.length - 1] ?? null;
+    }
+
+    public get previousElementSibling(): FakeElement | null {
+        return this.parent?.children[this.parent.children.indexOf(this) - 1] ?? null;
+    }
+
+    public get nextElementSibling(): FakeElement | null {
+        return this.parent?.children[this.parent.children.indexOf(this) + 1] ?? null;
+    }
+
+    /** Moves the child in front of `reference`, taking it from wherever it stood; at the end with none. */
+    public insertBefore(child: FakeElement, reference: FakeElement | null): FakeElement {
+        child.remove();
+        child.parent = this;
+        this.children.splice(reference === null ? this.children.length : this.children.indexOf(reference), 0, child);
+
+        return child;
+    }
+
+    /** Puts the children first, in their order. */
+    public prepend(...children: FakeElement[]): void {
+        for (const [index, child] of children.entries())
+            this.insertBefore(child, this.children[index] ?? null);
     }
 
     public get isConnected(): boolean {
@@ -150,13 +210,15 @@ export class FakeElement {
             this.classes.add(name);
     }
 
-    public get classList(): { contains(name: string): boolean; toggle(name: string, force?: boolean): boolean; add(name: string): void; remove(name: string): void } {
+    public get classList(): Iterable<string> & { contains(name: string): boolean; toggle(name: string, force?: boolean): boolean; add(...names: string[]): void; remove(...names: string[]): void } {
         const classes = this.classes;
 
         return {
+            // Walked as a token list is: an icon value clears the glyph before it through `Array.from`.
+            [Symbol.iterator]: () => [...classes][Symbol.iterator](),
             contains: name => classes.has(name),
-            add: name => void classes.add(name),
-            remove: name => void classes.delete(name),
+            add: (...names) => names.forEach(name => classes.add(name)),
+            remove: (...names) => names.forEach(name => classes.delete(name)),
             toggle: (name, force) => {
                 const on = force ?? !classes.has(name);
 
@@ -187,11 +249,19 @@ export class FakeElement {
         return this.attributes.get(name) ?? null;
     }
 
+    /** Its attributes' names, `class` among them while it has a class, as the browser lists them. */
+    public getAttributeNames(): string[] {
+        return this.classes.size === 0 ? [...this.attributes.keys()] : ["class", ...this.attributes.keys()];
+    }
+
     public setAttribute(name: string, value: string): void {
         this.attributes.set(name, value);
     }
 
     public removeAttribute(name: string): void {
+        if (name === "class")
+            this.classes.clear();
+
         this.attributes.delete(name);
     }
 
@@ -206,8 +276,14 @@ export class FakeElement {
         return on;
     }
 
+    /** The browser's: a control is in the tab order by itself, anything else only by its own `tabindex`. */
     public get tabIndex(): number {
-        return Number(this.attributes.get("tabindex") ?? (NativeStops.has(this.tagName) ? "0" : "-1"));
+        const own = this.attributes.get("tabindex");
+
+        if (own !== undefined)
+            return Number(own);
+
+        return NativeStops.has(this.tagName.toLowerCase()) || (this.tagName.toLowerCase() === "a" && this.attributes.has("href")) ? 0 : -1;
     }
 
     public set tabIndex(value: number) {
@@ -236,11 +312,39 @@ export class FakeElement {
         this.dispatchEvent(new FakeEvent("blur"));
     }
 
+    public showPopover(): void {
+        this.popoverOpen = true;
+    }
+
+    public hidePopover(): void {
+        this.popoverOpen = false;
+    }
+
     public scrollIntoView(): void {
+    }
+
+    /** A press run from script, as `HTMLElement.click()` runs it: a click on the element, laid out or not, counting no presses as a key's. */
+    public click(): void {
+        this.dispatchEvent(Object.assign(new FakeEvent("click"), { detail: 0 }));
+    }
+
+    /** Where its box stands without a transform: a drawer still sliding in has its `rect` off the edge and this at it. */
+    public offset: { left: number; top: number } | null = null;
+
+    public get offsetLeft(): number {
+        return this.offset?.left ?? this.rect.left;
+    }
+
+    public get offsetTop(): number {
+        return this.offset?.top ?? this.rect.top;
     }
 
     public get offsetWidth(): number {
         return this.rect.width;
+    }
+
+    public get offsetHeight(): number {
+        return this.rect.height;
     }
 
     public get clientWidth(): number {
@@ -280,6 +384,12 @@ export class FakeElement {
         if (this.parent === null)
             return;
 
+        const active = fakeDocument.activeElement;
+
+        // Chromium: a field that held the focus, edited since it took it, says `change` as it goes, while still on the page.
+        if (active instanceof FakeInput && this.contains(active) && active.value !== active.valueAtFocus)
+            fakeWindow.dispatch(active, Object.assign(new FakeEvent("change"), { isTrusted: true }));
+
         this.detach();
 
         // A browser drops the focus of a removed element to the body, and says nothing of it.
@@ -287,11 +397,42 @@ export class FakeElement {
             fakeDocument.activeElement = fakeDocument.body;
     }
 
+    /**
+     * A box where it is laid out: none where it is not, or where it or anything above it is `hidden`. `laidOut` is its own alone, as
+     * `display: contents` is: a wrapping list's row is drawn by its tile.
+     */
     public getClientRects(): unknown[] {
-        if (!this.laidOut || this.hidden)
-            return [];
+        return this.laidOut && !this.isHidden() ? [{}] : [];
+    }
 
-        return this.parent === null ? [{}] : this.parent.getClientRects();
+    private isHidden(): boolean {
+        return this.hidden || (this.parent?.isHidden() ?? false);
+    }
+
+    /** Whether it is drawn: it and everything above it laid out and visible. */
+    public checkVisibility(): boolean {
+        return this.laidOut && this.visible && (this.parent?.checkVisibility() ?? true);
+    }
+
+    public static readonly DOCUMENT_POSITION_PRECEDING = 2;
+    public static readonly DOCUMENT_POSITION_FOLLOWING = 4;
+    public static readonly DOCUMENT_POSITION_CONTAINS = 8;
+    public static readonly DOCUMENT_POSITION_CONTAINED_BY = 16;
+
+    /** Where another element of the same tree stands against this one, in document order, as the DOM's own bits say. */
+    public compareDocumentPosition(other: FakeElement): number {
+        if (other === this)
+            return 0;
+
+        if (this.contains(other))
+            return FakeElement.DOCUMENT_POSITION_FOLLOWING | FakeElement.DOCUMENT_POSITION_CONTAINED_BY;
+
+        if (other.contains(this))
+            return FakeElement.DOCUMENT_POSITION_PRECEDING | FakeElement.DOCUMENT_POSITION_CONTAINS;
+
+        const order = [this.top(), ...this.top().descendants()];
+
+        return order.indexOf(other) > order.indexOf(this) ? FakeElement.DOCUMENT_POSITION_FOLLOWING : FakeElement.DOCUMENT_POSITION_PRECEDING;
     }
 
     public get isContentEditable(): boolean {
@@ -333,21 +474,31 @@ export class FakeElement {
     }
 
     private bubble(domEvent: FakeEvent): void {
-        for (const listener of this.listeners.get(domEvent.type) ?? [])
-            listener(domEvent);
+        for (const listener of this.listeners.get(domEvent.type) ?? []) {
+            if (domEvent.stopped)
+                return;
 
-        this.parent?.bubble(domEvent);
+            listener(domEvent);
+        }
+
+        if (!domEvent.stopped && !domEvent.stoppedHere)
+            this.parent?.bubble(domEvent);
     }
 
     private top(): FakeElement {
         return this.parent === null ? this : this.parent.top();
     }
 
+    /** Out of its parent's children; a test that emptied the children by hand has left only the parent to forget. */
     private detach(): void {
         if (this.parent === null)
             return;
 
-        this.parent.children.splice(this.parent.children.indexOf(this), 1);
+        const index = this.parent.children.indexOf(this);
+
+        if (index >= 0)
+            this.parent.children.splice(index, 1);
+
         this.parent = null;
     }
 
@@ -358,15 +509,97 @@ export class FakeElement {
 
 export class FakeInput extends FakeElement {
     public type: string;
+    public name = "";
     public value = "";
+    public checked = false;
+    public readOnly = false;
+    /** Where the caret was last put, as `[start, end]`; null until something puts it. */
+    public selection: [number, number] | null = null;
+    /** The end the selection was made from, as the browser keeps it. */
+    public selectionDirection: "forward" | "backward" | "none" = "none";
+    /** What it held as it took the focus. */
+    public valueAtFocus = "";
+    /** Whether its text was selected whole, as `select()` does. */
+    public selected = false;
 
     public constructor(type = "text") {
         super("input");
         this.type = type;
     }
+
+    public override focus(): void {
+        this.valueAtFocus = this.value;
+        super.focus();
+    }
+
+    public select(): void {
+        this.selected = true;
+    }
+
+    /** The browser's: null on a type that keeps no selection a page can read (an email, a number field). */
+    public get selectionStart(): number | null {
+        return SelectionInputTypes.has(this.type) ? this.selection?.[0] ?? this.value.length : null;
+    }
+
+    public get selectionEnd(): number | null {
+        return SelectionInputTypes.has(this.type) ? this.selection?.[1] ?? this.value.length : null;
+    }
+
+    /** Throws on a type that keeps no selection, as the browser does. */
+    public setSelectionRange(start: number, end: number, direction: "forward" | "backward" | "none" = "none"): void {
+        if (!SelectionInputTypes.has(this.type))
+            throw new DOMException(`The input element's type ('${this.type}') does not support selection.`, "InvalidStateError");
+
+        this.selection = [start, end];
+        this.selectionDirection = direction;
+    }
 }
 
-/** A native `<dialog>`: shown modal and closed, the focus it held going back to what had it before, then its `close` event. */
+/** The input types whose text a page can select and put the caret in. */
+const SelectionInputTypes: ReadonlySet<string> = new Set(["text", "search", "url", "tel", "password"]);
+
+export class FakeTextArea extends FakeElement {
+    public value = "";
+    public readOnly = false;
+    public selection: [number, number] | null = null;
+
+    public constructor() {
+        super("textarea");
+    }
+
+    public setSelectionRange(start: number, end: number): void {
+        this.selection = [start, end];
+    }
+}
+
+class FakeSelect extends FakeElement {
+    public value = "";
+
+    public constructor() {
+        super("select");
+    }
+}
+
+class FakeDetails extends FakeElement {
+    public open = false;
+
+    public constructor() {
+        super("details");
+    }
+}
+
+export class FakeLabel extends FakeElement {
+    public control: FakeElement | null = null;
+
+    public constructor() {
+        super("label");
+    }
+}
+
+/**
+ * A native `<dialog>`: shown modal and closed, the focus it held going back to what had it before, then its `close` event.
+ * @public a package's tests use it
+ */
 export class FakeDialog extends FakeElement {
     public open = false;
     private opener: FakeElement | null = null;
@@ -378,6 +611,7 @@ export class FakeDialog extends FakeElement {
     public showModal(): void {
         this.opener = fakeDocument.activeElement;
         this.open = true;
+        this.modal = true;
     }
 
     public close(): void {
@@ -385,6 +619,7 @@ export class FakeDialog extends FakeElement {
             return;
 
         this.open = false;
+        this.modal = false;
 
         if (fakeDocument.activeElement !== null && this.contains(fakeDocument.activeElement)) {
             if (this.opener !== null && this.opener.isConnected)
@@ -397,17 +632,81 @@ export class FakeDialog extends FakeElement {
     }
 }
 
+/** The page's document as a type: the stand-in below is never one, so a root asked `instanceof Document` is an element. */
+class FakeDocumentType {
+    public readonly nodeType = 9;
+}
+
 export const fakeDocument = {
     activeElement: null as FakeElement | null,
+    /** Whether the window holds the focus: false while the reader is in another window. */
+    focused: true,
+    hasFocus: (): boolean => fakeDocument.focused,
     body: new FakeElement("body"),
     documentElement: new FakeElement("html"),
     createElement: (tagName: string): FakeElement => tagName === "input" ? new FakeInput() : new FakeElement(tagName),
+    /** A fragment and a text node as elements of their own: what inline markup builds before it replaces an element's content. */
+    createDocumentFragment: (): FakeElement => new FakeElement("#fragment"),
+    createTextNode: (text: string): FakeElement => {
+        const node = new FakeElement("#text");
+
+        node.textContent = text;
+
+        return node;
+    },
     addEventListener: (type: string, listener: Listener): void => fakeDocument.documentElement.addEventListener(type, listener),
     removeEventListener: (type: string, listener: Listener): void => fakeDocument.documentElement.removeEventListener(type, listener),
-    querySelectorAll: (selector: string): FakeElement[] => fakeDocument.body.querySelectorAll(selector)
+    querySelectorAll: (selector: string): FakeElement[] => fakeDocument.body.querySelectorAll(selector),
+    querySelector: (selector: string): FakeElement | null => fakeDocument.body.querySelector(selector),
+    /** The reader's text selection, as much of it as an engine reads: whether it holds any text, and taking it away. */
+    selection: {
+        isCollapsed: true,
+        removeAllRanges(): void {
+            this.isCollapsed = true;
+        }
+    },
+    getSelection: (): { isCollapsed: boolean; removeAllRanges(): void } => fakeDocument.selection
 };
 
 fakeDocument.activeElement = fakeDocument.body;
+
+/**
+ * The window as the engines reach it: timers the test runs by hand, and listeners that hear an event before any element does.
+ * @public a package's tests use it
+ */
+export const fakeWindow = {
+    timers: [] as (() => void)[],
+    listeners: new Map<string, Listener[]>(),
+    setTimeout: (callback: () => void): number => fakeWindow.timers.push(callback),
+    addEventListener: (type: string, listener: Listener): void => {
+        fakeWindow.listeners.set(type, [...fakeWindow.listeners.get(type) ?? [], listener]);
+    },
+    /** Runs every timer set so far, and those they set. */
+    runTimers: (): void => {
+        for (let callback = fakeWindow.timers.shift(); callback !== undefined; callback = fakeWindow.timers.shift())
+            callback();
+    },
+    /** Raises an event as the browser does: the window's capturing listeners first, then the target and every element above it. */
+    dispatch: (target: FakeElement, domEvent: FakeEvent): void => {
+        domEvent.target = target;
+
+        for (const listener of fakeWindow.listeners.get(domEvent.type) ?? [])
+            listener(domEvent);
+
+        if (!domEvent.stopped && !domEvent.stoppedHere)
+            target.dispatchEvent(domEvent);
+    }
+};
+
+/**
+ * The window's globals, for `installFakeDom` where the module under test reaches the window: its timers, its listeners, a style's visibility.
+ * @public a package's tests use it
+ */
+export const fakeWindowGlobals: Readonly<Record<string, unknown>> = {
+    window: fakeWindow,
+    FocusEvent: FakeEvent,
+    getComputedStyle: (element: FakeElement): { visibility: string } => ({ visibility: element.visible ? "visible" : "hidden" })
+};
 
 /** Puts the stand-in in place of the browser's globals; before the module under test loads, since it reads them as it runs. */
 export function installFakeDom(extra: Readonly<Record<string, unknown>> = {}): void {
@@ -417,6 +716,11 @@ export function installFakeDom(extra: Readonly<Record<string, unknown>> = {}): v
         Node: FakeElement,
         HTMLElement: FakeElement,
         HTMLInputElement: FakeInput,
+        HTMLTextAreaElement: FakeTextArea,
+        HTMLSelectElement: FakeSelect,
+        HTMLDetailsElement: FakeDetails,
+        Document: FakeDocumentType,
+        HTMLLabelElement: FakeLabel,
         KeyboardEvent: FakeKeyboardEvent,
         ...extra
     });
@@ -517,20 +821,28 @@ function matchesComplex(element: FakeElement, compounds: readonly string[], comb
     return false;
 }
 
-const Token = /^(?:([a-z]+|\*)|\.([\w-]+)|\[([\w-]+)(?:(\^?)=['"]?([^'"\]]*)['"]?)?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope))/;
+const Token = /^(?:([a-z]+)|\.([\w-]+)|\[([\w-]+)(?:(\^?)=(?:"((?:[^"\\]|\\.)*)"|['"]?([^'"\]]*)['"]?))?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope|active|focus-visible|modal|popover-open))/;
 
 function matchesCompound(element: FakeElement, compound: string, scope: FakeElement | null): boolean {
     let rest = compound.trim();
 
     while (rest.length > 0) {
+        // The universal selector: any element, as a scroll effect walks every one under its target.
+        if (rest.startsWith("*")) {
+            rest = rest.slice(1);
+            continue;
+        }
+
         const token = Token.exec(rest);
 
         if (token === null)
             throw new Error(`The stand-in does not read "${compound}".`);
 
-        const [whole, tag, className, attribute, prefix, value, negated, alternatives, pseudo] = token;
+        const [whole, tag, className, attribute, prefix, quoted, plain, negated, alternatives, pseudo] = token;
+        // A double-quoted value as CSS escapes it (`cssAttributeValue`): a backslash takes the character after it as itself.
+        const value = quoted === undefined ? plain : quoted.replace(/\\(.)/g, "$1");
 
-        if (tag !== undefined && tag !== "*" && element.tagName !== tag)
+        if (tag !== undefined && element.tagName !== tag)
             return false;
 
         if (className !== undefined && !element.classes.has(className))
@@ -552,6 +864,16 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
             return false;
 
         if (pseudo === "scope" && element !== scope)
+            return false;
+
+        if (pseudo === "modal" && !element.modal)
+            return false;
+
+        if (pseudo === "popover-open" && !element.popoverOpen)
+            return false;
+
+        // Nothing is ever pressed here, and the focus a test gives is the keyboard's.
+        if (pseudo === "active" || (pseudo === "focus-visible" && element !== fakeDocument.activeElement))
             return false;
 
         rest = rest.slice(whole.length);

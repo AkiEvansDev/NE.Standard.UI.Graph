@@ -205,35 +205,6 @@ internal static class ImageWork
             _ => "image/png"
         };
 
-    /// <summary>The media type a picture file's first bytes say it is, or null for a file that is none the kinds read.</summary>
-    public static string? Sniff(ReadOnlySpan<byte> bytes)
-    {
-        if (bytes.StartsWith((ReadOnlySpan<byte>)[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))
-            return "image/png";
-
-        if (bytes.StartsWith((ReadOnlySpan<byte>)[0xFF, 0xD8, 0xFF]))
-            return "image/jpeg";
-
-        if (bytes.StartsWith("GIF87a"u8) || bytes.StartsWith("GIF89a"u8))
-            return "image/gif";
-
-        if (bytes.Length >= 12 && bytes.StartsWith("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8))
-            return "image/webp";
-
-        return bytes.Length >= 26 && bytes.StartsWith("BM"u8) ? "image/bmp" : null;
-    }
-
-    /// <summary>The extension a picture of a media type is saved under.</summary>
-    public static string ExtensionOf(string contentType)
-        => contentType switch
-        {
-            "image/jpeg" => ".jpg",
-            "image/webp" => ".webp",
-            "image/gif" => ".gif",
-            "image/bmp" => ".bmp",
-            _ => ".png"
-        };
-
     /// <summary>A new picture of the size given, drawn by one call onto a clear canvas.</summary>
     public static SKBitmap Draw(int width, int height, Action<SKCanvas> draw)
     {

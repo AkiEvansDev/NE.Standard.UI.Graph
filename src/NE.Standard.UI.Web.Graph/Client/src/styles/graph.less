@@ -76,7 +76,7 @@
     height: 100%;
     border-radius: 50%;
     overflow: hidden;
-    background: color-mix(in srgb, var(--ui-graph-node-ink) 28%, var(--ui-color-surface));
+    background: @ui-graph-node-tint;
     color: var(--ui-graph-node-ink);
     font-size: 1.5rem;
 }
@@ -95,10 +95,7 @@
     white-space: normal;
     word-break: break-word;
     pointer-events: none;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    .ui-text-clamp(2);
 }
 
 // The badge sits on the circle's rim, where a count sits on an avatar.
@@ -236,13 +233,13 @@
 
 // The node a pulled link would land on stands forward in the brand colour.
 .ui-graph--connecting .ui-graph__node[data-ui-graph-drop="yes"] {
-    border-color: var(--ui-color-primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
+    border-color: var(--ui-mark-selected-fill);
+    box-shadow: @ui-graph-chosen-halo;
 }
 
 // A node a pulled link could not land on — a link it already has, or a pairing the kind refuses — steps back while the link is pulled.
 .ui-graph--connecting .ui-graph__node[data-ui-graph-drop="no"] {
-    opacity: 0.45;
+    opacity: @ui-graph-stepped-back;
 }
 
 // A node in conflict (server changed/dropped it, pending save): warning colour, dashed to read as a question rather than a
@@ -259,7 +256,7 @@
 }
 
 // A caption being edited: a chip centred on the edge's midpoint, in scene units, over the caption it replaces; the field lays
-// over the chip's text and takes the whole chip.
+// over the chip's text and takes the whole chip. It is there only while it has the focus, so it wears a focused field's edge.
 .ui-graph__caption-edit {
     position: absolute;
     z-index: 2;
@@ -267,10 +264,10 @@
     width: 10rem;
     height: 1.625rem;
     padding: 0 @ui-space-2;
-    border: var(--ui-border-width) solid var(--ui-color-primary);
+    border: var(--ui-border-width) solid;
     border-radius: var(--ui-radius-button);
     background: var(--ui-color-surface);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 30%, transparent);
+    .ui-field-edge-active();
     transform: translate(-50%, -50%);
 }
 

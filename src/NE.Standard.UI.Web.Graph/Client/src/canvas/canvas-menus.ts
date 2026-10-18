@@ -1,17 +1,18 @@
-// The canvas's chrome menus: the corner button's own, and the node's and group's context menus the framework opens — what a right
+// The canvas's chrome menus: the corner panel's own, and the node's and group's context menus the framework opens — what a right
 // press landed on, each entry's state, and the commands its key runs.
 
 import type { ComponentStates, DomNames, PluginEngineContext } from "ne-standard-ui";
 import type { Rect } from "./geometry.ts";
-import { bounds } from "./geometry.ts";
-import type { CanvasDocument, CanvasGroup, CanvasItem } from "./canvas-model.ts";
+import { bounds, snap } from "./geometry.ts";
+import type { CanvasDocument, CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
 import { newId, readJson } from "./canvas-model.ts";
 import type { CanvasDocumentState } from "./canvas-document.ts";
 import type { CanvasKind, MenuTarget } from "./canvas-kind.ts";
 import type { CanvasSelection } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
 import type { CanvasView } from "./canvas-view.ts";
-import { CoreNames, EdgeAttribute, FoldedControlAttribute, GroupAttribute, ItemTitleSelector, MenuPanelAttribute, NodeAttribute } from "./canvas-dom.ts";
+import { CoreNames, EdgeAttribute, GroupAttribute, ItemTitleSelector, MenuPanelAttribute, NodeAttribute } from "./canvas-dom.ts";
+import { SidePanelFold } from "./side-panel.ts";
 
 const ColorsAttribute = "data-ui-graph-colors";
 // The framework's context menus, by the names the renderer gave the canvas's regions (UIGraphMenus): a part names the one it opens.
@@ -22,6 +23,11 @@ const SwatchAttribute = "data-ui-graph-swatch";
 const ColorCommandPrefix = "graph:color:";
 const DefaultColorCommand = "graph:color:default";
 const CommandPrefix = "graph:";
+// The corner menu panel's fold among the canvas's stored state, beside the plan's.
+const CornerFoldSlot = "menu";
+// An empty frame's size: two nodes side by side under its band. A frame is never resized, so it starts with room to fill.
+const NewGroupWidth = 480;
+const NewGroupHeight = 280;
 
 /** Where a canvas's menus stand — under its root — and the framework's names they are marked with. */
 export type MenuScope = {
@@ -29,11 +35,16 @@ export type MenuScope = {
     readonly context: { readonly names: DomNames; readonly states: ComponentStates };
 };
 
-/** What the menus reach on the coordinator: the kind, the item boxes and sizes a command needs, and the delete and copy it shares with the keys. */
+/**
+ * What the menus reach on the coordinator: the kind, the item boxes and sizes a command needs, where the menu was opened and how the
+ * grid places what it adds there, and the delete and copy it shares with the keys.
+ */
 export type MenusHost = {
     readonly nodeElements: ReadonlyMap<string, HTMLElement>;
     kind(): CanvasKind;
     nodeRect(id: string): Rect | null;
+    pointerScene(): Point;
+    snapPlace(id: string, point: Point): Point;
     drawEdges(): void;
     deleteSelection(): void;
     duplicate(itemIds: ReadonlySet<string>): void;
@@ -51,6 +62,8 @@ export class CanvasMenus {
     // The CSS colours of the menus' colour choices, in their order: an entry's key names its index.
     private readonly colors: string[];
     private readonly scope: MenuScope;
+    // The corner menu's panel folds as the plan's does, by the framework's collapsible, the viewer's fold remembered per canvas.
+    private readonly cornerFold: SidePanelFold;
 
     // What a right press last landed on, which a node's or a group's menu then acts on; null for the empty surface.
     private menuTarget: MenuTarget | null = null;
@@ -75,26 +88,12 @@ export class CanvasMenus {
         this.groupLayer = groupLayer;
         this.colors = readColors(root.getAttribute(ColorsAttribute));
         this.scope = { root, context };
+        this.cornerFold = new SidePanelFold(context.store, root, root.querySelector<HTMLElement>(`[${MenuPanelAttribute}]`), CornerFoldSlot);
     }
 
-    /** The corner menu's switch under a press, if the press is on it: the menu's entries are brought up to date as it slides open. */
-    public panelToggleOf(target: Element): HTMLElement | null {
-        return target.closest(`[${MenuPanelAttribute}]`) === null ? null : target.closest<HTMLElement>(`[${CoreNames.collapseToggle}]`);
-    }
-
-    /**
-     * Folds the corner menu after one of its commands runs, through the framework's switch so the fold animates; the switch takes the
-     * focus from the entry folding out of sight.
-     */
-    public foldPanel(): void {
-        const menu = this.root.querySelector<HTMLElement>(`[${MenuPanelAttribute}] > .${CoreNames.menuClass}`);
-        const toggle = menu?.querySelector<HTMLElement>(`:scope > [${CoreNames.collapseToggle}]`) ?? null;
-
-        if (menu === null || toggle === null || menu.hasAttribute(FoldedControlAttribute))
-            return;
-
-        toggle.click();
-        toggle.focus({ preventScroll: true });
+    /** A press on the corner menu panel's switch, which the framework's engine folded on the way down, is remembered; false for any other. */
+    public foldCorner(target: Element): boolean {
+        return this.cornerFold.press(target);
     }
 
     /** Records what a right press landed on before its menu shows, and selects it alone if not already chosen — a menu acts on the selection. */
@@ -163,6 +162,7 @@ export class CanvasMenus {
         this.host.kind().syncMenus(editable, this.menuTarget);
         this.enableEntries("graph:arrange", editable);
         this.enableEntries("graph:save", editable);
+        this.enableEntries("graph:add-group", editable);
         this.enableEntries("graph:group-selection", editable && chosenNode);
         // A group is the canvas's own to remove; a node and an edge are the kind's to allow, as their name and colour are.
         const removable = this.host.kind().canEditItems();
@@ -280,6 +280,9 @@ export class CanvasMenus {
             case "graph:delete-selection":
             case "graph:delete":
                 this.host.deleteSelection();
+                break;
+            case "graph:add-group":
+                this.addGroup();
                 break;
             case "graph:group-selection":
                 this.groupSelection();
@@ -402,6 +405,30 @@ export class CanvasMenus {
             },
             refocus: () => this.view.viewportElement.focus({ preventScroll: true })
         });
+    }
+
+    /** An empty, unnamed frame whose corner stands where the menu was opened, on the grid as any added item, chosen alone; one edit. */
+    private addGroup(): void {
+        if (this.settings.readOnly)
+            return;
+
+        const id = newId("g");
+        const place = this.host.snapPlace(id, this.host.pointerScene());
+        const step = this.settings.gridSize;
+        const snapping = this.settings.snapping;
+
+        this.documentState.document.groups.push({
+            id,
+            x: place.x,
+            y: place.y,
+            width: Math.max(step, snap(NewGroupWidth, step, snapping)),
+            height: Math.max(step, snap(NewGroupHeight, step, snapping)),
+            title: null,
+            color: null
+        });
+
+        this.selection.select(id, false);
+        this.documentState.edited();
     }
 
     private groupSelection(): void {

@@ -4,7 +4,7 @@
 import type { ComponentStates, EffectContext, PluginEngineContext, WheelReading } from "ne-standard-ui";
 import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, KindDrag } from "./canvas-kind.ts";
-import { ChromeButtonSelector, CoreNames, doubleClickAim, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, RootSelector } from "./canvas-dom.ts";
+import { ChromeButtonSelector, CoreNames, doubleClickAim, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, ResizingAttribute, RootSelector } from "./canvas-dom.ts";
 import { CanvasDocumentState } from "./canvas-document.ts";
 import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
@@ -155,7 +155,7 @@ export type Drag =
     | { kind: "group"; startX: number; startY: number; groupId: string; origin: Point; moving: Map<string, Point> }
     | { kind: "marquee"; startX: number; startY: number }
     | { kind: "reroute"; edge: string; index: number }
-    | { kind: "resize"; nodeId: string; startX: number; startY: number; width: number; height: number }
+    | { kind: "resize"; of: "node" | "group"; id: string; grip: HTMLElement; startX: number; startY: number; width: number; height: number; least: { readonly width: number; readonly height: number } }
     | { kind: "map" }
     | KindDrag;
 
@@ -213,6 +213,8 @@ class Canvas {
             itemColor: (item: CanvasItem) => this.kind.itemColor(item),
             nodeRect: (id: string) => this.render.nodeRect(id),
             nodeExtent: (id: string) => this.render.nodeExtent(id),
+            pointerScene: () => ({ x: this.pointerX, y: this.pointerY }),
+            snapPlace: (id: string, point: Point) => (this.settings.snapping ? this.dragging.snapPlace(id, point) : point),
             drawEdges: () => this.render.drawEdges(),
             drawGroups: () => this.render.drawGroups(),
             drawMinimap: () => this.view.drawMinimap(),
@@ -251,14 +253,16 @@ class Canvas {
             nodeRect: id => this.render.nodeRect(id),
             nodeExtent: id => this.render.nodeExtent(id),
             centerOf: element => this.render.centerOf(element),
-            pointerScene: () => ({ x: this.pointerX, y: this.pointerY }),
-            snapPlace: (id, point) => (this.settings.snapping ? this.dragging.snapPlace(id, point) : point),
+            pointerScene: host.pointerScene,
+            snapPlace: host.snapPlace,
             renameItem: id => this.menus.renameNode(id)
         });
 
         this.view.restoreView();
         this.listen();
         this.render.draw();
+        // The corner menu stands open in its panel: its entries say what they may do from the first frame, not from a press.
+        this.menus.syncMenus();
     }
 
     /** A setting the server moved: the sheet drawn again, and the menus' entries brought to it even while one stands open. */
@@ -548,11 +552,12 @@ class Canvas {
             return;
         }
 
+        const grip = event.target.closest<HTMLElement>(`[${ResizeAttribute}]`);
         const nodeElement = event.target.closest<HTMLElement>(`[${NodeAttribute}]`);
 
         if (nodeElement !== null) {
-            if (event.target.closest(`[${ResizeAttribute}]`) !== null && !this.settings.readOnly) {
-                this.drag = this.dragging.beginResize(nodeElement, scene);
+            if (grip !== null && !this.settings.readOnly) {
+                this.drag = this.dragging.beginResize(nodeElement, grip, scene);
                 this.viewport.setPointerCapture(event.pointerId);
             }
             else {
@@ -566,6 +571,13 @@ class Canvas {
         }
 
         const groupElement = event.target.closest<HTMLElement>(`[${GroupAttribute}]`);
+
+        // A frame's corner sizes it and its band moves it; the rest of its inside is the sheet, which pans or draws a band.
+        if (groupElement !== null && grip !== null && !this.settings.readOnly) {
+            this.drag = this.dragging.beginResize(groupElement, grip, scene);
+            this.viewport.setPointerCapture(event.pointerId);
+            return;
+        }
 
         if (groupElement !== null && event.target.closest(".ui-graph__group-band") !== null) {
             this.drag = this.dragging.beginGroupDrag(event, groupElement.getAttribute(GroupAttribute)!, scene);
@@ -676,7 +688,7 @@ class Canvas {
                 break;
 
             case "resize":
-                this.dragging.resizeNode(drag.nodeId, drag.width + (scene.x - drag.startX), drag.height + (scene.y - drag.startY));
+                this.dragging.resize(drag, scene);
                 break;
 
             case "reroute":
@@ -791,7 +803,7 @@ class Canvas {
                 break;
 
             case "resize":
-                this.dragging.snapSize(drag.nodeId);
+                this.dragging.snapSize(drag);
                 this.view.drawMinimap();
                 break;
 
@@ -809,6 +821,9 @@ class Canvas {
 
         if (drag?.kind === "kind")
             drag.end();
+
+        if (drag?.kind === "resize")
+            drag.grip.removeAttribute(ResizingAttribute);
 
         this.root.classList.remove(PanningClass);
         this.selection.hideMarquee();
@@ -1029,11 +1044,8 @@ class Canvas {
         if (!(event.target instanceof Element) || this.states.isInert(event.target))
             return;
 
-        // The framework's engine slides the corner menu; what its entries say is brought up to date as it goes.
-        if (this.menus.panelToggleOf(event.target) !== null) {
-            this.menus.syncMenus();
+        if (this.menus.foldCorner(event.target))
             return;
-        }
 
         if (this.kind.chrome(event.target))
             return;
@@ -1060,11 +1072,8 @@ class Canvas {
         const entry = event.target.closest<HTMLElement>(`[${names.key}]`);
         const key = entry?.getAttribute(names.key) ?? "";
 
+        // The corner menu's panel stays open after an entry runs, as the plan's does, until the viewer folds it.
         const panel = event.target.closest<HTMLElement>(`[${MenuPanelAttribute}]`);
-
-        // An entry of the corner menu, the application's own among them, folds the menu back once it is pressed.
-        if (panel !== null && entry !== null)
-            this.menus.foldPanel();
 
         if (key.length === 0 || (panel === null && event.target.closest(`[${names.contextMenu}]`) === null))
             return;

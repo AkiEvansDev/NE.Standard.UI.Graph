@@ -8,7 +8,6 @@ internal abstract class NodesSheetView : NodesDemoView
 {
     /// <summary>The entries a page appends to the canvas's own menus.</summary>
     public const string RunEntryKey = "run";
-    public const string PositionEntryKey = "show-position";
 
     // The canvas's least height, in rem; its row holds the same floor in pixels.
     private const double CanvasHeight = 24;
@@ -52,6 +51,17 @@ internal abstract class NodesSheetView : NodesDemoView
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "nodes.edges.stepped" }
                         ])
                         .BindValue(nameof(NodesSheetController.EdgeShape))
+                        .SetVerticalAlignment(UIAlignment.Center),
+                    new SelectComponent()
+                        .SetTitle("nodes.corners")
+                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                        .SetAppearance(UIInputAppearance.Tonal)
+                        .SetOptions([
+                            new OptionItem { Id = NodesSheetController.RoundedCorners, Title = "nodes.corners.rounded" },
+                            new OptionItem { Id = NodesSheetController.SquareCorners, Title = "nodes.corners.square" }
+                        ])
+                        .BindValue(nameof(NodesSheetController.Corners))
+                        .OnChange(nameof(NodesSheetController.CornersChosen))
                         .SetVerticalAlignment(UIAlignment.Center),
                     new SwitchComponent()
                         .SetTitle("nodes.snap")
@@ -118,10 +128,9 @@ internal abstract class NodesSheetView : NodesDemoView
             .BindEdgeShape(nameof(NodesSheetController.EdgeShape))
             .BindSnapToGrid(nameof(NodesSheetController.SnapToGrid))
             .BindIsReadOnly(nameof(NodesSheetController.ReadOnly))
+            .BindNodeCornerRadius(nameof(NodesSheetController.NodeCornerRadius))
             .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "nodes.run-sheet", Icon = NodesIcons.Run })
-            // An entry of the page's own in a node's menu, under the canvas's: the command hears which node.
-            .AddNodeMenuEntries(new MenuItem { Id = PositionEntryKey, Title = "nodes.show-position", Icon = NodesIcons.Position, InActionBar = true })
-            .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"), UIGraphArguments.Target("target"))
+            .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"))
             .OnSave(nameof(NodesSheetController.SaveAsync), UIGraphArguments.Reason("reason"))
             .OnImageUpload(nameof(NodesSheetController.ImageUploadedAsync))
             .OnNodeClick(nameof(NodesSheetController.NodeClicked));

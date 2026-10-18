@@ -16,8 +16,6 @@ const PinAttribute = "data-ui-graph-parameter-pin";
 const RemoveAttribute = "data-ui-graph-parameter-remove";
 const EditorPrefix = "graph-editor:";
 const RemoveRegion = "graph-list-remove";
-// `GraphStrings.ShowNode` on the server: what a parameter's name does when pressed.
-const ShowNodeKey = "ui.graph.show-node";
 const RowClass = "ui-graph__parameter";
 const NameClass = "ui-graph__parameter-name";
 const NodeNameClass = "ui-graph__parameter-node";
@@ -284,7 +282,6 @@ export class NodesParameters {
         row.className = RowClass;
         name.className = NameClass;
         name.type = "button";
-        context.strings.write(name, context.names.tooltip, ShowNodeKey);
         name.setAttribute(NodeAttribute, entry.node.id);
         node.className = NodeNameClass;
         node.textContent = this.nameOf(entry);

@@ -13,8 +13,10 @@ export const EdgeAttribute = "data-ui-graph-edge";
 export const ReroutAttribute = "data-ui-graph-reroute";
 /** On an item's root element: the item's id. */
 export const NodeAttribute = "data-ui-graph-node";
-/** On the corner an item is dragged larger by. */
+/** On the corner an item or a group's frame is dragged larger by. */
 export const ResizeAttribute = "data-ui-graph-resize";
+/** On that corner while it is dragged: the viewport captures the pointer, which takes the hover's look off the corner. */
+export const ResizingAttribute = "data-ui-graph-resizing";
 /** On an item's own pin mark, which pins it or lets it go on the press. */
 export const PinToggleAttribute = "data-ui-graph-pin-toggle";
 /** On an item's own fold mark. */
@@ -31,7 +33,7 @@ const EditorTemplateAttribute = "data-ui-graph-editor";
 export const ConnectingClass = "ui-graph--connecting";
 /** On a part while a connection is pulled: `yes` for one it would land on, `no` for one that would refuse it. */
 export const DropAttribute = "data-ui-graph-drop";
-/** On the box the corner menu stands in, in the canvas's leading corner: the menu's name. */
+/** On the corner menu's folding panel over the canvas's leading corner, its switch over the menu: the menu's name. */
 export const MenuPanelAttribute = "data-ui-graph-menu-panel";
 /** On a panel of the kind's that takes a column of the viewport's trailing side while it is open — a folding control of the framework's. */
 export const SideAttribute = "data-ui-graph-side";
@@ -41,7 +43,6 @@ export const CoreNames = {
     menuOpeningEvent: "ui-context-menu-opening",
     collapsed: "data-ui-collapsed",
     collapseToggle: "data-ui-collapse-toggle",
-    menuClass: "ui-menu",
     menuItemValueClass: "ui-menu-item__value",
     pictureSelectionClass: "ui-image-input__selection",
     pictureTextClass: "ui-image-input__text",
@@ -54,17 +55,17 @@ export const CoreNames = {
     badgeSurfaceClass: "ui-badge-style--surface"
 } as const;
 
-/** On a folding control of the framework's — the corner menu, a side panel — while it stands folded; not an item's own fold. */
+/** On a folding control of the framework's — a side panel — while it stands folded; not an item's own fold. */
 export const FoldedControlAttribute = CoreNames.collapsed;
 
 /**
- * What stands over the sheet's top edge — the corner menu, a folded side panel, a node canvas's run line and run panel — and a fit
- * keeps the sheet clear of; an open side panel takes its column instead.
+ * What stands over the sheet's top edge — the corner menu's panel, open or folded, a folded side panel, a node canvas's run line and
+ * run panel — and a fit keeps the sheet clear of; an open side panel takes its column instead.
  */
 export const TopChromeSelector = `[${MenuPanelAttribute}], [${SideAttribute}][${FoldedControlAttribute}], [data-ui-graph-run], .ui-graph__run-panel`;
 
-/** The canvas's own buttons over the sheet — the zoom bar, the run panel, the corner's and side panels' switches, the log's strip. */
-export const ChromeButtonSelector = `.ui-graph__bar-button, [${MenuPanelAttribute}] > * > [${CoreNames.collapseToggle}], [${SideAttribute}] > [${CoreNames.collapseToggle}], .ui-graph__log-head > button`;
+/** The canvas's own buttons over the sheet — the zoom bar, the run panel, the corner menu's and side panels' switches, the log's strip. */
+export const ChromeButtonSelector = `.ui-graph__bar-button, :is([${MenuPanelAttribute}], [${SideAttribute}]) > [${CoreNames.collapseToggle}], .ui-graph__log-head > button`;
 
 /** What a double click on the sheet asks for: a reroute point on an edge, a node's rename, or the kind's own on the bare sheet. */
 export type DoubleClickAim = { readonly to: "reroute" | "rename"; readonly id: string } | { readonly to: "sheet" } | null;
@@ -113,6 +114,40 @@ export function cloneTemplate(root: ParentNode, region: string): HTMLElement | n
 /** A share of a hundred as the page writes one: the number in the page's culture, in its word for a percent (`ui.graph.percent`). */
 export function percentText(context: Pick<PluginEngineContext, "strings" | "numbers">, element: Element, share: number): string {
     return context.strings.format("ui.graph.percent", { value: context.numbers.format(share, null, context.numbers.readCulture(element)) });
+}
+
+/**
+ * A node's root on the sheet, as every kind draws one: its classes, the attribute the canvas finds it by, where it stands, its
+ * colour where it has one, its pin, and how the server moved it under the viewer's draft where it did.
+ */
+export function nodeRoot(className: string, id: string, at: { readonly x: number; readonly y: number; readonly pinned?: boolean }, color: string | null, conflict: string | null): HTMLElement {
+    const root = document.createElement("div");
+
+    root.className = className;
+    root.setAttribute(NodeAttribute, id);
+    root.style.setProperty("--ui-graph-node-x", String(at.x));
+    root.style.setProperty("--ui-graph-node-y", String(at.y));
+
+    if (color !== null && color.length > 0)
+        root.style.setProperty("--ui-graph-node-color", color);
+
+    if (conflict !== null)
+        root.setAttribute("data-ui-graph-conflict", conflict);
+
+    if (at.pinned === true)
+        root.setAttribute("data-ui-graph-pinned", "");
+
+    return root;
+}
+
+/** The corner the viewer drags to set a node's or a group's frame's own width and height: one look and one reach for both. */
+export function resizeGrip(): HTMLElement {
+    const grip = document.createElement("div");
+
+    grip.className = "ui-graph__resize";
+    grip.setAttribute(ResizeAttribute, "");
+
+    return grip;
 }
 
 /** Words that follow a pointer passing over a part of the sheet — a pin, a card, a craft: the page's tooltip, after a hover's wait. */

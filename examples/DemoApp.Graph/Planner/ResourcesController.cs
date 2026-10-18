@@ -252,7 +252,7 @@ internal sealed partial class ResourcesController : UIControllerBase
             if (Selected() is ResourceRecord unchanged)
                 ShowPicture(unchanged);
 
-            return Refuse(error ?? "planner.picture.not-picture");
+            return PlannerFiles.Refuse(error ?? "planner.picture.not-picture");
         }
 
         Store.SetPicture(id, new PictureRecord(content, type));
@@ -404,26 +404,15 @@ internal sealed partial class ResourcesController : UIControllerBase
 
     /// <summary>The picked file read, checked and taken in; a file that is not a catalogue is refused and the dialog stays open.</summary>
     [UICommand]
-    public async Task<UICommandResult> ImportAsync(CancellationToken cancellationToken)
+    public Task<UICommandResult> ImportAsync(CancellationToken cancellationToken)
+        => PlannerFiles.ImportAsync(Context, ImportSelection, TakeImport, cancellationToken);
+
+    private UICommandResult TakeImport(byte[] content)
     {
-        (var content, var uploadError) = await PlannerFiles.ReadUploadAsync(Context, ImportSelection, cancellationToken).ConfigureAwait(false);
-        UICommandResult answer = UICommandResult.Ok();
-
-        // In the runtime's turn: past its first wait the command runs beside the tab, whose values write these members too.
-        _ = await Context.Runtime.InvokeAsync(() => answer = TakeImport(content, uploadError), cancellationToken).ConfigureAwait(false);
-
-        return answer;
-    }
-
-    private UICommandResult TakeImport(byte[]? content, string? uploadError)
-    {
-        if (content is null)
-            return Refuse(uploadError);
-
         (IReadOnlyList<ResourceRecord>? resources, IReadOnlyDictionary<string, PictureRecord> pictures, var fileError) = PlannerFiles.ReadResources(content);
 
         if (resources is null)
-            return Refuse(fileError);
+            return PlannerFiles.Refuse(fileError);
 
         var replace = ImportMode == ReplaceImport;
         var open = SelectedKey;
@@ -441,10 +430,6 @@ internal sealed partial class ResourcesController : UIControllerBase
 
         return UICommandResult.Ok([new CloseDialogEffect(ImportDialogKey), new ShowNotificationEffect(taken, UIColorStyle.Success)]);
     }
-
-    /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
-    private static UICommandResult Refuse(string? reason)
-        => UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase(reason ?? "planner.file.nothing-read"), UIColorStyle.Danger)]);
 
     /// <summary>The catalogue read again, and the list rewritten in place: a row keeps its key, so the selection and the scroll stay.</summary>
     private void Reload()

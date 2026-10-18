@@ -18,7 +18,7 @@ public abstract partial class LayeredGraphComponent<T> : LayeredGraphComponentBa
     protected LayeredGraphComponent(string? id = null) : base(id)
     {
         // Add node is the structure's, so it is offered — and enabled only while the graph lets its structure be edited.
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add), Separator());
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add));
         PrependEntries(EdgeMenu, Entry(UIGraphCommands.Caption, UIGraphWords.Caption, UIGlyphs.TextFields));
     }
 

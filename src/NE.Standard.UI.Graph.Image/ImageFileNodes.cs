@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NE.Standard.UI.Primitives.Constants;
+using NE.Standard.UI.Shell.Files;
 
 namespace NE.Standard.UI.Graph.Image;
 
@@ -28,7 +29,7 @@ public sealed class LoadImageNode : IGraphNodeAsync
         var bytes = await UINodeFiles.Of(context).ReadAsync(Path, cancellationToken).ConfigureAwait(false);
         var name = System.IO.Path.GetFileName(Path);
         // By its first bytes, not its name: a file that is no picture is refused rather than kept and served back.
-        var contentType = ImageWork.Sniff(bytes) ?? throw new InvalidOperationException($"'{name}' is not a picture (PNG, JPEG, GIF, WebP or BMP).");
+        var contentType = UIPictureTypes.Sniff(bytes) ?? throw new InvalidOperationException($"'{name}' is not a picture (PNG, JPEG, GIF, WebP or BMP).");
 
         Result = await ImageWork.StoreOf(context).WriteAsync(new UINodeImageFile(bytes, contentType, name), cancellationToken).ConfigureAwait(false);
     }
@@ -70,7 +71,7 @@ public sealed class SaveImageNode : IGraphNodeAsync
         UINodeImageFile file = await ImageWork.ReadFileAsync(context, Image, cancellationToken).ConfigureAwait(false);
         var name = string.IsNullOrWhiteSpace(Name) ? file.FileName ?? "image" : Name;
 
-        name = System.IO.Path.ChangeExtension(System.IO.Path.GetFileName(name), ImageWork.ExtensionOf(file.ContentType));
+        name = System.IO.Path.ChangeExtension(System.IO.Path.GetFileName(name), UIPictureTypes.ExtensionOf(file.ContentType));
         Path = await UINodeFiles.Of(context).WriteAsync(Folder, name, file.Bytes, Overwrite, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using NE.Standard.UI.Abstractions.Styling;
 using NE.Standard.UI.Authoring.BuiltIns.Models;
 using NE.Standard.UI.Authoring.Components;
-using NE.Standard.UI.Components.BuiltIns.Contents;
 using NE.Standard.UI.Components.BuiltIns.Models;
 using NE.Standard.UI.Components.BuiltIns.Navigation;
 using NE.Standard.UI.Components.Foundation.Inputs;
 using NE.Standard.UI.Primitives.Annotations;
-using NE.Standard.UI.Primitives.Binding;
 using NE.Standard.UI.Primitives.Constants;
+using NE.Standard.UI.Primitives.Localization;
 using NE.Standard.UI.Primitives.Styling;
 
 namespace NE.Standard.UI.Graph;
@@ -40,28 +39,20 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     protected GraphCanvasComponentBase(string? id = null) : base(id)
     {
         // Every built-in entry wears one of the framework's own glyphs, so no icon pack is needed; SetCommandIcon replaces one.
-        Menu = new MenuComponent()
-            .SetShowCollapseToggle(true)
-            .SetExpanded(false)
-            .SetMinWidth(UILayoutLength.Absolute(220))
-            .AddItems(
-            [
-                Entry(UIGraphCommands.Arrange, UIGraphWords.Arrange, UIGlyphs.Sort),
-                Entry(UIGraphCommands.Fit, UIGraphWords.Fit, UIGlyphs.Fit),
-                Separator(),
-                Entry(UIGraphCommands.Save, UIGraphWords.Save, UIGlyphs.Save, "Ctrl+S")
-            ]);
+        Menu = new MenuComponent().AddItems(
+        [
+            Entry(UIGraphCommands.Arrange, UIGraphWords.Arrange, UIGlyphs.Sort),
+            Entry(UIGraphCommands.Fit, UIGraphWords.Fit, UIGlyphs.Fit),
+            Separator(),
+            Entry(UIGraphCommands.Save, UIGraphWords.Save, UIGlyphs.Save, "Ctrl+S")
+        ]);
 
-        // The sheet's name beside the menu's switch, read as a menu's group caption is; unnamed, the package's word for a sheet.
-        SheetTitle = new TextComponent()
-            .SetTitle(UIGraphWords.Sheet)
-            .SetTitleType(UITextAppearance.Overline)
-            .SetTitleColor(UIThemeColor.Muted);
-        _ = Menu.SetToggleContent(SheetTitle);
-
-        // What a right press on the empty surface offers is editing the sheet: a run or a save is the corner menu's.
+        // What a right press on the empty surface offers is editing the sheet: a run or a save is the corner menu's. A frame is every
+        // canvas's own, so Add group leads the adding block, which each kind opens with its own Add node.
         CanvasMenu = new MenuComponent().AddItems(
         [
+            Entry(UIGraphCommands.AddGroup, UIGraphWords.AddGroup, UIGlyphs.AspectRatio),
+            Separator(),
             Entry(UIGraphCommands.GroupSelection, UIGraphWords.GroupSelection, UIGlyphs.AspectRatio),
             Entry(UIGraphCommands.DuplicateSelection, UIGraphWords.DuplicateSelection, UIGlyphs.Copy, "Ctrl+D"),
             Entry(UIGraphCommands.DeleteSelection, UIGraphWords.DeleteSelection, UIGlyphs.Delete),
@@ -140,8 +131,8 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     }
 
     /// <summary>
-    /// Gets the menu in the canvas's leading corner: whole-sheet commands like arrange, fit and save, plus whatever the application
-    /// appends.
+    /// Gets the menu in the panel over the canvas's leading corner: whole-sheet commands like arrange, fit and save, plus whatever the
+    /// application appends. The panel folds to its header, which carries <see cref="SheetName"/>.
     /// </summary>
     /// <remarks>
     /// Application entries append after the fixed ones via <see cref="AddMenuEntries"/> (and the sibling Add*MenuEntries methods); a
@@ -150,35 +141,12 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public MenuComponent Menu { get; }
 
     /// <summary>
-    /// Gets the sheet's name in the head of <see cref="Menu"/>, beside its switch while it is open: <see cref="SheetName"/>, or the
-    /// package's word for a sheet while none is given.
+    /// Gets or sets the sheet's name in the corner menu panel's header, beside the menu's glyph; unset, the header says the package's
+    /// word for the menu.
     /// </summary>
-    public TextComponent SheetTitle { get; }
-
-    /// <summary>
-    /// Gets the name given to the sheet with <see cref="SetSheetName"/>; <see langword="null"/> while it is unnamed or its name is bound.
-    /// </summary>
-    public string? SheetName { get; private set; }
-
-    /// <summary>
-    /// Names the sheet in the corner menu's head, translated as a title is: a key where the application's prefixes say so.
-    /// </summary>
-    public T SetSheetName(string name)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-
-        SheetName = name;
-        _ = SheetTitle.SetTitle(name);
-        return Self;
-    }
-
-    /// <summary>Binds the sheet's name in the corner menu's head to a path.</summary>
-    public T BindSheetName(string path, UIBindingScope scope = UIBindingScope.Root, UIBindingMode mode = UIBindingMode.OneWay)
-    {
-        SheetName = null;
-        _ = SheetTitle.BindTitle(path, scope, mode);
-        return Self;
-    }
+    [Translatable]
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = null)]
+    public UIPhrase? SheetName { get; set; }
 
     /// <summary>
     /// Gets the menu the right button opens on the canvas's empty surface — the commands that edit the sheet.
@@ -191,7 +159,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public MenuComponent NodeMenu { get; }
 
     /// <summary>
-    /// Gets the menu the right button opens on a group's band: pin, rename and colour.
+    /// Gets the menu the right button opens on a group's band: pin, rename and colour; on the node canvas, Disable for the nodes inside.
     /// </summary>
     public MenuComponent GroupMenu { get; }
 
@@ -241,10 +209,11 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     public bool? ShowFocusRing { get; set; }
 
     /// <summary>
-    /// Gets or sets whether the canvas draws <see cref="Menu"/> in its leading corner, for input without a right button.
+    /// Gets or sets whether the canvas draws <see cref="Menu"/> in a folding panel over its leading corner, for input without a right
+    /// button.
     /// </summary>
     [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = true)]
-    public bool? ShowMenuButton { get; set; }
+    public bool? ShowMenuPanel { get; set; }
 
     /// <summary>
     /// Gets or sets whether the canvas draws a pressable overview map of the whole sheet in its corner, with the visible part marked.
@@ -347,18 +316,21 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         if (entries.Length == 0)
             return Self;
 
-        InsertAhead(UIGraphCommands.Delete, [Separator(), .. entries]);
+        InsertAhead(NodeMenu, UIGraphCommands.Delete, [Separator(), .. entries]);
 
         return Self;
     }
 
     /// <summary>
-    /// Puts entries into the node menu ahead of one command's entry and the rule over it, found by its command so a kind's own
+    /// Puts entries into a menu ahead of one command's entry and the rule over it, found by its command so a kind's own
     /// entries or a removed entry cannot shift them; at the end where the menu holds no such entry.
     /// </summary>
-    private void InsertAhead(string command, MenuItem[] entries)
+    protected void InsertAhead(MenuComponent menu, string command, params MenuItem[] entries)
     {
-        IMenuItemModel[] items = [.. NodeMenu.Items ?? []];
+        ArgumentNullException.ThrowIfNull(menu);
+        ArgumentNullException.ThrowIfNull(entries);
+
+        IMenuItemModel[] items = [.. menu.Items ?? []];
         var at = Array.FindIndex(items, item => string.Equals(item.Id, command, StringComparison.Ordinal));
 
         if (at < 0)
@@ -366,7 +338,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         else if (at > 0 && items[at - 1].Kind == UIMenuItemKind.Separator)
             at--;
 
-        _ = NodeMenu.SetItems([.. items[..at], .. entries, .. items[at..]]);
+        _ = menu.SetItems([.. items[..at], .. entries, .. items[at..]]);
     }
 
     /// <summary>
@@ -498,7 +470,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        InsertAhead(UIGraphCommands.Color, [entry]);
+        InsertAhead(NodeMenu, UIGraphCommands.Color, entry);
     }
 
     /// <summary>A built-in entry a kind puts ahead of the shared ones in a menu, as the node canvas puts Add node.</summary>

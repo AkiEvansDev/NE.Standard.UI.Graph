@@ -2,7 +2,7 @@
 // draft, plan request), and the bipartite graph the layout sees: resource edges into crafts, craft edges out to resources.
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
-import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
+import { readCanvasEdge, readDocumentKey, readDraftMarks, readGroup, readPlacement, readText } from "../canvas/canvas-model.ts";
 import type { DraftEntry, DraftModel } from "../graph/draft.ts";
 import { overlay } from "../graph/draft.ts";
 import type { PlanObjective, PlanPeriod, PlanRequest } from "./plan.ts";
@@ -109,19 +109,19 @@ export function readProductionDocument(value: unknown): ProductionDocument {
     const draft = source.draft as Partial<ProductionDraft> | null | undefined;
 
     return {
-        nodes: (source.nodes ?? []).map(node => ({ id: String(node.id), x: Number(node.x) || 0, y: Number(node.y) || 0, pinned: node.pinned === true })),
-        edges: (source.edges ?? []).map(edge => ({ id: String(edge.id), points: readPoints(edge.points) })),
+        nodes: (source.nodes ?? []).map(readPlacement),
+        edges: (source.edges ?? []).map(readCanvasEdge),
         groups: (source.groups ?? []).map(readGroup),
         draft: {
             resources: (draft?.resources ?? []).flatMap(entry => {
                 const resource = readResource(entry);
 
-                return resource === null ? [] : [{ ...resourceDraft(resource), ...draftMarks(entry) }];
+                return resource === null ? [] : [{ ...resourceDraft(resource), ...readDraftMarks(entry) }];
             }),
             crafts: (draft?.crafts ?? []).flatMap(entry => {
                 const craft = readCraft(entry);
 
-                return craft === null ? [] : [{ ...craftDraft(craft), ...draftMarks(entry) }];
+                return craft === null ? [] : [{ ...craftDraft(craft), ...readDraftMarks(entry) }];
             }),
             removed: (draft?.removed ?? []).map(id => String(id))
         },
@@ -142,12 +142,6 @@ function readPlanRequest(value: unknown): PlanRequest {
         objective: (objective === "leasttime" ? "LeastTime" : objective === "leastcost" ? "LeastCost" : "LeastRaw") satisfies PlanObjective,
         bought: Array.isArray(source.bought) ? source.bought.map(id => String(id)) : []
     };
-}
-
-function draftMarks(entry: unknown): { created: boolean; baseline: string | null } {
-    const source = entry as { created?: unknown; baseline?: unknown };
-
-    return { created: source.created === true, baseline: typeof source.baseline === "string" ? source.baseline : null };
 }
 
 /** One entry off the wire, or nothing for a value with no key or of neither kind. */
@@ -172,13 +166,13 @@ function readResource(value: unknown): Resource | null {
     return {
         kind: "resource",
         id: source.id,
-        title: text(source.title),
-        icon: text(source.icon),
-        color: text(source.color),
-        tooltip: text(source.tooltip),
-        image: text(source.image),
-        category: text(source.category),
-        unit: text(source.unit),
+        title: readText(source.title),
+        icon: readText(source.icon),
+        color: readText(source.color),
+        tooltip: readText(source.tooltip),
+        image: readText(source.image),
+        category: readText(source.category),
+        unit: readText(source.unit),
         cost: typeof source.cost === "number" && Number.isFinite(source.cost) ? source.cost : null
     };
 }
@@ -192,10 +186,10 @@ function readCraft(value: unknown): Craft | null {
     return {
         kind: "craft",
         id: source.id,
-        title: text(source.title),
-        icon: text(source.icon),
-        color: text(source.color),
-        tooltip: text(source.tooltip),
+        title: readText(source.title),
+        icon: readText(source.icon),
+        color: readText(source.color),
+        tooltip: readText(source.tooltip),
         ingredients: readAmounts(source.ingredients),
         products: readAmounts(source.products),
         time: readSpan(source.time)
@@ -213,10 +207,6 @@ function readAmounts(value: unknown): CraftAmount[] {
             ? [{ resource: amount.resource, amount: Number(amount.amount) || 0 }]
             : [];
     });
-}
-
-function text(value: unknown): string | null {
-    return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 /** A span as the server writes one — `[-][d.]hh:mm:ss[.fffffff]` — or a number of seconds, as seconds. */

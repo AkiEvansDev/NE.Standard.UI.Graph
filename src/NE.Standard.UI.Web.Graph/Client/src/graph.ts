@@ -57,6 +57,11 @@ api.registerConverter("graph-direction", value => {
 });
 api.registerConverter("graph-node-shape", value => (String(value ?? "") === "Icon" ? "icon" : "card"));
 api.registerConverter("graph-production-mode", value => (String(value ?? "") === "Plan" ? "plan" : "constructor"));
+// A node canvas's NodeCornerRadius, a corner each: CSS cannot take one corner out of a four-value radius.
+api.registerConverter("graph-corner-top-left", value => cornerCss(value, "topLeft"));
+api.registerConverter("graph-corner-top-right", value => cornerCss(value, "topRight"));
+api.registerConverter("graph-corner-bottom-right", value => cornerCss(value, "bottomRight"));
+api.registerConverter("graph-corner-bottom-left", value => cornerCss(value, "bottomLeft"));
 
 // A command asking for the sheet the viewer has: the canvas commits it and its save event follows, carrying the reason given here.
 api.registerEffect({
@@ -77,3 +82,13 @@ api.registerCollectionSink({ kind: "layered", handler: change => engine?.kindOf(
 
 // A production graph's catalogue: resources and crafts in one bound collection, reaching the canvas the same way.
 api.registerCollectionSink({ kind: "production", handler: change => engine?.kindOf(change.component, ProductionKind)?.applyChange(change) });
+
+// One corner of a corner radius as the wire carries it, in px; unset clears the variable, and the stylesheet's radius stands.
+function cornerCss(value: unknown, corner: "topLeft" | "topRight" | "bottomRight" | "bottomLeft"): string {
+    if (value === null || typeof value !== "object")
+        return "";
+
+    const length = (value as Partial<Record<typeof corner, unknown>>)[corner];
+
+    return `${typeof length === "number" ? length : 0}px`;
+}

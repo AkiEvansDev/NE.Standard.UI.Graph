@@ -2,7 +2,7 @@
 // `NodesWiring`, `NodesLog` (run status and log), `NodesPickerBinding`, `NodesImageUpload`, `NodesParameters`.
 
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
-import { snapBoxes } from "../canvas/canvas-drag.ts";
+import { itemsInFrame, snapBoxes } from "../canvas/canvas-drag.ts";
 import { cloneTemplate, CoreNames, NodeAttribute } from "../canvas/canvas-dom.ts";
 import { checkMenuEntries, enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
@@ -565,6 +565,8 @@ export class NodesKind implements CanvasKind {
             case DisableCommand:
                 if (target?.kind === "node")
                     this.toggleEnabled(target.id);
+                else if (target?.kind === "group")
+                    this.toggleGroupEnabled(target.id);
 
                 return true;
 
@@ -629,14 +631,23 @@ export class NodesKind implements CanvasKind {
     }
 
     public syncMenus(editable: boolean, target: MenuTarget | null): void {
-        for (const key of ["graph:add-node", "graph:add-reroute", "graph:delete-edge", "graph:reset-state", DisableCommand])
+        for (const key of ["graph:add-node", "graph:add-reroute", "graph:delete-edge", "graph:reset-state"])
             enableMenuEntries(this.services, key, editable);
 
         const node = target?.kind === "node" ? target.id : null;
+        // A group's Disable stands for the nodes inside its frame now: off with none there, checked while every one is off.
+        const inGroup = target?.kind === "group" ? this.groupNodes(target.id) : null;
 
         // Reset stands only in the menu of a node whose kind keeps a state.
         showMenuEntries(this.services, "graph:reset-state", node !== null && this.statePins(node).length > 0);
-        checkMenuEntries(this.services, DisableCommand, node !== null && this.document.nodes.find(candidate => candidate.id === node)?.enabled === false);
+        enableMenuEntries(this.services, DisableCommand, editable && (inGroup === null || inGroup.length > 0));
+        checkMenuEntries(
+            this.services,
+            DisableCommand,
+            inGroup !== null
+                ? inGroup.length > 0 && inGroup.every(candidate => candidate.enabled === false)
+                : node !== null && this.document.nodes.find(candidate => candidate.id === node)?.enabled === false
+        );
         enableMenuEntries(this.services, ResetValuesCommand, editable && node !== null && canResetValues(this.document, this.types, node));
         this.syncPinMenu();
     }
@@ -716,8 +727,11 @@ export class NodesKind implements CanvasKind {
         if (this.services.settings.readOnly || nodes.length === 0)
             return;
 
-        const enabled = nodes[0].enabled === false;
+        this.setEnabled(nodes, nodes[0].enabled === false);
+    }
 
+    /** Nodes turned on or off for a run as one edit; a node turned off lets its last run's log go. */
+    private setEnabled(nodes: readonly DocumentNode[], enabled: boolean): void {
         for (const node of nodes) {
             node.enabled = enabled;
 
@@ -726,6 +740,26 @@ export class NodesKind implements CanvasKind {
         }
 
         this.services.documentState.edited();
+    }
+
+    /**
+     * Every node standing inside the group's frame now turned off, or on again when all of them are off; one edit. A pinned node
+     * counts, since nothing moves; a node brought in later is not touched, as a group keeps no state of its own.
+     */
+    private toggleGroupEnabled(groupId: string): void {
+        const nodes = this.groupNodes(groupId);
+
+        if (this.services.settings.readOnly || nodes.length === 0)
+            return;
+
+        this.setEnabled(nodes, nodes.every(node => node.enabled === false));
+    }
+
+    /** The nodes inside a group's frame as drawn, by the same rule its drag carries them by. */
+    private groupNodes(groupId: string): DocumentNode[] {
+        const group = this.document.groups.find(candidate => candidate.id === groupId);
+
+        return group === undefined ? [] : itemsInFrame(group, this.document.nodes, id => this.services.nodeRect(id));
     }
 
     /** Every input of the node, and of every other chosen node, back to its kind's default, as one edit. */

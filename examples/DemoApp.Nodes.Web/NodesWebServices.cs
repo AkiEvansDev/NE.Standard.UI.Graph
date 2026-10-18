@@ -24,6 +24,6 @@ internal static class NodesWebServices
         // The kinds wear the core's own glyphs; the demo registers the ones its commands wear, and the page's controls take the
         // outlined drawing.
         _ = services.AddMaterialWebIcons(NodesIcons.All);
-        _ = services.AddMaterialWebIcons(MaterialIconStyle.Outlined, [NodesDemoView.LightIcon, NodesDemoView.DarkIcon, NodesDemoView.CodeIcon, NodesDemoView.CopyIcon]);
+        _ = services.AddMaterialWebIcons(MaterialIconStyle.Outlined, [NodesDemoView.LightIcon, NodesDemoView.DarkIcon, NodesDemoView.CodeIcon, NodesDemoView.CopyIcon, .. NodesDemoView.PageIcons]);
     }
 }

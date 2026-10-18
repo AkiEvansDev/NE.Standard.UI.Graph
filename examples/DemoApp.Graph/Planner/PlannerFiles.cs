@@ -55,7 +55,7 @@ public static class PlannerFiles
 
                 if (pictures.TryGetValue(resource.Id, out PictureRecord? picture))
                 {
-                    image = IconsFolder + resource.Id + PlannerPictures.ExtensionOf(picture.ContentType);
+                    image = IconsFolder + resource.Id + UIPictureTypes.ExtensionOf(picture.ContentType);
 
                     // A picture is compressed already: storing it saves the work of squeezing it for nothing.
                     using Stream stream = archive.CreateEntry(image, CompressionLevel.NoCompression).Open();
@@ -209,6 +209,23 @@ public static class PlannerFiles
     }
 
     /// <summary>
+    /// A file a picker uploaded, handed to <paramref name="take"/> in the runtime's turn, or the reason there is none: past its first
+    /// wait an import runs beside the tab, whose values write the controller's members too.
+    /// </summary>
+    public static async Task<UICommandResult> ImportAsync(UIContext context, string? selectionId, Func<byte[], UICommandResult> take, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(take);
+
+        (var content, var uploadError) = await ReadUploadAsync(context, selectionId, cancellationToken).ConfigureAwait(false);
+        UICommandResult answer = UICommandResult.Ok();
+
+        _ = await context.Runtime.InvokeAsync(() => answer = content is null ? Refuse(uploadError) : take(content), cancellationToken).ConfigureAwait(false);
+
+        return answer;
+    }
+
+    /// <summary>
     /// The one file a picker uploaded, read whole out of the framework's upload store, or the reason there is none. The size is the
     /// framework's to limit (<c>UIFileOptions.MaxFileSize</c>): the upload endpoint refuses a larger file before it is kept.
     /// </summary>
@@ -234,6 +251,10 @@ public static class PlannerFiles
             return (buffer.ToArray(), null);
         }
     }
+
+    /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
+    public static UICommandResult Refuse(string? reason)
+        => UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase(reason ?? "planner.file.nothing-read"), UIColorStyle.Danger)]);
 
     private static T? Read<T>(byte[] content)
         where T : class

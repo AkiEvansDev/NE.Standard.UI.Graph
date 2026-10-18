@@ -1,6 +1,7 @@
 using NE.Standard.UI.Abstractions.Binding.Properties;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Components.BuiltIns.Navigation;
+using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
@@ -21,8 +22,11 @@ public interface IGraphCanvasComponent : IInputComponent
     /// <summary>Gets the registered property key for <see cref="ShowFocusRing"/>.</summary>
     static UIProperty ShowFocusRingProperty { get; } = new(nameof(ShowFocusRing));
 
-    /// <summary>Gets the registered property key for <see cref="ShowMenuButton"/>.</summary>
-    static UIProperty ShowMenuButtonProperty { get; } = new(nameof(ShowMenuButton));
+    /// <summary>Gets the registered property key for <see cref="SheetName"/>.</summary>
+    static UIProperty SheetNameProperty { get; } = new(nameof(SheetName));
+
+    /// <summary>Gets the registered property key for <see cref="ShowMenuPanel"/>.</summary>
+    static UIProperty ShowMenuPanelProperty { get; } = new(nameof(ShowMenuPanel));
 
     /// <summary>Gets the registered property key for <see cref="ShowMinimap"/>.</summary>
     static UIProperty ShowMinimapProperty { get; } = new(nameof(ShowMinimap));
@@ -54,8 +58,11 @@ public interface IGraphCanvasComponent : IInputComponent
     /// <summary>Gets the registered property key for <see cref="ColorChoices"/>.</summary>
     static UIProperty ColorChoicesProperty { get; } = new(nameof(ColorChoices));
 
-    /// <summary>Gets the menu that slides out of the canvas's leading corner.</summary>
+    /// <summary>Gets the menu in the folding panel over the canvas's leading corner.</summary>
     MenuComponent Menu { get; }
+
+    /// <summary>Gets the sheet's name in the corner menu panel's header.</summary>
+    UIPhrase? SheetName { get; }
 
     /// <summary>Gets the menu the right button opens on the canvas's empty surface.</summary>
     MenuComponent CanvasMenu { get; }
@@ -72,8 +79,8 @@ public interface IGraphCanvasComponent : IInputComponent
     /// <summary>Gets whether the canvas shows a ring when it takes the keyboard.</summary>
     bool? ShowFocusRing { get; }
 
-    /// <summary>Gets whether the canvas draws <see cref="Menu"/> in its leading corner.</summary>
-    bool? ShowMenuButton { get; }
+    /// <summary>Gets whether the canvas draws <see cref="Menu"/> in a folding panel over its leading corner.</summary>
+    bool? ShowMenuPanel { get; }
 
     /// <summary>Gets whether the canvas draws a map of the whole sheet in its corner.</summary>
     bool? ShowMinimap { get; }

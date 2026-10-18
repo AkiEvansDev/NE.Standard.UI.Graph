@@ -3,7 +3,7 @@
 // renderer writes an icon value.
 
 import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormatting, Tooltips, Urls } from "ne-standard-ui";
-import { CollapsedAttribute, CoreNames, FoldAttribute, hoverTooltip, NodeAttribute, PinToggleAttribute, ResizeAttribute } from "../canvas/canvas-dom.ts";
+import { CollapsedAttribute, CoreNames, FoldAttribute, hoverTooltip, nodeRoot, PinToggleAttribute, resizeGrip } from "../canvas/canvas-dom.ts";
 import { joinList, MoreKey, showDisplayValue } from "./display.ts";
 import type { DisplayOptions } from "./display.ts";
 import type { DocumentNode, NodeType, Pin } from "./model.ts";
@@ -92,12 +92,7 @@ const ListAddAttribute = "data-ui-graph-list-add";
 
 /** Draws one node. The element carries everything the engine needs to find it again: the node's id, and a mark per pin. */
 export function renderNode(node: DocumentNode, type: NodeType | undefined, options: NodeViewOptions): HTMLElement {
-    const root = document.createElement("div");
-
-    root.className = "ui-graph__node";
-    root.setAttribute(NodeAttribute, node.id);
-    root.style.setProperty("--ui-graph-node-x", String(node.x));
-    root.style.setProperty("--ui-graph-node-y", String(node.y));
+    const root = nodeRoot("ui-graph__node", node.id, node, node.color ?? type?.color ?? null, null);
 
     if (type?.minWidth !== null && type?.minWidth !== undefined)
         root.style.setProperty("--ui-graph-node-min-width", `${type.minWidth}rem`);
@@ -109,14 +104,6 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
 
     if (node.collapsed !== true && node.height !== null && node.height !== undefined && node.height > 0)
         root.style.setProperty("--ui-graph-node-h", String(node.height));
-
-    const color = node.color ?? type?.color ?? null;
-
-    if (color !== null && color.length > 0)
-        root.style.setProperty("--ui-graph-node-color", color);
-
-    if (node.pinned === true)
-        root.setAttribute("data-ui-graph-pinned", "");
 
     if (node.enabled === false)
         root.setAttribute(OffAttribute, "");
@@ -229,16 +216,6 @@ function renderPorts(node: DocumentNode, type: NodeType | undefined, options: No
         ports.append(opensPinMenu(renderPin(node, pin, options.outputType(node.id, pin.name), "out", options), pin, "out", options));
 
     return ports;
-}
-
-/** The corner the viewer drags to set the node's own width and height. */
-function resizeGrip(): HTMLElement {
-    const grip = document.createElement("div");
-
-    grip.className = "ui-graph__node-resize";
-    grip.setAttribute(ResizeAttribute, "");
-
-    return grip;
 }
 
 function renderHead(node: DocumentNode, type: NodeType | undefined, options: NodeViewOptions): HTMLElement {

@@ -17,6 +17,12 @@ internal abstract partial class NodesSheetController : UIControllerBase
     /// <summary>The form the canvas's sheet is held in until it is saved.</summary>
     public const string CanvasForm = "sheet";
 
+    /// <summary>The corners choice that keeps the theme's rounding.</summary>
+    public const string RoundedCorners = "rounded";
+
+    /// <summary>The corners choice that squares the nodes.</summary>
+    public const string SquareCorners = "square";
+
     // The whole of a run, from the package: the canvas's run panel saves under a run's reason, and SaveAsync hands the save here.
     private readonly UINodeRuns _runs;
     private readonly UINodeCatalog _catalog;
@@ -62,6 +68,14 @@ internal abstract partial class NodesSheetController : UIControllerBase
     [RecursiveMember]
     public partial bool ReadOnly { get; set; }
 
+    /// <summary>The corners chosen above the sheet, <see cref="RoundedCorners"/> or <see cref="SquareCorners"/>.</summary>
+    [RecursiveMember]
+    public partial string Corners { get; set; } = RoundedCorners;
+
+    /// <summary>The canvas's node corners the choice comes to: unset, the theme's card radius; square, none.</summary>
+    [RecursiveMember]
+    public partial UICornerRadius? NodeCornerRadius { get; set; }
+
     /// <summary>
     /// Ctrl+S, the menu's Save, or a save this controller asked for: the whole document has already landed on <see cref="Sheet"/>
     /// by the time this runs, and <paramref name="reason"/> says who asked — which is how Run gets the sheet the viewer is
@@ -103,24 +117,26 @@ internal abstract partial class NodesSheetController : UIControllerBase
         }
     }
 
+    /// <summary>The corners chosen: square is a radius of nothing, rounded leaves the canvas its theme's.</summary>
+    [UICommand]
+    public void CornersChosen()
+        => NodeCornerRadius = string.Equals(Corners, SquareCorners, StringComparison.Ordinal) ? UICornerRadius.Uniform(0) : null;
+
     /// <summary>The run panel's Stop: the run under way ends, cut short.</summary>
     [UICommand]
     public void Stop()
         => _runs.Stop();
 
     /// <summary>
-    /// One of the page's own menu entries was clicked: Run in the corner menu — the panel's Run, asked for by the server — and
-    /// Show node position in a node's, which hears the node it was opened on. The canvas's own entries never come here.
+    /// The page's own menu entry was clicked: Run in the corner menu — the panel's Run, asked for by the server. The canvas's own
+    /// entries never come here.
     /// </summary>
     [UICommand]
-    public UICommandResult MenuEntry(string key, string target)
+    public UICommandResult MenuEntry(string key)
     {
         // Not while a run is under way: the canvas would queue the save behind the run's, and it would run again once Stop ended it.
         if (string.Equals(key, NodesSheetView.RunEntryKey, StringComparison.Ordinal))
             return _runs.IsRunning ? UICommandResult.Ok() : UICommandResult.Ok([new SaveDocumentEffect(_canvasId, UIGraphArguments.RunReason)]);
-
-        if (string.Equals(key, NodesSheetView.PositionEntryKey, StringComparison.Ordinal))
-            NodeClicked(target);
 
         return UICommandResult.Ok();
     }

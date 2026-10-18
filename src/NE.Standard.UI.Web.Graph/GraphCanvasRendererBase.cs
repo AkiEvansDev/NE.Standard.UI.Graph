@@ -46,10 +46,10 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     /// <summary>Whether the canvas draws its focus ring, on the root.</summary>
     public const string FocusRingAttribute = "data-ui-graph-focus-ring";
 
-    /// <summary>Whether the corner menu's button is drawn, on the root.</summary>
-    public const string MenuButtonAttribute = "data-ui-graph-menu-button";
+    /// <summary>Whether the corner menu's panel is drawn, on the root.</summary>
+    public const string ShowMenuAttribute = "data-ui-graph-show-menu";
 
-    /// <summary>On the box the corner menu stands in: the menu's name, as a context menu's region carries its own.</summary>
+    /// <summary>On the corner menu's folding panel: the menu's name, as a context menu's region carries its own.</summary>
     public const string MenuPanelAttribute = "data-ui-graph-menu-panel";
 
     /// <summary>Whether the minimap is drawn, on the root.</summary>
@@ -90,7 +90,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     private const string TooltipMarkAttribute = "data-ui-tooltip-mark";
 
     // The wire's conventions, so the text a render writes is the text a patch would: camel-cased, an enum by its name.
-    protected static readonly JsonSerializerOptions WireJson = WebWireJson.CreateOptions();
+    protected static readonly JsonSerializerOptions WireJson = WebWireJson.Options;
 
     protected override string ClassName => "ui-graph";
 
@@ -129,7 +129,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowGridProperty, ShowGridAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.SnapToGridProperty, SnapAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowFocusRingProperty, FocusRingAttribute);
-        RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowMenuButtonProperty, MenuButtonAttribute);
+        RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowMenuPanelProperty, ShowMenuAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.ShowMinimapProperty, MinimapAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.HighlightOnHoverProperty, HighlightAttribute);
         RenderFlagAttribute(context, root, IGraphCanvasComponent.AutoSaveProperty, AutoSaveAttribute);
@@ -377,7 +377,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         RenderAfterViewport(context, root);
     }
 
-    /// <summary>What the kind stands along the canvas's top, ahead of the menu button — a progress line.</summary>
+    /// <summary>What the kind stands along the canvas's top, ahead of the corner menu — a progress line.</summary>
     protected virtual void RenderViewportHead(WebRenderContext context, IHtmlElementBuilder viewport)
     {
     }
@@ -393,19 +393,47 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     }
 
     /// <summary>
-    /// The corner menu: every command the canvas has, versus the right-button menus which offer only what edits the part pressed.
-    /// Carried as a region, folded to its switch.
+    /// The corner menu: every command the canvas has, versus the right-button menus which offer only what edits the part pressed. A
+    /// folding panel over the leading corner as the plan is over the trailing one — the menu's glyph, the sheet's name and the fold
+    /// over the menu, carried as a region — open until the viewer folds it; on a phone it starts folded (the stylesheet's).
     /// </summary>
     private void RenderMenuPanel(WebRenderContext context, IHtmlElementBuilder viewport)
     {
-        _ = viewport.Element("div", panel =>
-        {
-            _ = panel.Class($"{ClassName}__menu-panel");
-            _ = panel.Attribute(WebAttributes.NoContextMenu);
-            _ = panel.Attribute(MenuPanelAttribute, UIGraphMenus.Main);
-            WebWords.Write(context, panel, "aria-label", GraphStrings.Menu);
-            RenderRegion(context, panel, UIGraphMenus.Main);
-        });
+        const string Part = "menu-panel";
+
+        RenderFoldingPanel(context, viewport, Part, GraphStrings.Menu, UISide.Left, folded: false,
+            panel => _ = panel.Attribute(MenuPanelAttribute, UIGraphMenus.Main),
+            toggle =>
+            {
+                _ = toggle.Element("span", icon =>
+                {
+                    _ = icon.Class($"{ClassName}__{Part}-icon");
+                    _ = icon.Attribute("aria-hidden", "true");
+                    IconValueRenderer.RenderIcon(icon, UIGlyphs.Menu);
+                });
+
+                // The sheet's name, bound or set; while it has none, the word for the menu after it, which the stylesheet shows only
+                // beside an empty name, so the switch says one or the other and a patch emptying the name needs no word of its own.
+                _ = toggle.Element("span", name =>
+                {
+                    _ = name.Class($"{ClassName}__{Part}-name");
+                    _ = RenderProperty<string?>(context, name, IGraphCanvasComponent.SheetNameProperty, static (target, value) =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(value))
+                            _ = target.Text(value);
+                    }, [WebDomOperation.Text()]);
+                });
+
+                _ = toggle.Element("span", word =>
+                {
+                    _ = word.Class($"{ClassName}__{Part}-word");
+                    WebWords.Write(context, word, null, GraphStrings.Menu);
+                });
+
+                RenderFoldChevron(toggle, Part);
+            },
+            body => RenderRegion(context, body, UIGraphMenus.Main)
+        );
     }
 
     /// <summary>
@@ -514,28 +542,15 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         ArgumentNullException.ThrowIfNull(viewport);
         ArgumentNullException.ThrowIfNull(renderBody);
 
-        _ = viewport.Element("aside", panel =>
-        {
-            _ = panel.Class($"{ClassName}__{part}");
-            // A panel over the sheet, not the sheet: a right press on it opens none of the canvas's menus.
-            _ = panel.Attribute(WebAttributes.NoContextMenu);
-            _ = panel.Class(CollapsibleChromeRenderer.RootClassName);
-            _ = panel.Class(WebClassNames.Side(UISide.Right));
-            _ = panel.Attribute(marker);
-            // A panel over the viewport's trailing side, which Fit keeps clear of: its column while it is open, its switch folded.
-            _ = panel.Attribute("data-ui-graph-side");
-            WebWords.Write(context, panel, "aria-label", wordKey);
-
-            if (folded)
-                _ = panel.Attribute(WebAttributes.Collapsed);
-
-            _ = panel.Element("button", toggle =>
+        RenderFoldingPanel(context, viewport, part, wordKey, UISide.Right, folded,
+            panel =>
             {
-                _ = toggle.Class($"{ClassName}__{part}-toggle");
-                _ = toggle.Attribute("type", "button");
-                _ = toggle.Attribute("aria-expanded", folded ? "false" : "true");
-                _ = toggle.Attribute(WebAttributes.CollapseToggle);
-
+                _ = panel.Attribute(marker);
+                // A panel over the viewport's trailing side, which Fit keeps clear of: its column while it is open, its switch folded.
+                _ = panel.Attribute("data-ui-graph-side");
+            },
+            toggle =>
+            {
                 if (foldedIcon is not null)
                 {
                     WebWords.Write(context, toggle, "aria-label", wordKey);
@@ -552,14 +567,39 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                     });
                 }
 
-                _ = toggle.Element("span", mark =>
-                {
-                    _ = mark.Class($"{ClassName}__{part}-chevron");
-                    _ = mark.Attribute("aria-hidden", "true");
-                    IconValueRenderer.RenderIcon(mark, UIGlyphs.ChevronRight);
-                });
-
+                RenderFoldChevron(toggle, part);
                 _ = toggle.Element("span", text => WebWords.Write(context, text, null, wordKey));
+            },
+            renderBody
+        );
+    }
+
+    /// <summary>
+    /// A panel over the viewport folded by the framework's collapsible toward <paramref name="side"/> — the plan over the trailing
+    /// side, the corner menu over the leading one: its switch, which <paramref name="renderSwitch"/> lays out, over its body.
+    /// </summary>
+    private void RenderFoldingPanel(WebRenderContext context, IHtmlElementBuilder viewport, string part, string wordKey, UISide side, bool folded, Action<IHtmlElementBuilder> markPanel, Action<IHtmlElementBuilder> renderSwitch, Action<IHtmlElementBuilder> renderBody)
+    {
+        _ = viewport.Element("aside", panel =>
+        {
+            _ = panel.Class($"{ClassName}__{part}");
+            // A panel over the sheet, not the sheet: a right press on it opens none of the canvas's menus.
+            _ = panel.Attribute(WebAttributes.NoContextMenu);
+            _ = panel.Class(CollapsibleChromeRenderer.RootClassName);
+            _ = panel.Class(WebClassNames.Side(side));
+            markPanel(panel);
+            WebWords.Write(context, panel, "aria-label", wordKey);
+
+            if (folded)
+                _ = panel.Attribute(WebAttributes.Collapsed);
+
+            _ = panel.Element("button", toggle =>
+            {
+                _ = toggle.Class($"{ClassName}__{part}-toggle");
+                _ = toggle.Attribute("type", "button");
+                _ = toggle.Attribute("aria-expanded", folded ? "false" : "true");
+                _ = toggle.Attribute(WebAttributes.CollapseToggle);
+                renderSwitch(toggle);
             });
 
             _ = panel.Element("div", body =>
@@ -576,6 +616,15 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             });
         });
     }
+
+    /// <summary>A folding panel's chevron, pointing down while it is open and along its switch once folded (the stylesheet's).</summary>
+    private void RenderFoldChevron(IHtmlElementBuilder toggle, string part)
+        => _ = toggle.Element("span", mark =>
+        {
+            _ = mark.Class($"{ClassName}__{part}-chevron");
+            _ = mark.Attribute("aria-hidden", "true");
+            IconValueRenderer.RenderIcon(mark, UIGlyphs.ChevronRight);
+        });
 
     /// <summary>One of the canvas's own small buttons: a mark of the framework's, its word as the tooltip, and the attribute the engine finds it by.</summary>
     protected void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string attribute, string wordKey, string icon)

@@ -27,13 +27,16 @@ public abstract class NodesDemoView : UIViewBase
     private const string SidebarId = "nodes-sidebar";
 
     // A route of null is a heading over the pages below it; a demo of one page has none, as a section of one page is that page.
-    private static readonly (string? Route, string Label)[] Pages =
+    private static readonly (string? Route, string Label, string? Icon)[] Pages =
     [
-        (null, "nodes.nav.kinds"),
-        (NodesRoute, "nodes.page.common"),
-        (CalculatorRoute, "nodes.page.calculator"),
-        (ImageRoute, "nodes.page.image")
+        (null, "nodes.nav.kinds", null),
+        (NodesRoute, "nodes.page.common", MaterialIcons.Hub),
+        (CalculatorRoute, "nodes.page.calculator", MaterialIcons.Calculate),
+        (ImageRoute, "nodes.page.image", MaterialIcons.Image)
     ];
+
+    /// <summary>The pages' glyphs, which the host registers with the pack.</summary>
+    public static string[] PageIcons => [.. Pages.Select(static page => page.Icon).OfType<string>()];
 
     /// <summary>The title band and the sidebar stand, the sidebar from the top of the page; the content scrolls by itself.</summary>
     public override UIViewOptions Options { get; } = new() { StickyHeader = true, ScrollContentOnly = true, ShellLayout = UIShellLayout.FullHeightSides };
@@ -214,8 +217,8 @@ public abstract class NodesDemoView : UIViewBase
 
         for (var i = 0; i < Pages.Length; i++)
         {
-            entries[i] = Pages[i].Route is { } route
-                ? new MenuItem { Id = route, Title = Pages[i].Label, Url = route, Selected = route == Route }
+            entries[i] = Pages[i] is { Route: { } route, Icon: { } icon }
+                ? new MenuItem { Id = route, Title = Pages[i].Label, Icon = MaterialIcons.Outlined(icon), Url = route, Selected = route == Route }
                 : new MenuItem { Id = Pages[i].Label, Kind = UIMenuItemKind.Header, Title = Pages[i].Label };
         }
 

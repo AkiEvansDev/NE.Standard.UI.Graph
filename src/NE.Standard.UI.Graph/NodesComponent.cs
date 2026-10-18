@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using NE.Standard.UI.Abstractions.Items;
+using NE.Standard.UI.Abstractions.Styling;
 using NE.Standard.UI.Authoring.BuiltIns;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Components.BuiltIns.Actions;
@@ -22,12 +23,17 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 {
     protected NodesComponent(string? id = null) : base(id)
     {
-        // A reroute is a shape of the sheet, not a kind to look for: its own entry, not a line of the picker.
-        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add), Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route), Separator());
+        // A reroute is a shape of the sheet, not a kind to look for: its own entry, not a line of the picker. It closes the adding
+        // block, after Add group and ahead of the rule over Group selection.
+        PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddNode, UIGlyphs.Add));
+        InsertAhead(CanvasMenu, UIGraphCommands.GroupSelection, Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route));
         PrependEntries(EdgeMenu, Entry(UIGraphCommands.AddReroute, UIGraphWords.AddReroute, UIGlyphs.Route));
         // What a run makes of a node: off for the run, its values as a new node's; the state's own reset shown only on a node whose
         // kind keeps one, since a hidden state has no reset button of its own.
         AddNodeEntry(Entry(UIGraphCommands.Disable, UIGraphWords.Disabled, UIGlyphs.Block, kind: UIMenuItemKind.Check));
+        // A group's Disable acts on the nodes standing in its frame as the menu opens, never on the frame: membership is geometry the
+        // server does not keep, so a group carries no state of its own a run could read.
+        InsertAhead(GroupMenu, UIGraphCommands.Color, Entry(UIGraphCommands.Disable, UIGraphWords.Disabled, UIGlyphs.Block, kind: UIMenuItemKind.Check), Separator());
         AddNodeEntry(Entry(UIGraphCommands.ResetValues, UIGraphWords.ResetValues, UIGlyphs.Restart));
         AddNodeEntry(Entry(UIGraphCommands.ResetState, UIGraphWords.ResetNodeState, UIGlyphs.Restart));
 
@@ -82,6 +88,13 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     /// </remarks>
     [UIComponentProperty(DefaultValue = false)]
     public bool? ShowRunPanel { get; set; }
+
+    /// <summary>
+    /// Gets or sets the corners of the canvas's nodes; unset, the theme's card radius, and <c>UICornerRadius.Uniform(0)</c> squares them.
+    /// </summary>
+    /// <remarks>A node's head and its chosen ring follow each corner, as a group's frame does; a reroute, unset, keeps a button's smaller one.</remarks>
+    [UIComponentProperty(DefaultValue = null)]
+    public UICornerRadius? NodeCornerRadius { get; set; }
 
     /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
     public T SetCatalog(params Type[] nodeTypes)

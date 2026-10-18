@@ -17,10 +17,10 @@ const TakeServerCommand = "graph:take-server";
 const KeepMineCommand = "graph:keep-mine";
 
 /** A draft entry whose name and colour its item's menu changes. */
-type NamedEntry = DraftEntry & { title: string | null; color: string | null };
+export type NamedEntry = DraftEntry & { title: string | null; color: string | null };
 
 /** What of a document the collection reaches: the places, the edges' bends, and the keys the draft removes. */
-type DraftedDocument = CanvasDocument & { nodes: CanvasItem[]; edges: CanvasEdge[]; draft: { removed: string[] } };
+export type DraftedDocument = CanvasDocument & { nodes: CanvasItem[]; edges: CanvasEdge[]; draft: { removed: string[] } };
 
 export class DraftedCollection<TDocument extends DraftedDocument, TItem extends { readonly id: string }, TEntry extends NamedEntry> {
     private readonly services: CanvasServices<TDocument>;

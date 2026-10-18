@@ -10,35 +10,45 @@ function button(classes = "", attributes: Readonly<Record<string, string>> = {})
     return FakeElement.of(classes, attributes, "button");
 }
 
-test("the zoom bar's and run panel's buttons, the corner's and side panels' switches and the log's strip are the canvas's own", () => {
+/** The corner as RenderMenuPanel writes it: a folding panel, its switch over the core's menu in its body. */
+function corner(entry: FakeElement = button("ui-menu-item")): { toggle: FakeElement; entry: FakeElement } {
+    const toggle = button("ui-graph__menu-panel-toggle", { "data-ui-collapse-toggle": "", "aria-expanded": "true" });
+    const body = FakeElement.of("ui-graph__menu-panel-body ui-collapsible__content").append(
+        FakeElement.of("ui-menu").append(FakeElement.of("ui-menu__host").append(FakeElement.of("ui-menu__item").append(entry)))
+    );
+
+    FakeElement.of("ui-graph__menu-panel ui-collapsible ui-side--left", { "data-ui-graph-menu-panel": "graph-menu" }, "aside").append(toggle, body);
+
+    return { toggle, entry };
+}
+
+test("the zoom bar's and run panel's buttons, the corner menu's and side panels' switches and the log's strip are the canvas's own", () => {
     const zoom = button("ui-graph__bar-button ui-button ui-button--ghost");
-    const cornerSwitch = button("ui-menu__toggle", { "data-ui-collapse-toggle": "" });
-    const sideSwitch = button("ui-graph__parameters-toggle", { "data-ui-collapse-toggle": "" });
+    const { toggle } = corner();
+    const sideSwitch = button("ui-graph__plan-toggle", { "data-ui-collapse-toggle": "" });
     const logToggle = button("ui-graph__log-toggle", { "data-ui-graph-log-toggle": "" });
     const logClear = button("ui-graph__log-clear");
 
-    FakeElement.of("", { "data-ui-graph-menu-panel": "graph-menu" }).append(FakeElement.of("ui-menu").append(cornerSwitch));
-    FakeElement.of("ui-graph__parameters", { "data-ui-graph-side": "" }, "aside").append(sideSwitch);
+    FakeElement.of("ui-graph__plan", { "data-ui-graph-side": "" }, "aside").append(sideSwitch);
     FakeElement.of("ui-graph__log-head").append(logToggle, logClear);
 
-    for (const own of [zoom, cornerSwitch, sideSwitch, logToggle, logClear])
+    for (const own of [zoom, toggle, sideSwitch, logToggle, logClear])
         assert.equal(own.matches(ChromeButtonSelector), true, own.className);
 });
 
 test("a menu's entry, a side panel's contents and a log line's node name are not the canvas's own", () => {
-    const entry = button("ui-menu-item");
+    const { entry } = corner();
     const field = button("ui-select__trigger");
-    const name = button("ui-graph__parameter-name");
+    const name = button("ui-graph__plan-name");
     const lineName = button("ui-graph__log-node", { "data-ui-graph-log-node": "n1" });
+    // A switch of a collapsible inside a panel's body is that part's own, not the panel's.
+    const nested = button("ui-collapsible__toggle", { "data-ui-collapse-toggle": "" });
 
-    FakeElement.of("", { "data-ui-graph-menu-panel": "graph-menu" }).append(
-        FakeElement.of("ui-menu").append(FakeElement.of("ui-menu__items", {}, "ul").append(FakeElement.of("ui-menu__item", {}, "li").append(entry)))
-    );
-    FakeElement.of("ui-graph__parameters", { "data-ui-graph-side": "" }, "aside").append(
-        FakeElement.of("ui-graph__parameters-body").append(field, name)
+    FakeElement.of("ui-graph__plan", { "data-ui-graph-side": "" }, "aside").append(
+        FakeElement.of("ui-graph__plan-body").append(field, name, FakeElement.of("ui-collapsible").append(nested))
     );
     FakeElement.of("ui-graph__log-entries", {}, "ul").append(FakeElement.of("ui-graph__log-entry", {}, "li").append(lineName));
 
-    for (const other of [entry, field, name, lineName])
+    for (const other of [entry, field, name, lineName, nested])
         assert.equal(other.matches(ChromeButtonSelector), false, other.className);
 });

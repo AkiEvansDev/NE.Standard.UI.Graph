@@ -138,7 +138,7 @@
 
 // A flex box, not an inline one: the words inside can only end in an ellipsis where the box itself is held to its column.
 .ui-graph__plan-name {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: flex;
     align-items: center;
     gap: 0.375rem;
@@ -153,9 +153,7 @@
 
     > span:last-child {
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        .ui-text-nowrap();
     }
 }
 

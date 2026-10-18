@@ -2,10 +2,10 @@
 // is drawn so; one that alone makes a resource collapses onto its edges. Resources use the graph's card; amounts are edge labels.
 
 import type { NumberFormatting, Tooltips } from "ne-standard-ui";
-import { hoverTooltip, ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { hoverTooltip, ItemTitleSelector, nodeRoot } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "../graph/draft.ts";
-import { EntryAttribute, HandleAttribute } from "../graph/link-drag.ts";
+import { appendLinkHandles } from "../graph/link-drag.ts";
 import type { Craft, CraftAmount, Resource } from "./model.ts";
 
 export type CraftViewOptions = {
@@ -35,23 +35,9 @@ export function numberWriter(numbers: NumberFormatting, root: Element): NumberWr
 }
 
 export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftViewOptions): HTMLElement {
-    const root = document.createElement("div");
+    const root = nodeRoot("ui-graph__node ui-graph__craft", craft.id, placement, craft.color, options.conflict);
     const name = document.createElement("span");
     const time = document.createElement("span");
-
-    root.className = "ui-graph__node ui-graph__craft";
-    root.setAttribute(NodeAttribute, craft.id);
-    root.style.setProperty("--ui-graph-node-x", String(placement.x));
-    root.style.setProperty("--ui-graph-node-y", String(placement.y));
-
-    if (craft.color !== null)
-        root.style.setProperty("--ui-graph-node-color", craft.color);
-
-    if (options.conflict !== null)
-        root.setAttribute("data-ui-graph-conflict", options.conflict);
-
-    if (placement.pinned === true)
-        root.setAttribute("data-ui-graph-pinned", "");
 
     // The name a rename lays its field over: emptied, the craft is called what every unnamed one is.
     name.className = `${TitleClass} ui-graph__craft-name`;
@@ -60,16 +46,8 @@ export function renderCraft(placement: CanvasItem, craft: Craft, options: CraftV
     time.textContent = options.note ?? formatTime(craft.time, options.number);
     root.append(name, time);
 
-    if (options.connectable) {
-        const handle = document.createElement("span");
-        const entry = document.createElement("span");
-
-        handle.className = "ui-graph__handle";
-        handle.setAttribute(HandleAttribute, "");
-        entry.className = "ui-graph__entry";
-        entry.setAttribute(EntryAttribute, "");
-        root.append(entry, handle);
-    }
+    if (options.connectable)
+        appendLinkHandles(root);
 
     // The words composed here read as written — a resource the viewer named `a*b` among them — where the application's are markup.
     const words = craft.tooltip ?? options.tooltips.escape(describe(craft, options.resource, options.number));

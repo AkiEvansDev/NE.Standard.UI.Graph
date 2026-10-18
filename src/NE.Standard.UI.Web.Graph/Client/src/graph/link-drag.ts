@@ -10,7 +10,7 @@ import { pathMiddle } from "../canvas/geometry.ts";
 /** On a node's handle: pressed, it pulls a link out of the node. */
 export const HandleAttribute = "data-ui-graph-handle";
 /** On a node's entry point: where a link pulled to the node lands, shown while one is being pulled. */
-export const EntryAttribute = "data-ui-graph-entry";
+const EntryAttribute = "data-ui-graph-entry";
 /** On the node a link is being pulled out of, while it is. */
 const SourceAttribute = "data-ui-graph-link-source";
 
@@ -20,6 +20,18 @@ export type LinkRules = {
     /** The link dropped on a node that takes it, and where on the page the pointer let go of it. */
     link(from: string, to: string, at: { readonly clientX: number; readonly clientY: number }): void;
 };
+
+/** The entry a pulled link lands on and the handle a link is pulled out of, last in a node's root. */
+export function appendLinkHandles(root: HTMLElement): void {
+    const handle = document.createElement("span");
+    const entry = document.createElement("span");
+
+    handle.className = "ui-graph__handle";
+    handle.setAttribute(HandleAttribute, "");
+    entry.className = "ui-graph__entry";
+    entry.setAttribute(EntryAttribute, "");
+    root.append(entry, handle);
+}
 
 /** A press on a node's handle: a link pulled out of it, and dropped on the node it goes to. */
 export function beginLinkDrag(services: CanvasServices<CanvasDocument>, handle: HTMLElement, rules: LinkRules): KindDrag | null {

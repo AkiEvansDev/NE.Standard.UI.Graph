@@ -1,11 +1,13 @@
 using System;
 using System.Text.Json;
+using NE.Standard.UI.Abstractions.Styling;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Graph;
 using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
 using NE.Standard.UI.Web.Abstractions.Html;
 using NE.Standard.UI.Web.Abstractions.Rendering;
+using NE.Standard.UI.Web.Abstractions.Theming;
 using NE.Standard.UI.Web.Renderers.Foundation;
 
 namespace NE.Standard.UI.Web.Graph;
@@ -25,6 +27,26 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
     /// <summary>On the root of a canvas that shows its run panel.</summary>
     public const string RunPanelAttribute = "data-ui-graph-run-panel";
 
+    /// <summary>A node's top-left corner, on the root of a canvas whose <c>NodeCornerRadius</c> is set; the three below beside it.</summary>
+    public const string TopLeftCornerVariable = "--ui-graph-node-corner-tl";
+
+    /// <summary>A node's top-right corner, on the root.</summary>
+    public const string TopRightCornerVariable = "--ui-graph-node-corner-tr";
+
+    /// <summary>A node's bottom-right corner, on the root.</summary>
+    public const string BottomRightCornerVariable = "--ui-graph-node-corner-br";
+
+    /// <summary>A node's bottom-left corner, on the root.</summary>
+    public const string BottomLeftCornerVariable = "--ui-graph-node-corner-bl";
+
+    private static readonly WebDomOperation[] NodeCornerOperations =
+    [
+        WebDomOperation.Style(TopLeftCornerVariable, target: "root", converter: GraphConverters.TopLeftCornerCss),
+        WebDomOperation.Style(TopRightCornerVariable, target: "root", converter: GraphConverters.TopRightCornerCss),
+        WebDomOperation.Style(BottomRightCornerVariable, target: "root", converter: GraphConverters.BottomRightCornerCss),
+        WebDomOperation.Style(BottomLeftCornerVariable, target: "root", converter: GraphConverters.BottomLeftCornerCss)
+    ];
+
     public override string ComponentTypeKey => NodesComponent.ComponentTypeKey;
 
     protected override string KindName => "nodes";
@@ -38,11 +60,30 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
         RenderFlagAttribute(context, root, NodesComponent.ShowRunProgressProperty, RunProgressAttribute);
         RenderFlagAttribute(context, root, NodesComponent.ShowRunPanelProperty, RunPanelAttribute);
+        RenderNodeCorners(context, root);
         RenderCatalog(context, root);
 
         // Beside the node, group and edge menus the canvas renders for every kind: a node canvas's pins have one of their own.
         RenderContextMenuRegion(context, root, UIGraphMenus.Pin, UIGraphMenus.Pin);
     }
+
+    /// <summary>The nodes' corners as one variable a corner on the root; unset, none, and the stylesheet's own radius stands.</summary>
+    /// <remarks>
+    /// A corner each rather than the core's one <c>border-radius</c> value: the head's top corners and the chosen ring's are worked out
+    /// from each corner, and CSS cannot take one corner out of a four-value radius.
+    /// </remarks>
+    private static void RenderNodeCorners(WebRenderContext context, IHtmlElementBuilder root)
+        => _ = RenderProperty<UICornerRadius?>(context, root, NodesComponent.NodeCornerRadiusProperty, static (target, value) =>
+        {
+            if (value is not UICornerRadius radius)
+                return;
+
+            radius.Validate();
+            _ = target.Style(TopLeftCornerVariable, WebCssValues.Pixels(radius.TopLeft));
+            _ = target.Style(TopRightCornerVariable, WebCssValues.Pixels(radius.TopRight));
+            _ = target.Style(BottomRightCornerVariable, WebCssValues.Pixels(radius.BottomRight));
+            _ = target.Style(BottomLeftCornerVariable, WebCssValues.Pixels(radius.BottomLeft));
+        }, NodeCornerOperations);
 
     /// <summary>The node kinds as one JSON attribute: the engine reads it once and builds the picker and every node from it.</summary>
     private static void RenderCatalog(WebRenderContext context, IHtmlElementBuilder root)

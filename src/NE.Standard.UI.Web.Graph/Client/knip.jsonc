@@ -3,5 +3,7 @@
   "entry": ["src/graph.ts", "tests/**/*.test.ts"],
   "project": ["src/**/*.ts", "tests/**/*.ts", "*.ts"],
   // The plugin contract's module, declared by plugin/ne-standard-ui.d.ts rather than installed.
-  "ignoreDependencies": ["ne-standard-ui"]
+  "ignoreDependencies": ["ne-standard-ui"],
+  // The core client's test DOM, copied whole: what only the core's tests use is no dead export here.
+  "ignore": ["tests/fake-dom.ts"]
 }

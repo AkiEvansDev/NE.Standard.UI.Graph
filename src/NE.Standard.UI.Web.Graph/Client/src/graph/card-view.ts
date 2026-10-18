@@ -2,10 +2,10 @@
 // tooltip). The title carries the rename field's class; the root the attribute every canvas finds an item by.
 
 import type { Icons, Tooltips, Urls } from "ne-standard-ui";
-import { CoreNames, hoverTooltip, ItemTitleSelector, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { CoreNames, hoverTooltip, ItemTitleSelector, nodeRoot } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "./draft.ts";
-import { EntryAttribute, HandleAttribute } from "./link-drag.ts";
+import { appendLinkHandles } from "./link-drag.ts";
 import type { GraphNode, GraphNodeShape } from "./model.ts";
 
 export type CardViewOptions = {
@@ -24,23 +24,9 @@ export type CardViewOptions = {
 const TitleClass = ItemTitleSelector.slice(1);
 
 export function renderCard(placement: CanvasItem, node: GraphNode, options: CardViewOptions): HTMLElement {
-    const root = document.createElement("div");
     const round = (node.shape ?? options.shape) === "icon";
     const title = node.title ?? node.id;
-
-    root.className = round ? "ui-graph__node ui-graph__bubble" : "ui-graph__node ui-graph__card";
-    root.setAttribute(NodeAttribute, node.id);
-    root.style.setProperty("--ui-graph-node-x", String(placement.x));
-    root.style.setProperty("--ui-graph-node-y", String(placement.y));
-
-    if (node.color !== null && node.color.length > 0)
-        root.style.setProperty("--ui-graph-node-color", node.color);
-
-    if (options.conflict !== null)
-        root.setAttribute("data-ui-graph-conflict", options.conflict);
-
-    if (placement.pinned === true)
-        root.setAttribute("data-ui-graph-pinned", "");
+    const root = nodeRoot(round ? "ui-graph__node ui-graph__bubble" : "ui-graph__node ui-graph__card", node.id, placement, node.color, options.conflict);
 
     const face = renderFace(node, round ? "ui-graph__bubble-face" : "ui-graph__card-icon", options);
 
@@ -55,16 +41,8 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
     if (node.badge !== null)
         root.append(renderBadge(node.badge, round ? "ui-graph__bubble-badge" : "ui-graph__card-badge"));
 
-    if (options.connectable) {
-        const handle = document.createElement("span");
-        const entry = document.createElement("span");
-
-        handle.className = "ui-graph__handle";
-        handle.setAttribute(HandleAttribute, "");
-        entry.className = "ui-graph__entry";
-        entry.setAttribute(EntryAttribute, "");
-        root.append(entry, handle);
-    }
+    if (options.connectable)
+        appendLinkHandles(root);
 
     // A circle's title is also what the pointer reads where the node names no words of its own — escaped: a name is no markup.
     const words = node.tooltip ?? (round ? options.tooltips.escape(title) : null);

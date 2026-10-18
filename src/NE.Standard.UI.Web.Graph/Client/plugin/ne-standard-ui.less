@@ -96,6 +96,38 @@
 // can be slid along it (a 14 % step of the text read 1.4:1).
 @ui-range-track: ~"var(--ui-color-mark)";
 
+// One share per meaning (DECISIONS): a look two places draw for the same reason reads one variable, so the two never drift apart.
+
+// What a progress runs along — a progress bar's and ring's track, a chart's share bar's rest and its gauge's ring, a node's run line:
+// the ink's share as the empty track. A number, so a ring faded as one group takes it as its opacity. A range's track is the mark.
+@ui-track-share: 0.18;
+@ui-track-ink: color-mix(in srgb, currentColor percentage(@ui-track-share), transparent);
+
+// A scrollbar's thumb and its arrows, and a dragged bar's thick line: one ink at rest, a firmer one under the pointer or held.
+@ui-scroll-ink: color-mix(in srgb, var(--ui-color-on-surface) 32%, transparent);
+@ui-scroll-ink-hover: color-mix(in srgb, var(--ui-color-on-surface) 48%, transparent);
+
+// An outline button's edge, in its own ink. 48% under the pointer, not near-solid: it only firms up the hairline, since the wash
+// already says "pointed at".
+@ui-outline-edge: color-mix(in srgb, currentColor 34%, transparent);
+@ui-outline-edge-hover: color-mix(in srgb, currentColor 48%, transparent);
+
+// A colour's own tint under its words or its glyph: a tinted badge's ground, an icon's Circle disc, a multi-select's chip. The theme
+// bounds a raw colour's words against this share (`WebThemeCssBuilder.BadgeTintShare`, held equal by ThemeShareSyncTests).
+@ui-own-tint-share: 16%;
+// The neutral tint of the words around, with no colour named: a Surface badge tinted, a round picture's stand-in circle.
+@ui-neutral-tint: color-mix(in srgb, currentColor 10%, transparent);
+
+// A small mark that offers a press and firms up under the pointer: a grid's idle sort mark, a node's pin.
+@ui-offer-opacity: 0.35;
+@ui-offer-opacity-hover: 0.7;
+
+// The ring, in a thing's own colour, round one the pointer holds or could land on: a slider's handle, a pin a pulled link can take.
+@ui-halo-share: 22%;
+
+// The dark plate light marks stand on over a picture of any colours: a replaceable picture's glass, the lightbox's controls.
+@ui-picture-plate: color-mix(in srgb, black 50%, transparent);
+
 // How close to the viewport's edge a popup may sit; must match anchored-popup.ts's own margin.
 @ui-popup-viewport-margin: 4px;
 
@@ -117,8 +149,14 @@
 // share, lifts the ink only where a base is set — unset or reset, the veil is transparent and the page's muted is what it was.
 @ui-text-muted-share: 0.75;
 @ui-text-muted-filled-share: 0.87;
+// An aside's share of its ink, under the 4.5:1 floor on purpose: a muted separator's label at 55% of the muted ink, a text's fold at
+// 55% of its words — at the muted ink itself they read as loud as the words around them (DECISIONS).
+@ui-text-faint-share: 0.55;
 @ui-faint-lift: color-mix(in srgb, var(--ui-faint-base, transparent) percentage(((@ui-text-muted-filled-share - @ui-text-muted-share) / (1 - @ui-text-muted-share))), transparent);
 @ui-text-muted: color-mix(in srgb, @ui-text-ink percentage(@ui-text-muted-share), @ui-faint-lift);
+
+// A faint ground of the ink a part stands on, so it reads on any ground: a file tile's, Markdown's code.
+@ui-ink-ground: color-mix(in srgb, @ui-text-ink 7%, transparent);
 
 // The ground a part stands on, for a part cut out of it (a chart's hollow marker, the edge between two sectors). `--ui-ground` is
 // written where `--ui-faint-base` is: a Background's colour inline, a filled button's or badge's fill, and the own colour of a
@@ -145,7 +183,9 @@
 
 // Selected text (reset.less, a package's editor drawing selections of its own): translucent, so the covered text keeps its colour.
 // The brand's ink, not its fill: on a dark page the fill is as dark as the page, and a third of it was all but unseen.
-@ui-text-selection: color-mix(in srgb, var(--ui-color-primary-ink) 48%, transparent);
+// A selection drawn in a ground's own colour (a graph node's rename field) takes the same share.
+@ui-text-selection-share: 48%;
+@ui-text-selection: color-mix(in srgb, var(--ui-color-primary-ink) @ui-text-selection-share, transparent);
 
 // A quote's stroke, one width wherever one is drawn: a paragraph's quote line, a Markdown blockquote, the Extensions quote (its
 // `UIText.Quote` writes the same 3 px as a border, held equal by QuoteStrokeSyncTests). A quotation inside text is drawn in one
@@ -460,6 +500,31 @@
     touch-action: manipulation;
 }
 
+// The browser's own frame, ground, type, margin and padding taken off a button, which answers the pointer with its hand; each use
+// adds what it is, after the call so its own values win.
+.ui-bare-button() {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+// A word that acts, in the primary ink at the caption's size, a list entry's height and corners: a date picker's Clear and Today, a
+// grid's filters' Clear. Its hover and press are its user's.
+.ui-word-action() {
+    .ui-bare-button();
+    min-height: @ui-list-row-height;
+    padding: 0 @ui-space-2;
+    border-radius: @ui-list-entry-radius;
+    color: var(--ui-color-primary-ink);
+    font-size: var(--ui-text-caption-font-size);
+    .ui-interactive-base();
+}
+
 // The least a pointer's target measures (WCAG 2.5.8, target size).
 @ui-hit-target: 24px;
 
@@ -557,8 +622,12 @@
 // --- mixins/elevation.less ---
 
 // One shadow scale for the whole library; surfaces pick a level rather than inventing a box-shadow.
+
+// The first level, as a value, for a shadow that lays more beside it (a range's handle and its halo).
+@ui-elevation-1-shadow: 0 1px 2px var(--ui-color-shadow);
+
 .ui-elevation-1() {
-    box-shadow: 0 1px 2px var(--ui-color-shadow);
+    box-shadow: @ui-elevation-1-shadow;
 }
 
 .ui-elevation-2() {
@@ -621,6 +690,16 @@
 .ui-responsive-floor(@property, @variable, @floor, @size-variable) {
     @size: .ui-responsive-chain(@size-variable; @floor)[@value];
     .ui-responsive-property(@property, @variable, ~"min(@{floor}, @{size})");
+}
+
+// A border an author may set (BorderThickness, BorderRadius) on the element that draws it. Its style declared, since
+// BorderStyleRenderer never writes one and a width alone draws nothing; the width and corners through their chains, so the author's
+// tiers win over the default. `@style` switches sides off by style, not width, so an authored thickness thickens the sides left alone.
+.ui-authored-border(@width: 0; @radius: 0; @color: transparent; @style: solid) {
+    border-style: @style;
+    .ui-responsive-property(border-width, --ui-border-thickness, @width);
+    border-color: @color;
+    .ui-responsive-property(border-radius, --ui-border-radius, @radius);
 }
 
 // Resets a property's five tiers on a component root that re-declares them, and fences each into its band there.
@@ -734,15 +813,15 @@
 @ui-list-keyboard: ~"[data-ui-active]:not([data-ui-pointer-focus])";
 
 // Where the keyboard stands in a list — a host's row, a menu's or a popup list's entry, a select's option: one look everywhere, a frame
-// inside the entry in the brand's ink, which reads 3:1 on either page (the focus ring's colour is a theme's own), and which the
-// pointer's mark never wears. The washes alone were lost against a stripe or a chosen ground. An outline, not a box-shadow, so a
-// row's separator and a chosen entry's mark stay. Forced colours draw their own dashed mark (core/preferences.less).
+// inside the entry in the theme's keyboard mark (`--ui-mark-keyboard`, the brand's ink unless the theme makes it neutral), which reads
+// 3:1 on either page (the focus ring's colour is a theme's own), and which the pointer's mark never wears. The washes alone were lost
+// against a stripe or a chosen ground. An outline, not a box-shadow, so a row's separator and a chosen entry's mark stay. Forced colours draw their own dashed mark (core/preferences.less).
 // One shape wherever it is drawn: a 2 px line whose corners are `@ui-keyboard-frame-radius`. An outline's corner is its host's widened
 // by its offset, so the host's corner while it is framed (`@host`) and the offset together keep the one radius: a host whose own corner
 // is smaller or none (a row, a cell, an entry) takes the frame's for the while (`@takes: true`, `chain` through the border chain on a
 // root an author's corners are written on), the frame on its edge; a host whose corner is the frame's (a button) keeps its own
 // (`@takes: false`). `@ink` the words' own colour on a filled ground, where the brand's ink would vanish into the brand's fill.
-.ui-keyboard-frame(@ink: var(--ui-color-primary-ink); @host: @ui-keyboard-frame-radius; @takes: true; @offset: -2px) {
+.ui-keyboard-frame(@ink: var(--ui-mark-keyboard); @host: @ui-keyboard-frame-radius; @takes: true; @offset: -2px) {
     @media (forced-colors: none) {
         outline: 2px solid @ink;
         outline-offset: @offset;
@@ -758,7 +837,7 @@
 }
 
 // Inside a host whose own corner, `@host`, is larger than the frame's (a card's): the frame stands in from it until concentric.
-.ui-keyboard-frame-inside(@host; @ink: var(--ui-color-primary-ink)) {
+.ui-keyboard-frame-inside(@host; @ink: var(--ui-mark-keyboard)) {
     .ui-keyboard-frame(@ink: @ink; @takes: false; @offset: ~"calc(@{ui-keyboard-frame-radius} - @{host} - 2px)");
 }
 
@@ -768,22 +847,23 @@
     .ui-keyboard-frame(@host: ~"calc(@{ui-keyboard-frame-radius} - 2px - @{gap})"; @offset: @gap);
 }
 
-// Inside a host that draws a 2 px mark under its edge (a tab's caption over its chosen line): `@gap` in from it on three sides, the fourth
-// on the mark, so frame and line read as one. The host reaches down over the mark while framed, a transparent border its margin takes
-// back, so nothing moves and the mark, placed from the padding box, stays; it takes the corner that keeps the frame's one radius (`@takes:
-// chain` on a root an author's corners are written on). Not a pseudo-element: a caption's are its line, its loading ring, its picture's blur.
-.ui-keyboard-frame-inset(@gap: 2px; @takes: true) {
-    .ui-keyboard-frame(@host: ~"calc(@{ui-keyboard-frame-radius} + @{gap})"; @takes: @takes; @offset: ~"calc(-2px - @{gap})");
+// Inside a host that draws a 2 px mark under its edge (a tab's caption over its chosen line): on its edges, its foot on the mark and square
+// there, so the frame stands on the straight line as a tab does — rounded down to the line, its corners stood clear of it. The host reaches
+// down over the mark while framed, a transparent border its margin takes back, so nothing moves and the mark, placed from the padding box,
+// stays; it takes the frame's corner above and none below (`@takes: chain` on a root an author's corners are written on). Not a
+// pseudo-element: a caption's are its line, its loading ring, its picture's blur.
+.ui-keyboard-frame-inset(@takes: true) {
+    .ui-keyboard-frame(@host: ~"@{ui-keyboard-frame-radius} @{ui-keyboard-frame-radius} 0 0"; @takes: @takes);
 
     @media (forced-colors: none) {
-        margin-bottom: ~"calc(-2px - @{gap})";
-        border-bottom: ~"calc(2px + @{gap})" solid transparent;
+        margin-bottom: -2px;
+        border-bottom: 2px solid transparent;
     }
 }
 
 // What a drop target wears while something it takes is over it (runtime.less, a field's box in ui-input.less): a dashed edge inside
 // it, in an ink, not a fill, so it reads 3:1 on the ground it stands on, a field's fill included; `@ink` the refusal's for a refused one.
-.ui-drop-edge(@ink: var(--ui-color-primary-ink)) {
+.ui-drop-edge(@ink: var(--ui-mark-selected)) {
     outline: 2px dashed @ink;
     outline-offset: -2px;
 }
@@ -825,7 +905,7 @@
     // The keyboard predicate, not :focus: a press focuses the handle too, and the bar must rest once the pointer leaves.
     @thick: {
         --ui-drag-bar-line: 3px;
-        background: color-mix(in srgb, var(--ui-color-on-surface) 32%, transparent);
+        background: @ui-scroll-ink;
     };
 
     @media @{ui-can-hover} {
@@ -840,6 +920,22 @@
     }
 }
 
+// Six 2px squares in a stair at a box's lower right, 3px apart, the corner that resizes it: a node's on the Graph canvas, a text
+// area's resizer. Whole pixels: round dots at a 3.5px step fell on the pixels unevenly. One layer per square, not a grid cut by a
+// mask: a ::-webkit-resizer takes no mask. `@inset` the stair's distance from the corner; the stair is 8px square.
+.ui-resize-dots(@ink; @inset: 0px) {
+    @dot: linear-gradient(@ink, @ink);
+    @step: 3px;
+    @size: 2px;
+    background:
+        @dot right @inset bottom @inset / @size @size no-repeat,
+        @dot right calc(@inset + @step) bottom @inset / @size @size no-repeat,
+        @dot right calc(@inset + 2 * @step) bottom @inset / @size @size no-repeat,
+        @dot right @inset bottom calc(@inset + @step) / @size @size no-repeat,
+        @dot right calc(@inset + @step) bottom calc(@inset + @step) / @size @size no-repeat,
+        @dot right @inset bottom calc(@inset + 2 * @step) / @size @size no-repeat;
+}
+
 // --- mixins/scroll-room.less ---
 
 // The overlay bar's room as a box keeps it (core/scrollbar.less writes which boxes keep it): each side at least the room where the bar
@@ -850,6 +946,11 @@
 
 @ui-scrollers-y: ~":is(.ui-items-view__host, .ui-items-view > [data-ui-items-host], .ui-tree__host, .ui-scroll):is(.ui-scroll-y--auto, .ui-scroll-y--always), .ui-text-area__field";
 @ui-scrollers-x: ~":is(.ui-items-view__host, .ui-items-view > [data-ui-items-host], .ui-tree__host, .ui-scroll):is(.ui-scroll-x--auto, .ui-scroll-x--always)";
+
+// What bounds a scroller by its own size: a Height, a MaxHeight or a Fill on its root, at any tier. One without grows with its rows
+// unless an outer box bounds it.
+@ui-scroll-bound: ~'[style*="--ui-height"], [style*="--ui-max-height"]';
+@ui-scrollers-y-unbounded: ~":is(.ui-items-view:not(@{ui-scroll-bound}) > :is(.ui-items-view__host, [data-ui-items-host]), .ui-tree:not(@{ui-scroll-bound}) > .ui-tree__host, .ui-scroll:not(@{ui-scroll-bound})):is(.ui-scroll-y--auto, .ui-scroll-y--always)";
 
 // Keeps the room down the box's inline end, where an upright bar stands in either direction.
 .ui-scroll-room-y() {
@@ -862,12 +963,14 @@
     }
 }
 
-// Keeps the room down the inline end only while the box holds more than it shows, read off its own scroll timeline; where none runs,
-// it keeps none. One value from end to end, so less motion's zero duration (core/preferences.less) still keeps it while the timeline runs.
+// Keeps the room down the inline end only while the box holds more than it shows, read off its own scroll timeline: none while it fits,
+// on a scroller that keeps it otherwise too. Where no timeline runs the box keeps what it has, a popup none and a scroller the room. One
+// value from end to end, so less motion's zero duration (core/preferences.less) still keeps it while the timeline runs.
 .ui-scroll-room-y-while-overflowing() {
     @media @{ui-can-hover} and (forced-colors: none) {
         @supports (animation-timeline: scroll()) {
             html[data-ui-overlay-scrollbars] & {
+                --ui-scroll-room-y: 0px;
                 animation: ui-scroll-room-overflowing linear both;
                 animation-timeline: scroll(self block);
             }
@@ -888,6 +991,68 @@
     --ui-faint-base: initial;
     --ui-ground: @ui-popup-ground;
     .ui-elevation-2();
+}
+
+// A popup's tail: its own corner rotated onto the edge facing its anchor, drawn on an `::after` of the popup. `@placement` is where the
+// popup stands from the anchor (data-ui-placement's side); --ui-popup-arrow is the anchor's centre along that edge, so a shifted popup
+// still aims at it. A tooltip's and a slider's bubble.
+.ui-popup-arrow(@placement) {
+    content: "";
+    position: absolute;
+    width: 0.45rem;
+    height: 0.45rem;
+    background: @ui-popup-ground;
+    .ui-popup-arrow-edge(@placement);
+}
+
+// One side's tail alone, every place and edge written so a placement rule overrides another's in full.
+.ui-popup-arrow-edge(top) {
+    top: 100%;
+    right: auto;
+    bottom: auto;
+    left: var(--ui-popup-arrow, 50%);
+    border-top: none;
+    border-right: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-bottom: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-left: none;
+    transform: translate(-50%, -55%) rotate(45deg);
+}
+
+.ui-popup-arrow-edge(bottom) {
+    top: auto;
+    right: auto;
+    bottom: 100%;
+    left: var(--ui-popup-arrow, 50%);
+    border-top: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-right: none;
+    border-bottom: none;
+    border-left: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    transform: translate(-50%, 55%) rotate(45deg);
+}
+
+// Beside the anchor the tail moves to the edge facing it, and the offset is measured down the edge, not along it.
+.ui-popup-arrow-edge(left) {
+    top: var(--ui-popup-arrow, 50%);
+    right: auto;
+    bottom: auto;
+    left: 100%;
+    border-top: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-right: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-bottom: none;
+    border-left: none;
+    transform: translate(-55%, -50%) rotate(45deg);
+}
+
+.ui-popup-arrow-edge(right) {
+    top: var(--ui-popup-arrow, 50%);
+    right: auto;
+    bottom: auto;
+    left: 0;
+    border-top: none;
+    border-right: none;
+    border-bottom: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    border-left: var(--ui-border-width, 1px) solid var(--ui-color-border);
+    transform: translate(-45%, -50%) rotate(45deg);
 }
 
 // Every floating panel: the look and the fade, placed fixed because layout panels clip (`overflow: hidden`).
@@ -937,10 +1102,10 @@
 
 // The keyboard's entry in a list: the keyboard's frame, on the `@current` one too, and washed as the pointer's would be but for the
 // current one (already marked). The pointer's own wash stays off it, so two never stack to a press's strength and nothing changes as
-// the pointer crosses it; a press still shows. The frame stands in for the focus ring.
-.ui-entry-keyboard(@current: ~"[aria-selected='true']"; @takes: true) {
+// the pointer crosses it; a press still shows. The frame stands in for the focus ring; `@host` and `@offset` as `.ui-keyboard-frame()`'s.
+.ui-entry-keyboard(@current: ~"[aria-selected='true']"; @takes: true; @host: @ui-keyboard-frame-radius; @offset: -2px) {
     &@{ui-keyboard-focus} {
-        .ui-keyboard-frame(@takes: @takes);
+        .ui-keyboard-frame(@host: @host; @takes: @takes; @offset: @offset);
     }
 
     &@{ui-keyboard-focus}:not(@{current}) {
@@ -1041,7 +1206,7 @@
 
 // A popup opened on a lifted ground — a raised panel, a dialog — stands one step off it, as the panel stands off the page: 8 % more
 // of the text. The panel's own step, `--ui-surface-raised`, is the same mix of the page, written by `WebThemeCssBuilder`; the two keep
-// one number.
+// one number (`RaisedShare`, held equal by ThemeShareSyncTests).
 .ui-popup-ground-lifted(@ground) {
     --ui-popup-ground: color-mix(in srgb, @ground 92%, var(--ui-color-on-surface) 8%);
 }
@@ -1050,7 +1215,7 @@
 
 // A modal's veil over the page: the theme's overlay colour, on the framework's backdrop and on a package's native `::backdrop`.
 .ui-dialog-veil() {
-    background: var(--ui-color-overlay, rgba(0, 0, 0, 0.45));
+    background: var(--ui-color-overlay);
 }
 
 // A dialog's panel: the raised ground and what stands on it — a field's fill, muted ink, the ground a part cut out of it paints, a
@@ -1157,12 +1322,8 @@
     // Six points past resting, not the washes' ten: hover is a level of its own, not a full step change.
     --ui-field-hover: color-mix(in srgb, var(--ui-color-on-surface) 16%, var(--ui-field-ground));
     // Outline's and Underline's border on hover; a control that doesn't lift (a code field) sets it to its rest.
-    --ui-field-hover-accent: color-mix(in srgb, var(--ui-color-primary) 60%, transparent);
-    border-style: solid;
-    border-color: var(--ui-field-rest);
-    // The width and the corners through their chains: an authored BorderThickness and BorderRadius (BorderStyleRenderer) win.
-    .ui-responsive-property(border-width, --ui-border-thickness, ~"var(--ui-border-width, 1px)");
-    .ui-responsive-property(border-radius, --ui-border-radius, var(--ui-radius-input));
+    --ui-field-hover-accent: color-mix(in srgb, var(--ui-mark-field) 60%, transparent);
+    .ui-authored-border(~"var(--ui-border-width, 1px)"; var(--ui-radius-input); var(--ui-field-rest));
     background: var(--ui-field-rest);
     transition: border-color @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;
 }
@@ -1263,9 +1424,11 @@
     cursor: default;
 
     .ui-field-action-buttons();
+    // Each group on its side of the field, as the markup also puts it (FieldActionsRenderer); the order matters for a pair alone,
+    // whose two groups stand across the field from each other beside it (ui-input.less).
+    order: 1;
 
-    // The leading group (the caller's class with `--leading`) follows the value in the tab order and stands first all the same,
-    // before a caption inside too.
+    // The leading group (the caller's class with `--leading`), before a caption inside too.
     &--leading {
         order: -1;
         margin-right: 0;
@@ -1354,7 +1517,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, black 45%, transparent);
+    background: @ui-picture-plate;
     color: white;
     opacity: 0;
     transition: opacity @ui-motion-fast @ui-motion-ease;
@@ -1466,7 +1629,7 @@
     border-color: @color;
 }
 
-.ui-field-edge-active(@color: var(--ui-color-primary)) {
+.ui-field-edge-active(@color: var(--ui-mark-field)) {
     border-color: @color;
     box-shadow: inset 0 0 0 var(--ui-input-focus-ring, 1px) @color;
 }
@@ -1501,6 +1664,10 @@
         }
     }
 }
+
+// A Ghost field under the pointer: its focus's wash at 80%, a step under the focus it would take. Rejected: half and 70%, which read
+// as nothing on the dark page.
+@ui-ghost-hover-wash: color-mix(in srgb, var(--ui-wash-hover) 80%, transparent);
 
 // A field showing any message, which colours its edge in the message's own colour (--ui-validation-color): an error, a warning, an info.
 @ui-validation-marked: ~".ui-invalid, .ui-validation--warning, .ui-validation--info";
@@ -1592,7 +1759,7 @@
     }
 
     .ui-button--outline@{ui-row-own} {
-        .ui-reveal-hover-off({ border-color: color-mix(in srgb, currentColor 48%, transparent); });
+        .ui-reveal-hover-off({ border-color: @ui-outline-edge-hover; });
     }
 
     .ui-button--link@{ui-row-own} {
@@ -1674,9 +1841,12 @@
         .ui-keyboard-frame();
     }
 
+    // A chosen row's line stands on its leading edge: the frame stays straight there, standing on the line, as a tab's on its own.
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
         .ui-row-cursor-layer();
         .ui-keyboard-frame();
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
     }
 
     // A key moves the cursor at once, frame and wash together: the washes' fade trailed the frame, which has none.
@@ -1749,6 +1919,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+// At most @lines lines, an ellipsis on the last one kept: the prefixed box is still the only one every engine clamps, the standard
+// `line-clamp` beside it for the engines that read it alone.
+.ui-text-clamp(@lines) {
+    display: -webkit-box;
+    overflow: hidden;
+    line-clamp: @lines;
+    -webkit-line-clamp: @lines;
+    -webkit-box-orient: vertical;
 }
 
 // A one-line description tight under its title, as a Text draws one. The gap is the line-height's, since a negative margin overlaps

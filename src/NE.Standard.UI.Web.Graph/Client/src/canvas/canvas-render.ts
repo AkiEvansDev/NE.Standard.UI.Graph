@@ -11,7 +11,7 @@ import type { CanvasDocumentState } from "./canvas-document.ts";
 import type { CanvasSelection } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
 import type { CanvasView } from "./canvas-view.ts";
-import { EdgeAttribute, GroupAttribute, ReroutAttribute, RootSelector, SelectedAttribute } from "./canvas-dom.ts";
+import { EdgeAttribute, GroupAttribute, resizeGrip, ReroutAttribute, RootSelector, SelectedAttribute } from "./canvas-dom.ts";
 
 /** A node's bar stands above it, centred on it. */
 const NodeBarAlignment = "center";
@@ -215,6 +215,10 @@ export class CanvasRender {
             }
 
             element.append(band);
+
+            // Pinned too, as a pinned node keeps its own: a pin holds a frame's place, not its size.
+            if (!this.settings.readOnly)
+                element.append(resizeGrip());
 
             this.groupLayer.append(element);
         }

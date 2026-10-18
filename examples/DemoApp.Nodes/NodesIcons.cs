@@ -7,8 +7,7 @@ namespace DemoApp.Nodes;
 public static class NodesIcons
 {
     public const string Run = MaterialIcons.Calculate;
-    public const string Position = MaterialIcons.Visibility;
 
     /// <summary>The page's own entries; the kinds' glyphs are their packages' to name.</summary>
-    public static readonly string[] All = [Run, Position];
+    public static readonly string[] All = [Run];
 }

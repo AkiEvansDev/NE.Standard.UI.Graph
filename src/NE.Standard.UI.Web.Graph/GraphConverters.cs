@@ -23,6 +23,18 @@ public static class GraphConverters
     /// <summary>A production graph's mode as its attribute name.</summary>
     public const string ProductionModeAttribute = "graph-production-mode";
 
+    /// <summary>A corner radius's top-left corner as a length in px; the three below pick the other corners.</summary>
+    public const string TopLeftCornerCss = "graph-corner-top-left";
+
+    /// <summary>A corner radius's top-right corner as a length in px.</summary>
+    public const string TopRightCornerCss = "graph-corner-top-right";
+
+    /// <summary>A corner radius's bottom-right corner as a length in px.</summary>
+    public const string BottomRightCornerCss = "graph-corner-bottom-right";
+
+    /// <summary>A corner radius's bottom-left corner as a length in px.</summary>
+    public const string BottomLeftCornerCss = "graph-corner-bottom-left";
+
     /// <summary>The attribute value one edge shape is written as; the client's converter writes the same names.</summary>
     public static string EdgeShapeName(UIGraphEdgeShape shape)
         => shape switch

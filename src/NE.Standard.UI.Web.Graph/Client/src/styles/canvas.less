@@ -1,4 +1,5 @@
-// What every canvas shares: viewport, grid, scene and edge layer, groups, band, corner (map, zoom bar), menu button, save state.
+// What every canvas shares: viewport, grid, scene and edge layer, groups, the resize corner, band, corner (map, zoom bar), menu
+// panel, save state.
 // The scene is one transformed layer, so an item's place is in canvas units and the zoom is the layer's scale.
 
 @import (reference) "../../plugin/ne-standard-ui.less";
@@ -8,6 +9,16 @@
 // On a phone the map is a smaller box at the zoom bar's end: as wide as the bar, it covered half the canvas's width.
 @ui-graph-minimap-phone-width: 6rem;
 @ui-graph-minimap-phone-height: 4rem;
+
+// One share per meaning across the kinds (the framework's DECISIONS), read by every file after this one.
+// A node's own colour as a ground: a node's head, a reroute's box, a circle's face.
+@ui-graph-node-tint: color-mix(in srgb, var(--ui-graph-node-ink) 28%, var(--ui-color-surface));
+// What is out of play stands back: a node or a pin a pulled link cannot land on, a node off for a run, a node a failure skipped.
+@ui-graph-stepped-back: 0.45;
+// The surface laid over the canvas, the sheet still showing through: the map, a run's bar, an editor's upload veil.
+@ui-graph-glass: color-mix(in srgb, var(--ui-color-surface) 85%, transparent);
+// A halo in the chosen colour off a thing's edge: a chosen frame, the node a pulled link would land on.
+@ui-graph-chosen-halo: 0 0 0 2px color-mix(in srgb, var(--ui-mark-selected-fill) 45%, transparent);
 
 .ui-graph {
     --ui-graph-grid-size: 20;
@@ -20,6 +31,8 @@
     // above it.
     --ui-graph-corner-width: 10rem;
     --ui-graph-corner-height: calc(@ui-button-height-sm + 2 * @ui-space-1 + 2 * var(--ui-border-width));
+    // The corner menu panel's width open, room for an entry's words and its shortcut, and on a phone for the run panel beside it.
+    --ui-graph-menu-width: 13rem;
 
     display: flex;
     flex-direction: column;
@@ -144,18 +157,10 @@
     filter: drop-shadow(0 0 3px var(--ui-graph-pin-color));
 }
 
-    // The wire being pulled, dashed as not yet made.
+    // The wire being pulled, dashed as not yet made: on every kind of canvas a plain line in its pin's colour, since lit and lifted
+    // toward white a layered graph's read thicker and brighter than the node canvas's and the primary.
     .ui-graph__edge-line--pending {
         stroke-dasharray: 6 4;
-    }
-
-    // On a layered graph it is lit as a chosen line is, in its colour lifted toward white on a dark sheet as a node's ink is: drawn
-    // in the brand's deep ink, a thin dashed line sank into a dark sheet. The node canvas's wire in its pin's colour reads as it was,
-    // and lit it glared.
-    .ui-graph:not([data-ui-graph-kind="nodes"]) .ui-graph__edge-line--pending {
-        .ui-graph-edge-line-lit();
-        stroke: light-dark(var(--ui-graph-pin-color), color-mix(in oklab, var(--ui-graph-pin-color) 70%, white));
-        stroke-dasharray: 8 4;
     }
 
     // An edge running against the layers is the one a cycle was broken at: dashed, so the part fed back reads as fed back.
@@ -246,12 +251,14 @@
     width: calc(var(--ui-graph-group-width) * 1px);
     height: calc(var(--ui-graph-group-height) * 1px);
     border: var(--ui-border-width) solid var(--ui-graph-group-color);
-    border-radius: var(--ui-radius-card);
+    // A node canvas's NodeCornerRadius, a corner each as its nodes take it, else the card's: a square sheet's frames are square too.
+    border-radius: var(--ui-graph-node-corner-tl, var(--ui-radius-card)) var(--ui-graph-node-corner-tr, var(--ui-radius-card)) var(--ui-graph-node-corner-br, var(--ui-radius-card)) var(--ui-graph-node-corner-bl, var(--ui-radius-card));
     background: color-mix(in srgb, var(--ui-graph-group-color) 8%, transparent);
 }
 
+    // A spread shadow, so the halo follows each corner the frame has, a square one staying square.
     .ui-graph__group[data-ui-graph-selected] {
-        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-primary) 45%, transparent);
+        box-shadow: @ui-graph-chosen-halo;
     }
 
 // Positioned, so the rename field can lie over the title.
@@ -291,6 +298,43 @@
     font-size: @ui-glyph-sm;
 }
 
+// --- the resize corner ----------------------------------------------------------------------------------------------------
+
+// A node's and a group's frame's, one look and one reach. The hit area hangs past the edge, since the eye reads the corner as
+// outside the border and rounding; the drawn mark is half the reach, sitting inside.
+.ui-graph__resize {
+    position: absolute;
+    right: -0.25rem;
+    bottom: -0.25rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    cursor: nwse-resize;
+    // A dragged handle's inks, as a splitter's line: the border's at rest, firmer under the pointer and while it is held.
+    --ui-graph-resize-ink: var(--ui-color-border);
+}
+
+    // The dots every resizable corner wears, a text area's included, 3px inside the node's edge.
+    .ui-graph__resize::after {
+        content: "";
+        position: absolute;
+        right: calc(0.25rem + 3px);
+        bottom: calc(0.25rem + 3px);
+        width: 8px;
+        height: 8px;
+        .ui-resize-dots(var(--ui-graph-resize-ink));
+    }
+
+    @media @{ui-can-hover} {
+        .ui-graph__resize:hover {
+            --ui-graph-resize-ink: @ui-scroll-ink;
+        }
+    }
+
+    // The viewport captures the pointer for the drag, which takes the hover off the corner.
+    .ui-graph__resize[data-ui-graph-resizing] {
+        --ui-graph-resize-ink: @ui-scroll-ink;
+    }
+
 // The framework's rename field over a node's or a group's title, in the title's own type.
 .ui-graph__rename {
     .ui-inline-rename-field();
@@ -301,7 +345,7 @@
     // The selected name in a step of the ground's own colour — a node's head, a group's band: the page's brand-coloured selection
     // stood on a coloured head as a block of another colour.
     .ui-graph__rename::selection {
-        background: color-mix(in srgb, var(--ui-graph-node-ink, var(--ui-graph-group-color, var(--ui-color-primary))) 50%, transparent);
+        background: color-mix(in srgb, var(--ui-graph-node-ink, var(--ui-graph-group-color, var(--ui-color-primary))) @ui-text-selection-share, transparent);
     }
 
 // A colour choice in a node's or a group's menu leads with the colour it paints; the one taking the colour away is a ring.
@@ -311,7 +355,7 @@
     width: 0.75rem;
     height: 0.75rem;
     margin-right: @ui-space-2;
-    border: var(--ui-border-width) solid color-mix(in srgb, var(--ui-color-on-surface) 30%, transparent);
+    border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: 50%;
     background: var(--ui-graph-swatch, transparent);
 }
@@ -324,8 +368,8 @@
     top: calc(var(--ui-graph-marquee-y) * 1px);
     width: calc(var(--ui-graph-marquee-width) * 1px);
     height: calc(var(--ui-graph-marquee-height) * 1px);
-    border: var(--ui-border-width) dashed var(--ui-color-primary);
-    background: color-mix(in srgb, var(--ui-color-primary) 10%, transparent);
+    border: var(--ui-border-width) dashed var(--ui-mark-selected-fill);
+    background: color-mix(in srgb, var(--ui-mark-selected-fill) 10%, transparent);
     pointer-events: none;
 }
 
@@ -352,7 +396,7 @@
     padding: @ui-space-1;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-button);
-    background: color-mix(in srgb, var(--ui-color-surface) 82%, transparent);
+    background: @ui-graph-glass;
     overflow: hidden;
     cursor: pointer;
 }
@@ -391,68 +435,68 @@
 // The part on screen washed as a chosen entry is — the brand's tint on a light palette, neutral on a dark one — and edged in the brand.
 .ui-graph__minimap-view {
     position: absolute;
-    border: var(--ui-border-width) solid var(--ui-color-primary);
+    border: var(--ui-border-width) solid var(--ui-mark-selected-fill);
     border-radius: 1px;
     background: var(--ui-wash-selected);
     pointer-events: none;
 }
 
-// The canvas's menu, since commands otherwise live under a hidden right-click with no visible cue: the core's folding menu in
-// the leading corner. Folded, it's a switch; open, it slides out and scrolls if the canvas is shorter than the list.
-.ui-graph__menu-panel {
-    position: absolute;
+// The canvas's menu, since commands otherwise live under a hidden right-click with no visible cue: a folding panel over the leading
+// corner, as the plan is over the trailing one (`.ui-graph-side-panel()`, GraphCanvasRendererBase.RenderMenuPanel) — its switch the
+// menu's glyph, the sheet's name and the chevron, the core's menu under it. Open until the viewer folds it to its switch; it ends
+// above the canvas's foot.
+.ui-graph .ui-graph__menu-panel {
+    .ui-graph-side-panel(var(--ui-graph-menu-width); ~".ui-graph__menu-panel-body"; left);
     top: @ui-space-2;
-    left: @ui-space-2;
-    z-index: 3;
-    display: flex;
-    max-height: calc(100% - 2 * @ui-space-2);
+    // Folded too, a long sheet name is cut short at the open panel's width rather than run on over the sheet.
+    max-width: min(var(--ui-graph-menu-width), calc(100% - 2 * @ui-space-2));
+    max-height: calc(100% - 2 * @ui-space-2 - var(--ui-graph-foot-height));
 }
 
-    .ui-graph:not([data-ui-graph-menu-button]) .ui-graph__menu-panel {
+    .ui-graph:not([data-ui-graph-show-menu]) .ui-graph__menu-panel {
         display: none;
     }
 
-    // A floating panel's look, as the framework's own popups have, its ground handed on to what stands in it.
-    .ui-graph__menu-panel > .ui-menu {
-        padding: @ui-space-1;
-        .ui-popup-look();
-        overflow: hidden;
+// A phone's sheet is too narrow to stand beside the menu: the panel starts folded there, as the plan does (`side-panel.ts`).
+@media (max-width: (@ui-breakpoint-md - 0.02px)) {
+    .ui-graph .ui-graph__menu-panel {
+        --ui-graph-side-folded: 1;
     }
+}
 
-    .ui-graph__menu-panel > .ui-menu:not([data-ui-folding]) > .ui-menu__host {
-        overflow-y: auto;
-    }
+.ui-graph__menu-panel-toggle {
+    .ui-graph-side-toggle();
+    min-width: 0;
+}
 
-    // The switch keeps the burger's corner with the sheet's name (GraphCanvasComponentBase.SheetTitle) after it, rather than sliding
-    // to the head's end as the menu opens; the name stands the core bar's gap past the switch's wash, as content beside every
-    // collapsible's switch does. First by its order, not by a reversed row: a row narrower than its content in the slide spills past
-    // its end, which a reversed row puts on the switch's side, pushing the switch out of its corner.
-    // It is one box open and folded — the folded block's whole square, in the frame's corner — so neither its wash nor its glyph
-    // moves at any frame of the slide. Open, it reaches out over the frame's padding at the corner; its margin box is the bar's
-    // switch, so the name keeps the bar's middle and gap.
-    .ui-graph__menu-panel > .ui-menu > .ui-collapsible__bar > .ui-collapsible__toggle {
-        order: -1;
-        width: calc(1.75rem + 2 * @ui-space-1);
-        height: calc(1.75rem + 2 * @ui-space-1);
-        margin-block: -@ui-space-1;
-        margin-inline-start: -@ui-space-1;
-        border-radius: ~"calc(@{ui-popup-radius} - var(--ui-border-width))";
-    }
+.ui-graph__menu-panel-icon {
+    .ui-glyph-host();
+    font-size: @ui-glyph-md;
+}
 
-    // Folded, the menu is its switch alone: no rail of icons over the sheet, since a command with no icon would leave a blank square.
-    .ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding]) > .ui-menu__host {
+.ui-graph__menu-panel-name,
+.ui-graph__menu-panel-word {
+    min-width: 0;
+    .ui-text-nowrap();
+}
+
+    // The word for the menu only while the sheet has no name: the name's own text, written or patched, says which.
+    .ui-graph__menu-panel-name:empty,
+    .ui-graph__menu-panel-name:not(:empty) + .ui-graph__menu-panel-word {
         display: none;
     }
 
-    // Folded, the switch is the whole block — the frame's padding taken into it, the block no bigger — so the wash under the pointer
-    // reaches the frame rather than stopping short of it. The padding and the margin go together, so the switch stays where it was.
-    .ui-graph__menu-panel > .ui-menu[data-ui-collapsed]:not([data-ui-folding]) {
-        padding: 0;
+// After the words, at the switch's far end while the panel is open.
+.ui-graph__menu-panel-chevron {
+    .ui-graph-side-chevron(~".ui-graph__menu-panel");
+    margin-inline-start: auto;
+}
 
-        > .ui-collapsible__bar > .ui-collapsible__toggle {
-            margin: 0;
-        }
-    }
+// The menu's entries carry their own inset and wash: the body keeps only a sliver of the panel's edge around them.
+.ui-graph__menu-panel-body {
+    .ui-graph-side-body();
+    padding: 0 @ui-space-1 @ui-space-1;
+}
 
 .ui-graph__bar {
     display: flex;
@@ -505,7 +549,7 @@
     font-size: @ui-glyph-md;
 }
 
-// --- a button that is only what it holds -------------------------------------------------------------------------------------
+// --- a panel's ground over the sheet -----------------------------------------------------------------------------------------
 
 // A panel standing over the sheet on the surface, which it hands on: a field inside mixes its fill into it, muted ink fades its
 // own ink, a part cut out of it paints it — not the ground the canvas itself stands on.
@@ -516,26 +560,13 @@
     --ui-faint-base: initial;
 }
 
-// The browser's own frame, ground, type, margin and padding taken off a button, which answers the pointer with its hand; each use
-// adds what it is — a head mark, a picker's entry, a panel's switch, a log line's node.
-.ui-graph-bare-button() {
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-}
+// --- a folding panel over the sheet ------------------------------------------------------------------------------------------
+// The production graph's plan over the trailing side, the corner menu over the leading one: a card folded to its switch by the
+// framework's collapsible (`ui-collapsible`), its body scrolling under the switch. Its rule places (`top`), sizes and shows it.
 
-// --- a panel over the sheet's trailing side ----------------------------------------------------------------------------------
-// The production graph's plan: a card over the trailing side, folded to its switch by the framework's collapsible
-// (`ui-collapsible`), its body scrolling under the switch. A kind places (`top`), sizes and shows it.
-
-.ui-graph-side-panel(@width; @body) {
+.ui-graph-side-panel(@width; @body; @side: right) {
     position: absolute;
-    right: @ui-space-2;
+    @{side}: @ui-space-2;
     z-index: 3;
     flex-direction: column;
     width: @width;
@@ -563,7 +594,7 @@
 }
 
 .ui-graph-side-toggle() {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: flex;
     flex: 0 0 auto;
     align-items: center;

@@ -1,4 +1,4 @@
-// The node canvas over the canvas's own parts: node head/body/resize corner, pins and rows with framework editors, a display
+// The node canvas over the canvas's own parts: node head and body, pins and rows with framework editors, a display
 // pin, the picker, run line and log. Marks (chevron, cross, pin) are framework `ne-` glyphs in `.ui-icon` boxes; rules here only size them.
 
 @import (reference) "../../plugin/ne-standard-ui.less";
@@ -18,10 +18,23 @@
 
 // --- nodes ----------------------------------------------------------------------------------------------------------------
 
+// A stack of its own, so a chosen node raised over its neighbours (below) stays under the marquee and a caption's field.
 .ui-graph__nodes {
     position: absolute;
     top: 0;
     left: 0;
+    isolation: isolate;
+}
+
+// A corner of what fills the node's border: the node's own corner less its edge, never below square.
+.ui-graph-inner-corner(@corner) {
+    @value: ~"max(0px, var(--ui-graph-node-radius-@{corner}) - var(--ui-graph-node-border))";
+}
+
+// A corner of the chosen ring: the node's grown by the gap and the ring's line, as an outline's offset grows a corner, and a square
+// corner left square as an outline leaves it — the min() is 0 at 0 and the grown corner at any rounding there is.
+.ui-graph-ring-corner(@corner) {
+    @value: ~"min(var(--ui-graph-node-radius-@{corner}) * 1000, var(--ui-graph-node-radius-@{corner}) + var(--ui-graph-node-chosen-gap) + 1px)";
 }
 
 .ui-graph__node {
@@ -29,10 +42,16 @@
     // The colour as it is drawn: the theme's series colours are set deep for a light ground, so on a dark one they are lifted
     // toward white, or a node's strip, icon and head would sink into the surface around them.
     --ui-graph-node-ink: light-dark(var(--ui-graph-node-color), color-mix(in oklab, var(--ui-graph-node-color) 70%, white));
-    // The edge and corner every shape sets here rather than on its own border, so a chosen one's thicker edge follows them.
+    // The edge and corner every shape sets here rather than on its own border, so a chosen one's ring follows them.
     --ui-graph-node-border: var(--ui-border-width);
     --ui-graph-node-radius: var(--ui-radius-card);
-    --ui-graph-node-chosen-edge: 2px;
+    --ui-graph-node-chosen-gap: 2px;
+    // Each corner, the node canvas's NodeCornerRadius over the shape's own: its renderer writes one variable a corner on the root,
+    // since the head and the chosen ring work each corner out and CSS cannot take one corner out of a four-value radius.
+    --ui-graph-node-radius-tl: var(--ui-graph-node-corner-tl, var(--ui-graph-node-radius));
+    --ui-graph-node-radius-tr: var(--ui-graph-node-corner-tr, var(--ui-graph-node-radius));
+    --ui-graph-node-radius-br: var(--ui-graph-node-corner-br, var(--ui-graph-node-radius));
+    --ui-graph-node-radius-bl: var(--ui-graph-node-corner-bl, var(--ui-graph-node-radius));
 
     display: flex;
     flex-direction: column;
@@ -43,34 +62,32 @@
     width: max(var(--ui-graph-node-min-width), calc(var(--ui-graph-node-w, 0) * 1px));
     min-height: calc(var(--ui-graph-node-h, 0) * 1px);
     border: var(--ui-graph-node-border) solid var(--ui-color-border);
-    border-radius: var(--ui-graph-node-radius);
+    border-radius: var(--ui-graph-node-radius-tl) var(--ui-graph-node-radius-tr) var(--ui-graph-node-radius-br) var(--ui-graph-node-radius-bl);
     background: var(--ui-color-surface);
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
-    // Its own stack, so the chosen edge's thickening (below) paints over its ground and under its pins.
+    // Its own stack, so the chosen ring (below) paints under its pins.
     isolation: isolate;
     .ui-elevation-1();
 }
 
-    // The theme's own brand colour, not its focus ring: a chosen node is not a focused one, and the ring belongs to the keyboard.
-    // On the node's own edge, head and body alike, with a soft glow outside: a ring standing clear of the edge ran round the pins.
-    // The glow says chosen and nothing else, always in the primary: a failure, a conflict or a target says itself on the edge.
+    // A chosen node, and so a dragged one, stands over the nodes drawn after it: dropped onto one, it had sunk under it, its
+    // pins and fields covered.
     .ui-graph__node[data-ui-graph-selected] {
-        border-color: var(--ui-color-primary);
-        box-shadow: 0 0 12px 1px color-mix(in srgb, var(--ui-color-primary) 55%, transparent);
+        z-index: 1;
     }
 
-    // Chosen, the edge thickens outward by `--ui-graph-node-chosen-edge`: a wider border would narrow the contents and move the pins.
-    // It wears the edge's own colour and dashes (a failure's, a conflict's, a run's state), over the border and under the pins.
+    // Chosen, a 1px ring in the theme's brand colour stands `--ui-graph-node-chosen-gap` off the edge, with a soft glow: the edge
+    // keeps its own colour and dashes, so a failure, a conflict or a target still says itself there, and the ring says chosen alone.
+    // The brand, not the focus ring's colour: a chosen node is not a focused one. Under the pins, which stand over it.
     .ui-graph__node[data-ui-graph-selected]::after {
         content: "";
         position: absolute;
-        inset: calc(-1 * (var(--ui-graph-node-border) + var(--ui-graph-node-chosen-edge)));
+        inset: calc(-1 * (var(--ui-graph-node-border) + var(--ui-graph-node-chosen-gap) + 1px));
         z-index: -1;
-        border: calc(var(--ui-graph-node-border) + var(--ui-graph-node-chosen-edge)) solid;
-        border-color: inherit;
-        border-style: inherit;
-        border-radius: calc(var(--ui-graph-node-radius) + var(--ui-graph-node-chosen-edge));
+        border: 1px solid var(--ui-mark-selected-fill);
+        border-radius: .ui-graph-ring-corner(tl)[@value] .ui-graph-ring-corner(tr)[@value] .ui-graph-ring-corner(br)[@value] .ui-graph-ring-corner(bl)[@value];
+        box-shadow: 0 0 10px 0 color-mix(in srgb, var(--ui-mark-selected-fill) 55%, transparent);
         pointer-events: none;
     }
 
@@ -90,7 +107,7 @@
     // Never reached, because something feeding it failed: drawn as stepped-over rather than at fault itself — the fault's own node is the red one.
     .ui-graph__node[data-ui-graph-state="skipped"] {
         border-style: dashed;
-        opacity: 0.55;
+        opacity: @ui-graph-stepped-back;
     }
 
 .ui-graph__node-head {
@@ -101,8 +118,8 @@
     gap: 0.375rem;
     padding: 0.375rem @ui-space-2;
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
-    border-radius: calc(var(--ui-radius-card) - 1px) calc(var(--ui-radius-card) - 1px) 0 0;
-    background: color-mix(in srgb, var(--ui-graph-node-ink) 28%, var(--ui-color-surface));
+    border-radius: .ui-graph-inner-corner(tl)[@value] .ui-graph-inner-corner(tr)[@value] 0 0;
+    background: @ui-graph-node-tint;
     font-weight: var(--ui-text-title-font-weight);
     cursor: move;
     .ui-user-select(none);
@@ -112,7 +129,7 @@
 // one shape and colour, told apart by how faint each is until hovered.
 .ui-graph-head-mark() {
     .ui-glyph-host();
-    .ui-graph-bare-button();
+    .ui-bare-button();
     width: 1rem;
     height: 1rem;
     border-radius: var(--ui-radius-button);
@@ -149,13 +166,13 @@
 
 // A node turned off for a run stands dimmed, its pins and glow with it; it is still chosen, moved and typed into as any other.
 .ui-graph__node[data-ui-graph-off] {
-    opacity: 0.45;
+    opacity: @ui-graph-stepped-back;
 }
 
 // Folded, the node is its head alone: no divider, and the head takes the corners the open body rounds.
 .ui-graph__node[data-ui-graph-collapsed] > .ui-graph__node-head {
     border-bottom: none;
-    border-radius: calc(var(--ui-radius-card) - 1px);
+    border-radius: .ui-graph-inner-corner(tl)[@value] .ui-graph-inner-corner(tr)[@value] .ui-graph-inner-corner(br)[@value] .ui-graph-inner-corner(bl)[@value];
 }
 
 // Every pin of a folded node on the head's two edges, stacked: the edges that reach them converge on one point a side, which is
@@ -178,9 +195,10 @@
     width: max-content;
     min-width: 3rem;
     min-height: 1.5rem;
+    --ui-graph-node-radius: var(--ui-radius-button);
+
     border-color: color-mix(in srgb, var(--ui-graph-node-ink) 60%, var(--ui-color-border));
-    border-radius: var(--ui-radius-button);
-    background: color-mix(in srgb, var(--ui-graph-node-ink) 28%, var(--ui-color-surface));
+    background: @ui-graph-node-tint;
     cursor: move;
     .ui-user-select(none);
 }
@@ -206,7 +224,7 @@
 .ui-graph__node-pinned {
     .ui-graph-head-mark();
     border-radius: 50%;
-    opacity: 0.35;
+    opacity: @ui-offer-opacity;
 }
 
     .ui-graph__node-pinned > .ui-icon {
@@ -215,7 +233,7 @@
 
     @media @{ui-can-hover} {
         .ui-graph__node-pinned:hover:not([aria-disabled='true']) {
-            opacity: 0.8;
+            opacity: @ui-offer-opacity-hover;
         }
     }
 
@@ -233,7 +251,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: color-mix(in srgb, var(--ui-color-on-surface) 12%, transparent);
+    background: color-mix(in srgb, var(--ui-color-on-surface) percentage(@ui-track-share), transparent);
     pointer-events: none;
 }
 
@@ -241,8 +259,8 @@
     .ui-graph__node[data-ui-graph-collapsed] .ui-graph__node-progress {
         top: auto;
         bottom: 0;
-        left: var(--ui-radius-card);
-        right: var(--ui-radius-card);
+        left: var(--ui-graph-node-radius-bl);
+        right: var(--ui-graph-node-radius-br);
     }
 
     .ui-graph__node-progress > i {
@@ -268,37 +286,6 @@
     flex: 1 1 auto;
     min-height: 0;
 }
-
-// The resize corner's hit area hangs past the node's edge, since the eye reads the corner as outside the border and rounding; the drawn mark is half the reach, sitting inside.
-.ui-graph__node-resize {
-    position: absolute;
-    right: -0.25rem;
-    bottom: -0.25rem;
-    width: 1.125rem;
-    height: 1.125rem;
-    cursor: nwse-resize;
-}
-
-    // Two short rules in the corner, the way every resizable box says it is one.
-    .ui-graph__node-resize::after {
-        content: "";
-        position: absolute;
-        right: 0.3125rem;
-        bottom: 0.3125rem;
-        width: 0.4375rem;
-        height: 0.4375rem;
-        background:
-            linear-gradient(135deg, transparent 35%, var(--ui-color-border) 35%, var(--ui-color-border) 55%, transparent 55%),
-            linear-gradient(135deg, transparent 70%, var(--ui-color-border) 70%, var(--ui-color-border) 90%, transparent 90%);
-    }
-
-    @media @{ui-can-hover} {
-        .ui-graph__node-resize:hover::after {
-            background:
-                linear-gradient(135deg, transparent 35%, var(--ui-color-primary) 35%, var(--ui-color-primary) 55%, transparent 55%),
-                linear-gradient(135deg, transparent 70%, var(--ui-color-primary) 70%, var(--ui-color-primary) 90%, transparent 90%);
-        }
-    }
 
 .ui-graph__node-unknown {
     padding: @ui-space-2;
@@ -457,17 +444,17 @@
 
 // While a connection is pulled: unreachable pins step back, reachable ones get a colour halo, and the one it would land on grows and fills.
 .ui-graph--connecting .ui-graph__pin[data-ui-graph-drop="no"] {
-    opacity: var(--ui-disabled-opacity);
+    opacity: @ui-graph-stepped-back;
 }
 
 // A row dims with its pin, so a bright caption/editor over a dimmed dot reads as still in play; an output's trailing caption was never in play, so it stays as-is.
 .ui-graph--connecting .ui-graph__row[data-ui-graph-drop="no"] > :is(.ui-graph__editor, .ui-graph__row-label:not(.ui-graph__row-label--out)) {
-    opacity: var(--ui-disabled-opacity);
+    opacity: @ui-graph-stepped-back;
 }
 
 .ui-graph--connecting .ui-graph__pin[data-ui-graph-drop="yes"] {
     transform: scale(1.15);
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-graph-pin-color) 25%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-graph-pin-color) @ui-halo-share, transparent);
 }
 
 .ui-graph--connecting .ui-graph__pin--aimed {
@@ -537,7 +524,7 @@
         align-items: center;
         justify-content: center;
         border-radius: var(--ui-radius-input);
-        background: color-mix(in srgb, var(--ui-color-surface) 80%, transparent);
+        background: @ui-graph-glass;
         color: var(--ui-text-muted);
     }
 
@@ -694,9 +681,9 @@
 // The framework's dialog's own ground, so the two dialogs a page opens are one.
 dialog.ui-graph__picker {
     display: none;
-    width: min(36rem, calc(100vw - 2rem));
+    width: min(50rem, calc(100vw - 2rem));
     max-width: none;
-    height: min(26rem, calc(100vh - 4rem));
+    height: min(36rem, calc(100vh - 4rem));
     max-height: none;
     padding: 0;
     border: none;
@@ -765,7 +752,7 @@ dialog.ui-graph__picker {
 // The row the rail folds into on a phone (`picker.ts`): the chosen category and a chevron, unfolding the tree over the list. Beside
 // the list the rail stands whole and the row is not drawn.
 .ui-graph__picker-rail-toggle {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: none;
     flex: 0 0 auto;
     align-items: center;
@@ -822,7 +809,7 @@ dialog.ui-graph__picker {
 // A category under another steps in by its depth, which the engine writes on the entry. The chosen one keeps its own ground under
 // the pointer, and a press shows through as on every row of the framework's; the arrows' category washes as a menu's entry does.
 .ui-graph__picker-category {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: flex;
     align-items: center;
     gap: 0.25rem;
@@ -873,7 +860,7 @@ dialog.ui-graph__picker {
 // The kind's icon, when it names one, beside what it says about itself. No hover wash: the pointer moves the current entry, as a
 // select's options do (picker.ts).
 .ui-graph__picker-entry {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: flex;
     align-items: center;
     gap: @ui-space-3;
@@ -938,9 +925,10 @@ dialog.ui-graph__picker {
 
 // --- the run line and the log ---------------------------------------------------------------------------------------------
 
-// The corner menu stands under the run line.
+// The corner menu stands under the run line, and ends as far above the foot.
 .ui-graph[data-ui-graph-run-progress] .ui-graph__menu-panel {
     top: calc(var(--ui-graph-run-height) + @ui-space-2);
+    max-height: calc(100% - var(--ui-graph-run-height) - 2 * @ui-space-2 - var(--ui-graph-foot-height));
 }
 
 // The run panel, in the top corner as the zoom bar stands in the bottom one: shown only on a canvas that asked for it, and under
@@ -1033,35 +1021,23 @@ dialog.ui-graph__picker {
         --ui-padding: 0;
     }
 
-// Set tight, as a node's own caption and a field's are: the two lines read as one name, not as two rows.
+// Set tight, as a node's own caption and a field's are: the two lines read as one name, not as two rows. A press takes the view to
+// the node, so the name answers the pointer as a Ghost button does, with the wash; a link's underline read as leaving the page. Its
+// padding hangs into the column's, so the words stand on the title's edge.
 .ui-graph__parameter-name {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: flex;
     flex-direction: column;
     min-width: 0;
+    margin-inline-start: -@ui-space-1;
+    padding: @ui-space-1;
+    border-radius: var(--ui-radius-button);
     line-height: 1.25;
+    .ui-reveal-hover();
 
     > span {
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    // A press takes the view to the node, so the name answers the pointer as a link does, and the keyboard's focus alike.
-    @ui-graph-parameter-link: {
-        color: @ui-link-ink;
-        text-decoration: underline;
-    };
-
-    @media @{ui-can-hover} {
-        &:hover > .ui-graph__parameter-node {
-            @ui-graph-parameter-link();
-        }
-    }
-
-    &@{ui-keyboard-focus} > .ui-graph__parameter-node {
-        @ui-graph-parameter-link();
+        .ui-text-nowrap();
     }
 }
 
@@ -1092,7 +1068,7 @@ dialog.ui-graph__picker {
     height: var(--ui-graph-run-height);
     padding: 0 @ui-space-2;
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
-    background: color-mix(in srgb, var(--ui-color-surface) 88%, transparent);
+    background: @ui-graph-glass;
     font-size: var(--ui-text-caption-font-size);
     overflow: hidden;
     pointer-events: none;
@@ -1153,7 +1129,9 @@ dialog.ui-graph__picker {
 
 // The log at the canvas's foot: folded, a strip with a count (like a code field's status bar); open, lines above the strip
 // at the log's height. The count's colour is the worst line's, so a failure reads even folded.
-// A height at rest as well as open, so the log opens at the pace the corner standing on it rises.
+// A height at rest as well as open, so the log opens at the pace the corner standing on it rises. The strip stands at the foot and the
+// lines keep their open height, clipped by the panel's top: folding, the top comes down over them and the strip never moves, where
+// lines taken out at once had sent the strip up to the top and down again with it.
 .ui-graph__log {
     position: absolute;
     left: 0;
@@ -1162,7 +1140,9 @@ dialog.ui-graph__picker {
     z-index: 2;
     display: flex;
     flex-direction: column;
+    justify-content: flex-end;
     height: calc(var(--ui-graph-log-strip-height) + var(--ui-border-width));
+    overflow: hidden;
     border-top: var(--ui-border-width) solid var(--ui-color-border);
     background: var(--ui-color-surface);
     transition: height @ui-motion-fast @ui-motion-ease;
@@ -1191,7 +1171,7 @@ dialog.ui-graph__picker {
 // The whole strip opens the log: square, the strip's height, with the faintest hover response (just the word brightens, no wash), since the log sits under the sheet and isn't what a reader looks at.
 .ui-graph__log-toggle,
 .ui-graph__log-clear {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     display: flex;
     align-items: center;
     border-radius: 0;
@@ -1237,10 +1217,15 @@ dialog.ui-graph__picker {
         display: none;
     }
 
-// The clear control belongs to the open panel: folded, the strip is only what opens it.
-.ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-clear,
-.ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-entries {
+// The clear control belongs to the open panel: folded, the strip is only what opens it. The lines leave the page's order once the
+// fold is over, so they slide down under the strip in sight.
+.ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-clear {
     display: none;
+}
+
+.ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-entries {
+    visibility: hidden;
+    transition: visibility 0s @ui-motion-fast;
 }
 
 .ui-graph__log-clear {
@@ -1255,8 +1240,8 @@ dialog.ui-graph__picker {
 }
 
 .ui-graph__log-entries {
-    flex: 1 1 auto;
-    min-height: 0;
+    flex: 0 0 auto;
+    height: calc(var(--ui-graph-log-height) - var(--ui-graph-log-strip-height) - var(--ui-border-width));
     margin: 0;
     padding: @ui-space-1 0;
     overflow: auto;
@@ -1300,7 +1285,7 @@ dialog.ui-graph__picker {
 
 // The node a line came from, as a link-like control: a press takes the view to the node and chooses it.
 .ui-graph__log-node {
-    .ui-graph-bare-button();
+    .ui-bare-button();
     flex: 0 0 auto;
     color: var(--ui-color-primary-ink);
     font-weight: var(--ui-text-title-font-weight);

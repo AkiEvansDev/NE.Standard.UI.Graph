@@ -806,6 +806,9 @@ declare module "ne-standard-ui" {
         readonly hiddenClass: "ui-hidden";
         /** A button's root, drawn by the framework or by a package in its classes. */
         readonly buttonClass: "ui-button";
+        /** A button's Ghost look and its Small size, beside `buttonClass` on a button a package draws in the framework's look. */
+        readonly ghostButtonClass: "ui-button--ghost";
+        readonly smallButtonClass: "ui-button--small";
         /** The root of a select, a multi-select or a search. */
         readonly selectClass: "ui-select";
         /** A text input's root. */

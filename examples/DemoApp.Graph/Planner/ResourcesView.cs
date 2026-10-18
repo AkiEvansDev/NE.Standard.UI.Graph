@@ -61,14 +61,14 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .SetRow(1, UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Star())
-            // The button as wide as its words, since a share of the pane squeezed them; the field takes the rest. Tonal: a lone field
-            // beside its own button.
+            // The button its icon alone, its word the tooltip that names it, so it stands quiet beside the field; the field takes the
+            // rest. Tonal: a lone field beside its own button.
             .AddChild(UILayout.Ends(
                     new TextInputComponent(SearchId)
                         .SetAppearance(UIInputAppearance.Tonal)
                         .SetSearch("planner.search")
                         .SetDebounceMilliseconds(150),
-                    UIButtons.Primary("planner.add", MaterialIcons.Outlined(PlannerIcons.Add)).OnClick(nameof(ResourcesController.Add))
+                    UIButtons.Icon(MaterialIcons.Outlined(PlannerIcons.Add), "planner.add").OnClick(nameof(ResourcesController.Add))
                 )
                 .SetPlacement(1, 1, 24, 1)
             )
@@ -222,6 +222,8 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .AddChild(new ProductionGraphComponent("planner-preview")
                 .BindItems(nameof(ResourcesController.Preview))
                 .SetIsReadOnly(true)
+                // A preview a few lines high: the menu's panel would cover what it shows, and a read-only sheet's menu is its Fit alone.
+                .SetShowMenuPanel(false)
                 .BindSheetName(nameof(ResourcesController.Name))
                 .SetCanvasHeight(RecipeCanvasHeight)
                 .SetHeight(UILayoutLength.Fill())

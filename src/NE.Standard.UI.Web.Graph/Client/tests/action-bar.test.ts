@@ -61,7 +61,9 @@ function scene(readOnly = false, chosenIds: readonly string[] = []): Scene {
 
     const context = real<PluginEngineContext>({
         names,
-        states: { setDisabled: (element: FakeElement, off: boolean) => disabled.set(element, off) }
+        states: { setDisabled: (element: FakeElement, off: boolean) => disabled.set(element, off) },
+        // Where the corner menu panel's fold would be kept; this sheet draws no panel.
+        store: { read: () => null, write: () => undefined }
     });
     const kind = {
         items: () => [{ id: "a", x: 0, y: 0, pinned: true }, { id: "b", x: 0, y: 0 }],

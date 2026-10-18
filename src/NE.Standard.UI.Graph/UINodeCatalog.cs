@@ -440,15 +440,12 @@ public sealed class UINodeCatalog
     private static string TextOf(object? value)
         => value switch
         {
-            null => string.Empty,
-            bool flag => flag ? "true" : "false",
             JsonElement { ValueKind: JsonValueKind.String } element => element.GetString() ?? string.Empty,
             JsonElement { ValueKind: JsonValueKind.True } => "true",
             JsonElement { ValueKind: JsonValueKind.False } => "false",
             JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => string.Empty,
             JsonElement element => element.GetRawText(),
-            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-            _ => value.ToString() ?? string.Empty
+            _ => UIScriptText.Of(value)
         };
 
     /// <summary>

@@ -22,6 +22,9 @@ public static class UIGraphCommands
     /// <summary>Removes the node the menu was opened on, and every other chosen with it, as Delete does.</summary>
     public const string Delete = Prefix + "delete";
 
+    /// <summary>Puts an empty, unnamed frame where the menu was opened, on the grid, and chooses it.</summary>
+    public const string AddGroup = Prefix + "add-group";
+
     /// <summary>Puts a frame around the chosen nodes.</summary>
     public const string GroupSelection = Prefix + "group-selection";
 
@@ -37,6 +40,7 @@ public static class UIGraphCommands
     /// <summary>
     /// On the node canvas: turns the node the menu was opened on, and every other chosen with it, off or on again — the entry is
     /// checked while it is off. A run passes a node that is off over, and what it feeds takes its own value, as though unwired.
+    /// In a group's menu it turns every node standing inside the frame off, or on again when all of them are off — checked then.
     /// </summary>
     public const string Disable = Prefix + "disable";
 
@@ -136,7 +140,7 @@ public static class UIGraphCommands
 /// </summary>
 public static class UIGraphMenus
 {
-    /// <summary>The menu under the button in the canvas's corner — Arrange, Fit and Save, and the application's own.</summary>
+    /// <summary>The folding panel in the canvas's leading corner and its menu — Arrange, Fit and Save, and the application's own.</summary>
     public const string Main = "graph-menu";
 
     /// <summary>The menu the right button opens on a node.</summary>
@@ -226,8 +230,11 @@ public static class UIGraphRegions
 /// </summary>
 public static class UIGraphWords
 {
-    /// <summary>The corner menu's head while the sheet is given no name of its own.</summary>
+    /// <summary>The package's word for a sheet.</summary>
     public const string Sheet = "ui.graph.sheet";
+
+    /// <summary>The corner menu panel's name, and its header's while the sheet is given no name of its own.</summary>
+    public const string Menu = "ui.graph.menu";
 
     /// <summary>The menus' entry that lays the sheet out.</summary>
     public const string Arrange = "ui.graph.arrange";
@@ -237,6 +244,9 @@ public static class UIGraphWords
 
     /// <summary>The corner menu's entry that commits the sheet.</summary>
     public const string Save = "ui.graph.save";
+
+    /// <summary>The sheet's menu entry that puts an empty frame where it was opened.</summary>
+    public const string AddGroup = "ui.graph.add-group";
 
     /// <summary>The sheet's menu entry that frames the chosen items.</summary>
     public const string GroupSelection = "ui.graph.group-selection";
@@ -283,7 +293,7 @@ public static class UIGraphWords
     /// <summary>A node's menu entry that takes out every edge it has.</summary>
     public const string DisconnectAll = "ui.graph.disconnect-all";
 
-    /// <summary>A node's menu entry that turns it off for a run, checked while it is.</summary>
+    /// <summary>A node's menu entry that turns it off for a run, checked while it is; a group's, every node inside it, checked while all are.</summary>
     public const string Disabled = "ui.graph.disabled";
 
     /// <summary>A node's menu entry that puts every input value back to its default.</summary>

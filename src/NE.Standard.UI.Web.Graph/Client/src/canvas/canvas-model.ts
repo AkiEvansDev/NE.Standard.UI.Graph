@@ -66,6 +66,27 @@ export function readSize(value: unknown): number | null {
     return Number.isFinite(read) && read > 0 ? read : null;
 }
 
+/** A drafted kind's placed item off the wire: where the viewer put it and whether it is pinned; the rest is its collection's. */
+export function readPlacement(item: CanvasItem): CanvasItem {
+    return { id: String(item.id), x: Number(item.x) || 0, y: Number(item.y) || 0, pinned: item.pinned === true };
+}
+
+export function readCanvasEdge(edge: CanvasEdge): CanvasEdge {
+    return { id: String(edge.id), points: readPoints(edge.points) };
+}
+
+/** A draft entry's marks off the wire: whether the viewer added it, and the server's item as JSON when first changed. */
+export function readDraftMarks(entry: unknown): { created: boolean; baseline: string | null } {
+    const source = entry as { created?: unknown; baseline?: unknown };
+
+    return { created: source.created === true, baseline: typeof source.baseline === "string" ? source.baseline : null };
+}
+
+/** A text off the wire, or null for anything else and for an empty one. */
+export function readText(value: unknown): string | null {
+    return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 export function readPoints(points: readonly Point[] | null | undefined): Point[] {
     return (points ?? []).map(point => ({ x: Number(point.x) || 0, y: Number(point.y) || 0 }));
 }

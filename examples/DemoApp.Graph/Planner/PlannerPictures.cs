@@ -54,33 +54,9 @@ public sealed class PlannerPictures(PlannerStore store, IUIContentAddressResolve
         => Convert.ToHexStringLower(SHA256.HashData(bytes))[..16];
 
     /// <summary>
-    /// What a picture is, read off its first bytes rather than taken from its name or from what the browser said: PNG, JPEG, GIF or
-    /// WebP, and nothing else — an SVG would run its own script where the pictures are served.
+    /// What a picture is, read off its first bytes (<see cref="UIPictureTypes.Sniff"/>): PNG, JPEG, GIF or WebP, and nothing else — a
+    /// BMP is no picture a catalogue keeps, and an SVG would run its own script where the pictures are served.
     /// </summary>
     public static string? Sniff(ReadOnlySpan<byte> bytes)
-    {
-        if (bytes.StartsWith((ReadOnlySpan<byte>)[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]))
-            return "image/png";
-
-        if (bytes.StartsWith((ReadOnlySpan<byte>)[0xFF, 0xD8, 0xFF]))
-            return "image/jpeg";
-
-        if (bytes.StartsWith("GIF87a"u8) || bytes.StartsWith("GIF89a"u8))
-            return "image/gif";
-
-        if (bytes.Length >= 12 && bytes.StartsWith("RIFF"u8) && bytes[8..12].SequenceEqual("WEBP"u8))
-            return "image/webp";
-
-        return null;
-    }
-
-    /// <summary>The file ending a picture is written under in a file of the catalogue.</summary>
-    public static string ExtensionOf(string contentType)
-        => contentType switch
-        {
-            "image/jpeg" => ".jpg",
-            "image/gif" => ".gif",
-            "image/webp" => ".webp",
-            _ => ".png"
-        };
+        => UIPictureTypes.Sniff(bytes) is { } type && type != "image/bmp" ? type : null;
 }

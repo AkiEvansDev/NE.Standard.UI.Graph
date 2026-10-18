@@ -1,10 +1,11 @@
-// A panel over the sheet's trailing side (`GraphCanvasRendererBase.RenderSidePanel`), slid by the framework's collapsible. This keeps
-// its fold under the canvas's name: the panel is no component of its own for the framework's engine to keep it by.
+// A folding panel over the sheet (`GraphCanvasRendererBase.RenderFoldingPanel`) — a kind's over the trailing side, the corner menu over
+// the leading one — slid by the framework's collapsible. This keeps its fold under the canvas's name: the panel is no component of its
+// own for the framework's engine to keep it by.
 
 import type { ClientStore, Focus } from "ne-standard-ui";
 import { CoreNames } from "./canvas-dom.ts";
 
-// The framework's own fold: its engine slides the panel and writes the attribute, as it does for the corner menu.
+// The framework's own fold: its engine slides the panel and writes the attribute, as it does for every collapsible.
 const ToggleSelector = `[${CoreNames.collapseToggle}]`;
 const CollapsedAttribute = CoreNames.collapsed;
 const Folded = "folded";
@@ -64,7 +65,7 @@ export class SidePanelFold {
     }
 }
 
-/** Whether the stylesheet starts the panel folded — the plan on a phone, whose sheet it would cover. */
+/** Whether the stylesheet starts the panel folded — the plan and the corner menu on a phone, whose sheet they would cover. */
 function startsFolded(panel: HTMLElement): boolean {
     return getComputedStyle(panel).getPropertyValue(StartsFoldedProperty).trim() === "1";
 }

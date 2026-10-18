@@ -2,7 +2,7 @@
 // and the draft of what they changed, laid over the bound collection by key; a server change under a draft entry is a conflict.
 
 import type { CanvasEdge, CanvasGroup, CanvasItem } from "../canvas/canvas-model.ts";
-import { readDocumentKey, readGroup, readPoints } from "../canvas/canvas-model.ts";
+import { readCanvasEdge, readDocumentKey, readDraftMarks, readGroup, readPlacement, readText } from "../canvas/canvas-model.ts";
 import type { DraftModel } from "./draft.ts";
 import { overlay } from "./draft.ts";
 
@@ -76,19 +76,14 @@ export function readGraphDocument(value: unknown): GraphDocument {
     const draft = source.draft as Partial<GraphDraft> | null | undefined;
 
     return {
-        nodes: (source.nodes ?? []).map(node => ({
-            id: String(node.id),
-            x: Number(node.x) || 0,
-            y: Number(node.y) || 0,
-            pinned: node.pinned === true
-        })),
-        edges: (source.edges ?? []).map(edge => ({ id: String(edge.id), points: readPoints(edge.points) })),
+        nodes: (source.nodes ?? []).map(readPlacement),
+        edges: (source.edges ?? []).map(readCanvasEdge),
         groups: (source.groups ?? []).map(readGroup),
         draft: {
             nodes: (draft?.nodes ?? []).flatMap(entry => {
                 const node = readGraphNode(entry);
 
-                return node === null ? [] : [{ ...toDraft(node), created: entry.created === true, baseline: typeof entry.baseline === "string" ? entry.baseline : null }];
+                return node === null ? [] : [{ ...toDraft(node), ...readDraftMarks(entry) }];
             }),
             removed: (draft?.removed ?? []).map(id => String(id))
         },
@@ -201,19 +196,19 @@ export function readGraphNode(value: unknown): GraphNode | null {
 
     return {
         id,
-        title: text(source.title),
-        subtitle: text(source.subtitle),
-        icon: text(source.icon),
-        image: text(source.image),
+        title: readText(source.title),
+        subtitle: readText(source.subtitle),
+        icon: readText(source.icon),
+        image: readText(source.image),
         shape: readShape(source.shape),
-        color: text(source.color),
-        badge: text(source.badge),
-        tooltip: text(source.tooltip),
+        color: readText(source.color),
+        badge: readText(source.badge),
+        tooltip: readText(source.tooltip),
         links: links.flatMap(link => {
             const entry = link as Record<string, unknown> | null;
 
             return entry !== null && typeof entry === "object" && typeof entry.id === "string" && typeof entry.to === "string"
-                ? [{ id: entry.id, to: entry.to, caption: text(entry.caption) }]
+                ? [{ id: entry.id, to: entry.to, caption: readText(entry.caption) }]
                 : [];
         })
     };
@@ -225,10 +220,6 @@ export function readShape(value: unknown): GraphNodeShape | null {
         return "icon";
 
     return value === "Card" || value === "card" || value === 0 ? "card" : null;
-}
-
-function text(value: unknown): string | null {
-    return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 /** Every link of the graph whose two ends are both nodes of it, in the nodes' order and each node's own. */

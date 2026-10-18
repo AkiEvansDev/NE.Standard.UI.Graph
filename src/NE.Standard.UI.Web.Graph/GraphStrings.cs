@@ -22,7 +22,7 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string ZoomIn = "ui.graph.zoom-in";
     public const string ZoomOut = "ui.graph.zoom-out";
     public const string Fit = UIGraphWords.Fit;
-    public const string Menu = "ui.graph.menu";
+    public const string Menu = UIGraphWords.Menu;
     public const string Minimap = "ui.graph.minimap";
     public const string Log = "ui.graph.log";
     public const string ClearLog = "ui.graph.clear-log";
@@ -69,7 +69,6 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string ResetPin = UIGraphWords.ResetPin;
     public const string Parameters = "ui.graph.parameters";
     public const string ParametersEmpty = "ui.graph.parameters-empty";
-    public const string ShowNode = "ui.graph.show-node";
     public const string UploadFailed = "ui.graph.upload-failed";
     public const string Unsaved = "ui.graph.unsaved";
     public const string Saving = "ui.graph.saving";
@@ -108,6 +107,7 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string Sheet = UIGraphWords.Sheet;
     public const string Arrange = UIGraphWords.Arrange;
     public const string Save = UIGraphWords.Save;
+    public const string AddGroup = UIGraphWords.AddGroup;
     public const string GroupSelection = UIGraphWords.GroupSelection;
     public const string DeleteSelection = UIGraphWords.DeleteSelection;
     public const string DeleteEdge = UIGraphWords.DeleteEdge;
@@ -202,7 +202,6 @@ public sealed partial class GraphStrings : IUIStringsSource
         [ResetPin] = "Reset",
         [Parameters] = "Parameters",
         [ParametersEmpty] = "Add an input from its menu to set it out here",
-        [ShowNode] = "Show the node",
         [UploadFailed] = "Upload failed",
         [Unsaved] = "Unsaved",
         [Saving] = "Saving…",
@@ -241,6 +240,7 @@ public sealed partial class GraphStrings : IUIStringsSource
         [Sheet] = "Sheet",
         [Arrange] = "Arrange",
         [Save] = "Save",
+        [AddGroup] = "Add group",
         [GroupSelection] = "Group selection",
         [DeleteSelection] = "Delete selection",
         [DeleteEdge] = "Delete",

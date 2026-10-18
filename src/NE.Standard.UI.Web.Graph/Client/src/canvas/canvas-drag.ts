@@ -1,5 +1,5 @@
-// Drags nodes, groups and selections of them across the sheet, and resizes a node from its corner; grid-snapping on release lives
-// here too, since it settles the same nodes and groups.
+// Drags nodes, groups and selections of them across the sheet, and resizes a node or a group's frame from its corner; grid-snapping
+// on release lives here too, since it settles the same nodes and groups.
 
 import type { Rect } from "./geometry.ts";
 import { contains, snap } from "./geometry.ts";
@@ -8,8 +8,19 @@ import type { CanvasSelection } from "./canvas-selection.ts";
 import { adds } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
 import type { Drag } from "./canvas.ts";
-import { CollapsedAttribute, NodeAttribute } from "./canvas-dom.ts";
+import { CollapsedAttribute, GroupAttribute, NodeAttribute, ResizingAttribute } from "./canvas-dom.ts";
 import type { CanvasKind } from "./canvas-kind.ts";
+
+type Size = { readonly width: number; readonly height: number };
+
+/** What a resize may come down to: a node's floors are the stylesheet's (the kind's least width, the contents' height). */
+const NodeLeast: Size = { width: 1, height: 1 };
+
+/**
+ * A frame's least width in canvas units: a folded node's, the narrowest that still reads as a box with a name, so a frame can at
+ * least hold one; its least height is its band and a step under it, worked out on the press.
+ */
+const GroupLeastWidth = 120;
 
 /** What the drag reaches on the coordinator: the items and groups it moves, the element registry, and the redraws that follow. */
 export type DragHost = {
@@ -61,16 +72,36 @@ export class CanvasDrag {
         return new Map(this.host.items().map(item => [item.id, item]));
     }
 
-    /** The corner: the node's own width and height, from what it stands at now rather than from what was last stored. */
-    public beginResize(element: HTMLElement, scene: Point): Drag {
+    /**
+     * The corner of a node or of a group's frame: its own width and height, from what it stands at now rather than from what was
+     * last stored, and the least it may come to; the corner wears its held look until the drag ends.
+     */
+    public beginResize(element: HTMLElement, grip: HTMLElement, scene: Point): Drag {
+        const groupId = element.getAttribute(GroupAttribute);
+
+        grip.setAttribute(ResizingAttribute, "");
+
         return {
             kind: "resize",
-            nodeId: element.getAttribute(NodeAttribute)!,
+            of: groupId === null ? "node" : "group",
+            id: groupId ?? element.getAttribute(NodeAttribute)!,
+            grip,
             startX: scene.x,
             startY: scene.y,
             width: element.offsetWidth,
-            height: element.offsetHeight
+            height: element.offsetHeight,
+            least: groupId === null ? NodeLeast : this.groupLeast(element)
         };
+    }
+
+    /**
+     * A frame never closes over its band: the band, a grid step of inside under it and the frame's own border. The band is measured,
+     * since its height is the page's caption type.
+     */
+    private groupLeast(element: HTMLElement): Size {
+        const band = element.querySelector<HTMLElement>(".ui-graph__group-band")?.offsetHeight ?? 0;
+
+        return { width: GroupLeastWidth, height: band + this.settings.gridSize + (element.offsetHeight - element.clientHeight) };
     }
 
     public beginGroupDrag(event: PointerEvent, groupId: string, scene: Point): Drag | null {
@@ -84,13 +115,10 @@ export class CanvasDrag {
         if (this.settings.readOnly || group.pinned === true)
             return null;
 
-        const frame: Rect = { x: group.x, y: group.y, width: group.width, height: group.height };
         const moving = new Map<string, Point>();
 
-        for (const node of this.host.items()) {
-            const rect = this.host.nodeRect(node.id);
-
-            if (node.pinned !== true && rect !== null && contains(frame, rect))
+        for (const node of itemsInFrame(group, this.host.items(), id => this.host.nodeRect(id))) {
+            if (node.pinned !== true)
                 moving.set(node.id, { x: node.x, y: node.y });
         }
 
@@ -138,8 +166,19 @@ export class CanvasDrag {
         this.host.drawGroups();
     }
 
+    /** The corner followed: the width and height grow by how far the pointer went, down to the least the press worked out. */
+    public resize(drag: Extract<Drag, { kind: "resize" }>, scene: Point): void {
+        const width = Math.max(drag.least.width, drag.width + (scene.x - drag.startX));
+        const height = Math.max(drag.least.height, drag.height + (scene.y - drag.startY));
+
+        if (drag.of === "node")
+            this.resizeNode(drag.id, width, height);
+        else
+            this.resizeGroup(drag.id, width, height);
+    }
+
     /** The size asked for, then the size it actually came to: the kind's least width and the contents' height have the last word. */
-    public resizeNode(nodeId: string, width: number, height: number): void {
+    private resizeNode(nodeId: string, width: number, height: number): void {
         const node = this.itemsById().get(nodeId);
         const element = this.host.nodeElements.get(nodeId);
 
@@ -155,6 +194,20 @@ export class CanvasDrag {
         node.height = element.offsetHeight;
 
         this.host.drawEdges();
+        this.host.drawMinimap();
+    }
+
+    /** A frame resized moves nothing: what stands inside it is whatever its new edges take in (`itemsInFrame`). */
+    private resizeGroup(groupId: string, width: number, height: number): void {
+        const group = this.findGroup(groupId);
+
+        if (group === undefined)
+            return;
+
+        group.width = Math.round(width);
+        group.height = Math.round(height);
+
+        this.host.drawGroups();
         this.host.drawMinimap();
     }
 
@@ -203,8 +256,28 @@ export class CanvasDrag {
         return { x: snap(point.x + halfWidth, gridSize, true) - halfWidth, y: snap(point.y + halfHeight, gridSize, true) - halfHeight };
     }
 
+    /** Rounds a resized box to the grid step: a node's by `snapNodeSize`, a frame's to the nearest step its least still fits. */
+    public snapSize(drag: Extract<Drag, { kind: "resize" }>): void {
+        if (drag.of === "node") {
+            this.snapNodeSize(drag.id);
+            return;
+        }
+
+        const group = this.findGroup(drag.id);
+
+        if (group === undefined)
+            return;
+
+        const gridSize = this.settings.gridSize;
+
+        group.width = Math.max(stepUp(drag.least.width, gridSize), snap(group.width, gridSize, true));
+        group.height = Math.max(stepUp(drag.least.height, gridSize), snap(group.height, gridSize, true));
+
+        this.host.drawGroups();
+    }
+
     /** Rounds a resized node's box to the grid step, growing to the next step where the kind's minimum width or content height won't fit. */
-    public snapSize(nodeId: string): void {
+    private snapNodeSize(nodeId: string): void {
         const node = this.itemsById().get(nodeId);
         const element = this.host.nodeElements.get(nodeId);
 
@@ -238,6 +311,25 @@ export class CanvasDrag {
         element?.style.setProperty("--ui-graph-node-x", String(node.x));
         element?.style.setProperty("--ui-graph-node-y", String(node.y));
     }
+}
+
+/**
+ * The items standing whole inside a group's frame as they are drawn now, pinned ones among them: what the group's drag carries (less
+ * the pinned) and what its Disable turns. Membership is this geometry alone: a group keeps no list of its items.
+ */
+export function itemsInFrame<TItem extends CanvasItem>(group: CanvasGroup, items: readonly TItem[], nodeRect: (id: string) => Rect | null): TItem[] {
+    const frame: Rect = { x: group.x, y: group.y, width: group.width, height: group.height };
+
+    return items.filter(item => {
+        const rect = nodeRect(item.id);
+
+        return rect !== null && contains(frame, rect);
+    });
+}
+
+/** A length rounded up to the grid's step, so a floor that falls between two steps takes the larger. */
+function stepUp(length: number, gridSize: number): number {
+    return gridSize > 0 ? Math.ceil(length / gridSize) * gridSize : length;
 }
 
 /** Rounds a node's box up to the grid so its far corner lands on the grid like its near one; the size is a floor the stylesheet can still grow. */
