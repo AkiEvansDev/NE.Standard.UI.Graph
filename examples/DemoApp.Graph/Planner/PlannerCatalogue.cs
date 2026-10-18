@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using NE.Colors;
-using NE.Standard.UI.Abstractions.Styling.Theme;
 
 namespace DemoApp.Graph.Planner;
 
