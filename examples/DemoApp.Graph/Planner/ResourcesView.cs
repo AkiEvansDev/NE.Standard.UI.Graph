@@ -214,7 +214,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .BindVisibility(nameof(ResourcesController.EditorVisibility))
             .AddChild(UILayout.Stack(4,
                     UIText.Title("planner.made-from"),
-                    UIText.Caption(string.Empty).BindTitle(nameof(ResourcesController.RecipeNote)).SetTitleWrap(true).Muted()
+                    UIText.Caption().BindTitle(nameof(ResourcesController.RecipeNote)).SetTitleWrap(true).Muted()
                 )
                 .SetMargin(UIThickness.All(0, 0, 0, 16))
                 .SetPlacement(1, 1, 24, 1)

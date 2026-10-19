@@ -13,7 +13,7 @@ namespace NE.Standard.UI.Graph;
 /// canvas such a component is aimed at offers a pin's <i>Add to parameters</i>. Where it stands is the page's: a column beside the
 /// canvas, a pane the viewer moves (<c>PaneContainerComponent</c>).
 /// </remarks>
-public abstract partial class NodesParametersComponent<T>(string? id = null) : VisualComponentBase<T>(id)
+public abstract partial class NodesParametersComponent<T>(string? id = null) : VisualComponentBase<T>(id), IPressablePartsComponent
     where T : NodesParametersComponent<T>, IUIComponentDefinition
 {
     /// <summary>

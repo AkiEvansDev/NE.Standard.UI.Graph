@@ -182,18 +182,31 @@ declare module "ne-standard-ui" {
         readonly format?: "date-time" | "date" | "time" | "relative" | "relative-date";
     };
 
+    /** A file's size as a word's argument, as the server's `UIFileSize` travels: its bytes; written in the reader's language as a file tile is. */
+    export type FileSize = {
+        readonly fileSize: number;
+    };
+
+    /** Words as the server writes them where a phrase may stand: an author's text as a plain string or `{ text }`, a key as `{ key, args }`. */
+    export type WrittenWords = string | { readonly text: string } | { readonly key: string; readonly args?: Readonly<Record<string, unknown>> | null };
+
     /** The page's words in its language — a package's `IUIStringsSource` among them — which a language switch replaces in place. */
     export type ClientStrings = {
         text(key: string): string;
         /**
          * The word with its `{name}` placeholders filled: a numeric `count` picks the plural, a `{ text }` resolves as `resolveText`, a
-         * `Moment` is written in the reader's zone (a relative one is written once: `write` keeps it current). With `markup`, for words a
-         * tooltip reads as inline markup, a string argument (an author's `{ text }` too) is escaped to show as written, as `write` escapes
-         * on the tooltip; the key's own words still read as markup.
+         * `Moment` is written in the reader's zone (a relative one is written once: `write` keeps it current), a `FileSize` in the reader's
+         * language. With `markup`, for words a tooltip reads as inline markup, a string argument (an author's `{ text }` too) is escaped to
+         * show as written, as `write` escapes on the tooltip; the key's own words still read as markup.
          */
-        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string } | Moment>>, markup?: boolean): string;
+        format(key: string, values: Readonly<Record<string, string | number | { readonly text: string } | Moment | FileSize>>, markup?: boolean): string;
         /** An author's text as shown: looked up as a plain value (under key prefixes only a prefixed one), else itself; `WebWords.WriteText`. */
         resolveText(text: string): string;
+        /**
+         * Words the server wrote in the page's language: a key filled from its arguments as `format` fills it, an author's text looked up
+         * as `resolveText` looks it up; `Translate(UIPhrase)`'s twin, for a caption a package's model carries.
+         */
+        resolve(value: WrittenWords): string;
         /**
          * Writes a word on an attribute, or the text where `attribute` is null, marked with its key so a language switch rewrites it — and
          * the page's relative clock, where an argument is a relative `Moment`. On the tooltip (`data-ui-tooltip`), which reads inline

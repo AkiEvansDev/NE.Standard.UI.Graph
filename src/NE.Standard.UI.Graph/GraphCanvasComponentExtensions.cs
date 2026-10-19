@@ -27,6 +27,17 @@ public static class GraphCanvasComponentExtensions
     }
 
     /// <summary>
+    /// Runs <paramref name="command"/> on Ctrl+S or the menu's Save with literal argument values, after the document has reached the
+    /// server, as with every form.
+    /// </summary>
+    public static T OnSaveLiteral<T>(this T canvas, string command, params KeyValuePair<string, object?>[] arguments)
+        where T : VisualComponentBase<T>, IGraphCanvasComponent, IUIComponentDefinition
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        return canvas.OnLiteral(GraphEvents.Save, command, arguments);
+    }
+
+    /// <summary>
     /// Runs <paramref name="command"/> when an entry the application put into any of the canvas's menus is clicked; the entry's id
     /// is the command's key.
     /// </summary>
@@ -51,6 +62,17 @@ public static class GraphCanvasComponentExtensions
     }
 
     /// <summary>
+    /// Runs <paramref name="command"/> when an entry the application put into the canvas's menus is clicked, with literal argument
+    /// values in place of the entry's key and its target: for a canvas whose menus carry one entry of the application's.
+    /// </summary>
+    public static T OnMenuEntryLiteral<T>(this T canvas, string command, params KeyValuePair<string, object?>[] arguments)
+        where T : VisualComponentBase<T>, IGraphCanvasComponent, IUIComponentDefinition
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        return canvas.OnLiteral(GraphEvents.MenuEntry, command, arguments);
+    }
+
+    /// <summary>
     /// Runs <paramref name="command"/> when an item is clicked; the clicked item's id is the command's key.
     /// </summary>
     public static T OnNodeClick<T>(this T canvas, string command, string argumentName = "node")
@@ -66,5 +88,16 @@ public static class GraphCanvasComponentExtensions
     {
         ArgumentNullException.ThrowIfNull(canvas);
         return canvas.On(GraphEvents.NodeClick, command, arguments);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="command"/> when an item is clicked, with literal argument values in place of the item's id: for a command
+    /// that needs no item.
+    /// </summary>
+    public static T OnNodeClickLiteral<T>(this T canvas, string command, params KeyValuePair<string, object?>[] arguments)
+        where T : VisualComponentBase<T>, IGraphCanvasComponent, IUIComponentDefinition
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+        return canvas.OnLiteral(GraphEvents.NodeClick, command, arguments);
     }
 }

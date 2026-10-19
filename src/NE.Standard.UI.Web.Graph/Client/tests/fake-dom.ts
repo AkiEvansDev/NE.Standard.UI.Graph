@@ -1,5 +1,5 @@
 // A small stand-in for the DOM, for the tests of engines that read the focus, containment, a few attributes and classes, and
-// events bubbling up a tree: enough selectors for the framework's own lists (classes, attributes, roles, `*`, `[name^=value]`,
+// events bubbling up a tree: enough selectors for the framework's own lists (classes, attributes, roles, `*`, `[name^=value]`, `[name*=value]`,
 // `:not()`, `:is()`, `:disabled`, `:scope`, `:active`, `:focus-visible`, `:modal`, `:popover-open`, the child and descendant
 // combinators), and nothing laid out but what a test says. The window — its timers and capturing listeners — is installed on request
 // (`fakeWindowGlobals`).
@@ -821,7 +821,7 @@ function matchesComplex(element: FakeElement, compounds: readonly string[], comb
     return false;
 }
 
-const Token = /^(?:([a-z]+)|\.([\w-]+)|\[([\w-]+)(?:(\^?)=(?:"((?:[^"\\]|\\.)*)"|['"]?([^'"\]]*)['"]?))?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope|active|focus-visible|modal|popover-open))/;
+const Token = /^(?:([a-z]+)|\.([\w-]+)|\[([\w-]+)(?:([\^*]?)=(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|([^'"\]]*)))?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope|active|focus-visible|modal|popover-open))/;
 
 function matchesCompound(element: FakeElement, compound: string, scope: FakeElement | null): boolean {
     let rest = compound.trim();
@@ -838,9 +838,9 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
         if (token === null)
             throw new Error(`The stand-in does not read "${compound}".`);
 
-        const [whole, tag, className, attribute, prefix, quoted, plain, negated, alternatives, pseudo] = token;
+        const [whole, tag, className, attribute, operator, quoted, singleQuoted, plain, negated, alternatives, pseudo] = token;
         // A double-quoted value as CSS escapes it (`cssAttributeValue`): a backslash takes the character after it as itself.
-        const value = quoted === undefined ? plain : quoted.replace(/\\(.)/g, "$1");
+        const value = quoted === undefined ? singleQuoted ?? plain : quoted.replace(/\\(.)/g, "$1");
 
         if (tag !== undefined && element.tagName !== tag)
             return false;
@@ -848,10 +848,10 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
         if (className !== undefined && !element.classes.has(className))
             return false;
 
-        // `[name^=value]` matches a value that starts with it, `[name=value]` the value alone.
+        // `[name^=value]` matches a value that starts with it, `[name*=value]` one that holds it, `[name=value]` the value alone.
         const actual = attribute === undefined ? undefined : element.attributes.get(attribute);
 
-        if (attribute !== undefined && (actual === undefined || (value !== undefined && (prefix === "^" ? !actual.startsWith(value) : actual !== value))))
+        if (attribute !== undefined && (actual === undefined || (value !== undefined && !matchesValue(actual, operator, value))))
             return false;
 
         if (negated !== undefined && matchesSelector(element, negated, scope))
@@ -880,4 +880,11 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
     }
 
     return true;
+}
+
+function matchesValue(actual: string, operator: string | undefined, value: string): boolean {
+    if (operator === "^")
+        return actual.startsWith(value);
+
+    return operator === "*" ? actual.includes(value) : actual === value;
 }

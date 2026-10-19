@@ -1335,7 +1335,7 @@
     display: @display;
     flex-direction: column;
     gap: @ui-space-1;
-    align-self: var(--ui-align-v, center);
+    align-self: var(--ui-align-v, var(--ui-center, center));
     .ui-responsive-property(height, --ui-height, fit-content);
     font: inherit;
 
