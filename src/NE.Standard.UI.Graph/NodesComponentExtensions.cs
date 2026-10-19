@@ -23,10 +23,10 @@ public static class NodesComponentExtensions
         return canvas.On(
             GraphEvents.ImageUpload,
             command,
-            UIGraphArguments.Node("node"),
-            UIGraphArguments.Pin("pin"),
-            UIGraphArguments.Selection("selection"),
-            UIGraphArguments.FileName("fileName"));
+            UIAction.Offered(UIGraphArguments.Node("node")),
+            UIAction.Offered(UIGraphArguments.Pin("pin")),
+            UIAction.Offered(UIGraphArguments.Selection("selection")),
+            UIAction.Offered(UIGraphArguments.FileName("fileName")));
     }
 
     /// <inheritdoc cref="OnImageUpload{T}(T, string)"/>
