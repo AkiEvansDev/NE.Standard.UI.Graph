@@ -606,7 +606,11 @@ declare module "ne-standard-ui" {
 
     /** The one way a file leaves the browser, answering the id `IUIUploadService.GetSelectionAsync` reads; a POST of your own would drift. */
     export type FileUploads = {
-        uploadAsync(files: Iterable<File>, onProgress?: (percent: number) => void): Promise<{ readonly selectionId: string }>;
+        /**
+         * Given the field's root, a submit of its form (`data-ui-form-id` on it or inside it) waits for the upload until a task after
+         * it answers: write the id in the continuation, and the submit reads it.
+         */
+        uploadAsync(files: Iterable<File>, onProgress?: (percent: number) => void, field?: HTMLElement): Promise<{ readonly selectionId: string }>;
         /** Whether a file answers an `accept` list as the framework's file inputs judge a dropped one: a MIME family, a type, or an extension; empty takes any. */
         accepts(accept: string, file: File): boolean;
         /**

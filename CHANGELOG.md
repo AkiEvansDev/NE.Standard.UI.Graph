@@ -4,6 +4,6 @@ This slice's changelog. It holds only what is not released yet, under `## X.Y.Z`
 workflow cuts that section out as the body of the GitHub release (a tag with no section fails the release), and the notes of every
 released version live there — https://github.com/AkiEvansDev/NE.Standard.UI.Graph/releases.
 
-## 1.11.1
+## 1.12.0
 
-- Built on the framework's 1.11.1; nothing of its own.
+- Built on the framework's 1.12.0; nothing of its own.
