@@ -1534,6 +1534,23 @@
     opacity: 1;
 }
 
+// A field's clear (`data-ui-clear`): the cross adornment, shown by .ui-field-clear-host().
+.ui-field-clear() {
+    .ui-field-adornment();
+    .ui-cross-glyph(@ui-glyph-sm);
+}
+
+// When a clear shows, one rule for every clearable field (IClearableInputComponent): hidden under a root without
+// `data-ui-clearable`, under a disabled or read-only one, and while @empty — the field's own sign it holds nothing — matches. @clear
+// is the path from @root to the button; @empty a whole selector, since only the field knows how it says empty.
+.ui-field-clear-host(@root; @clear; @empty) {
+    @{root}:not([data-ui-clearable]) @{clear},
+    @{root}:is(.ui-disabled, .ui-readonly) @{clear},
+    @{empty} {
+        display: none;
+    }
+}
+
 // The up/down pair at a field's end (number input, time input): one column behind a rule, two chevrons from the shared glyph.
 .ui-field-stepper() {
     display: flex;

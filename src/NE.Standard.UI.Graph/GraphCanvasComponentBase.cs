@@ -15,7 +15,7 @@ namespace NE.Standard.UI.Graph;
 
 /// <summary>The base for a canvas component whose value is the whole document, committed by a save.</summary>
 /// <remarks>Provides the view settings, menus and colour choices every kind of canvas shares; item drawing is the kind's own.</remarks>
-public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent, IFormSubmittingComponent
+public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent, IFormSubmittingComponent, IShortcutOwnerComponent
     where T : GraphCanvasComponentBase<T, TDocument>, IUIComponentDefinition
 {
     // The theme's own series, named for the hues the default theme gives them: an application whose theme paints them otherwise

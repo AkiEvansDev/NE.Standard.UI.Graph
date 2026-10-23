@@ -21,3 +21,6 @@
 # never guess wrong on one.
 *.jpg binary
 .github/public/*/manifest text eol=lf
+
+# Git hooks run under bash.
+eng/hooks/* text eol=lf
