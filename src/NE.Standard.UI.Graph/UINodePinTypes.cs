@@ -67,13 +67,13 @@ public static class UINodePinTypes
             return DateAndTime;
 
         if (underlying.IsEnum)
-            return EnumPrefix + underlying.Name;
+            return EnumPrefix + (underlying.FullName ?? underlying.Name);
 
         // An array of anything is the universal array, or no typed array could ever feed it.
         if (TryGetElementType(underlying, out Type? element))
             return element == typeof(object) ? Array : ArrayPrefix + FromClrType(element);
 
-        return underlying.Name;
+        return underlying.FullName ?? underlying.Name;
     }
 
     /// <summary>
@@ -91,8 +91,21 @@ public static class UINodePinTypes
     }
 
     /// <summary>
+    /// Whether a CLR type is a whole number that holds nothing below zero, which a number editor keeps at zero or above.
+    /// </summary>
+    public static bool IsUnsigned(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        Type underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+        return underlying == typeof(byte) || underlying == typeof(ushort) || underlying == typeof(uint) || underlying == typeof(ulong);
+    }
+
+    /// <summary>
     /// Whether a CLR type is a whole number, which a number editor steps by one.
     /// </summary>
+
     public static bool IsWholeNumber(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);

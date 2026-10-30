@@ -6,7 +6,7 @@ import type { Rect, View } from "./geometry.ts";
 import { bounds, fitClearOf, showsAny } from "./geometry.ts";
 import type { CanvasGroup, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
-import { FoldedControlAttribute, MinimapAttribute, percentText, SideAttribute, TopChromeSelector } from "./canvas-dom.ts";
+import { MinimapAttribute, percentText, SideAttribute, topChromeSelector } from "./canvas-dom.ts";
 
 /** What the view reaches on the coordinator: the items and groups on the sheet, and the boxes it measures them by. */
 export type CanvasViewHost = {
@@ -19,6 +19,10 @@ export type CanvasViewHost = {
 };
 
 const GridSelector = ".ui-graph__grid";
+const GridDrawnAttribute = "data-ui-graph-grid-drawn";
+/** Every fourth grid line is a major line; minor lines fade out down to `MinorFadeFloor` as the sheet is zoomed out. */
+const MajorCells = 4;
+const MinorFadeFloor = 0.16;
 /** How long the view rests before it is kept: a pan or a zoom writes it once it stops, not on every frame of it. */
 const KeepDelay = 250;
 
@@ -35,6 +39,8 @@ export class CanvasView {
     private readonly viewport: HTMLElement;
     private readonly scene: HTMLElement;
     private readonly grid: HTMLElement | null;
+    private readonly gridMinor: SVGPathElement | null;
+    private readonly gridMajor: SVGPathElement | null;
     private readonly zoomLabel: HTMLElement | null;
     private readonly minimap: HTMLElement | null;
     private readonly minimapNodes: HTMLElement | null;
@@ -73,6 +79,8 @@ export class CanvasView {
         this.viewport = root.querySelector<HTMLElement>(".ui-graph__viewport")!;
         this.scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
         this.grid = root.querySelector<HTMLElement>(GridSelector);
+        this.gridMinor = this.grid?.querySelector<SVGPathElement>(".ui-graph__grid-minor") ?? null;
+        this.gridMajor = this.grid?.querySelector<SVGPathElement>(".ui-graph__grid-major") ?? null;
         this.zoomLabel = root.querySelector<HTMLElement>("[data-ui-graph-zoom]");
         this.minimap = root.querySelector<HTMLElement>("[data-ui-graph-map]");
         this.minimapNodes = root.querySelector<HTMLElement>("[data-ui-graph-map-nodes]");
@@ -91,17 +99,79 @@ export class CanvasView {
         const width = this.viewport.clientWidth;
         const height = this.viewport.clientHeight;
 
-        if (!this.fitted || width === 0 || height === 0 || (width === this.fittedWidth && height === this.fittedHeight))
+        if (width === 0 || height === 0)
             return;
+
+        if (!this.fitted || (width === this.fittedWidth && height === this.fittedHeight)) {
+            this.drawGrid();
+            return;
+        }
 
         // A kept fit meets its first size: it stands there, as a returning viewer's kept view opens.
         if (this.fittedWidth === 0) {
             this.fittedWidth = width;
             this.fittedHeight = height;
+            this.drawGrid();
             return;
         }
 
         this.fit();
+    }
+
+    /**
+     * Draws the sheet's minor and major grid lines on whole pixels of the viewport, so a fractional zoom never splits one line across
+     * two pixels while landing its neighbour on one.
+     */
+    private drawGrid(): void {
+        if (this.grid === null || this.gridMinor === null || this.gridMajor === null)
+            return;
+
+        const width = this.viewport.clientWidth;
+        const height = this.viewport.clientHeight;
+        const step = this.settings.gridSize * this.zoomValue;
+
+        if (width <= 0 || height <= 0 || !(step > 0))
+            return;
+
+        const startColumn = Math.floor(-this.panXValue / step);
+        const endColumn = Math.ceil((width - this.panXValue) / step);
+        const startRow = Math.floor(-this.panYValue / step);
+        const endRow = Math.ceil((height - this.panYValue) / step);
+        const drawMinor = this.zoomValue > MinorFadeFloor;
+        let minor = "";
+        let major = "";
+
+        for (let column = startColumn; column <= endColumn; column++) {
+            const isMajor = column % MajorCells === 0;
+
+            if (!isMajor && !drawMinor)
+                continue;
+
+            const x = Math.round(this.panXValue + column * step) + 0.5;
+
+            if (isMajor)
+                major += `M${x} 0V${height}`;
+            else
+                minor += `M${x} 0V${height}`;
+        }
+
+        for (let row = startRow; row <= endRow; row++) {
+            const isMajor = row % MajorCells === 0;
+
+            if (!isMajor && !drawMinor)
+                continue;
+
+            const y = Math.round(this.panYValue + row * step) + 0.5;
+
+            if (isMajor)
+                major += `M0 ${y}H${width}`;
+            else
+                minor += `M0 ${y}H${width}`;
+        }
+
+        this.gridMinor.setAttribute("d", minor);
+        this.gridMajor.setAttribute("d", major);
+        this.grid.setAttribute(GridDrawnAttribute, "");
     }
 
     /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
@@ -152,6 +222,7 @@ export class CanvasView {
         this.grid?.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`);
         this.grid?.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`);
 
+        this.drawGrid();
         this.drawZoom();
         this.placeMinimapView();
         // The sheet moved under what floats over it — a node's action bar, a tooltip — with no scroll of its own: told as one, which
@@ -256,7 +327,7 @@ export class CanvasView {
         const left = origin.left + this.viewport.clientLeft;
         const top = origin.top + this.viewport.clientTop;
 
-        return Array.from(this.viewport.querySelectorAll<HTMLElement>(TopChromeSelector), part => {
+        return Array.from(this.viewport.querySelectorAll<HTMLElement>(topChromeSelector(this.context.names)), part => {
             const box = part.getBoundingClientRect();
 
             return { x: box.left - left, y: box.top - top, width: box.width, height: box.height };
@@ -268,7 +339,7 @@ export class CanvasView {
      * production graph's plan) covers. Fit, centring, the zoom buttons and the minimap's frame all keep to it.
      */
     public visibleRect(): Rect {
-        const side = this.viewport.querySelector<HTMLElement>(`[${SideAttribute}]:not([${FoldedControlAttribute}])`);
+        const side = this.viewport.querySelector<HTMLElement>(`[${SideAttribute}]:not([${this.context.names.collapsed}])`);
         const covered = side === null || side.offsetWidth === 0 ? 0 : this.viewport.clientWidth - side.offsetLeft;
 
         return { x: 0, y: 0, width: this.viewport.clientWidth - covered, height: this.viewport.clientHeight };

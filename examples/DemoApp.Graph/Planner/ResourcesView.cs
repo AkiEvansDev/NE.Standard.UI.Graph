@@ -24,7 +24,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
 
     protected override string Route => ResourcesRoute;
 
-    public override string Title => "planner.page.resources";
+    protected override string Header => "planner.page.resources";
 
     protected override string Description
         => "planner.page.resources.description";
@@ -42,7 +42,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .AddChild(new ScrollContainerComponent()
                 .VerticalScrollOnly()
                 .SetHeight(Filled(UILayoutLength.Auto()))
-                .BindVisibility(nameof(ResourcesController.EditorVisibility))
+                .BindVisibility<ResourcesController>(static c => c.EditorVisibility)
                 .AddChild(CreateForm())
                 .SetMargin(PaneGap)
                 .SetPlacement(1, 2, 24, 1, xl: UIGridPlacement.At(6, 1, 9, 1))
@@ -62,10 +62,10 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Star())
             // The button its icon alone, its word the tooltip that names it, so it stands quiet beside the field; the field takes the
-            // rest. Tonal: a lone field beside its own button.
+            // rest. Filled: a lone field beside its own button.
             .AddChild(UILayout.Ends(
                     new TextInputComponent(SearchId)
-                        .SetAppearance(UIInputAppearance.Tonal)
+                        .SetAppearance(UIInputAppearance.Filled)
                         .SetSearch("planner.search")
                         .SetDebounceMilliseconds(150),
                     UIButtons.Icon(MaterialIcons.Outlined(PlannerIcons.Add), "planner.add").OnClick(nameof(ResourcesController.Add))
@@ -73,27 +73,27 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 .SetPlacement(1, 1, 24, 1)
             )
             .AddChild(UILayout.Row(4,
-                    UIButtons.Ghost("planner.import", MaterialIcons.Outlined(PlannerIcons.Import)).SetSize(UIButtonSize.Small).OnClick(nameof(ResourcesController.OpenImport)),
-                    UIButtons.Ghost("planner.export", MaterialIcons.Outlined(PlannerIcons.Export)).SetSize(UIButtonSize.Small).OnClick(nameof(ResourcesController.ExportAsync))
+                    UIButtons.Ghost("planner.import", MaterialIcons.Outlined(PlannerIcons.Import)).SetSize(UISize.Small).OnClick(nameof(ResourcesController.OpenImport)),
+                    UIButtons.Ghost("planner.export", MaterialIcons.Outlined(PlannerIcons.Export)).SetSize(UISize.Small).OnClick(nameof(ResourcesController.ExportAsync))
                 )
                 .SetMargin(UIThickness.All(0, 12, 0, 12))
                 .SetPlacement(1, 2, 24, 1)
             )
             .AddChild(new ItemsViewComponent()
-                .BindItems(nameof(ResourcesController.Resources))
+                .BindItems<ResourcesController>(static c => c.Resources)
                 .FilterBy(SearchId, IInputComponent.ValueProperty, nameof(TextItem.Title))
                 .SetSelectionMode(UISelectionMode.One)
-                .BindSelectedKey(nameof(ResourcesController.SelectedKey))
+                .BindSelectedKey<ResourcesController>(static c => c.SelectedKey)
                 .SetRowHoverable(true)
                 .VerticalScrollOnly()
                 .SetHeight(UILayoutLength.Fill())
                 .SetSpacing(2)
                 .SetTemplate(new TextComponent()
-                    .BindIcon(nameof(TextItem.Icon), UIBindingScope.Relative)
+                    .BindIcon<TextItem>(static item => item.Icon, UIBindingScope.Relative)
                     .SetIconColor(UIThemeColor.Muted)
-                    .BindTitle(nameof(TextItem.Title), UIBindingScope.Relative)
+                    .BindTitle<TextItem>(static item => item.Title, UIBindingScope.Relative)
                     .AsBody()
-                    .BindDescription(nameof(TextItem.Description), UIBindingScope.Relative)
+                    .BindDescription<TextItem>(static item => item.Description, UIBindingScope.Relative)
                     .SetDescriptionColor(UIThemeColor.Muted)
                 )
                 .ConfigureDefaultEmptyTemplate(template => _ = template
@@ -108,7 +108,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
     private static ContainerComponent CreateEmpty()
         => UIPage.Empty(MaterialIcons.Outlined(PlannerIcons.Resource), "planner.resources.none-open", "planner.resources.none-open.description")
             .SetMinHeight(UILayoutLength.Absolute(320))
-            .BindVisibility(nameof(ResourcesController.EmptyVisibility));
+            .BindVisibility<ResourcesController>(static c => c.EmptyVisibility);
 
     /// <summary>The resource and its recipe; every field writes as it changes.</summary>
     private static StackPanelComponent CreateForm()
@@ -118,7 +118,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 new TextInputComponent()
                     .SetTitle("planner.resource.name")
                     .SetDebounceMilliseconds(400)
-                    .BindValue(nameof(ResourcesController.Name))
+                    .BindValue<ResourcesController>(static c => c.Name)
                     .OnChange(nameof(ResourcesController.SaveResource)),
                 // Each select as wide as its half of the row: a select's twelve-rem floor gives way to an authored width, and two floors
                 // are wider than the form's column at a desktop width.
@@ -126,7 +126,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                     new SelectComponent()
                         .SetTitle("planner.resource.icon")
                         .SetOptions(PlannerCatalogue.IconOptions())
-                        .BindValue(nameof(ResourcesController.Icon))
+                        .BindValue<ResourcesController>(static c => c.Icon)
                         .OnChange(nameof(ResourcesController.SaveResource))
                         .SetWidth(UILayoutLength.Fill()),
                     new SelectComponent()
@@ -134,7 +134,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                         .SetPlaceholder("planner.resource.colour.default")
                         .SetShowClearButton()
                         .SetOptions(PlannerCatalogue.ColorOptions())
-                        .BindValue(nameof(ResourcesController.Color))
+                        .BindValue<ResourcesController>(static c => c.Color)
                         .OnChange(nameof(ResourcesController.SaveResource))
                         .SetWidth(UILayoutLength.Fill())
                 ),
@@ -144,15 +144,15 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                         .SetVariant(UIImageInputVariant.Avatar)
                         .SetPlaceholderIcon(MaterialIcons.Outlined(PlannerIcons.Picture))
                         .SetMaxFileSize(PlannerPictures.MaxBytes)
-                        .BindValue(nameof(ResourcesController.Picture))
-                        .BindSelectionId(nameof(ResourcesController.PictureSelection))
+                        .BindValue<ResourcesController>(static c => c.Picture)
+                        .BindSelectionId<ResourcesController>(static c => c.PictureSelection)
                         .OnChange(nameof(ResourcesController.TakePictureAsync)),
                     UIText.Caption("planner.resource.picture")
                         .Muted()
                         .SetVerticalAlignment(UIAlignment.Center),
                     UIButtons.Ghost("planner.resource.picture.remove")
-                        .SetSize(UIButtonSize.Small)
-                        .BindVisibility(nameof(ResourcesController.PictureVisibility))
+                        .SetSize(UISize.Small)
+                        .BindVisibility<ResourcesController>(static c => c.PictureVisibility)
                         .OnClick(nameof(ResourcesController.RemovePicture))
                         .SetVerticalAlignment(UIAlignment.Center)
                 )
@@ -165,20 +165,20 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                         .SetMax(999)
                         .SetAllowDecimals(false)
                         .SetShowStepper()
-                        .BindValue(nameof(ResourcesController.Output))
+                        .BindValue<ResourcesController>(static c => c.Output)
                         .OnChange(nameof(ResourcesController.SaveResource)),
                     new NumberInputComponent()
                         .SetTitle("planner.recipe.seconds")
                         .SetMin(0.1m)
                         .SetMax(3600)
                         .SetShowStepper()
-                        .BindValue(nameof(ResourcesController.Seconds))
+                        .BindValue<ResourcesController>(static c => c.Seconds)
                         .OnChange(nameof(ResourcesController.SaveResource))
                 ),
                 UILayout.Stack(8,
                     UIText.Caption("planner.recipe.takes").Muted(),
                     new ItemsViewComponent()
-                        .BindItems(nameof(ResourcesController.Ingredients))
+                        .BindItems<ResourcesController>(static c => c.Ingredients)
                         .SetSpacing(8)
                         .SetTemplate(CreateIngredient())
                         .ConfigureDefaultEmptyTemplate(template => _ = template
@@ -197,7 +197,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
         => new ContainerComponent()
             .AddChild(UIText.Title("planner.resource").SetVerticalAlignment(UIAlignment.Center).SetPlacement(1, 1, 16, 1))
             .AddChild(UIButtons.Ghost("planner.delete", MaterialIcons.Outlined(PlannerIcons.Delete))
-                .SetSize(UIButtonSize.Small)
+                .SetSize(UISize.Small)
                 .SetIconColor(UIThemeColor.Danger)
                 .SetHorizontalAlignment(UIAlignment.End)
                 .SetVerticalAlignment(UIAlignment.Center)
@@ -211,20 +211,20 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .SetHeight(Filled(UILayoutLength.Auto()))
             .SetRow(1, UIGridUnit.Auto())
             .AddRow(UIGridUnit.Star(min: RecipeCanvasHeight * 16))
-            .BindVisibility(nameof(ResourcesController.EditorVisibility))
+            .BindVisibility<ResourcesController>(static c => c.EditorVisibility)
             .AddChild(UILayout.Stack(4,
                     UIText.Title("planner.made-from"),
-                    UIText.Caption().BindTitle(nameof(ResourcesController.RecipeNote)).SetTitleWrap(true).Muted()
+                    UIText.Caption().BindTitle<ResourcesController>(static c => c.RecipeNote).SetTitleWrap(true).Muted()
                 )
                 .SetMargin(UIThickness.All(0, 0, 0, 16))
                 .SetPlacement(1, 1, 24, 1)
             )
             .AddChild(new ProductionGraphComponent("planner-preview")
-                .BindItems(nameof(ResourcesController.Preview))
+                .BindItems<ResourcesController>(static c => c.Preview)
                 .SetIsReadOnly(true)
                 // A preview a few lines high: the menu's panel would cover what it shows, and a read-only sheet's menu is its Fit alone.
                 .SetShowMenuPanel(false)
-                .BindSheetName(nameof(ResourcesController.Name))
+                .BindSheetName<ResourcesController>(static c => c.Name)
                 .SetCanvasHeight(RecipeCanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
                 .SetPlacement(1, 2, 24, 1)
@@ -236,8 +236,8 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             // A search over the catalogue rather than a list to scroll; closed, the field shows the pick, icon and all.
             .AddChild(new SearchComponent()
                 .SetPlaceholder("planner.recipe.pick-resource")
-                .BindOptions(nameof(ResourcesController.IngredientOptions))
-                .BindValue(nameof(AmountRow.Resource), UIBindingScope.Relative)
+                .BindOptions<ResourcesController>(static c => c.IngredientOptions)
+                .BindValue<AmountRow>(static row => row.Resource, UIBindingScope.Relative)
                 .OnChange(nameof(ResourcesController.SaveIngredients))
                 .SetPlacement(1, 1, 12, 1)
             )
@@ -246,7 +246,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 .SetMax(999)
                 .SetAllowDecimals(false)
                 .SetShowStepper()
-                .BindValue(nameof(AmountRow.Amount), UIBindingScope.Relative)
+                .BindValue<AmountRow>(static row => row.Amount, UIBindingScope.Relative)
                 .OnChange(nameof(ResourcesController.SaveIngredients))
                 // The recipe row's own gap before its second column, so the amount stands under Seconds a run.
                 .SetMargin(UIThickness.All(16, 0, 0, 0))
@@ -266,7 +266,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             {
                 Key = ResourcesController.DeleteDialogKey,
                 Content = UILayout.Stack(12,
-                    UIText.Title("planner.resource.delete.title").BindDescription(nameof(ResourcesController.DeleteQuestion)),
+                    UIText.Title("planner.resource.delete.title").BindDescription<ResourcesController>(static c => c.DeleteQuestion),
                     UIButtons.Pair(
                         UIButtons.Ghost("planner.keep-it").OnClick(nameof(ResourcesController.CloseDialog)),
                         UIButtons.Danger("planner.delete").OnClick(nameof(ResourcesController.Delete))
@@ -282,14 +282,14 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                     new FileInputComponent()
                         .SetPlaceholder("planner.resources.import.file")
                         .SetAccept(PlannerFiles.ResourcesAccept)
-                        .BindSelectionId(nameof(ResourcesController.ImportSelection)),
+                        .BindSelectionId<ResourcesController>(static c => c.ImportSelection),
                     new RadioGroupComponent()
                         .SetOptions(
                         [
                             new OptionItem { Id = ResourcesController.MergeImport, Title = "planner.import.merge", Description = "planner.resources.import.merge" },
                             new OptionItem { Id = ResourcesController.ReplaceImport, Title = "planner.import.replace", Description = "planner.resources.import.replace" }
                         ])
-                        .BindValue(nameof(ResourcesController.ImportMode)),
+                        .BindValue<ResourcesController>(static c => c.ImportMode),
                     UIButtons.Pair(
                         UIButtons.Ghost("planner.cancel").OnClick(nameof(ResourcesController.CloseDialog)),
                         UIButtons.Primary("planner.import").OnClick(nameof(ResourcesController.ImportAsync))

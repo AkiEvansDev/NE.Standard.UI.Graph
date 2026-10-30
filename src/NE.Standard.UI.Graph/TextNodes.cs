@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph;
@@ -49,7 +50,7 @@ public enum UITextEnds
 /// Every value wired in, written out as text and joined: by the separator, or into the places of a template — <c>{0} - {1}</c>.
 /// </summary>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.TextCategory, Title = "Join", Description = "Joins the values wired in, or puts them into a template.", Icon = UIGlyphs.Merge, Color = UINodeKinds.TextColor)]
-public sealed class JoinNode : IGraphNode
+public sealed partial class JoinNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
     public const string NodeKey = "graph.join";
@@ -78,6 +79,11 @@ public sealed class JoinNode : IGraphNode
         for (var i = 0; i < Values.Length; i++)
             texts[i] = Convert.ToString(Values[i], CultureInfo.InvariantCulture) ?? string.Empty;
 
+        // Weighed before it is made: a template that names one value a hundred times, or pads it wide, would otherwise be made whole
+        // before the run refuses it. A StringBuilder's own cap does not hold a composite format to it.
+        if (LengthBound(texts) > context.MaxTextLength)
+            throw new UINodeFailureException($"The text would come to more than the {context.MaxTextLength} characters a run lets a text be.");
+
         if (Template.Length == 0)
         {
             Text = string.Join(Separator, texts);
@@ -90,9 +96,38 @@ public sealed class JoinNode : IGraphNode
         }
         catch (FormatException)
         {
-            throw new InvalidOperationException($"The template asks for a value that is not wired in ({Values.Length} reach it, the first is {{0}}), or holds a lone brace — a brace itself is written {{{{ or }}}}.");
+            throw new UINodeFailureException($"The template asks for a value that is not wired in ({Values.Length} reach it, the first is {{0}}), or holds a lone brace — a brace itself is written {{{{ or }}}}.");
         }
     }
+
+    /// <summary>The most characters the text can come to: the template's own, and each place it names as wide as its value or its padding.</summary>
+    private long LengthBound(object[] texts)
+    {
+        if (Template.Length == 0)
+        {
+            var joined = (long)Separator.Length * Math.Max(0, texts.Length - 1);
+
+            foreach (var text in texts)
+                joined += ((string)text).Length;
+
+            return joined;
+        }
+
+        var bound = (long)Template.Length;
+
+        foreach (Match place in Places().Matches(Template))
+        {
+            var index = int.TryParse(place.Groups[1].ValueSpan, NumberStyles.None, CultureInfo.InvariantCulture, out var at) && at < texts.Length ? at : -1;
+            var width = place.Groups[2].Success && int.TryParse(place.Groups[2].ValueSpan, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var padded) ? Math.Abs((long)padded) : 0;
+
+            bound += Math.Max(index < 0 ? 0 : ((string)texts[index]).Length, width);
+        }
+
+        return bound;
+    }
+
+    [GeneratedRegex(@"\{\s*(\d+)\s*(?:,\s*(-?\d+)\s*)?(?::[^}]*)?\}", RegexOptions.CultureInvariant)]
+    private static partial Regex Places();
 }
 
 /// <summary>
@@ -165,7 +200,31 @@ public sealed class ReplaceNode : IGraphNode
 
     /// <inheritdoc/>
     public void Execute(UINodeRunContext context)
-        => Result = Find.Length == 0 ? Text : Text.Replace(Find, With, IgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    {
+        if (Find.Length == 0)
+        {
+            Result = Text;
+            return;
+        }
+
+        StringComparison comparison = IgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+        // Counted before it is made: a short part replaced by a long one many times over grows the text past what a run allows.
+        if (With.Length > Find.Length && LengthAfter(comparison) > context.MaxTextLength)
+            throw new UINodeFailureException($"The text would come to more than the {context.MaxTextLength} characters a run lets a text be.");
+
+        Result = Text.Replace(Find, With, comparison);
+    }
+
+    private long LengthAfter(StringComparison comparison)
+    {
+        long length = Text.Length;
+
+        for (var at = Text.IndexOf(Find, comparison); at >= 0; at = Text.IndexOf(Find, at + Find.Length, comparison))
+            length += With.Length - Find.Length;
+
+        return length;
+    }
 }
 
 /// <summary>
@@ -229,7 +288,7 @@ public sealed class ContainsNode : IGraphNode
             UITextMatch.Anywhere => Text.Contains(Part, comparison),
             UITextMatch.AtStart => Text.StartsWith(Part, comparison),
             UITextMatch.AtEnd => Text.EndsWith(Part, comparison),
-            _ => throw new InvalidOperationException($"'{Where}' is not a place in a text.")
+            _ => throw new UINodeFailureException($"'{Where}' is not a place in a text.")
         };
     }
 }
@@ -270,7 +329,7 @@ public sealed class ChangeCaseNode : IGraphNode
             UITextCase.Upper => text.ToUpperInvariant(),
             UITextCase.Lower => text.ToLowerInvariant(),
             UITextCase.Title => CultureInfo.InvariantCulture.TextInfo.ToTitleCase(text.ToLowerInvariant()),
-            _ => throw new InvalidOperationException($"'{Case}' is not a case.")
+            _ => throw new UINodeFailureException($"'{Case}' is not a case.")
         };
     }
 }
@@ -303,7 +362,7 @@ public sealed class TrimNode : IGraphNode
             UITextEnds.Both => Text.Trim(),
             UITextEnds.Start => Text.TrimStart(),
             UITextEnds.End => Text.TrimEnd(),
-            _ => throw new InvalidOperationException($"'{From}' is not an end of a text.")
+            _ => throw new UINodeFailureException($"'{From}' is not an end of a text.")
         };
 }
 
@@ -393,6 +452,10 @@ public sealed class MatchNode : IGraphNode
     // The longest a pattern may take on its text: a pattern typed by a viewer must not hold the run.
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(1);
 
+    // A failed node is never kept by the run cache, so the same pattern on the same text would hold every run of a run of all
+    // for its whole timeout again.
+    private static readonly TimedOutPatterns TimedOut = new();
+
     /// <summary>Gets or sets the text to look in.</summary>
     [GraphInput(Title = "Text")]
     public string Text { get; set; } = string.Empty;
@@ -429,8 +492,11 @@ public sealed class MatchNode : IGraphNode
         }
         catch (ArgumentException exception)
         {
-            throw new InvalidOperationException($"The pattern is not a regular expression: {exception.Message}", exception);
+            throw new UINodeFailureException($"The pattern is not a regular expression: {exception.Message}", exception);
         }
+
+        if (TimedOut.Holds(Pattern, IgnoreCase, Text))
+            throw TookTooLong(null);
 
         try
         {
@@ -443,7 +509,46 @@ public sealed class MatchNode : IGraphNode
         }
         catch (RegexMatchTimeoutException exception)
         {
-            throw new InvalidOperationException($"The pattern took longer than {Timeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s on the text: it likely backtracks without end.", exception);
+            TimedOut.Add(Pattern, IgnoreCase, Text);
+            throw TookTooLong(exception);
+        }
+    }
+
+    private static UINodeFailureException TookTooLong(Exception? cause)
+    {
+        var message = $"The pattern took longer than {Timeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s on the text: it likely backtracks without end.";
+
+        return cause is null ? new UINodeFailureException(message) : new UINodeFailureException(message, cause);
+    }
+
+    /// <summary>The last few patterns that ran out of time, with the text they ran out of it on.</summary>
+    private sealed class TimedOutPatterns
+    {
+        private readonly Lock _sync = new();
+        private readonly (string? Pattern, bool IgnoreCase, string? Text)[] _recent = new (string?, bool, string?)[16];
+        private int _next;
+
+        public bool Holds(string pattern, bool ignoreCase, string text)
+        {
+            lock (_sync)
+            {
+                foreach ((var held, var heldCase, var heldText) in _recent)
+                {
+                    if (heldCase == ignoreCase && string.Equals(held, pattern, StringComparison.Ordinal) && string.Equals(heldText, text, StringComparison.Ordinal))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void Add(string pattern, bool ignoreCase, string text)
+        {
+            lock (_sync)
+            {
+                _recent[_next] = (pattern, ignoreCase, text);
+                _next = (_next + 1) % _recent.Length;
+            }
         }
     }
 }

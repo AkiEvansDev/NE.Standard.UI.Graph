@@ -37,6 +37,7 @@ function stage(width: number, height: number, kept: string | null = null): Stage
     });
     const context = real<PluginEngineContext>({
         store,
+        names: { collapsed: "data-ui-collapsed" },
         observeSize: (_element: unknown, handler: () => void) => {
             resized = handler;
 
@@ -211,4 +212,32 @@ test("a canvas whose root came back on the page watches its size again and refit
 
     canvas.view.dispose();
     assert.equal(canvas.watching(), false);
+});
+
+test("the grid draws its minor and major lines on whole pixels and drops the minor ones once zoomed out past the floor", () => {
+    const minor = FakeElement.of("ui-graph__grid-minor", {}, "path");
+    const major = FakeElement.of("ui-graph__grid-major", {}, "path");
+    const grid = FakeElement.of("ui-graph__grid").append(FakeElement.of("ui-graph__grid-lines", {}, "svg").append(minor, major));
+    const viewport = FakeElement.of("ui-graph__viewport").append(grid, FakeElement.of("ui-graph__scene"));
+    const root = FakeElement.of("ui-graph").append(viewport);
+
+    viewport.rect = { left: 0, top: 0, width: 160, height: 96 };
+
+    const store = real<ClientStore>({ readJson: () => null, write: () => {} });
+    const context = real<PluginEngineContext>({ store, observeSize: () => () => {} });
+    const host: CanvasViewHost = { items: () => [], groups: () => [], itemColor: () => "", nodeRect: () => null, nodeExtent: () => null };
+    const view = new CanvasView(real(root), real<CanvasSettings>({ gridSize: 32, minZoom: 0.1, maxZoom: 2.5 }), context, host);
+
+    view.applyView();
+    assert.equal(grid.getAttribute("data-ui-graph-grid-drawn"), "");
+    // At zoom 1 in 160x96: columns 0 and 4 (x = 0.5 and 128.5) and row 0 (y = 0.5) are major; columns 1..3, 5 and rows 1..3 are minor.
+    assert.equal(major.getAttribute("d"), "M0.5 0V96M128.5 0V96M0 0.5H160");
+    assert.equal(minor.getAttribute("d"), "M32.5 0V96M64.5 0V96M96.5 0V96M160.5 0V96M0 32.5H160M0 64.5H160M0 96.5H160");
+
+    // Past the minor floor (0.16), only major lines are drawn.
+    view.zoomBy(0.14, 0, 0);
+    assert.equal(minor.getAttribute("d"), "");
+    assert.match(major.getAttribute("d") ?? "", /^M0\.5 0V96/);
+
+    view.dispose();
 });

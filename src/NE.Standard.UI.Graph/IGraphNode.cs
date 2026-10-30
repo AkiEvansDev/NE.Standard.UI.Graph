@@ -49,13 +49,14 @@ public sealed class UINodeRunContext
     // What a node running straight through wrote: it cannot wait for a line to go, so the runner sends them when it is done.
     private readonly List<(UINodeLogLevel Level, UIPhrase Message)> _kept = [];
 
-    internal UINodeRunContext(string nodeId, string nodeType, Func<string, UINodeState, double?, UIPhrase?, ValueTask>? report, Func<string, UINodeLogLevel, UIPhrase, ValueTask>? log, IServiceProvider? services)
+    internal UINodeRunContext(string nodeId, string nodeType, Func<string, UINodeState, double?, UIPhrase?, ValueTask>? report, Func<string, UINodeLogLevel, UIPhrase, ValueTask>? log, IServiceProvider? services, int maxTextLength = UINodeRunner.DefaultMaxTextLength)
     {
         NodeId = nodeId;
         NodeType = nodeType;
         _report = report;
         _log = log;
         Services = services;
+        MaxTextLength = maxTextLength;
     }
 
     /// <summary>
@@ -74,6 +75,12 @@ public sealed class UINodeRunContext
     /// </summary>
     /// <remarks>The only way in: node kinds are built from a parameterless constructor.</remarks>
     public IServiceProvider? Services { get; }
+
+    /// <summary>
+    /// Gets the most characters a text the node makes may hold (<see cref="UINodeRunner.MaxTextLength"/>): a node that joins or
+    /// repeats text stops before it makes more.
+    /// </summary>
+    public int MaxTextLength { get; }
 
     /// <summary>
     /// Reports how far along this node is; the runner passes it on, normally to the canvas.

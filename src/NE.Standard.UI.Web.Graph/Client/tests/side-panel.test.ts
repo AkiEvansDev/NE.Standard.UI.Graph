@@ -8,6 +8,7 @@ import { FakeElement, real } from "./fake-dom.ts";
 import { SidePanelFold } from "../src/canvas/side-panel.ts";
 
 const Collapsed = "data-ui-collapsed";
+const Names = { collapsed: Collapsed, collapseToggle: "data-ui-collapse-toggle" } as const;
 
 // What the stylesheet answers for a panel: the plan's fold on a phone.
 let narrow = false;
@@ -38,7 +39,7 @@ function panel(folded: boolean): { panel: FakeElement; toggle: FakeElement } {
 test("a panel drawn folded stays folded with nothing stored, and opened by the viewer it is stored open", () => {
     const { store, stored } = memoryStore();
     const { panel: aside, toggle } = panel(true);
-    const fold = new SidePanelFold(store, real(FakeElement.of("ui-graph")), real(aside), "panel");
+    const fold = new SidePanelFold(store, Names, real(FakeElement.of("ui-graph")), real(aside), "panel");
 
     assert.equal(aside.hasAttribute(Collapsed), true);
 
@@ -55,13 +56,13 @@ test("a panel drawn folded stays folded with nothing stored, and opened by the v
 test("a stored open panel opens a panel drawn folded, and a stored fold folds one drawn open", () => {
     const folded = panel(true);
 
-    new SidePanelFold(memoryStore("open").store, real(FakeElement.of("ui-graph")), real(folded.panel), "panel");
+    new SidePanelFold(memoryStore("open").store, Names, real(FakeElement.of("ui-graph")), real(folded.panel), "panel");
     assert.equal(folded.panel.hasAttribute(Collapsed), false);
     assert.equal(folded.toggle.getAttribute("aria-expanded"), "true");
 
     const open = panel(false);
 
-    new SidePanelFold(memoryStore("folded").store, real(FakeElement.of("ui-graph")), real(open.panel), "plan");
+    new SidePanelFold(memoryStore("folded").store, Names, real(FakeElement.of("ui-graph")), real(open.panel), "plan");
     assert.equal(open.panel.hasAttribute(Collapsed), true);
     assert.equal(open.toggle.getAttribute("aria-expanded"), "false");
 });
@@ -69,7 +70,7 @@ test("a stored open panel opens a panel drawn folded, and a stored fold folds on
 test("a panel drawn open stores its fold, and nothing once opened again", () => {
     const { store, stored } = memoryStore();
     const { panel: aside, toggle } = panel(false);
-    const fold = new SidePanelFold(store, real(FakeElement.of("ui-graph")), real(aside), "plan");
+    const fold = new SidePanelFold(store, Names, real(FakeElement.of("ui-graph")), real(aside), "plan");
 
     aside.setAttribute(Collapsed, "");
     fold.press(real(toggle));
@@ -86,7 +87,7 @@ test("on a narrow window the plan starts folded, and opened by the viewer it is 
     try {
         const { store, stored } = memoryStore();
         const { panel: aside, toggle } = panel(false);
-        const fold = new SidePanelFold(store, real(FakeElement.of("ui-graph")), real(aside), "plan");
+        const fold = new SidePanelFold(store, Names, real(FakeElement.of("ui-graph")), real(aside), "plan");
 
         assert.equal(aside.hasAttribute(Collapsed), true);
         assert.equal(toggle.getAttribute("aria-expanded"), "false");
@@ -98,7 +99,7 @@ test("on a narrow window the plan starts folded, and opened by the viewer it is 
         // A viewer who opened it once finds it open again on the phone.
         const again = panel(false);
 
-        new SidePanelFold(memoryStore("open").store, real(FakeElement.of("ui-graph")), real(again.panel), "plan");
+        new SidePanelFold(memoryStore("open").store, Names, real(FakeElement.of("ui-graph")), real(again.panel), "plan");
         assert.equal(again.panel.hasAttribute(Collapsed), false);
     }
     finally {

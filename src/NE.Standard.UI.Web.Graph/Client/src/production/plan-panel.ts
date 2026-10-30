@@ -1,7 +1,7 @@
 // The plan panel over the sheet's trailing side: the request (targets, period, objective) in the core's own fields, and the
 // answer in three tables (brought in, resource balance, craft runs). Markup and fields are the renderer's; rows are written here.
 
-import { cloneTemplate, CoreNames } from "../canvas/canvas-dom.ts";
+import { cloneTemplate } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { focusAfterRemoval, SidePanelFold } from "../canvas/side-panel.ts";
 import type { Craft, ProductionDocument, Resource } from "./model.ts";
@@ -65,7 +65,7 @@ export class PlanPanel {
 
         this.period?.addEventListener("change", () => this.choose());
         this.objective?.addEventListener("change", () => this.choose());
-        this.fold = new SidePanelFold(services.context.store, services.root, this.panel, StoreKey);
+        this.fold = new SidePanelFold(services.context.store, services.context.names, services.root, this.panel, StoreKey);
     }
 
     /** The core's component inside one of the panel's boxes: the region's own root. */
@@ -149,7 +149,7 @@ export class PlanPanel {
             if (this.panel === null || (document.activeElement !== null && document.activeElement !== document.body))
                 return;
 
-            focusAfterRemoval(list?.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? null, this.panel.querySelector<HTMLElement>(`[${CoreNames.collapseToggle}]`), this.services.context.focus);
+            focusAfterRemoval(list?.children[at]?.querySelector<HTMLElement>(`[${RemoveAttribute}]`) ?? null, this.panel.querySelector<HTMLElement>(`[${this.services.context.names.collapseToggle}]`), this.services.context.focus);
         });
     }
 

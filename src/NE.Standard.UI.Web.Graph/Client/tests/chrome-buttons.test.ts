@@ -4,7 +4,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { FakeElement } from "./fake-dom.ts";
-import { ChromeButtonSelector } from "../src/canvas/canvas-dom.ts";
+import { chromeButtonSelector } from "../src/canvas/canvas-dom.ts";
+
+const ChromeButtonSelector = chromeButtonSelector({ collapseToggle: "data-ui-collapse-toggle" });
 
 function button(classes = "", attributes: Readonly<Record<string, string>> = {}): FakeElement {
     return FakeElement.of(classes, attributes, "button");

@@ -20,7 +20,7 @@ public sealed class FilesInFolderNode : IGraphNode, IGraphNodeSequence
     public const string NodeKey = "graph.files-in-folder";
 
     /// <summary>The colour the file kinds wear.</summary>
-    public const string FileColor = "var(--ui-color-series-6)";
+    public const string FileColor = "var(--ui-color-series-2)";
 
     /// <summary>Gets or sets the folder, by its path on the server.</summary>
     [GraphInput(Title = "Folder", Required = true, MaxLength = 260)]
@@ -65,14 +65,14 @@ public sealed class FilesInFolderNode : IGraphNode, IGraphNodeSequence
         Count = files.Count;
 
         if (files.Count == 0)
-            throw new InvalidOperationException($"No file in '{Folder}' matches '{Filter}'.");
+            throw new UINodeFailureException($"No file in '{Folder}' matches '{Filter}'.");
 
         // By name rather than by place: the list is read afresh each run, and a place would shift under a file added before it.
         // None taken — a new node, or its count put back — starts from the first, whatever the last one was.
         var next = Taken <= 0 || string.IsNullOrEmpty(Last) ? 0 : After(files, Last);
 
         if (next >= files.Count)
-            throw new InvalidOperationException($"Every one of the {files.Count} files is taken: reset the node to start over.");
+            throw new UINodeFailureException($"Every one of the {files.Count} files is taken: reset the node to start over.");
 
         Path = files[next];
         Name = System.IO.Path.GetFileName(Path);

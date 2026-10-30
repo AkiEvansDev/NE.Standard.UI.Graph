@@ -45,10 +45,15 @@ public sealed class CropImageNode : IGraphNodeAsync
 
     private SKBitmap Crop(SKBitmap source)
     {
-        SKRectI kept = SKRectI.Intersect(SKRectI.Create(Math.Max(0, Left), Math.Max(0, Top), Math.Max(1, Width), Math.Max(1, Height)), SKRectI.Create(0, 0, source.Width, source.Height));
+        var left = Math.Max(0, Left);
+        var top = Math.Max(0, Top);
 
-        if (kept.IsEmpty)
-            throw new InvalidOperationException($"The rectangle lies outside the {source.Width} × {source.Height} px picture.");
+        if (left >= source.Width || top >= source.Height)
+            throw new UINodeFailureException($"The rectangle lies outside the {source.Width} × {source.Height} px picture.");
+
+        var width = Math.Min(Math.Max(1, Width), source.Width - left);
+        var height = Math.Min(Math.Max(1, Height), source.Height - top);
+        SKRectI kept = SKRectI.Create(left, top, width, height);
 
         return ImageWork.Draw(kept.Width, kept.Height, canvas => canvas.DrawBitmap(source, kept, new SKRect(0, 0, kept.Width, kept.Height), ImageWork.PixelForPixel));
     }

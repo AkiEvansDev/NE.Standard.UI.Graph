@@ -101,7 +101,7 @@ function alongAxes(commands: readonly Command[]): boolean {
     for (const command of commands) {
         const to = command.points[command.points.length - 1];
 
-        if (command.op === "C" || (command.op === "L" && at !== null && at.x !== to.x && at.y !== to.y))
+        if (command.op === "C" || (command.op === "L" && at !== null && round(at.x) !== round(to.x) && round(at.y) !== round(to.y)))
             return false;
 
         at = to;
@@ -202,7 +202,7 @@ function handleReach(start: Point, end: Point): number {
 function orthogonalCommands(stops: readonly Point[], turns: readonly (number | undefined)[]): Command[] {
     const commands: Command[] = [{ op: "M", points: [stops[0]] }];
     const line = (x: number, y: number): void => {
-        commands.push({ op: "L", points: [{ x: round(x), y: round(y) }] });
+        commands.push({ op: "L", points: [{ x, y }] });
     };
 
     for (let index = 1; index < stops.length; index++) {

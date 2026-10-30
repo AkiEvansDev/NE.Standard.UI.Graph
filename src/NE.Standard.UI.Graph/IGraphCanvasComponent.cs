@@ -67,6 +67,15 @@ public interface IGraphCanvasComponent : IInputComponent
     /// <summary>Gets the menu the right button opens on the canvas's empty surface.</summary>
     MenuComponent CanvasMenu { get; }
 
+    /// <summary>Gets the menu the right button opens on an item.</summary>
+    MenuComponent NodeMenu { get; }
+
+    /// <summary>Gets the menu the right button opens on a group's band.</summary>
+    MenuComponent GroupMenu { get; }
+
+    /// <summary>Gets the menu the right button opens on an edge.</summary>
+    MenuComponent EdgeMenu { get; }
+
     /// <summary>Gets the shape every edge is drawn in.</summary>
     UIGraphEdgeShape? EdgeShape { get; }
 

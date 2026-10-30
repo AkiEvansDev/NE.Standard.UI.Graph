@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using NE.Standard.UI.Abstractions.Items;
+using NE.Standard.UI.Primitives.Localization;
 using NE.Standard.UI.Primitives.Text;
 
 namespace NE.Standard.UI.Graph;
@@ -110,20 +111,7 @@ public sealed class UINodeCatalog
                 throw new ArgumentException($"{type.FullName}.{input.Name} is shown beside '{beside}', which is not one of its inputs.", nameof(type));
         }
 
-        return new UINodeType(
-            node.Key ?? type.Name,
-            node.Title ?? UINaming.Humanize(type.Name),
-            inputs,
-            outputs,
-            node.Category,
-            node.Description,
-            node.Icon,
-            node.Color,
-            double.IsNaN(node.MinWidth) ? null : node.MinWidth,
-            node.ShowProgress,
-            node.Resizable,
-            node.Hidden,
-            node.Compact);
+        return new UINodeType(node.Key ?? type.Name, node.Title ?? UINaming.Humanize(type.Name), inputs, outputs, node.Category, node.Description, node.Icon, node.Color, double.IsNaN(node.MinWidth) ? null : node.MinWidth, node.ShowProgress, node.Resizable, node.Hidden, node.Compact);
     }
 
     /// <summary>The pins in the order the attributes ask for, ties kept in the order the class declares them.</summary>
@@ -202,31 +190,19 @@ public sealed class UINodeCatalog
             ? (UINodePinTypes.IsWholeNumber(property.PropertyType) ? 1d : null)
             : input.Step;
 
-        return new UINodePin(
-            property.Name,
-            input.Title ?? UINaming.Humanize(property.Name),
-            pinType,
-            editor,
-            editor is UINodeEditor.None or UINodeEditor.Display ? null : ReadDefault(property, defaults),
-            choices,
-            double.IsNaN(input.Min) ? null : input.Min,
-            double.IsNaN(input.Max) ? null : input.Max,
-            step,
-            input.MaxLines > 0 ? input.MaxLines : null,
-            input.MaxLength > 0 ? input.MaxLength : null,
-            hasPin: !input.NoPin && !input.State,
-            height: double.IsNaN(input.Height) ? null : input.Height,
-            large: input.Large,
-            required: input.Required,
-            multiple: input.Multiple,
-            description: input.Description,
-            visibleWhen: input.VisibleWhen,
-            visibleValues: input.VisibleValues,
-            unit: input.Unit,
-            format: input.Format,
-            state: input.State,
-            hidden: input.Hidden,
-            typeTitle: TypeTitleOf(property.PropertyType));
+        return new UINodePin(property.Name, input.Title ?? UINaming.Humanize(property.Name), pinType, editor, editor is UINodeEditor.None or UINodeEditor.Display ? null : ReadDefault(property, defaults), choices, double.IsNaN(input.Min) ? null : input.Min, double.IsNaN(input.Max) ? null : input.Max, step, input.MaxLines > 0 ? input.MaxLines : null, input.MaxLength > 0 ? input.MaxLength : null, hasPin: !input.NoPin && !input.State, height: double.IsNaN(input.Height) ? null : input.Height, large: input.Large, required: input.Required, multiple: input.Multiple, description: input.Description, visibleWhen: input.VisibleWhen, visibleValues: input.VisibleValues, unit: input.Unit, format: input.Format, state: input.State, hidden: input.Hidden, typeTitle: TypeTitleOf(property.PropertyType), placeholder: input.Placeholder)
+        {
+            WholeNumber = UINodePinTypes.IsWholeNumber(NumberType(property.PropertyType)),
+            Unsigned = UINodePinTypes.IsUnsigned(NumberType(property.PropertyType))
+        };
+    }
+
+    /// <summary>The type a number editor holds for a property: its own, or a list's element's.</summary>
+    private static Type NumberType(Type clrType)
+    {
+        Type underlying = Nullable.GetUnderlyingType(clrType) ?? clrType;
+
+        return UINodePinTypes.TryGetElementType(underlying, out Type element) ? element : underlying;
     }
 
     /// <summary>
@@ -241,7 +217,7 @@ public sealed class UINodeCatalog
             return TypeTitleOf(element);
 
         var id = UINodePinTypes.FromClrType(underlying);
-        var own = id.StartsWith(UINodePinTypes.EnumPrefix, StringComparison.Ordinal) || string.Equals(id, underlying.Name, StringComparison.Ordinal);
+        var own = id.StartsWith(UINodePinTypes.EnumPrefix, StringComparison.Ordinal) || string.Equals(id, underlying.FullName ?? underlying.Name, StringComparison.Ordinal);
 
         return own ? UINaming.Humanize(underlying.Name) : null;
     }
@@ -466,7 +442,9 @@ public sealed class UINodeCatalog
     /// <remarks>
     /// A node of a kind this catalogue does not know is left out, and so is a node the viewer turned off (<see cref="UINode.Enabled"/>)
     /// with every edge it has. The document may be the browser's, so a node with no id or no kind, a node whose id an earlier one
-    /// took and an edge that names no pin are left out too.
+    /// took and an edge that names no pin are left out too, and a value outside its input's bounds — longer than its
+    /// <c>MaxLength</c>, below its <c>Min</c> or above its <c>Max</c> — is not set: the node carries why (<see cref="UINodeInstance.Refusal"/>),
+    /// which stops it unless an edge fills that input.
     /// </remarks>
     public UINodeNetwork Materialize(UINodeDocument document)
     {
@@ -484,9 +462,7 @@ public sealed class UINodeCatalog
             if (!_clrTypes.TryGetValue(node.Type, out Type? clrType) || Activator.CreateInstance(clrType) is not { } instance)
                 continue;
 
-            ApplyValues(clrType, instance, node);
-
-            UINodeInstance materialized = new(node.Id, node.Type, instance);
+            UINodeInstance materialized = new(node.Id, node.Type, instance) { RefusedInputs = ApplyValues(clrType, instance, node) };
 
             nodes.Add(materialized);
             byId[node.Id] = materialized;
@@ -506,8 +482,12 @@ public sealed class UINodeCatalog
         return new UINodeNetwork([.. nodes], [.. connections]);
     }
 
-    private static void ApplyValues(Type clrType, object instance, UINode node)
+    /// <summary>Sets the document's values on the node's instance and answers each one refused for its input's bounds, by input.</summary>
+    private List<KeyValuePair<string, UIPhrase>> ApplyValues(Type clrType, object instance, UINode node)
     {
+        UINodeType? type = TryGetType(node.Type, out UINodeType found) ? found : null;
+        List<KeyValuePair<string, UIPhrase>> refused = [];
+
         foreach (KeyValuePair<string, object?> value in node.Values)
         {
             PropertyInfo? property = UINodeProperties.Find(clrType, value.Key);
@@ -518,10 +498,64 @@ public sealed class UINodeCatalog
             // A collection is the node's own copy: a node may change it in place, and the document's must stand as it was until a
             // run is through with it — a run of all hands the state one run left to the next.
             var held = value.Value is IEnumerable items and not string ? UINodeProperties.Collect(property.PropertyType, items) ?? value.Value : value.Value;
+            var before = property.CanRead ? property.GetValue(instance) : null;
 
             UINodeProperties.Set(property, instance, held);
+
+            // Judged as the node will read it, once coerced into the property's type; the field's own bounds hold the browser's
+            // editor, and this one what reaches the server past it.
+            UINodePin? pin = type is null ? null : Array.Find(type.Inputs, candidate => string.Equals(candidate.Name, value.Key, StringComparison.Ordinal));
+
+            if (pin is null || !property.CanRead || WithinBounds(pin, property.GetValue(instance)))
+                continue;
+
+            property.SetValue(instance, before);
+            refused.Add(new(pin.Name, UIPhrase.Of(UIGraphWords.RunOutOfBounds, ("pin", pin.Title))));
         }
+
+        return refused;
     }
+
+    /// <summary>Whether a value, or each element of a list, keeps to its input's <c>MaxLength</c>, <c>Min</c> and <c>Max</c>.</summary>
+    private static bool WithinBounds(UINodePin pin, object? value)
+    {
+        if (value is IEnumerable elements and not string)
+        {
+            foreach (var element in elements)
+            {
+                if (!WithinBounds(pin, element))
+                    return false;
+            }
+
+            return true;
+        }
+
+        if (value is string text)
+            return pin.MaxLength is not int most || text.Length <= most;
+
+        if (NumberOf(value) is not double number)
+            return true;
+
+        return (pin.Min is not double min || number >= min) && (pin.Max is not double max || number <= max);
+    }
+
+    /// <summary>A number of any of the CLR's numeric types as a double, or null for anything else.</summary>
+    private static double? NumberOf(object? value)
+        => value switch
+        {
+            double number => number,
+            float number => number,
+            decimal number => (double)number,
+            int number => number,
+            long number => number,
+            short number => number,
+            byte number => number,
+            sbyte number => number,
+            uint number => number,
+            ulong number => number,
+            ushort number => number,
+            _ => null
+        };
 }
 
 /// <summary>
@@ -543,6 +577,15 @@ public sealed class UINodeInstance(string id, string type, object node)
     /// Gets the instance of the developer's class, with the viewer's values on it.
     /// </summary>
     public object Node { get; } = node;
+
+    /// <summary>
+    /// Gets why the node does not run: the first value of the document's held outside its input's bounds, which was not set — unless an
+    /// edge fills that input, whose value is the one the node reads; none for a node whose values all keep to them.
+    /// </summary>
+    public UIPhrase? Refusal => RefusedInputs.Count == 0 ? null : RefusedInputs[0].Value;
+
+    /// <summary>Every value of the document's held outside its input's bounds, by the input's name, in the document's order.</summary>
+    internal IReadOnlyList<KeyValuePair<string, UIPhrase>> RefusedInputs { get; init; } = [];
 }
 
 /// <summary>

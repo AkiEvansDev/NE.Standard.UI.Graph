@@ -63,8 +63,8 @@ public sealed class OperationNode : IGraphNode
             UICalculatorOperation.Add => Left + Right,
             UICalculatorOperation.Subtract => Left - Right,
             UICalculatorOperation.Multiply => Left * Right,
-            UICalculatorOperation.Divide => Right != 0 ? Left / Right : ByZero == UIDivisionByZero.Zero ? 0 : throw new InvalidOperationException("Division by zero."),
+            UICalculatorOperation.Divide => Right != 0 ? Left / Right : ByZero == UIDivisionByZero.Zero ? 0 : throw new UINodeFailureException("Division by zero."),
             UICalculatorOperation.Power => Math.Pow(Left, Right),
-            _ => throw new InvalidOperationException($"'{Operation}' is not an operation.")
+            _ => throw new UINodeFailureException($"'{Operation}' is not an operation.")
         };
 }

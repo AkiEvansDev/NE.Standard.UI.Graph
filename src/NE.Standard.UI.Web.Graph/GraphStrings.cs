@@ -13,6 +13,11 @@ namespace NE.Standard.UI.Web.Graph;
 public sealed partial class GraphStrings : IUIStringsSource
 {
     public const string Canvas = "ui.graph.canvas";
+    public const string CanvasRole = "ui.graph.canvas-role";
+    public const string NodeContents = "ui.graph.node-contents";
+    public const string PinNode = "ui.graph.pin-node";
+    public const string RemoveRow = "ui.graph.remove-row";
+    public const string RemoveParameterOf = "ui.graph.remove-parameter-of";
     public const string AddNode = UIGraphWords.AddNode;
     public const string SearchKinds = UIGraphWords.SearchKinds;
     public const string NoKinds = "ui.graph.no-kinds";
@@ -35,6 +40,9 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string RunRequired = UIGraphWords.RunRequired;
     public const string RunStopped = UIGraphWords.RunStopped;
     public const string RunCycle = UIGraphWords.RunCycle;
+    public const string RunOutOfBounds = UIGraphWords.RunOutOfBounds;
+    public const string RunTooLong = UIGraphWords.RunTooLong;
+    public const string RunTooManyNodes = UIGraphWords.RunTooManyNodes;
     public const string FileProgress = UIGraphWords.FileProgress;
     public const string PinMany = "ui.graph.pin-many";
     public const string PinType = "ui.graph.pin-type";
@@ -134,18 +142,24 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string LinkIngredient = UIGraphWords.LinkIngredient;
     public const string LinkRecipe = UIGraphWords.LinkRecipe;
     public const string Blue = UIGraphWords.Blue;
-    public const string Amber = UIGraphWords.Amber;
-    public const string Green = UIGraphWords.Green;
+    public const string Bronze = UIGraphWords.Bronze;
+    public const string Mint = UIGraphWords.Mint;
     public const string Rose = UIGraphWords.Rose;
     public const string Purple = UIGraphWords.Purple;
-    public const string Cyan = UIGraphWords.Cyan;
-    public const string Bronze = UIGraphWords.Bronze;
-    public const string Fern = UIGraphWords.Fern;
+    public const string Teal = UIGraphWords.Teal;
+    public const string Lavender = UIGraphWords.Lavender;
+    public const string Violet = UIGraphWords.Violet;
 
     /// <inheritdoc/>
     public IReadOnlyDictionary<string, string> English { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         [Canvas] = "Node canvas",
+        [CanvasRole] = "canvas",
+        [NodeContents] = "Contents of {node}",
+        [PinNode] = "Pin {node}",
+        [RemoveRow] = "Remove item {index} of {pin}",
+        [RemoveParameterOf] = "Remove the parameter {pin} of {node}",
+
         [AddNode] = "Add node",
         [SearchKinds] = "Search kinds",
         [NoKinds] = "No node kinds match",
@@ -182,6 +196,10 @@ public sealed partial class GraphStrings : IUIStringsSource
         [RunRequired] = "'{pin}' is required.",
         [RunStopped] = "Stopped.",
         [RunCycle] = "The node is on a cycle: it waits for itself.",
+        [RunOutOfBounds] = "'{pin}' holds a value outside its bounds.",
+        [RunTooLong] = "'{pin}' came out longer than a run lets a text be.",
+        [RunTooManyNodes] = "The sheet holds more nodes than a run takes ({max}).",
+
         [FileProgress] = "{index} of {total}: {name}.",
         [Collapse] = "Fold",
         [Expand] = "Unfold",
@@ -267,12 +285,12 @@ public sealed partial class GraphStrings : IUIStringsSource
         [LinkIngredient] = "Add as an ingredient",
         [LinkRecipe] = "New recipe",
         [Blue] = "Blue",
-        [Amber] = "Amber",
-        [Green] = "Green",
+        [Bronze] = "Bronze",
+        [Mint] = "Mint",
         [Rose] = "Rose",
         [Purple] = "Purple",
-        [Cyan] = "Cyan",
-        [Bronze] = "Bronze",
-        [Fern] = "Fern"
+        [Teal] = "Teal",
+        [Lavender] = "Lavender",
+        [Violet] = "Violet"
     }.ToFrozenDictionary(StringComparer.Ordinal);
 }

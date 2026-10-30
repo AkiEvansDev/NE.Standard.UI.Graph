@@ -250,7 +250,7 @@ export class ProductionEditing {
         if (edge === undefined || middle === null)
             return;
 
-        const taking = side === "in" ? edge.role !== "product" : edge.role === "product";
+        const taking = side === "in" && edge.role !== "product";
         const resource = side === "in" ? edge.resource : edge.product ?? edge.resource;
         const current = side === "in" ? edge.amount : edge.output ?? edge.amount;
 

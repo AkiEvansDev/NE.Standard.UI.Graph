@@ -19,6 +19,7 @@ internal static class PlannerDemoWords
 
     private static readonly Dictionary<string, string> English = new(StringComparer.Ordinal)
     {
+        ["planner.title"] = "{page} · NE.Standard.UI.Graph",
         ["planner.nav.planner"] = "Planner",
         ["planner.page.resources"] = "Resources",
         ["planner.page.resources.description"] = "What the factory knows: every resource, and the one recipe that makes it — what a run takes, what it gives and how long it lasts. Start with what is brought in.",
@@ -60,6 +61,7 @@ internal static class PlannerDemoWords
         ["planner.graph.status.kept.other"] = "Kept the places of {count} modules at {time}.",
         ["planner.graph.status.applied.one"] = "Applied {changed} changed or added and {count} removed module at {time}.",
         ["planner.graph.status.applied.other"] = "Applied {changed} changed or added and {count} removed modules at {time}.",
+        ["planner.graph.status.refused"] = "The changes to the modules were refused at {time}: the graph does not let them be edited now.",
         ["planner.graph.status.used-by.one"] = "{module}: used by {count} module.",
         ["planner.graph.status.used-by.other"] = "{module}: used by {count} modules.",
         ["planner.graph.status.reset"] = "The layout is the layered one again.",
@@ -173,6 +175,7 @@ internal static class PlannerDemoWords
     // The demo's second language, whole for its own words, so the missing-word report names only a real gap (DemoWordsCoverageTests).
     private static readonly Dictionary<string, string> Chinese = new(StringComparer.Ordinal)
     {
+        ["planner.title"] = "{page} · NE.Standard.UI.Graph",
         ["planner.nav.planner"] = "规划器",
         ["planner.page.resources"] = "资源",
         ["planner.page.resources.description"] = "工厂所知道的一切：每种资源，以及制造它的那一个配方——一次运行消耗什么、产出什么、持续多久。从外购的资源开始。",
@@ -212,6 +215,7 @@ internal static class PlannerDemoWords
         ["planner.graph.status.removed"] = "{module} 已移除。",
         ["planner.graph.status.kept.other"] = "已于 {time} 保留 {count} 个模块的位置。",
         ["planner.graph.status.applied.other"] = "已于 {time} 应用 {changed} 个更改或添加的模块和 {count} 个移除的模块。",
+        ["planner.graph.status.refused"] = "已于 {time} 拒绝对模块的更改：图表现在不允许编辑它们。",
         ["planner.graph.status.used-by.other"] = "{module}：被 {count} 个模块使用。",
         ["planner.graph.status.reset"] = "布局已恢复为分层布局。",
         ["planner.search"] = "搜索",

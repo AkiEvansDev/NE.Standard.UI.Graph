@@ -33,14 +33,23 @@ public static class UINodeKinds
     /// <summary>The colour a kind wears that works on whatever reaches it, as the universal pin does.</summary>
     public const string AnyColor = "var(--ui-text-muted)";
 
+    /// <summary>The colour the number kinds wear: the number value's own.</summary>
+    public const string NumberColor = "var(--ui-color-series-6)";
+
     /// <summary>The colour the text kinds wear: the text value's own, so a text's kinds read as one family.</summary>
-    public const string TextColor = "var(--ui-color-series-5)";
+    public const string TextColor = "var(--ui-color-series-3)";
 
     /// <summary>The colour the kinds that answer yes or no wear: the yes-or-no value's own.</summary>
     public const string LogicColor = "var(--ui-color-series-4)";
 
     /// <summary>The colour the date kinds wear: the date value's own.</summary>
-    public const string DateColor = "var(--ui-color-series-8)";
+    public const string DateColor = "var(--ui-color-series-7)";
+
+    /// <summary>The colour the list kinds wear: the list pin's own.</summary>
+    public const string ListColor = "var(--ui-color-series-5)";
+
+    /// <summary>The colour the utility kinds wear that have a hue of their own.</summary>
+    public const string UtilityColor = "var(--ui-color-series-8)";
 
     /// <summary>Gets every common kind but the reroute, for a catalogue: <c>UINodeCatalog.FromTypes([.. UINodeKinds.Common, typeof(MyNode)])</c>.</summary>
     public static IReadOnlyList<Type> Common { get; } =

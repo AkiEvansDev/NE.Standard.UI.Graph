@@ -23,6 +23,8 @@ internal abstract partial class NodesSheetController : UIControllerBase
     /// <summary>The corners choice that squares the nodes.</summary>
     public const string SquareCorners = "square";
 
+    private const int MaxImageBytes = 32 * 1024 * 1024;
+
     // The whole of a run, from the package: the canvas's run panel saves under a run's reason, and SaveAsync hands the save here.
     private readonly UINodeRuns _runs;
     private readonly UINodeCatalog _catalog;
@@ -44,7 +46,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
         _canvasId = canvasId;
         _catalog = catalog;
         _startingSheet = startingSheet;
-        _runs = new UINodeRuns(canvasId, catalog, () => Sheet, sheet => Sheet = sheet);
+        _runs = new UINodeRuns(canvasId, catalog, () => Sheet, sheet => Sheet = sheet) { ShowRunPanel = true };
         _files = DemoFolders.For(_out);
         Sheet = startingSheet(_out);
         Status = status;
@@ -91,7 +93,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
 
         // In the runtime's turn: past its first wait the command runs beside the tab and its other commands.
         if (outcome is not null)
-            _ = await Context.Runtime.InvokeAsync(() => Report(outcome), cancellationToken).ConfigureAwait(false);
+            await Context.Runtime.InvokeAsync(() => Report(outcome), cancellationToken).ConfigureAwait(false);
 
         return UICommandResult.Ok();
     }
@@ -104,11 +106,11 @@ internal abstract partial class NodesSheetController : UIControllerBase
     }
 
     /// <summary>What a run came to, on the page's lines.</summary>
-    private void Report(UINodeRunOutcome outcome)
+    internal void Report(UINodeRunOutcome outcome)
     {
         if (outcome.Stopped)
         {
-            Status = UIPhrase.Of("nodes.status.stopped", ("run", outcome.Runs));
+            Status = UIPhrase.Of(outcome.TimedOut ? "nodes.status.timed-out" : "nodes.status.stopped", ("run", outcome.Runs));
         }
         else if (outcome.Last is { } last)
         {
@@ -175,7 +177,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
     [UICommand]
     public async Task<UICommandResult> ImageUploadedAsync(string node, string pin, string selection, string fileName, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(node) || string.IsNullOrEmpty(pin) || string.IsNullOrEmpty(selection))
+        if (ReadOnly || string.IsNullOrEmpty(node) || string.IsNullOrEmpty(pin) || string.IsNullOrEmpty(selection))
             return UICommandResult.Ok();
 
         UIUploadSelection chosen = await Context.Uploads.GetSelectionAsync(Context.Handle, selection, cancellationToken).ConfigureAwait(false);
@@ -183,7 +185,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
 
         if (file is null)
         {
-            _ = await Context.Runtime.InvokeAsync(() => Status = new UIPhrase("nodes.status.no-picture"), cancellationToken).ConfigureAwait(false);
+            await Context.Runtime.InvokeAsync(() => Status = new UIPhrase("nodes.status.no-picture"), cancellationToken).ConfigureAwait(false);
             return UICommandResult.Ok();
         }
 
@@ -192,8 +194,19 @@ internal abstract partial class NodesSheetController : UIControllerBase
         await using (opened.ConfigureAwait(false))
         {
             using MemoryStream bytes = new();
+            var chunk = new byte[81920];
+            int read;
 
-            await opened.Content.CopyToAsync(bytes, cancellationToken).ConfigureAwait(false);
+            while ((read = await opened.Content.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                if (bytes.Length + read > MaxImageBytes)
+                {
+                    await Context.Runtime.InvokeAsync(() => Status = new UIPhrase("nodes.status.too-large"), cancellationToken).ConfigureAwait(false);
+                    return UICommandResult.Ok();
+                }
+
+                await bytes.WriteAsync(chunk.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+            }
 
             UINodeImageFile picture = new(bytes.ToArray(), file.ContentType ?? "application/octet-stream", file.FileName ?? fileName);
             var address = await Context.Services.GetRequiredService<IUINodeImageStore>().WriteAsync(picture, cancellationToken).ConfigureAwait(false);
@@ -202,7 +215,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
 
             // The address reaches the node, not the sheet: the document is the viewer's until a save. Run commits it first,
             // so nothing has to be saved by hand before the picture can be used.
-            _ = await Context.Runtime.InvokeAsync(() => Status = kept, cancellationToken).ConfigureAwait(false);
+            await Context.Runtime.InvokeAsync(() => Status = kept, cancellationToken).ConfigureAwait(false);
 
             // One pin's value, not the whole document: a patch of the value would take the viewer's unsaved work with it.
             return UICommandResult.Ok([new SetNodeValueEffect(_canvasId, node, pin, address)]);
@@ -213,11 +226,18 @@ internal abstract partial class NodesSheetController : UIControllerBase
     protected virtual UIPhrase? AnswerOf(UINodeRunResult result)
         => null;
 
-    /// <summary>What the run came to, in a line: how much ran, or which node stopped — in the runner's words — and what it took with it.</summary>
+    /// <summary>
+    /// What the run came to, in a line: how much ran, why the runner refused the sheet whole, or which node stopped — in the runner's
+    /// words — and what it took with it.
+    /// </summary>
     private UIPhrase Describe(UINodeRunResult result)
     {
         if (result.Success)
             return UIPhrase.Of("nodes.status.ran", ("count", result.Outputs.Count));
+
+        // Refused before any node ran: no node failed to name.
+        if (result.Refusal is { } refusal)
+            return refusal;
 
         UINodeFailure first = result.Failures[0];
         var node = NameOf(first.NodeId);

@@ -10,9 +10,10 @@
     <PackageTags>NE.Standard,UI,Graph,Nodes,Canvas,Editor</PackageTags>
   </PropertyGroup>
 
-  <!-- AddGraphFiles is how an application opens folders to the file kinds. -->
+  <!-- AddGraphFiles is how an application opens folders to the file kinds; a node's unforeseen failure goes to the application's log. -->
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
   </ItemGroup>
 
   <!-- The framework is a sibling in the monorepo and a package in this slice's mirror. Either way the

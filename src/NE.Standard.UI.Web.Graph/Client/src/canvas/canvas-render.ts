@@ -267,6 +267,7 @@ export class CanvasRender {
         // focused line blink during a drag's redraws.
         const focused = this.focusItem === null ? null : new Set(kind.related(this.focusItem).edges);
         const labels: DrawnLabel[] = [];
+        const segments: AxisSegment[] = [];
         const painted = new Map<string, PaintedEdge>();
 
         for (const edge of kind.edges()) {
@@ -284,6 +285,9 @@ export class CanvasRender {
             const points = edge.points.length === 0 && ends.via !== undefined ? ends.via : edge.points;
             const drawing = drawEdge(this.settings.edgeShape, ends.from, ends.to, points, { axis: ends.axis, back: ends.back, loop: ends.loop, arrow: ends.arrow, reversed: ends.reversed, turns: edge.points.length === 0 ? ends.turns : undefined });
             const path = document.createElementNS(SvgNamespace, "path");
+
+            if (drawing.pieces === null)
+                addAxisSegments(drawing.path, segments);
 
             path.setAttribute("d", drawing.path);
             path.setAttribute("class", ends.back === true ? "ui-graph__edge ui-graph__edge--back" : "ui-graph__edge");
@@ -346,7 +350,7 @@ export class CanvasRender {
         }
 
         this.paintedEdges = painted;
-        this.placeLabels(labels);
+        this.placeLabels(labels, segments);
 
         // The pointer may already rest on an item: what was marked before this draw is marked again on the parts it made.
         this.markFocus();
@@ -375,13 +379,13 @@ export class CanvasRender {
      * it (two edges between one pair run side by side). Every chip is measured and every place found before any chip moves: a move
      * between two measures would lay the page out once a label.
      */
-    private placeLabels(labels: readonly DrawnLabel[]): void {
+    private placeLabels(labels: readonly DrawnLabel[], segments: readonly AxisSegment[]): void {
         // Measured once it stands on the sheet: the scene's zoom is a transform, which leaves a box's own size as it was laid out.
         const sizes = labels.map(({ chip }) => ({ width: chip.offsetWidth, height: chip.offsetHeight }));
         const placed: Rect[] = [];
         const places = labels.map(({ path }, index) => {
             const { width, height } = sizes[index];
-            const corner = this.labelPlace(path, width, height, placed);
+            const corner = this.labelPlace(path, width, height, placed, segments);
 
             if (width > 0)
                 placed.push({ ...corner, width, height });
@@ -395,20 +399,28 @@ export class CanvasRender {
         });
     }
 
-    /** A label's corner at the first of its places along its edge where it covers no node and no label placed; nowhere clear, it stands in the middle. */
-    private labelPlace(path: SVGPathElement, width: number, height: number, placed: readonly Rect[]): Point {
+    /** A label's corner at the first of its places along its edge where it covers no node, no label placed and no off-centre turn; nowhere clear, it stands in the middle. */
+    private labelPlace(path: SVGPathElement, width: number, height: number, placed: readonly Rect[], segments: readonly AxisSegment[]): Point {
         const length = path.getTotalLength();
+        let fallback: Point | null = null;
 
         for (const place of LabelPlaces) {
             const point = place === 0.5 ? pathMiddle(path) : path.getPointAtLength(length * place);
             const corner = { x: point.x - width / 2, y: point.y - height / 2 };
             const box = { ...corner, width, height };
 
-            if (width === 0 || (!this.coversNode(box) && !placed.some(other => intersects(box, other))))
+            if (width === 0)
                 return corner;
+
+            if (!this.coversNode(box) && !placed.some(other => intersects(box, other))) {
+                if (!coversOffCenterSegment(box, point, segments))
+                    return corner;
+
+                fallback ??= corner;
+            }
         }
 
-        return this.stepAcross(path, width, height, placed);
+        return fallback ?? this.stepAcross(path, width, height, placed);
     }
 
     /** Whether a label's box would stand on a node; the nodes' boxes are read once a draw of the edges, not once a label. */
@@ -493,7 +505,7 @@ export class CanvasRender {
         let right = own.right;
         let bottom = own.bottom;
 
-        for (const part of element.querySelectorAll<HTMLElement>("*")) {
+        for (const part of element.querySelectorAll<HTMLElement>(".ui-graph__bubble-title, .ui-graph__bubble-badge, .ui-graph__pin")) {
             const box = part.getBoundingClientRect();
 
             if (box.width === 0 || box.height === 0)
@@ -512,8 +524,50 @@ export class CanvasRender {
 /** A label drawn and waiting to be placed, with the edge it stands on. */
 type DrawnLabel = { readonly chip: HTMLElement; readonly path: SVGPathElement };
 
+/** One straight axis-aligned segment of a stepped edge, for labels to keep clear of when it would run through them off-centre. */
+type AxisSegment = { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number };
+
 /** An edge's painted pieces, and what they were painted from: its path, its colour and its class. */
 type PaintedEdge = { readonly from: string; readonly group: SVGGElement };
+
+function addAxisSegments(path: string, into: AxisSegment[]): void {
+    let prevX: number | null = null;
+    let prevY: number | null = null;
+
+    for (const part of path.split(" ")) {
+        const comma = part.indexOf(",");
+
+        if (comma < 0)
+            continue;
+
+        const x = Number(part.slice(part[0] === "M" || part[0] === "L" ? 1 : 0, comma));
+        const y = Number(part.slice(comma + 1));
+
+        if (prevX !== null && prevY !== null && (Math.abs(x - prevX) > 0.5 || Math.abs(y - prevY) > 0.5))
+            into.push({ x1: prevX, y1: prevY, x2: x, y2: y });
+
+        prevX = x;
+        prevY = y;
+    }
+}
+
+function coversOffCenterSegment(box: Rect, center: Point, segments: readonly AxisSegment[]): boolean {
+    const right = box.x + box.width;
+    const bottom = box.y + box.height;
+
+    for (const seg of segments) {
+        if (Math.abs(seg.x1 - seg.x2) < 0.5) {
+            if (seg.x1 > box.x && seg.x1 < right && Math.max(seg.y1, seg.y2) > box.y && Math.min(seg.y1, seg.y2) < bottom && Math.abs(seg.x1 - center.x) > 0.5)
+                return true;
+        }
+        else if (Math.abs(seg.y1 - seg.y2) < 0.5) {
+            if (seg.y1 > box.y && seg.y1 < bottom && Math.max(seg.x1, seg.x2) > box.x && Math.min(seg.x1, seg.x2) < right && Math.abs(seg.y1 - center.y) > 0.5)
+                return true;
+        }
+    }
+
+    return false;
+}
 
 /**
  * An edge as painted, under one group carrying its class and colour: a `<line>` per straight piece, or the path itself where every

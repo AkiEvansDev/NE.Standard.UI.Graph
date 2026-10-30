@@ -1,4 +1,3 @@
-using System;
 using NE.Standard.UI.Primitives.Constants;
 
 namespace NE.Standard.UI.Graph.Calculator;
@@ -51,6 +50,6 @@ public sealed class CompareNode : IGraphNode
             UIComparison.AtMost => Left <= Right,
             UIComparison.Greater => Left > Right,
             UIComparison.AtLeast => Left >= Right,
-            _ => throw new InvalidOperationException($"'{Is}' is not a comparison.")
+            _ => throw new UINodeFailureException($"'{Is}' is not a comparison.")
         };
 }

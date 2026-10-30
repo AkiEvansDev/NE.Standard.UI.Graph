@@ -3,7 +3,7 @@
 
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { itemsInFrame, snapBoxes } from "../canvas/canvas-drag.ts";
-import { cloneTemplate, CoreNames, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { cloneTemplate, NodeAttribute } from "../canvas/canvas-dom.ts";
 import { checkMenuEntries, enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
 import { newId, readJson } from "../canvas/canvas-model.ts";
@@ -49,7 +49,6 @@ export class NodesKind implements CanvasKind {
     private readonly types = new Map<string, NodeType>();
     // How a person reads an enum's or an application's class's pin type, by its id, as the catalogue names it.
     private readonly typeTitles = new Map<string, string>();
-    private readonly seriesColors: number;
     private readonly wiring: NodesWiring;
     // Where every wire ends and turns, by its id; read with the first wire of a draw and let go with the next draw.
     private wires: Map<string, EdgeEnds> | null = null;
@@ -64,12 +63,12 @@ export class NodesKind implements CanvasKind {
     private clipboard: { nodes: DocumentNode[]; edges: DocumentEdge[] } | null = null;
     // What the pin menu was last opened on; its entries act on it.
     private pinTarget: PinTarget | null = null;
+    private stopMenuListener: (() => void) | null = null;
 
     public constructor(services: CanvasServices<GraphDocument>) {
         const catalog = readCatalog(services.root.getAttribute(CatalogAttribute));
 
         this.services = services;
-        this.seriesColors = services.context.colors.count(services.root);
 
         for (const type of catalog) {
             this.types.set(type.key, type);
@@ -99,8 +98,30 @@ export class NodesKind implements CanvasKind {
 
         this.log.setLogOpen(services.context.store.read(services.root, "log") === "open");
         this.log.drawRun();
+        this.listen();
+    }
 
-        services.root.addEventListener(CoreNames.menuOpeningEvent, event => this.pinMenuOpening(event));
+    private listen(): void {
+        if (this.stopMenuListener !== null)
+            return;
+
+        const menuOpeningEvent = this.services.context.names.menuOpeningEvent;
+        const onMenuOpening = (event: Event): void => this.pinMenuOpening(event);
+
+        this.services.root.addEventListener(menuOpeningEvent, onMenuOpening);
+        this.stopMenuListener = () => this.services.root.removeEventListener(menuOpeningEvent, onMenuOpening);
+    }
+
+    public dispose(): void {
+        this.stopMenuListener?.();
+        this.stopMenuListener = null;
+        this.runPanel.dispose();
+        this.parameters.dispose();
+    }
+
+    public revive(): void {
+        this.listen();
+        this.runPanel.listen();
     }
 
     private get document(): GraphDocument {
@@ -147,7 +168,8 @@ export class NodesKind implements CanvasKind {
             urls: context.urls,
             cloneEditor: region => cloneTemplate(this.services.root, region),
             setProperty: (component, propertyName, value) => context.properties.set(component, propertyName, value),
-            readValue: component => context.values.read(component)
+            readValue: component => context.values.read(component),
+            isRefused: component => context.values.isRefused(component)
         });
     }
 
@@ -265,15 +287,17 @@ export class NodesKind implements CanvasKind {
     }
 
     /**
-     * The colour a pin type wears: a theme series picked by the type's name, cycled by the series count the theme had when the canvas
-     * was drawn; the universal pin wears neutral instead.
+     * The colour a pin type wears: a theme series picked by the type's name, cycled by the theme's current series count; the universal
+     * pin wears neutral instead.
      */
     private pinColor(type: string): string {
         if (type === AnyType)
             return "var(--ui-text-muted)";
 
-        const known: Record<string, number> = { image: 1, array: 2, number: 3, boolean: 4, text: 5, date: 8, time: 8, datetime: 8 };
-        return this.services.context.colors.color((known[type] ?? hash(type) + 1) - 1, this.seriesColors);
+        const known: Record<string, number> = { image: 1, text: 3, boolean: 4, array: 5, number: 6, date: 7, time: 7, datetime: 7 };
+        const count = this.services.context.colors.count(this.services.root);
+
+        return this.services.context.colors.color((known[type] ?? hash(type) + 1) - 1, count);
     }
 
     // --- values ------------------------------------------------------------------------------------------------------------------
@@ -356,9 +380,9 @@ export class NodesKind implements CanvasKind {
         this.log.addLog(nodeId, level, message);
     }
 
-    /** The run effect: how many of a run's nodes are through, of how many. */
-    public setRunProgress(completed: number, total: number): void {
-        this.log.setRunProgress(completed, total);
+    /** The run effect: how many of a run's nodes are through, of how many, or why the run was refused whole. */
+    public setRunProgress(completed: number, total: number, refusal: unknown = null): void {
+        this.log.setRunProgress(completed, total, refusal);
     }
 
     /**
@@ -404,8 +428,12 @@ export class NodesKind implements CanvasKind {
             return true;
         }
 
-        if (target.closest("[data-ui-graph-log-clear]") !== null) {
-            this.log.clearLog();
+        const clear = target.closest<HTMLElement>("[data-ui-graph-log-clear]");
+
+        if (clear !== null) {
+            if (!this.services.context.states.isInert(clear))
+                this.log.clearLog();
+
             return true;
         }
 

@@ -4,7 +4,7 @@
 import type { ComponentStates, EffectContext, PluginEngineContext, WheelReading } from "ne-standard-ui";
 import type { CanvasDocument, CanvasItem, Point } from "./canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, KindDrag } from "./canvas-kind.ts";
-import { ChromeButtonSelector, CoreNames, doubleClickAim, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, ResizingAttribute, RootSelector } from "./canvas-dom.ts";
+import { chromeButtonSelector, doubleClickAim, EdgeAttribute, FoldAttribute, GroupAttribute, KindAttribute, MenuPanelAttribute, MinimapAttribute, NodeAttribute, passRootFocusToSheet, PinToggleAttribute, ReroutAttribute, ResizeAttribute, ResizingAttribute, RootSelector } from "./canvas-dom.ts";
 import { CanvasDocumentState } from "./canvas-document.ts";
 import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
@@ -34,6 +34,7 @@ export class GraphEngine {
     private readonly canvases = new WeakMap<HTMLElement, Canvas>();
     // Every live canvas, so one whose root left the page can let its watches go; a WeakMap alone cannot be walked.
     private readonly live = new Set<Canvas>();
+    private readonly cleanups: (() => void)[] = [];
 
     public constructor(context: PluginEngineContext, kinds: readonly CanvasKindDefinition<CanvasDocument>[]) {
         this.context = context;
@@ -44,31 +45,28 @@ export class GraphEngine {
         this.attach(context.root.querySelectorAll<HTMLElement>(RootSelector));
 
         // Two observers, not one: a childList watch that also redrew would feed itself; this one only takes up a canvas that just arrived.
-        context.observeComponents(context.root, RootSelector, { childList: true }, roots => this.attach(roots));
-
-        // A root that left the page takes its canvas with it; a removal is a childList change above every selector.
-        context.observeComponents(context.root, "*", { childList: true }, () => this.prune());
+        const attachObserver = context.observeComponents(context.root, RootSelector, { childList: true, removed: () => this.prune() }, roots => this.attach(roots));
 
         // The settings, which only the server writes: none of them is an attribute the engine itself touches.
-        context.observeComponents(context.root, RootSelector, { attributeFilter: [EdgeShapeAttribute, SnapAttribute, MinimapAttribute, DirectionAttribute, NodeShapeAttribute, EditStructureAttribute, ModeAttribute] }, roots => {
+        const settingsObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: [EdgeShapeAttribute, SnapAttribute, MinimapAttribute, DirectionAttribute, NodeShapeAttribute, EditStructureAttribute, ModeAttribute] }, roots => {
             for (const root of roots)
                 this.canvases.get(root)?.draw();
         });
 
         // The read-only mark is the family's class on the root, which the engine toggles classes beside: only a change of it redraws.
-        context.observeComponents(context.root, RootSelector, { attributeFilter: ["class"], relevant: mutation => mutation.target instanceof Element && mutation.target.matches(RootSelector) }, roots => {
+        const readOnlyObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: ["class"], relevant: mutation => mutation.target instanceof Element && mutation.target.matches(RootSelector) }, roots => {
             for (const root of roots)
                 this.canvases.get(root)?.readOnlyMoved();
         });
 
         // Disabled or loading, a canvas's parts are inert: a picker left open would stand modal over a page nothing in it answers.
-        context.observeComponents(context.root, RootSelector, { attributeFilter: ["aria-disabled", "aria-busy"] }, roots => {
+        const inertObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: ["aria-disabled", "aria-busy"] }, roots => {
             for (const root of roots)
                 this.canvases.get(root)?.refuseEdits();
         });
 
         // What a canvas draws itself — a node's marks, a group's word, a kind's panel — is drawn again in the page's new words.
-        context.strings.onChange(() => {
+        const stopStrings = context.strings.onChange(() => {
             for (const canvas of this.live) {
                 if (canvas.connected)
                     canvas.wordsChanged();
@@ -76,13 +74,28 @@ export class GraphEngine {
         });
 
         // A document the server pushed replaces what is on the canvas; the viewer's own edit came through the engine already.
-        context.propertyPatchEngine.addValueChangeHandler(change => {
+        const stopPatch = context.propertyPatchEngine.addValueChangeHandler(change => {
             if (change.local || change.propertyName !== "Value")
                 return;
 
             for (const component of change.components)
                 this.canvases.get(component as HTMLElement)?.load(change.value);
         });
+
+        this.cleanups.push(
+            () => attachObserver?.disconnect(),
+            () => settingsObserver?.disconnect(),
+            () => readOnlyObserver?.disconnect(),
+            () => inertObserver?.disconnect(),
+            () => {
+                if (typeof stopStrings === "function")
+                    stopStrings();
+            },
+            () => {
+                if (typeof stopPatch === "function")
+                    stopPatch();
+            }
+        );
     }
 
     private attach(roots: Iterable<HTMLElement>): void {
@@ -103,6 +116,19 @@ export class GraphEngine {
                 this.canvases.set(root, canvas);
                 this.live.add(canvas);
             }
+        }
+    }
+
+    /** Disposes every observer, subscription and live canvas when the engine is disposed. */
+    public dispose(): void {
+        for (const cleanup of this.cleanups)
+            cleanup();
+
+        this.cleanups.length = 0;
+
+        for (const canvas of [...this.live]) {
+            this.live.delete(canvas);
+            canvas.dispose();
         }
     }
 
@@ -187,6 +213,7 @@ class Canvas {
     private drawnReadOnly: boolean;
     // The field a switch of the words waits on to be let go: the element, since one a redraw replaced never says it lost the focus.
     private wordsWaitingOn: Element | null = null;
+    private readonly cleanups: (() => void)[] = [];
 
     public constructor(root: HTMLElement, context: PluginEngineContext, definition: CanvasKindDefinition<CanvasDocument>) {
         this.root = root;
@@ -330,15 +357,22 @@ class Canvas {
         return this.root.isConnected;
     }
 
-    /** Lets go of what would outlive the root: the watch on every node's size and on the canvas's own. */
+    /** Lets go of what would outlive the root: its listeners, the watch on every node's size and on the canvas's own. */
     public dispose(): void {
+        for (const cleanup of this.cleanups)
+            cleanup();
+
+        this.cleanups.length = 0;
+        this.wordsWaitingOn = null;
         this.render.dispose();
         this.view.dispose();
         this.kind.dispose?.();
     }
 
-    /** The root is back on the page: the watch on the canvas's size again, and the sheet drawn, which watches every node's size anew. */
+    /** The root is back on the page: its listeners and size watches restored, and the sheet drawn anew. */
     public revive(): void {
+        this.listen();
+        this.kind.revive?.();
         this.view.watchSize();
         this.draw();
     }
@@ -413,20 +447,52 @@ class Canvas {
     // --- listening ---------------------------------------------------------------------------------------------------------
 
     private listen(): void {
-        this.viewport.addEventListener("wheel", event => this.wheel(event), { passive: false });
-        this.viewport.addEventListener("pointerdown", event => this.pointerDown(event));
-        this.viewport.addEventListener("pointermove", event => this.pointerMove(event));
-        this.viewport.addEventListener("pointerup", event => this.pointerUp(event));
-        this.viewport.addEventListener("pointercancel", event => this.fingerTaken(event));
-        // The item the pointer rests on: its edges stand out while it does, and nothing stands out while a drag is under way.
-        this.viewport.addEventListener("pointerleave", () => this.render.setFocusItem(null));
-        this.viewport.addEventListener("dblclick", event => this.doubleClick(event));
-        this.viewport.addEventListener("keydown", event => this.key(event));
-        this.viewport.addEventListener("click", event => this.click(event));
+        if (this.cleanups.length > 0)
+            return;
 
-        this.root.addEventListener("click", event => this.chrome(event));
-        this.root.addEventListener(CoreNames.menuOpeningEvent, event => this.menuOpening(event));
-        passRootFocusToSheet(this.root, this.viewport);
+        const onWheel = (event: WheelEvent): void => this.wheel(event);
+        const onPointerDown = (event: PointerEvent): void => this.pointerDown(event);
+        const onPointerMove = (event: PointerEvent): void => this.pointerMove(event);
+        const onPointerUp = (event: PointerEvent): void => this.pointerUp(event);
+        const onPointerCancel = (event: PointerEvent): void => this.fingerTaken(event);
+        const onPointerLeave = (): void => this.render.setFocusItem(null);
+        const onDoubleClick = (event: MouseEvent): void => this.doubleClick(event);
+        const onKeyDown = (event: KeyboardEvent): void => this.key(event);
+        const onClick = (event: MouseEvent): void => this.click(event);
+        const onChromeClick = (event: MouseEvent): void => this.chrome(event);
+        const onMenuOpening = (event: Event): void => this.menuOpening(event);
+        const menuOpeningEvent = this.context.names.menuOpeningEvent;
+
+        this.viewport.addEventListener("wheel", onWheel, { passive: false });
+        this.viewport.addEventListener("pointerdown", onPointerDown);
+        this.viewport.addEventListener("pointermove", onPointerMove);
+        this.viewport.addEventListener("pointerup", onPointerUp);
+        this.viewport.addEventListener("pointercancel", onPointerCancel);
+        // The item the pointer rests on: its edges stand out while it does, and nothing stands out while a drag is under way.
+        this.viewport.addEventListener("pointerleave", onPointerLeave);
+        this.viewport.addEventListener("dblclick", onDoubleClick);
+        this.viewport.addEventListener("keydown", onKeyDown);
+        this.viewport.addEventListener("click", onClick);
+
+        this.root.addEventListener("click", onChromeClick);
+        this.root.addEventListener(menuOpeningEvent, onMenuOpening);
+
+        const stopRootFocus = passRootFocusToSheet(this.root, this.viewport);
+
+        this.cleanups.push(
+            () => this.viewport.removeEventListener("wheel", onWheel),
+            () => this.viewport.removeEventListener("pointerdown", onPointerDown),
+            () => this.viewport.removeEventListener("pointermove", onPointerMove),
+            () => this.viewport.removeEventListener("pointerup", onPointerUp),
+            () => this.viewport.removeEventListener("pointercancel", onPointerCancel),
+            () => this.viewport.removeEventListener("pointerleave", onPointerLeave),
+            () => this.viewport.removeEventListener("dblclick", onDoubleClick),
+            () => this.viewport.removeEventListener("keydown", onKeyDown),
+            () => this.viewport.removeEventListener("click", onClick),
+            () => this.root.removeEventListener("click", onChromeClick),
+            () => this.root.removeEventListener(menuOpeningEvent, onMenuOpening),
+            stopRootFocus
+        );
     }
 
     /** Marks the entries for the menu key before the menu shows (a right press marked them on its press); a disabled canvas opens none of the sheet's. */
@@ -457,6 +523,9 @@ class Canvas {
     }
 
     private wheel(event: WheelEvent): void {
+        if (this.states.isInert(this.root))
+            return;
+
         // A panel over the sheet scrolls its own lines, and an editor its own list: a wheel over either is not a zoom of the sheet.
         if (event.target instanceof Element && (this.isPanel(event.target) || this.kind.isEditor(event.target)))
             return;
@@ -474,6 +543,9 @@ class Canvas {
     }
 
     private pointerDown(event: PointerEvent): void {
+        if (this.states.isInert(this.root))
+            return;
+
         // A second finger: what the first began is let go as the browser taking the pointer lets it go, and the two pinch the sheet.
         if (event.pointerType === "touch" && this.pinch.down(event.pointerId, this.view.toViewport(event), { zoom: this.view.zoom, panX: this.view.panX, panY: this.view.panY })) {
             event.preventDefault();
@@ -878,7 +950,7 @@ class Canvas {
     // --- clicks ------------------------------------------------------------------------------------------------------------
 
     private click(event: MouseEvent): void {
-        if (!(event.target instanceof Element))
+        if (!(event.target instanceof Element) || this.states.isInert(this.root))
             return;
 
         // A head mark answered the pointer on its press; a click no pointer counted is the keyboard's Enter or Space. Neither is the node's.
@@ -912,7 +984,7 @@ class Canvas {
     }
 
     private doubleClick(event: MouseEvent): void {
-        if (this.settings.readOnly || !(event.target instanceof Element))
+        if (this.settings.readOnly || this.states.isInert(this.root) || !(event.target instanceof Element))
             return;
 
         // A press on an item captures the pointer to the viewport, which the browser then names the double click's target: what was
@@ -948,7 +1020,7 @@ class Canvas {
     // --- the keyboard ------------------------------------------------------------------------------------------------------
 
     private key(event: KeyboardEvent): void {
-        if (event.defaultPrevented || this.context.shortcuts.isComposing(event))
+        if (event.defaultPrevented || this.context.shortcuts.isComposing(event) || this.states.isInert(this.root))
             return;
 
         // A key a field keeps — typing, its caret, its own clipboard and undo — is the field's, and any key in an editor of the kind's;
@@ -973,7 +1045,7 @@ class Canvas {
 
         // Keys act on the sheet from the sheet and the canvas's own buttons only — not a panel's contents (Backspace on a parameter's
         // select), nor the corner menu's entries.
-        if (!this.onSheet(event.target) && !(event.target instanceof Element && event.target.matches(ChromeButtonSelector)))
+        if (!this.onSheet(event.target) && !(event.target instanceof Element && event.target.matches(chromeButtonSelector(this.context.names))))
             return;
 
         // By the key rather than its place, so the keypad's Delete counts; a command held with it is another key's.
@@ -1084,7 +1156,7 @@ class Canvas {
         if (key.startsWith(CommandPrefix))
             this.menus.run(key, menuName);
         else
-            this.menus.raiseEntry(key, menuName);
+            this.menus.raiseEntry(entry!, menuName);
 
         // A node deleted from its own bar took the keyboard with it: the sheet takes it, as the Delete key leaves it, so Ctrl+Z undoes.
         const active = document.activeElement;

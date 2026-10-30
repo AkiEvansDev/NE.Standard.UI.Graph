@@ -236,13 +236,13 @@ export function writeSpan(seconds: number): string {
     const minutes = Math.floor((rest % (3600 * 1e7)) / (60 * 1e7));
     const whole = Math.floor((rest % (60 * 1e7)) / 1e7);
     const fraction = rest % 1e7;
-    const clock = `${pad(hours)}:${pad(minutes)}:${pad(whole)}${fraction === 0 ? "" : `.${String(fraction).padStart(7, "0")}`}`;
+    const clock = `${pad(hours)}:${pad(minutes)}:${pad(whole)}${fraction === 0 ? "" : `.${pad(fraction, 7)}`}`;
 
     return days > 0 ? `${days}.${clock}` : clock;
 }
 
-function pad(value: number): string {
-    return String(value).padStart(2, "0");
+function pad(value: number, length = 2): string {
+    return String(value).padStart(length, "0");
 }
 
 export function resourceDraft(resource: Resource): ResourceDraft {

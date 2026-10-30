@@ -18,7 +18,7 @@ const NodeGap = 32;
  * What a circle's name takes under it — the gap and two lines (`.ui-graph__bubble-title`) — and how wide it may run: the layout keeps
  * this much room around every circle, and an edge meeting a circle's bottom ends under it.
  */
-export const CaptionRoom = 38;
+export const CaptionRoom = 40;
 const CaptionWidth = 96;
 
 /** A circle's room on the sheet: its name's under it, its edges meet it at the circle's middle, and it stands in the middle of the widest. */
@@ -50,8 +50,6 @@ export class LayeredKind extends DraftedLayeredKind<GraphDocument, GraphNode, Gr
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
             // next layer's circles. A node's own shape outranks the sheet's, as its card is drawn by it.
             nodeBox: (id, width, height, widest) => (this.shapeOf(id) === "icon" ? circleBox(width, height, widest) : { width, height }),
-            // A card's side is long enough to set its edges apart along; a circle's edges meet at its middle.
-            spreadsEnds: id => this.shapeOf(id) === "card",
             footRoom: id => (this.shapeOf(id) === "icon" ? CaptionRoom : 0)
         }, { nodeGap: NodeGap });
         this.refresh();
@@ -84,9 +82,10 @@ export class LayeredKind extends DraftedLayeredKind<GraphDocument, GraphNode, Gr
     // --- the sheet -------------------------------------------------------------------------------------------------------------
 
     public renderItem(item: CanvasItem): HTMLElement {
-        const node = this.collection.item(item.id) ?? { id: item.id, title: null, subtitle: null, icon: null, image: null, shape: null, color: null, badge: null, tooltip: null, links: [] };
+        const node = this.collection.item(item.id) ?? { id: item.id, title: null, description: null, icon: null, image: null, shape: null, color: null, badgeTitle: null, tooltip: null, links: [] };
 
         return renderCard(item, node, {
+            names: this.services.context.names,
             icons: this.services.context.icons,
             tooltips: this.services.context.tooltips,
             urls: this.services.context.urls,

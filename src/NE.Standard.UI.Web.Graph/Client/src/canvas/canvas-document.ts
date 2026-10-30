@@ -10,6 +10,8 @@ import type { CanvasSettings } from "./canvas-settings.ts";
 
 /** What a save the canvas sends by itself after an edit says it is for (`UIGraphArguments.AutoSaveReason`). */
 const AutoSaveReason = "auto";
+// `GraphEvents.Save` on the server: the package's own name, since another package's plain `save` would take its registration.
+const SaveEventName = "graph-save";
 
 /** What the document state calls back into the coordinator for: a redraw, and clearing the viewer's current choice. */
 export type DocumentStateCallbacks = {
@@ -161,7 +163,7 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
 
     /** The event a command waits on; its one key says what the save was for, so a handler can tell Ctrl+S from a run. */
     private raiseSave(reason: string, id: number): void {
-        this.valueElement.dispatchEvent(new CustomEvent("save", { bubbles: true, detail: { reason, id } }));
+        this.valueElement.dispatchEvent(new CustomEvent(SaveEventName, { bubbles: true, detail: { reason, id } }));
     }
 
     /** Saves at the server's request, for a command that needs the sheet as shown rather than the last committed one (`SaveDocumentEffect`). */

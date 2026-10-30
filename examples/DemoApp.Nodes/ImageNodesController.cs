@@ -19,21 +19,21 @@ internal sealed partial class ImageNodesController() : NodesSheetController(Canv
     private static UINodeDocument StartingSheet(string outFolder)
     {
         UINode picture = new("p-load", ImageNode.NodeKey, 0, 0);
-        UINode size = new("p-size", ImageSizeNode.NodeKey, 320, 80);
-        UINode width = new("p-width", NumberNode.NodeKey, 320, 220, values: Values(("Value", 320)));
+        UINode size = new("p-size", ImageSizeNode.NodeKey, 352, 96);
+        UINode width = new("p-width", NumberNode.NodeKey, 352, 224, values: Values(("Value", 320)));
         // Contain keeps the proportions, so the width alone decides the size: the picture's own height is only the most it may take.
-        UINode resize = new("p-resize", ResizeImageNode.NodeKey, 620, 51, values: Values(("Mode", nameof(ImageResizeMode.Contain))));
-        UINode grey = new("p-grey", GrayscaleImageNode.NodeKey, 920, 51);
-        UINode delay = new("p-delay", DelayNode.NodeKey, 1220, 51, values: Values(("Seconds", 1.5)));
-        UINode display = new("p-display", DisplayNode.NodeKey, 1560, 51);
+        UINode resize = new("p-resize", ResizeImageNode.NodeKey, 640, 72, values: Values(("Mode", nameof(ImageResizeMode.Contain))));
+        UINode grey = new("p-grey", GrayscaleImageNode.NodeKey, 960, 72);
+        UINode delay = new("p-delay", DelayNode.NodeKey, 1248, 72, values: Values(("Seconds", 1.5)));
+        UINode display = new("p-display", DisplayNode.NodeKey, 1600, 72);
 
-        UINode files = new("b-files", FilesInFolderNode.NodeKey, 0, 280, values: Values(("Folder", DemoFolders.In), ("Filter", "*.png")));
-        UINode load = new("b-load", LoadImageNode.NodeKey, 320, 440);
-        UINode thumbnail = new("b-resize", ResizeImageNode.NodeKey, 620, 440, values: Values(("Width", 160), ("Height", 160), ("Mode", nameof(ImageResizeMode.Cover))));
-        UINode save = new("b-save", SaveImageNode.NodeKey, 920, 251, values: Values(("Folder", outFolder), ("Overwrite", true)));
+        UINode files = new("b-files", FilesInFolderNode.NodeKey, 0, 288, values: Values(("Folder", DemoFolders.In), ("Filter", "*.png")));
+        UINode load = new("b-load", LoadImageNode.NodeKey, 352, 448);
+        UINode thumbnail = new("b-resize", ResizeImageNode.NodeKey, 640, 448, values: Values(("Width", 160), ("Height", 160), ("Mode", nameof(ImageResizeMode.Cover))));
+        UINode save = new("b-save", SaveImageNode.NodeKey, 960, 264, values: Values(("Folder", outFolder), ("Overwrite", true)));
         // A second a picture, so a Run all can be watched going through the folder, and stopped part way.
-        UINode pace = new("b-delay", DelayNode.NodeKey, 920, 440, values: Values(("Seconds", 1)));
-        UINode shown = new("b-display", DisplayNode.NodeKey, 1220, 440);
+        UINode pace = new("b-delay", DelayNode.NodeKey, 960, 448, values: Values(("Seconds", 1)));
+        UINode shown = new("b-display", DisplayNode.NodeKey, 1248, 448);
 
         return new UINodeDocument(
             [picture, size, width, resize, grey, delay, display, files, load, thumbnail, save, pace, shown],

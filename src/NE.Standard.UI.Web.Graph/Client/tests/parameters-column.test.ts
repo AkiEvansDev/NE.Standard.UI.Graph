@@ -24,6 +24,7 @@ type Stage = {
     readonly document: GraphDocument;
     readonly values: Map<FakeElement, Record<string, unknown>>;
     readonly edits: { count: number };
+    readonly inert: Set<FakeElement>;
     settings: { readOnly: boolean };
 };
 
@@ -43,6 +44,7 @@ function stage(...page: FakeElement[]): Stage {
     const values = new Map<FakeElement, Record<string, unknown>>();
     const edits = { count: 0 };
     const settings = { readOnly: false };
+    const inert = new Set<FakeElement>();
 
     fakeDocument.body.children.length = 0;
     fakeDocument.body.append(canvas, ...page);
@@ -62,6 +64,8 @@ function stage(...page: FakeElement[]): Stage {
             names: { componentId: "data-ui-id", tooltip: "data-ui-tooltip" },
             strings: { write: () => undefined },
             focus: { first: () => null },
+            states: { isInert: (element: FakeElement) => inert.has(element) },
+            values: { isRefused: () => false },
             properties: {
                 set: (element: FakeElement, name: string, value: unknown) => {
                     values.set(element, { ...values.get(element), [name]: value });
@@ -71,13 +75,20 @@ function stage(...page: FakeElement[]): Stage {
     };
     const parameters = new NodesParameters(real<CanvasServices<GraphDocument>>(services), {
         types: new Map([[fieldsType.key, fieldsType]]),
-        setValue: () => undefined,
-        readValue: () => null,
+        setValue: (nodeId: string, pinName: string, value: unknown) => {
+            const node = document.nodes.find(candidate => candidate.id === nodeId);
+
+            if (node !== undefined)
+                node.values[pinName] = value;
+
+            edits.count++;
+        },
+        readValue: () => 42,
         show: () => undefined,
         cloneEditor: () => real(new FakeElement())
     });
 
-    return { parameters, canvas, document, values, edits, settings };
+    return { parameters, canvas, document, values, edits, settings, inert };
 }
 
 /** A column as `NodesParametersComponentRenderer` draws one, aimed at the canvas of the given id. */
@@ -170,4 +181,32 @@ test("on a read-only sheet a parameter's field is read-only and its remove is of
 
     assert.equal(page.values.get(field)?.IsReadOnly, true);
     assert.equal(page.values.get(remove)?.Enabled, false);
+});
+
+test("an inert canvas or inert column refuses parameter edits and removal, and dispose releases column listeners", () => {
+    const panel = column("7");
+    const page = stage(panel);
+
+    page.parameters.draw();
+    assert.equal(panel.listenerCount("click"), 1);
+
+    const [field, remove] = [rows(panel)[0].children[1], rows(panel)[0].children[2]];
+
+    page.inert.add(page.canvas);
+    field.dispatchEvent(new FakeEvent("change"));
+    remove.dispatchEvent(new FakeEvent("click"));
+    page.parameters.toggle("a", "Amount");
+
+    assert.equal(page.edits.count, 0);
+    assert.deepEqual(page.document.parameters, [{ node: "b", pin: "Amount" }]);
+    assert.equal(page.document.nodes[1].values.Amount, 7);
+
+    page.inert.clear();
+    page.inert.add(panel);
+    remove.dispatchEvent(new FakeEvent("click"));
+    assert.deepEqual(page.document.parameters, [{ node: "b", pin: "Amount" }]);
+
+    page.inert.clear();
+    page.parameters.dispose();
+    assert.equal(panel.listenerCount("click"), 0);
 });

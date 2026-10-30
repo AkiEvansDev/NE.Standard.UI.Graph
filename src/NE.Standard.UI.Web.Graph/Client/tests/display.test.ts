@@ -93,27 +93,27 @@ test("a display's panel is marked while one picture at no size of its own fills 
 
     assert.equal(show("/_ne/content/abc", true), true);
     assert.equal(panel.children.length, 1);
-    assert.equal(show({ $picture: "/_ne/content/a", width: 40, height: 30 }), false);
-    assert.equal(show({ $picture: "/_ne/content/a" }), true);
-    assert.equal(show([{ $picture: "/_ne/content/a" }], true), false);
+    assert.equal(show({ $image: "/_ne/content/a", width: 40, height: 30 }), false);
+    assert.equal(show({ $image: "/_ne/content/a" }), true);
+    assert.equal(show([{ $image: "/_ne/content/a" }], true), false);
     assert.equal(show("/_ne/content/abc"), false);
     assert.equal(show(null), false);
 });
 
 test("a picture the server marked is drawn at its size, alone, in a record and in a list; a field that only looks like one is text", () => {
-    const alone = drawn({ $picture: "/_ne/content/a", width: 40, height: 30 });
+    const alone = drawn({ $image: "/_ne/content/a", width: 40, height: 30 });
 
     assert.equal(alone.tagName.toLowerCase(), "img");
     assert.equal(alone.style["width"], "40px");
     assert.equal(alone.style["height"], "30px");
 
-    const fields = drawn({ name: "sea", shown: { $picture: "/_ne/content/b" }, path: "/data/in/sea.png" });
+    const fields = drawn({ name: "sea", shown: { $image: "/_ne/content/b" }, path: "/data/in/sea.png" });
 
     assert.deepEqual(fields.children.map(child => child.tagName.toLowerCase()), ["div", "img", "div"]);
 
-    const items = drawn([{ $picture: "/_ne/content/a" }, { $picture: "/_ne/content/b" }], true);
+    const items = drawn([{ $image: "/_ne/content/a" }, { $image: "/_ne/content/b" }], true);
 
     assert.deepEqual(items.children.map(child => child.tagName.toLowerCase()), ["img", "img"]);
     assert.equal(drawn(["/_ne/content/a"], true).children[0].tagName.toLowerCase(), "div");
-    assert.equal(displayText({ $picture: "/_ne/content/a" }, options), "/_ne/content/a");
+    assert.equal(displayText({ $image: "/_ne/content/a" }, options), "/_ne/content/a");
 });

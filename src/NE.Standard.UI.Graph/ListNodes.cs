@@ -8,7 +8,7 @@ namespace NE.Standard.UI.Graph;
 
 /// <summary>One item of a list, by its place: 0 the first, and below zero counted from the end, -1 the last.</summary>
 /// <remarks>A place past either end finds nothing, which <see cref="Found"/> says, rather than failing the run.</remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Item at", Description = "One item of a list, by its place.", Icon = UIGlyphs.ListNumbered, Color = UINodeKinds.AnyColor)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Item at", Description = "One item of a list, by its place.", Icon = UIGlyphs.ListNumbered, Color = UINodeKinds.ListColor)]
 public sealed class ItemAtNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -44,7 +44,7 @@ public sealed class ItemAtNode : IGraphNode
 /// <summary>
 /// How many items a list holds.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Count", Description = "How many items a list holds.", Icon = UIGlyphs.Numbers, Color = UINodeKinds.AnyColor)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Count", Description = "How many items a list holds.", Icon = UIGlyphs.Numbers, Color = UINodeKinds.ListColor)]
 public sealed class ListCountNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -69,7 +69,7 @@ public sealed class ListCountNode : IGraphNode
 /// last it starts over, or it ends a run of all. Its <see cref="Wrapped"/> wired into a counter's or another list's
 /// <see cref="Advance"/> makes a loop inside a loop, as counters do.
 /// </remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "For each", Description = "Hands out a list's items, one a run.", Icon = UIGlyphs.Repeat, Color = UINodeKinds.AnyColor)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "For each", Description = "Hands out a list's items, one a run.", Icon = UIGlyphs.Repeat, Color = UINodeKinds.ListColor)]
 public sealed class ForEachNode : IGraphNode, IGraphNodeSequence
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -112,14 +112,14 @@ public sealed class ForEachNode : IGraphNode, IGraphNodeSequence
         var count = List.Length;
 
         if (count == 0)
-            throw new InvalidOperationException("The list is empty: there is no item to hand out.");
+            throw new UINodeFailureException("The list is empty: there is no item to hand out.");
 
         var place = Taken;
 
         if (place < 0 || place >= count)
         {
             if (!Wrap)
-                throw new InvalidOperationException($"Every one of the {count} items is taken: reset the node to start over.");
+                throw new UINodeFailureException($"Every one of the {count} items is taken: reset the node to start over.");
 
             place = 0;
         }
@@ -152,7 +152,7 @@ public sealed class ForEachNode : IGraphNode, IGraphNodeSequence
 /// letter as one if asked; dates by the clock they read. Items of different kinds stand apart, in that order — yes-or-noes before
 /// numbers, numbers before dates, dates before texts — and items that come out the same keep the order they had.
 /// </remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Sort", Description = "Puts a list's items in order.", Icon = UIGlyphs.Sorted, Color = UINodeKinds.AnyColor)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Sort", Description = "Puts a list's items in order.", Icon = UIGlyphs.Sorted, Color = UINodeKinds.ListColor)]
 public sealed class SortNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -187,7 +187,7 @@ public sealed class SortNode : IGraphNode
 /// <summary>
 /// A list the other way round, its last item first.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Reverse", Description = "Turns a list the other way round.", Icon = UIGlyphs.Sort, Color = UINodeKinds.AnyColor)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Reverse", Description = "Turns a list the other way round.", Icon = UIGlyphs.Sort, Color = UINodeKinds.ListColor)]
 public sealed class ReverseNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -217,7 +217,7 @@ public sealed class ReverseNode : IGraphNode
 /// A list with every item that repeats one before it left out, by the rule <see cref="EqualsNode"/> holds two values the same by;
 /// the first of each stays where it stood.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Distinct", Description = "Leaves out the items that repeat one before them.", Icon = UIGlyphs.Fingerprint, Color = UINodeKinds.AnyColor)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ListsCategory, Title = "Distinct", Description = "Leaves out the items that repeat one before them.", Icon = UIGlyphs.Fingerprint, Color = UINodeKinds.ListColor)]
 public sealed class DistinctNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>

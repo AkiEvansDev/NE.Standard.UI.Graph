@@ -18,14 +18,14 @@ internal sealed partial class CommonNodesController() : NodesSheetController(Can
     private static UINodeDocument StartingSheet()
     {
         UINode label = new("t-label", TextNode.NodeKey, 0, 0, values: Values(("Value", "Answer")));
-        UINode number = new("t-number", NumberNode.NodeKey, 0, 260, values: Values(("Value", 42)));
-        UINode join = new("t-join", JoinNode.NodeKey, 320, 0, values: Values(("Template", "{0} = {1}")));
-        UINode joined = new("t-joined", DisplayNode.NodeKey, 660, 0);
+        UINode number = new("t-number", NumberNode.NodeKey, 0, 256, values: Values(("Value", 42)));
+        UINode join = new("t-join", JoinNode.NodeKey, 352, 0, values: Values(("Template", "{0} = {1}")));
+        UINode joined = new("t-joined", DisplayNode.NodeKey, 672, 0);
 
-        UINode counter = new("c-counter", CounterNode.NodeKey, 0, 380, values: Values(("From", 1), ("To", 5)));
-        UINode counted = new("c-counted", DisplayNode.NodeKey, 320, 380);
+        UINode counter = new("c-counter", CounterNode.NodeKey, 0, 384, values: Values(("From", 1), ("To", 5)));
+        UINode counted = new("c-counted", DisplayNode.NodeKey, 352, 384);
 
-        UINode note = new("n-note", NoteNode.NodeKey, 0, 680, values: Values(("Text", "Run works the sheet out once. Run all goes round until the counter runs out: five runs, one number each.")));
+        UINode note = new("n-note", NoteNode.NodeKey, 0, 672, values: Values(("Text", "Run works the sheet out once. Run all goes round until the counter runs out: five runs, one number each.")));
 
         return new UINodeDocument(
             [label, number, join, joined, counter, counted, note],

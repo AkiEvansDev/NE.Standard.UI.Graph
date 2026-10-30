@@ -11,7 +11,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
 
     protected override string Route => BuildsRoute;
 
-    public override string Title => "planner.page.builds";
+    protected override string Header => "planner.page.builds";
 
     protected override string Description
         => "planner.page.builds.description";
@@ -36,8 +36,8 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
         => new ContainerComponent()
             .SetMargin(UIThickness.All(0, 0, 0, 16))
             .AddChild(new TabsViewComponent("planner-builds")
-                .BindItems(nameof(BuildsController.Builds))
-                .BindSelectedKey(nameof(BuildsController.SelectedKey))
+                .BindItems<BuildsController>(static c => c.Builds)
+                .BindSelectedKey<BuildsController>(static c => c.SelectedKey)
                 .SetRenamable(true)
                 .SetTabMenuEntries(UITabMenuEntries.Rename | UITabMenuEntries.Pin | UITabMenuEntries.Delete)
                 .OnItemRemoveWithItemKey(nameof(BuildsController.AskDelete))
@@ -48,9 +48,9 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
             )
             // Small, so each button is the strip's own height and its middle is the captions' middle, with no offset to keep in step.
             .AddChild(UILayout.Row(4,
-                    UIButtons.Ghost("planner.builds.new", MaterialIcons.Outlined(PlannerIcons.Add)).SetSize(UIButtonSize.Small).OnClick(nameof(BuildsController.AddBuild)),
-                    UIButtons.Ghost("planner.import", MaterialIcons.Outlined(PlannerIcons.Import)).SetSize(UIButtonSize.Small).OnClick(nameof(BuildsController.OpenImport)),
-                    UIButtons.Ghost("planner.export", MaterialIcons.Outlined(PlannerIcons.Export)).SetSize(UIButtonSize.Small).OnClick(nameof(BuildsController.ExportAsync))
+                    UIButtons.Ghost("planner.builds.new", MaterialIcons.Outlined(PlannerIcons.Add)).SetSize(UISize.Small).OnClick(nameof(BuildsController.AddBuild)),
+                    UIButtons.Ghost("planner.import", MaterialIcons.Outlined(PlannerIcons.Import)).SetSize(UISize.Small).OnClick(nameof(BuildsController.OpenImport)),
+                    UIButtons.Ghost("planner.export", MaterialIcons.Outlined(PlannerIcons.Export)).SetSize(UISize.Small).OnClick(nameof(BuildsController.ExportAsync))
                 )
                 .SetHorizontalAlignment(UIAlignment.End)
                 .SetVerticalAlignment(UIAlignment.Start)
@@ -67,7 +67,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                 )
             )
             .SetMargin(UIThickness.All(0, 0, 0, 16))
-            .BindVisibility(nameof(BuildsController.EmptyVisibility));
+            .BindVisibility<BuildsController>(static c => c.EmptyVisibility);
 
     /// <summary>
     /// The plan drawn: only what takes part, with its totals. Every edit is saved as it is made, so a target named in the panel is the
@@ -75,12 +75,12 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
     /// </summary>
     private static ProductionGraphComponent CreateGraph()
         => new ProductionGraphComponent("planner-plan")
-            .BindItems(nameof(BuildsController.Catalogue))
+            .BindItems<BuildsController>(static c => c.Catalogue)
             .SetMode(UIProductionMode.Plan)
-            .BindSheetName(nameof(BuildsController.OpenName))
+            .BindSheetName<BuildsController>(static c => c.OpenName)
             .SetAutoSave(true)
             .SetFormId(BuildsController.PlanForm)
-            .BindValue(nameof(BuildsController.Plan), mode: UIBindingMode.OnSubmit)
+            .BindValue<BuildsController>(static c => c.Plan, mode: UIBindingMode.OnSubmit)
             .OnSave(nameof(BuildsController.SaveGoals))
             .SetHeight(UILayoutLength.Fill());
 
@@ -91,7 +91,7 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
             {
                 Key = BuildsController.DeleteDialogKey,
                 Content = UILayout.Stack(12,
-                    UIText.Title("planner.build.delete.title").BindDescription(nameof(BuildsController.DeleteQuestion)),
+                    UIText.Title("planner.build.delete.title").BindDescription<BuildsController>(static c => c.DeleteQuestion),
                     UIButtons.Pair(
                         UIButtons.Ghost("planner.keep-it").OnClick(nameof(BuildsController.CloseDialog)),
                         UIButtons.Danger("planner.delete").OnClick(nameof(BuildsController.Delete))
@@ -107,14 +107,14 @@ internal sealed class BuildsView : GraphDemoView, IUIViewDefinition
                     new FileInputComponent()
                         .SetPlaceholder("planner.builds.import.file")
                         .SetAccept(PlannerFiles.BuildsAccept)
-                        .BindSelectionId(nameof(BuildsController.ImportSelection)),
+                        .BindSelectionId<BuildsController>(static c => c.ImportSelection),
                     new RadioGroupComponent()
                         .SetOptions(
                         [
                             new OptionItem { Id = BuildsController.MergeImport, Title = "planner.import.merge", Description = "planner.builds.import.merge" },
                             new OptionItem { Id = BuildsController.ReplaceImport, Title = "planner.import.replace", Description = "planner.builds.import.replace" }
                         ])
-                        .BindValue(nameof(BuildsController.ImportMode)),
+                        .BindValue<BuildsController>(static c => c.ImportMode),
                     UIButtons.Pair(
                         UIButtons.Ghost("planner.cancel").OnClick(nameof(BuildsController.CloseDialog)),
                         UIButtons.Primary("planner.import").OnClick(nameof(BuildsController.ImportAsync))

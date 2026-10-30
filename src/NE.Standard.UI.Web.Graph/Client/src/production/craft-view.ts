@@ -84,7 +84,7 @@ export function formatOutput(amount: number, unit: string | null, seconds: numbe
  * one so, else a thousands mark; a point is always the decimal point, as the server writes it.
  */
 export function parsePositive(value: string, decimalSeparator: string): number | null {
-    const bare = value.trim().replace("×", "").trim();
+    const bare = value.trim().replace("×", "").replace(/[\s\u00A0\u202F]/g, "");
     const read = Number(decimalSeparator === "," ? bare.replace(",", ".") : bare.replaceAll(",", ""));
 
     return Number.isFinite(read) && read > 0 ? read : null;

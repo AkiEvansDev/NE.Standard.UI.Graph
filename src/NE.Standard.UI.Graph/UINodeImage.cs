@@ -9,11 +9,11 @@ namespace NE.Standard.UI.Graph;
 /// <remarks>
 /// A display draws a text as a picture only when its pin's type says so — a picture's pin, or one an output of a picture feeds —
 /// never by what the text looks like. A record's field or a list's item has no pin of its own, so a value there says so itself by
-/// being one of these. It travels as <c>{ "$picture": address, "width": …, "height": … }</c>.
+/// being one of these. It travels as <c>{ "$image": address, "width": …, "height": … }</c>.
 /// </remarks>
-[JsonConverter(typeof(UINodePictureJsonConverter))]
-public sealed record UINodePicture(string Address, double? Width = null, double? Height = null)
+[JsonConverter(typeof(UINodeImageJsonConverter))]
+public sealed record UINodeImage(string Address, double? Width = null, double? Height = null)
 {
     /// <summary>The key a picture's address travels under; a property of a class written as JSON never takes it.</summary>
-    public const string WireKey = "$picture";
+    public const string WireKey = "$image";
 }

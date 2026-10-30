@@ -205,7 +205,7 @@ internal sealed partial class ResourcesController : UIControllerBase
         if (Selected() is not ResourceRecord resource)
             return;
 
-        var name = string.IsNullOrWhiteSpace(Name) ? resource.Name : Name.Trim();
+        var name = string.IsNullOrWhiteSpace(Name) ? resource.Name : PlannerFiles.Clip(Name);
         var icon = string.IsNullOrEmpty(Icon) ? PlannerCatalogue.DefaultIcon : Icon;
         var output = (int)Math.Clamp(Output ?? resource.Output, 1, MaxAmount);
         var seconds = Math.Clamp(Seconds is { } typed && typed > 0 ? (double)typed : resource.Seconds, 0.1, MaxSeconds);
@@ -233,7 +233,7 @@ internal sealed partial class ResourcesController : UIControllerBase
         UICommandResult answer = UICommandResult.Ok();
 
         // In the runtime's turn: past its first wait the command runs beside the tab, whose values write these members too.
-        _ = await Context.Runtime.InvokeAsync(() => answer = TakePicture(id, content, error), cancellationToken).ConfigureAwait(false);
+        await Context.Runtime.InvokeAsync(() => answer = TakePicture(id, content, error), cancellationToken).ConfigureAwait(false);
 
         return answer;
     }

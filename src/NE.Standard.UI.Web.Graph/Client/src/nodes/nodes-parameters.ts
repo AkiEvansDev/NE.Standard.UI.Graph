@@ -57,7 +57,7 @@ export class NodesParameters {
     private readonly fields = new Map<string, { field: HTMLElement; found: Found }>();
     private readonly rows = new Map<string, HTMLElement>();
     // The columns this canvas listens on: a column drawn again is a new element, and needs its listener anew.
-    private readonly heard = new WeakSet<HTMLElement>();
+    private readonly panelCleanups = new Map<HTMLElement, () => void>();
 
     public constructor(services: CanvasServices<GraphDocument>, host: NodesParametersHost) {
         this.services = services;
@@ -94,7 +94,7 @@ export class NodesParameters {
 
     /** An input set out as a parameter, or taken back: the viewer's edit, undone like any other. */
     public toggle(nodeId: string, pinName: string): void {
-        if (this.services.settings.readOnly)
+        if (this.services.settings.readOnly || this.services.context.states.isInert(this.services.root))
             return;
 
         if (!dropParameter(this.document, nodeId, pinName)) {
@@ -121,7 +121,9 @@ export class NodesParameters {
      * canvas drawn in its place, which listens on it too.
      */
     private press(panel: HTMLElement, target: Element): void {
-        if (!this.services.root.isConnected)
+        const states = this.services.context.states;
+
+        if (!this.services.root.isConnected || states.isInert(this.services.root) || states.isInert(panel))
             return;
 
         const removed = target.closest<HTMLElement>(`[${RemoveAttribute}]`);
@@ -193,14 +195,23 @@ export class NodesParameters {
 
     /** Hears the column's presses, once per column element. */
     private listen(panel: HTMLElement): void {
-        if (this.heard.has(panel))
+        if (this.panelCleanups.has(panel))
             return;
 
-        this.heard.add(panel);
-        panel.addEventListener("click", event => {
+        const onClick = (event: Event): void => {
             if (event.target instanceof Element)
                 this.press(panel, event.target);
-        });
+        };
+
+        panel.addEventListener("click", onClick);
+        this.panelCleanups.set(panel, () => panel.removeEventListener("click", onClick));
+    }
+
+    public dispose(): void {
+        for (const cleanup of this.panelCleanups.values())
+            cleanup();
+
+        this.panelCleanups.clear();
     }
 
     /** Where in the rows the focus stands, if it does: the row's input and the part of the row. */
@@ -304,7 +315,11 @@ export class NodesParameters {
             if (readOnly)
                 properties.set(field, "IsReadOnly", true);
             else
-                field.addEventListener("change", () => this.host.setValue(entry.node.id, entry.pin.name, this.host.readValue(entry.pin, field)));
+                field.addEventListener("change", () => {
+                    // A value the field's own rules refuse stays the field's, as on the node.
+                    if (!this.services.settings.readOnly && !context.states.isInert(this.services.root) && !context.states.isInert(field) && !context.values.isRefused(field))
+                        this.host.setValue(entry.node.id, entry.pin.name, this.host.readValue(entry.pin, field));
+                });
 
             this.fields.set(`${entry.node.id}\n${entry.pin.name}`, { field, found: entry });
             row.append(field);
@@ -314,6 +329,9 @@ export class NodesParameters {
             remove.setAttribute(RemoveAttribute, "");
             remove.setAttribute(NodeAttribute, entry.node.id);
             remove.setAttribute(PinAttribute, entry.pin.name);
+            // Named by its row, as every row carries one.
+            context.strings.write(remove, "aria-label", "ui.graph.remove-parameter-of", { pin: entry.pin.title, node: this.nameOf(entry) });
+
             context.properties.set(remove, "Enabled", !readOnly);
             row.append(remove);
         }

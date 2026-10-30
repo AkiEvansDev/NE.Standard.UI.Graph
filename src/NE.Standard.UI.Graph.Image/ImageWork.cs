@@ -21,16 +21,16 @@ internal static class ImageWork
     public static async ValueTask<UINodeImageFile> ReadFileAsync(UINodeRunContext context, string? address, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(address))
-            throw new InvalidOperationException("No picture reached the node.");
+            throw new UINodeFailureException("No picture reached the node.");
 
         return await StoreOf(context).ReadAsync(address, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"The image store holds no picture at {address}.");
+            ?? throw new UINodeFailureException($"The image store holds no picture at {address}.");
     }
 
     /// <summary>The store the run was handed; a run without one is a host that forgot to register it.</summary>
     public static IUINodeImageStore StoreOf(UINodeRunContext context)
         => context.Services?.GetService(typeof(IUINodeImageStore)) as IUINodeImageStore
-        ?? throw new InvalidOperationException("No image store: register one (services.AddGraphImages(), or an IUINodeImageStore of the application's own) and hand the runner the services.");
+        ?? throw new UINodeFailureException("No image store: register one (services.AddGraphImages(), or an IUINodeImageStore of the application's own) and hand the runner the services.");
 
     /// <summary>Reads the picture, makes a new one of it, and keeps that in the old one's format; answers the new one's address.</summary>
     public static ValueTask<string> TransformAsync(UINodeRunContext context, string? address, Func<SKBitmap, SKBitmap> transform, CancellationToken cancellationToken)
@@ -54,10 +54,19 @@ internal static class ImageWork
         using (await limits.EnterAsync(cancellationToken).ConfigureAwait(false))
         using (SKCodec codec = OpenCodec(file))
         using (SKBitmap source = Decode(codec, limits.MaxPixels, share))
-        using (SKBitmap result = transform(source))
         {
-            read = codec.EncodedFormat;
-            encoded = Encode(result, format ?? read, quality);
+            SKBitmap result = transform(source);
+
+            try
+            {
+                read = codec.EncodedFormat;
+                encoded = Encode(result, format ?? read, quality);
+            }
+            finally
+            {
+                if (!ReferenceEquals(result, source))
+                    result.Dispose();
+            }
         }
 
         using (encoded)
@@ -70,6 +79,7 @@ internal static class ImageWork
 
     /// <summary>A decoder over one file; a file that is not a picture SkiaSharp reads says so.</summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "The codec takes the stream over and closes it with itself.")]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "SkiaSharp returns null when SKCodec.Create cannot recognize the bytes despite its non-nullable annotation.")]
     public static SKCodec OpenCodec(UINodeImageFile file)
     {
         ArgumentNullException.ThrowIfNull(file);
@@ -79,12 +89,22 @@ internal static class ImageWork
             ? kept.Array
             : file.Bytes.ToArray();
 
-        // SkiaSharp answers a file it cannot read with a result, whatever its annotations say of the codec.
-        SKCodec codec = SKCodec.Create(new SKMemoryStream(bytes), out SKCodecResult result);
+        SKMemoryStream stream = new(bytes);
+        SKCodec? codec = SKCodec.Create(stream, out SKCodecResult result);
 
-        return result == SKCodecResult.Success
-            ? codec
-            : throw new InvalidOperationException($"The file is not a picture this node can read ({result}).");
+        if (codec is null)
+        {
+            stream.Dispose();
+            throw new UINodeFailureException($"The file is not a picture this node can read ({result}).");
+        }
+
+        if (result != SKCodecResult.Success)
+        {
+            codec.Dispose();
+            throw new UINodeFailureException($"The file is not a picture this node can read ({result}).");
+        }
+
+        return codec;
     }
 
     /// <summary>
@@ -104,11 +124,11 @@ internal static class ImageWork
         SKSizeI size = DecodedSize(codec, sideways, share);
 
         if ((long)size.Width * size.Height > maxPixels)
-            throw new InvalidOperationException($"The picture is {codec.Info.Width} by {codec.Info.Height}: more pixels than a picture kind decodes ({maxPixels:N0}).");
+            throw new UINodeFailureException($"The picture is {codec.Info.Width} by {codec.Info.Height}: more pixels than a picture kind decodes ({maxPixels:N0}).");
 
         // Four bytes a pixel whatever the file holds, which is what the pixel cap counts on.
         SKImageInfo info = new(size.Width, size.Height, SKImageInfo.PlatformColorType, codec.Info.AlphaType == SKAlphaType.Opaque ? SKAlphaType.Opaque : SKAlphaType.Premul);
-        SKBitmap decoded = SKBitmap.Decode(codec, info) ?? throw new InvalidOperationException("The picture could not be decoded.");
+        SKBitmap decoded = SKBitmap.Decode(codec, info) ?? throw new UINodeFailureException("The picture could not be decoded.");
 
         if (origin is SKEncodedOrigin.TopLeft or 0)
             return Settled(decoded);
@@ -190,7 +210,7 @@ internal static class ImageWork
             canvas.DrawColor(SKColors.White, SKBlendMode.DstOver);
         }
 
-        return bitmap.Encode(written, Math.Clamp(quality, 1, 100)) ?? throw new InvalidOperationException("The picture could not be encoded.");
+        return bitmap.Encode(written, Math.Clamp(quality, 1, 100)) ?? throw new UINodeFailureException("The picture could not be encoded.");
     }
 
     /// <summary>The format a picture is written in: SkiaSharp writes PNG, JPEG and WebP, so a GIF or a BMP read goes out as PNG.</summary>

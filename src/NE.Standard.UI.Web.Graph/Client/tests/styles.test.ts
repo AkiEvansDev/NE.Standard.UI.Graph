@@ -1,5 +1,5 @@
-// Read back from the compiled stylesheet: Run on the node canvas's run panel speaks in the theme's primary ink, which reads on the
-// panel in both themes, and on a phone the map is a smaller box at the zoom bar's end, the corner it stands in counting it so; a
+// Read back from the compiled stylesheet: Run on the node canvas's run panel speaks in the theme's primary colour, and on a phone
+// the map is a smaller box at the zoom bar's end, the corner it stands in counting it so; a
 // chosen node wears a ring and a glow off its own edge, and a node's corners, its head's and its ring's are the canvas's own.
 
 import assert from "node:assert/strict";
@@ -12,7 +12,7 @@ import less from "less";
 const source = resolve(dirname(fileURLToPath(import.meta.url)), "../src/styles/ui-graph.less");
 const css = (await less.render(readFileSync(source, "utf8"), { filename: source })).css;
 
-test("Run speaks in the theme's primary ink, not the brand's fill", () => {
+test("Run speaks in the theme's primary ink", () => {
     const run = /\.ui-graph__run-panel > \[data-ui-graph-run-once\]:not\(\[aria-disabled='true'\]\) \{([^}]*)\}/.exec(css)?.[1] ?? "";
 
     assert.match(run, /color: var\(--ui-color-primary-ink\);/);
@@ -116,9 +116,9 @@ test("a chosen node's ring is 1px, 2px off its edge whatever the edge's width, u
     assert.match(node, /isolation: isolate;/);
     assert.match(ring, /inset: calc\(-1 \* \(var\(--ui-graph-node-border\) \+ var\(--ui-graph-node-chosen-gap\) \+ 1px\)\);/);
     assert.match(ring, /z-index: -1;/);
-    assert.match(ring, /border: 1px solid var\(--ui-mark-selected-fill\);/);
+    assert.match(ring, /border: 1px solid var\(--ui-mark-selected\);/);
     assert.match(ring, /border-radius: min\(var\(--ui-graph-node-radius-tl\) \* 1000, var\(--ui-graph-node-radius-tl\) \+ var\(--ui-graph-node-chosen-gap\) \+ 1px\) /);
-    assert.match(ring, /box-shadow: 0 0 10px 0 color-mix\(in srgb, var\(--ui-mark-selected-fill\) 55%, transparent\);/);
+    assert.match(ring, /box-shadow: 0 0 10px 0 color-mix\(in srgb, var\(--ui-mark-selected\) 55%, transparent\);/);
     assert.match(ring, /pointer-events: none;/);
     // Raised within the node layer's own stack, never over the marquee or a caption's field beside it.
     assert.match(rule(".ui-graph__nodes"), /isolation: isolate;/);
@@ -200,7 +200,7 @@ test("a node's corners are the canvas's NodeCornerRadius a corner each, and its 
 });
 
 test("a group's frame takes the node canvas's corners a corner each, else the card's, and its halo and band round nothing of their own", () => {
-    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
     const corners = ["tl", "tr", "br", "bl"].map(corner => `var(--ui-graph-node-corner-${corner}, var(--ui-radius-card))`).join(" ");
 
     assert.ok(rules(".ui-graph__group").includes(`border-radius: ${corners};`), rules(".ui-graph__group"));
@@ -210,7 +210,7 @@ test("a group's frame takes the node canvas's corners a corner each, else the ca
 });
 
 test("a node's and a group's frame's resize corner are one rule of the canvas's, kept in forced colours", () => {
-    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
 
     assert.match(rules(".ui-graph__resize"), /position: absolute;\s*right: -0\.25rem;\s*bottom: -0\.25rem;\s*width: 1\.125rem;\s*height: 1\.125rem;\s*cursor: nwse-resize;/);
     assert.doesNotMatch(css, /node-resize|group-resize/);
@@ -241,7 +241,44 @@ test("one value per meaning: out of play, the glass over the canvas, the chosen 
     one([".ui-graph__node-head", ".ui-graph__node--compact", ".ui-graph__bubble-face"].map(selector => share(selector, /background: ([^;]+);/)));
 
     // The marquee is a faint brand tint, not the chosen wash (a grey block on the dark theme); a swatch's ring the core colour input's edge; the caption's chip a focused field's edge.
-    assert.match(bodies(".ui-graph__marquee"), /background: color-mix\(in srgb, var\(--ui-mark-selected-fill\) 10%, transparent\);/);
+    assert.match(bodies(".ui-graph__marquee"), /background: color-mix\(in srgb, var\(--ui-mark-selected\) 10%, transparent\);/);
     assert.match(bodies(".ui-graph .ui-menu-item[data-ui-graph-swatch]::before"), /border: var\(--ui-border-width\) solid var\(--ui-color-border\);/);
-    assert.match(bodies(".ui-graph__caption-edit"), /border-color: var\(--ui-mark-field\);\s*box-shadow: inset 0 0 0 var\(--ui-input-focus-ring, 1px\) var\(--ui-mark-field\);/);
+    assert.match(bodies(".ui-graph__caption-edit"), /border-color: var\(--ui-mark-field\);\s*box-shadow: 0 0 0 var\(--ui-input-focus-ring, 2px\) color-mix\(in srgb, var\(--ui-mark-field\) 28%, transparent\);/);
+});
+
+test("an empty list draws no rows, and the canvas's heavier words take the theme's title weight", () => {
+    assert.match(css, /\.ui-graph__list-rows\[hidden\] \{\s*display: none;\s*\}/);
+    assert.doesNotMatch(css, /font-weight: 600;/);
+});
+
+test("the grid is two steps, minor lines fading out below zoom 0.4 down to 0.16 and major lines every four cells, drawn crisp once live", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const grid = rules(".ui-graph__grid");
+
+    assert.match(grid, /--ui-graph-grid-major: calc\(4 \* var\(--ui-graph-grid-step\)\);/);
+    assert.match(grid, /--ui-graph-grid-minor-ink: color-mix\(in srgb, var\(--ui-color-border\) calc\(40% \* clamp\(0, calc\(\(var\(--ui-graph-zoom\) - 0\.16\) \/ 0\.24\), 1\)\), transparent\);/);
+    assert.match(grid, /--ui-graph-grid-major-ink: color-mix\(in srgb, var\(--ui-color-border\) calc\(76% \* clamp\(0\.4, calc\(var\(--ui-graph-zoom\) \/ 0\.4\), 1\)\), transparent\);/);
+    assert.match(rules(".ui-graph__grid[data-ui-graph-grid-drawn]"), /background-image: none;/);
+    assert.match(rules(".ui-graph__grid-minor,\n.ui-graph__grid-major"), /shape-rendering: crispEdges;/);
+    assert.match(rules(".ui-graph__grid-minor"), /stroke: var\(--ui-graph-grid-minor-ink\);/);
+    assert.match(rules(".ui-graph__grid-major"), /stroke: var\(--ui-graph-grid-major-ink\);/);
+});
+
+test("the log's clear button stands in the open log's top-right corner so the status text in the head never shifts", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+
+    assert.match(rules(".ui-graph__log-clear"), /position: absolute;\s*right: 0\.25rem;\s*bottom: calc\(var\(--ui-graph-log-height\) - var\(--ui-border-width\) - 1\.75rem - 0\.25rem\);\s*z-index: 1;/);
+    assert.match(rules(".ui-graph__log-entries"), /padding: 0\.25rem 2\.25rem 0\.25rem 0;/);
+});
+
+test("the picker's current entry and the plan's target names and rows wash with the pointer and keyboard rather than brand ink", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+
+    assert.match(rules(".ui-graph__picker-entry--current"), /background-color: var\(--ui-wash-hover\);\s*color: var\(--ui-color-on-surface\);/);
+    assert.match(rules(".ui-graph__picker-entry:active"), /background-color: var\(--ui-wash-active\);/);
+    assert.doesNotMatch(rules(".ui-graph__plan-name"), /--ui-color-primary-ink/);
+    assert.match(rules(".ui-graph__plan-target > .ui-graph__plan-name:hover"), /background-color: var\(--ui-wash-hover\);/);
+    assert.match(rules(".ui-graph__plan-table tbody tr:hover"), /background-color: var\(--ui-wash-hover\);/);
+    assert.match(rules(".ui-graph__plan-table tbody tr[data-ui-focus-within='keyboard']"), /background-color: var\(--ui-wash-hover\);/);
+    assert.match(rules(".ui-graph__plan-table tbody tr:active"), /background-color: var\(--ui-wash-active\);/);
 });

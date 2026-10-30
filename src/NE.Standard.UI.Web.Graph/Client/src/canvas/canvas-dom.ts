@@ -1,7 +1,7 @@
 // The names the renderer and the canvas meet on, and the framework's that the plugin surface's `names` lacks, spelled once here
 // (GraphClientNamesSyncTests holds both sides).
 
-import type { PluginEngineContext, Tooltips } from "ne-standard-ui";
+import type { DomNames, PluginEngineContext, Tooltips } from "ne-standard-ui";
 
 export const RootSelector = ".ui-graph";
 /** On the root: which kind of canvas the renderer wrote, and so which kind the engine draws it with. */
@@ -38,34 +38,18 @@ export const MenuPanelAttribute = "data-ui-graph-menu-panel";
 /** On a panel of the kind's that takes a column of the viewport's trailing side while it is open — a folding control of the framework's. */
 export const SideAttribute = "data-ui-graph-side";
 
-/** The framework's names the canvas reads that the plugin surface's `names` does not carry. */
-export const CoreNames = {
-    menuOpeningEvent: "ui-context-menu-opening",
-    collapsed: "data-ui-collapsed",
-    collapseToggle: "data-ui-collapse-toggle",
-    menuItemValueClass: "ui-menu-item__value",
-    pictureSelectionClass: "ui-image-input__selection",
-    pictureTextClass: "ui-image-input__text",
-    textInputActionClass: "ui-text-input__action",
-    badgeClass: "ui-badge",
-    badgeTextClass: "ui-badge__text",
-    badgeText: "data-ui-badge-text",
-    badgeDangerClass: "ui-badge-style--danger",
-    badgeWarningClass: "ui-badge-style--warning",
-    badgeSurfaceClass: "ui-badge-style--surface"
-} as const;
-
-/** On a folding control of the framework's — a side panel — while it stands folded; not an item's own fold. */
-export const FoldedControlAttribute = CoreNames.collapsed;
-
 /**
  * What stands over the sheet's top edge — the corner menu's panel, open or folded, a folded side panel, a node canvas's run line and
  * run panel — and a fit keeps the sheet clear of; an open side panel takes its column instead.
  */
-export const TopChromeSelector = `[${MenuPanelAttribute}], [${SideAttribute}][${FoldedControlAttribute}], [data-ui-graph-run], .ui-graph__run-panel`;
+export function topChromeSelector(names: Pick<DomNames, "collapsed">): string {
+    return `[${MenuPanelAttribute}], [${SideAttribute}][${names.collapsed}], [data-ui-graph-run], .ui-graph__run-panel`;
+}
 
 /** The canvas's own buttons over the sheet — the zoom bar, the run panel, the corner menu's and side panels' switches, the log's strip. */
-export const ChromeButtonSelector = `.ui-graph__bar-button, :is([${MenuPanelAttribute}], [${SideAttribute}]) > [${CoreNames.collapseToggle}], .ui-graph__log-head > button`;
+export function chromeButtonSelector(names: Pick<DomNames, "collapseToggle">): string {
+    return `.ui-graph__bar-button, :is([${MenuPanelAttribute}], [${SideAttribute}]) > [${names.collapseToggle}], .ui-graph__log-head > button`;
+}
 
 /** What a double click on the sheet asks for: a reroute point on an edge, a node's rename, or the kind's own on the bare sheet. */
 export type DoubleClickAim = { readonly to: "reroute" | "rename"; readonly id: string } | { readonly to: "sheet" } | null;
@@ -161,9 +145,13 @@ export function hoverTooltip(element: HTMLElement, words: string, tooltips: Tool
  * on to the sheet, which holds it on a canvas: the root gives up its tab stop as it loses the focus, so it is no place for the
  * node bar's Escape to bring the keyboard back to.
  */
-export function passRootFocusToSheet(root: HTMLElement, viewport: HTMLElement): void {
-    root.addEventListener("focusin", event => {
+export function passRootFocusToSheet(root: HTMLElement, viewport: HTMLElement): () => void {
+    const onFocusIn = (event: Event): void => {
         if (event.target === root)
             viewport.focus({ preventScroll: true });
-    });
+    };
+
+    root.addEventListener("focusin", onFocusIn);
+
+    return () => root.removeEventListener("focusin", onFocusIn);
 }

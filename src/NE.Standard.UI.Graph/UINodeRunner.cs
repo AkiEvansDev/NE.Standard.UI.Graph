@@ -6,18 +6,26 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
 
 /// <summary>Runs a saved document in connection order, filling each node's inputs from the outputs feeding it.</summary>
 /// <remarks>Values stay the developer's typed properties throughout.</remarks>
-public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? services = null)
+public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider? services = null)
 {
+    /// <summary>The most nodes one run takes unless the caller says otherwise.</summary>
+    public const int DefaultMaxNodes = 2_000;
+
+    /// <summary>The most characters a node's text output holds unless the caller says otherwise.</summary>
+    public const int DefaultMaxTextLength = 1_000_000;
+
     private static readonly ConcurrentDictionary<Type, bool> AlwaysRunsByType = new();
 
     private readonly UINodeCatalog _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IServiceProvider? _services = services;
+    private readonly ILogger? _logger = (services?.GetService(typeof(ILoggerFactory)) as ILoggerFactory)?.CreateLogger<UINodeRunner>();
 
     /// <summary>Called as a node's state changes: before it runs, while it reports, and when done or failed.</summary>
     /// <remarks>
@@ -67,6 +75,23 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     public Func<int, ValueTask>? OnRunStarting { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the viewer reads an unforeseen exception's own message, as the application's
+    /// <c>IncludeExceptionDetail</c> says for a command; off, only its type, and the whole of it goes to the server's log.
+    /// </summary>
+    /// <remarks>A <see cref="UINodeFailureException"/> is a node's own word, read as written either way.</remarks>
+    public bool IncludeExceptionDetail { get; set; }
+
+    /// <summary>Gets or sets the most nodes a run takes; a document with more is refused whole, before any node runs.</summary>
+    /// <remarks>The document may be the browser's, on a page anyone viewing drives.</remarks>
+    public int MaxNodes { get; set; } = DefaultMaxNodes;
+
+    /// <summary>
+    /// Gets or sets the most characters a node's text output holds; a node whose text comes to more fails, and the text kinds stop
+    /// before they make it (<see cref="UINodeRunContext.MaxTextLength"/>).
+    /// </summary>
+    public int MaxTextLength { get; set; } = DefaultMaxTextLength;
+
+    /// <summary>
     /// Runs the document again and again, each run from the state the last one left, until its sequence node
     /// (<see cref="IGraphNodeSequence"/>) runs out or <paramref name="maxRuns"/> is reached.
     /// </summary>
@@ -107,6 +132,9 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     public async Task<UINodeRunResult> RunAsync(UINodeDocument document, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(document);
+
+        if (document.Nodes.Length > MaxNodes)
+            return UINodeRunResult.Refused(UIPhrase.Of(UIGraphWords.RunTooManyNodes, ("max", MaxNodes)));
 
         UINodeNetwork network = WithoutPassive(_catalog.Materialize(document));
 
@@ -151,7 +179,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
                 continue;
             }
 
-            UINodeRunContext context = new(node.Id, node.Type, OnStatus, OnLog, _services);
+            UINodeRunContext context = new(node.Id, node.Type, OnStatus, OnLog, _services, MaxTextLength);
             UIPhrase? failure;
 
             try
@@ -177,7 +205,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
                 _ = state.Remove(node.Id);
                 ForgetAbove(node, incoming);
                 await context.FlushAsync().ConfigureAwait(false);
-                failure = UINodeRunContext.Said(exception.Message) ?? UIPhrase.Text(exception.GetType().Name);
+                failure = FailureOf(node, exception);
             }
 
             if (failure is not null)
@@ -227,8 +255,12 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     /// </remarks>
     private async ValueTask<UIPhrase?> RunNodeAsync(UINodeInstance node, List<UINodeConnection>? edges, UINodeRunContext context, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs, Dictionary<string, IReadOnlyDictionary<string, object?>> state, List<bool> sequences, CancellationToken cancellationToken)
     {
-        if (edges is not null)
-            Feed(node, edges, outputs);
+        HashSet<string>? fed = edges is null ? null : Feed(node, edges, outputs);
+
+        // A value of the document's own held outside its pin's bounds, refused in words as a missing one is — unless an edge replaced
+        // it, since the node reads the edge's.
+        if (RefusedValue(node, fed) is { } refused)
+            return refused;
 
         if (MissingRequired(node, edges) is { } missing)
             return missing;
@@ -253,6 +285,9 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         await context.FlushAsync().ConfigureAwait(false);
 
         Dictionary<string, object?> produced = ReadOutputs(node);
+
+        if (TooLong(node, produced) is { } tooLong)
+            return tooLong;
         Dictionary<string, object?>? changed = kept is null ? null : ChangedState(node, kept);
         bool? more = node.Node is IGraphNodeSequence sequence ? sequence.HasMore : null;
         List<KeyValuePair<string, object?>> displays = await ReportDisplaysAsync(node).ConfigureAwait(false);
@@ -273,6 +308,48 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         await ReportStatusAsync(node.Id, UINodeState.Done, null, null).ConfigureAwait(false);
 
         return null;
+    }
+
+    /// <summary>The failure of the first text output longer than <see cref="MaxTextLength"/>, or nothing.</summary>
+    private UIPhrase? TooLong(UINodeInstance node, Dictionary<string, object?> produced)
+    {
+        foreach ((var pinName, var value) in produced)
+        {
+            if (value is string text && text.Length > MaxTextLength)
+                return UIPhrase.Of(UIGraphWords.RunTooLong, ("pin", OutputTitle(node, pinName)));
+        }
+
+        return null;
+    }
+
+    /// <summary>An output's title as the catalogue gives it, or its name.</summary>
+    private string OutputTitle(UINodeInstance node, string pinName)
+    {
+        if (_catalog.TryGetType(node.Type, out UINodeType type))
+        {
+            foreach (UINodePin pin in type.Outputs)
+            {
+                if (string.Equals(pin.Name, pinName, StringComparison.Ordinal))
+                    return pin.Title;
+            }
+        }
+
+        return pinName;
+    }
+
+    /// <summary>
+    /// What the viewer reads of a node's exception: a deliberate failure's own words; any other's type alone, unless the runner shows
+    /// detail — its message may name a server's path or host — with the whole of it in the server's log.
+    /// </summary>
+    private UIPhrase FailureOf(UINodeInstance node, Exception exception)
+    {
+        if (exception is UINodeFailureException)
+            return UINodeRunContext.Said(exception.Message) ?? UIPhrase.Text(exception.GetType().Name);
+
+        if (_logger is not null)
+            Log.NodeFailed(_logger, exception, node.Type, node.Id);
+
+        return (IncludeExceptionDetail ? UINodeRunContext.Said(exception.Message) : null) ?? UIPhrase.Text(exception.GetType().Name);
     }
 
     /// <summary>The network without the nodes a run passes over: no work to do, and no pin to feed or be read.</summary>
@@ -441,12 +518,16 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
     private ValueTask ReportRunAsync(int completed, int total)
         => OnRunProgress is null ? ValueTask.CompletedTask : OnRunProgress(completed, total);
 
-    /// <summary>Puts what feeds a node's input pins onto its properties, coerced into the types the class declares.</summary>
-    private void Feed(UINodeInstance node, List<UINodeConnection> edges, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs)
+    /// <summary>
+    /// Puts what feeds a node's input pins onto its properties, coerced into the types the class declares, and answers the pins an edge
+    /// replaced the node's own value of; a pin that takes several keeps its typed values beside the connected ones, so it is none of them.
+    /// </summary>
+    private HashSet<string> Feed(UINodeInstance node, List<UINodeConnection> edges, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs)
     {
         UINodeType? type = _catalog.TryGetType(node.Type, out UINodeType found) ? found : null;
         // A pin that takes several gathers them and is written once, in the edges' own order; every other takes the one edge.
         Dictionary<string, List<object?>> gathered = new(StringComparer.Ordinal);
+        HashSet<string> replaced = new(StringComparer.Ordinal);
 
         foreach (UINodeConnection edge in edges)
         {
@@ -463,6 +544,7 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
             if (!pin!.Multiple)
             {
                 UINodeProperties.Set(target, node.Node, value);
+                _ = replaced.Add(edge.ToPin);
                 continue;
             }
 
@@ -488,6 +570,8 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
 
             UINodeProperties.Set(target, node.Node, UINodeProperties.Collect(target.PropertyType, pin.Value));
         }
+
+        return replaced;
     }
 
     private static UINodePin? FindInput(UINodeType? type, string pinName)
@@ -499,6 +583,18 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
         {
             if (string.Equals(pin.Name, pinName, StringComparison.Ordinal))
                 return pin;
+        }
+
+        return null;
+    }
+
+    /// <summary>The refusal of the first of the document's values held outside its input's bounds that no edge replaced, or nothing.</summary>
+    private static UIPhrase? RefusedValue(UINodeInstance node, HashSet<string>? fed)
+    {
+        foreach (KeyValuePair<string, UIPhrase> refused in node.RefusedInputs)
+        {
+            if (fed is null || !fed.Contains(refused.Key))
+                return refused.Value;
         }
 
         return null;
@@ -732,6 +828,12 @@ public sealed class UINodeRunner(UINodeCatalog catalog, IServiceProvider? servic
                 await OnState(nodeId, pinName, value).ConfigureAwait(false);
         }
     }
+
+    private static partial class Log
+    {
+        [LoggerMessage(Level = LogLevel.Warning, Message = "A node of the kind {Kind} ({NodeId}) failed unforeseen; the viewer reads only the exception's type.")]
+        public static partial void NodeFailed(ILogger logger, Exception exception, string kind, string nodeId);
+    }
 }
 
 /// <summary>
@@ -744,8 +846,9 @@ public sealed record UINodeFailure(string NodeId, UIPhrase Error);
 /// </summary>
 public sealed class UINodeRunResult
 {
-    private UINodeRunResult(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore)
+    private UINodeRunResult(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore, UIPhrase? refusal = null)
     {
+        Refusal = refusal;
         Outputs = outputs;
         Failures = failures;
         Skipped = skipped;
@@ -756,7 +859,13 @@ public sealed class UINodeRunResult
     /// <summary>
     /// Gets whether every node ran.
     /// </summary>
-    public bool Success => Failures.Count == 0;
+    public bool Success => Failures.Count == 0 && Refusal is null;
+
+    /// <summary>
+    /// Gets why the run was refused whole before any node ran — a document past the runner's <see cref="UINodeRunner.MaxNodes"/> —
+    /// or nothing.
+    /// </summary>
+    public UIPhrase? Refusal { get; }
 
     /// <summary>
     /// Gets the outputs of every node that ran, by node id and then by pin name.
@@ -789,9 +898,9 @@ public sealed class UINodeRunResult
     public string? FailedNodeId => Failures.Count == 0 ? null : Failures[0].NodeId;
 
     /// <summary>
-    /// Gets what went wrong on <see cref="FailedNodeId"/>.
+    /// Gets what went wrong on <see cref="FailedNodeId"/>, or why the run was refused (<see cref="Refusal"/>).
     /// </summary>
-    public UIPhrase? Error => Failures.Count == 0 ? null : Failures[0].Error;
+    public UIPhrase? Error => Failures.Count == 0 ? Refusal : Failures[0].Error;
 
     /// <summary>
     /// The value one node's output pin came to.
@@ -823,6 +932,9 @@ public sealed class UINodeRunResult
 
     internal static UINodeRunResult Completed(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore)
         => new(outputs, [], [], state, hasMore);
+
+    internal static UINodeRunResult Refused(UIPhrase refusal)
+        => new(new Dictionary<string, IReadOnlyDictionary<string, object?>>(StringComparer.Ordinal), [], [], new Dictionary<string, IReadOnlyDictionary<string, object?>>(StringComparer.Ordinal), hasMore: false, refusal);
 
     internal static UINodeRunResult Stopped(IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyList<UINodeFailure> failures, IReadOnlyList<string> skipped, IReadOnlyDictionary<string, IReadOnlyDictionary<string, object?>> state, bool hasMore)
         => new(outputs, failures, skipped, state, hasMore);

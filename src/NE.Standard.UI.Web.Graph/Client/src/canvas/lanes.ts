@@ -99,13 +99,34 @@ function gapsOf(bent: readonly LaneLeg[], spacing: number, margin: number): Gap[
 }
 
 /**
- * Whether two sets' uprights would come within a lane of each other: they stand level somewhere, they share a run to be set apart
- * in, and their lanes would turn that close.
+ * Whether two sets' uprights would come within a lane of each other: they stand level somewhere (unless one only leaves that level
+ * and the other only arrives at it from the other side), they share a run to be set apart in, and their lanes would turn that close.
  */
 function meet(one: Gap, other: Gap, spacing: number): boolean {
     return one.top <= other.bottom + spacing && other.top <= one.bottom + spacing
+        && !passesBy(one, other)
         && Math.max(one.low, other.low) < Math.min(one.high, other.high)
         && one.from < other.to + spacing && other.from < one.to + spacing;
+}
+
+/**
+ * Whether two sets only kiss at one level, one leaving that level up or down and the other arriving at it from the other side:
+ * one's flat run lies before the turn and its upright on one side of the level, the other's upright on the other side and its flat
+ * run after the turn, so they can share the middle of the gap without a single shared segment.
+ */
+function passesBy(one: Gap, other: Gap): boolean {
+    if (one.legs.length !== 1 || other.legs.length !== 1)
+        return false;
+
+    const first = one.legs[0];
+    const second = other.legs[0];
+    const seam = Math.abs(one.bottom - other.top) < 0.5 ? one.bottom : Math.abs(other.bottom - one.top) < 0.5 ? other.bottom : null;
+
+    if (seam === null)
+        return false;
+
+    return (Math.abs(first.from.across - seam) < 0.5 && Math.abs(second.to.across - seam) < 0.5)
+        || (Math.abs(first.to.across - seam) < 0.5 && Math.abs(second.from.across - seam) < 0.5);
 }
 
 function join(into: Gap, other: Gap, spacing: number, margin: number): void {

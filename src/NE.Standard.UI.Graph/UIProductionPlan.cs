@@ -100,7 +100,10 @@ public enum UIProductionPlanStatus
     Infeasible,
 
     /// <summary>The solver found no answer it can stand by: the least it was asked for falls without bound, or would not settle.</summary>
-    Unsettled
+    Unsettled,
+
+    /// <summary>The plan was not worked out: what it would weigh — the resources made by the crafts that help — passes the cap it was given.</summary>
+    TooLarge
 }
 
 /// <summary>

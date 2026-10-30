@@ -7,7 +7,7 @@ internal sealed class CommonNodesView : NodesSheetView, IUIViewDefinition
 
     protected override string Route => NodesRoute;
 
-    public override string Title => "nodes.page.common";
+    protected override string Header => "nodes.page.common";
 
     protected override string Description
         => "nodes.page.common.description";
@@ -26,7 +26,7 @@ internal sealed class CalculatorNodesView : NodesSheetView, IUIViewDefinition
 
     protected override string Route => CalculatorRoute;
 
-    public override string Title => "nodes.page.calculator";
+    protected override string Header => "nodes.page.calculator";
 
     protected override string Description
         => "nodes.page.calculator.description";
@@ -45,7 +45,7 @@ internal sealed class ImageNodesView : NodesSheetView, IUIViewDefinition
 
     protected override string Route => ImageRoute;
 
-    public override string Title => "nodes.page.image";
+    protected override string Header => "nodes.page.image";
 
     protected override string Description
         => "nodes.page.image.description";
@@ -55,4 +55,23 @@ internal sealed class ImageNodesView : NodesSheetView, IUIViewDefinition
     protected override string SheetName => "nodes.sheet.image";
 
     protected override UINodeCatalog Kinds => ImageNodesController.Kinds;
+}
+
+/// <summary>Every node kind across all packages, grouped by category and colour.</summary>
+internal sealed class AllNodesView : NodesSheetView, IUIViewDefinition
+{
+    public static string ViewKey => "nodes.all";
+
+    protected override string Route => AllKindsRoute;
+
+    protected override string Header => "nodes.page.all";
+
+    protected override string Description
+        => "nodes.page.all.description";
+
+    protected override string CanvasId => AllNodesController.CanvasId;
+
+    protected override string SheetName => "nodes.sheet.all";
+
+    protected override UINodeCatalog Kinds => AllNodesController.Kinds;
 }

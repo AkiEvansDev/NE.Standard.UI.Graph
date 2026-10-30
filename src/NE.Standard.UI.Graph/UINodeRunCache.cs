@@ -74,18 +74,26 @@ public sealed class UINodeRunCache
         IEnumerator leftAt = leftItems.GetEnumerator();
         IEnumerator rightAt = rightItems.GetEnumerator();
 
-        while (true)
+        try
         {
-            var leftMoved = leftAt.MoveNext();
+            while (true)
+            {
+                var leftMoved = leftAt.MoveNext();
 
-            if (leftMoved != rightAt.MoveNext())
-                return false;
+                if (leftMoved != rightAt.MoveNext())
+                    return false;
 
-            if (!leftMoved)
-                return true;
+                if (!leftMoved)
+                    return true;
 
-            if (!SameValue(leftAt.Current, rightAt.Current))
-                return false;
+                if (!SameValue(leftAt.Current, rightAt.Current))
+                    return false;
+            }
+        }
+        finally
+        {
+            (leftAt as IDisposable)?.Dispose();
+            (rightAt as IDisposable)?.Dispose();
         }
     }
 

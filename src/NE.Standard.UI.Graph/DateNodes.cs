@@ -52,7 +52,7 @@ public sealed class AddToDateNode : IGraphNode
         DateTime moved;
 
         if (!double.IsFinite(Amount))
-            throw new InvalidOperationException("The amount is not a number.");
+            throw new UINodeFailureException("The amount is not a number.");
 
         try
         {
@@ -64,12 +64,12 @@ public sealed class AddToDateNode : IGraphNode
                 UIDateUnit.Weeks => clock.AddDays(Amount * 7),
                 UIDateUnit.Months => clock.AddMonths(Whole(Amount)),
                 UIDateUnit.Years => clock.AddYears(Whole(Amount)),
-                _ => throw new InvalidOperationException($"'{Unit}' is not a unit of time.")
+                _ => throw new UINodeFailureException($"'{Unit}' is not a unit of time.")
             };
         }
         catch (ArgumentOutOfRangeException)
         {
-            throw new InvalidOperationException($"Moved by {Amount.ToString(CultureInfo.InvariantCulture)} {Unit.ToString().ToLowerInvariant()}, {clock.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} falls outside the calendar.");
+            throw new UINodeFailureException($"Moved by {Amount.ToString(CultureInfo.InvariantCulture)} {Unit.ToString().ToLowerInvariant()}, {clock.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)} falls outside the calendar.");
         }
 
         Result = NodeDates.Write(moved, Date);
@@ -82,7 +82,7 @@ public sealed class AddToDateNode : IGraphNode
 
         // A hair off a whole number is the sum's rounding, not a wish for part of a month.
         if (Math.Abs(amount - whole) > 1e-9)
-            throw new InvalidOperationException($"{Unit} are added whole: {amount.ToString(CultureInfo.InvariantCulture)} is not a whole number of them.");
+            throw new UINodeFailureException($"{Unit} are added whole: {amount.ToString(CultureInfo.InvariantCulture)} is not a whole number of them.");
 
         // Past ten thousand years the calendar has no date to land on; clamped here, the calendar's own check says so.
         return (int)Math.Clamp(whole, -120_000, 120_000);
@@ -132,7 +132,7 @@ public sealed class DateDifferenceNode : IGraphNode
             UIDateUnit.Months => WholeMonths(from, to),
             // Truncated toward zero, as the months are: eleven months back is no year back.
             UIDateUnit.Years => WholeMonths(from, to) / 12,
-            _ => throw new InvalidOperationException($"'{Unit}' is not a unit of time.")
+            _ => throw new UINodeFailureException($"'{Unit}' is not a unit of time.")
         };
     }
 
@@ -231,7 +231,7 @@ internal static class NodeDates
     public static DateTime Read(object? value, string pin)
         => TryRead(value, out DateTime clock)
             ? clock
-            : throw new InvalidOperationException($"{pin} takes a date, and {(value is null ? "nothing" : $"a {value.GetType().Name}")} reached it.");
+            : throw new UINodeFailureException($"{pin} takes a date, and {(value is null ? "nothing" : $"a {value.GetType().Name}")} reached it.");
 
     /// <summary>A clock reading as the type <paramref name="like"/> is: a day loses its time, a date and time with an offset keeps it.</summary>
     public static object Write(DateTime clock, object? like)

@@ -88,6 +88,8 @@ export type CanvasKind = {
     wordsChanged?(): void;
     /** The canvas's root left the page: a watch the kind holds lets go, or it keeps the whole canvas alive. */
     dispose?(): void;
+    /** The canvas's root returned to the page after being detached: listeners and watches let go on dispose are restored. */
+    revive?(): void;
     /** The colour an item wears on the map. */
     itemColor(item: CanvasItem): string;
     /** Where an edge starts and ends and how it is drawn, or nothing while either end is not drawn. */

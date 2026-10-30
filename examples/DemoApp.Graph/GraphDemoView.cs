@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -28,7 +29,7 @@ public abstract class GraphDemoView : UIViewBase
     private const string SidebarId = "graph-sidebar";
 
     // A route of null is a heading over the pages below it.
-    private static readonly (string? Route, string Label, string? Icon)[] Pages =
+    private static readonly (string? Route, string Title, string? Icon)[] Pages =
     [
         (null, "planner.nav.planner", null),
         (ResourcesRoute, "planner.page.resources", MaterialIcons.Inventory2),
@@ -41,10 +42,12 @@ public abstract class GraphDemoView : UIViewBase
     public static string[] PageIcons => [.. Pages.Select(static page => page.Icon).OfType<string>()];
 
     /// <summary>The title band and the sidebar stand, the sidebar from the top of the page; the content scrolls by itself.</summary>
-    public override UIViewOptions Options { get; } = new() { StickyHeader = true, ScrollContentOnly = true, ShellLayout = UIShellLayout.FullHeightSides };
+    public override UIViewOptions Options { get; } = new() { StickyHeader = true, ScrollContentOnly = true, ShellLayout = UIShellLayout.FullHeightSides, SideDrawers = UISideDrawers.BelowXl };
 
     protected abstract string Route { get; }
-    public abstract override string Title { get; }
+    protected abstract string Header { get; }
+    public override string Title => "planner.title";
+    public override IReadOnlyDictionary<string, object?>? TitleArguments => new Dictionary<string, object?> { ["page"] = new UIPhrase(Header) };
     protected abstract string Description { get; }
 
     /// <summary>
@@ -61,8 +64,8 @@ public abstract class GraphDemoView : UIViewBase
             .SetDarkIcon(MaterialIcons.Outlined(DarkIcon));
 
         return CreatePage().Code is { } code
-            ? UIPage.Header(Title, Description, CreateCodeFlyout(code), new LanguageSwitcherComponent(), theme)
-            : UIPage.Header(Title, Description, new LanguageSwitcherComponent(), theme);
+            ? UIPage.Header(Header, Description, CreateCodeFlyout(code), new LanguageSwitcherComponent(), theme)
+            : UIPage.Header(Header, Description, new LanguageSwitcherComponent(), theme);
     }
 
     /// <summary>
@@ -83,8 +86,8 @@ public abstract class GraphDemoView : UIViewBase
             .SetVerticalAlignment(UIAlignment.Center)
             // Smaller than a small button's 28px, to fit the title row a group without the button has.
             .SetAnchor(new ButtonComponent()
-                .SetType(UIButtonType.Ghost)
-                .SetSize(UIButtonSize.Small)
+                .SetVariant(UIButtonVariant.Ghost)
+                .SetSize(UISize.Small)
                 .SetMinHeight(UILayoutLength.Absolute(24))
                 .SetPadding(UIThickness.Uniform(2))
                 .SetIcon(MaterialIcons.Outlined(CodeIcon))
@@ -194,14 +197,15 @@ public abstract class GraphDemoView : UIViewBase
                 .SetStatusBar(false)
                 .SetSearch(false)
                 .SetCompletions(false)
+                .SetAccessibleName("planner.code")
                 // One row over the text's own: a long line brings a horizontal scrollbar, which would cover the last one.
                 .SetRows(rows)
                 .SetPlacement(1, 1, 24, 1)
             )
             // A literal rather than the field's value: the text is fixed, and a literal needs no id unique across the page.
             .AddChild(new ButtonComponent()
-                .SetType(UIButtonType.Ghost)
-                .SetSize(UIButtonSize.Small)
+                .SetVariant(UIButtonVariant.Ghost)
+                .SetSize(UISize.Small)
                 .SetIcon(MaterialIcons.Outlined(CopyIcon))
                 .SetTooltip("planner.copy")
                 .SetHorizontalAlignment(UIAlignment.End)
@@ -221,8 +225,8 @@ public abstract class GraphDemoView : UIViewBase
         for (var i = 0; i < Pages.Length; i++)
         {
             entries[i] = Pages[i] is { Route: { } route, Icon: { } icon }
-                ? new MenuItem { Id = route, Title = Pages[i].Label, Icon = MaterialIcons.Outlined(icon), Url = route, Selected = route == Route }
-                : new MenuItem { Id = Pages[i].Label, Kind = UIMenuItemKind.Header, Title = Pages[i].Label };
+                ? new MenuItem { Id = route, Title = Pages[i].Title, Icon = MaterialIcons.Outlined(icon), Url = route, Selected = route == Route }
+                : new MenuItem { Id = Pages[i].Title, Kind = UIMenuItemKind.Header, Title = Pages[i].Title };
         }
 
         // The width sits on the menu, not the container.
@@ -231,6 +235,7 @@ public abstract class GraphDemoView : UIViewBase
             .SetPadding(UIThickness.All(16, 16, 16, 24))
             .AddChild(new MenuComponent(SidebarId)
                 .SetShowCollapseToggle(true)
+                .SetDrawerPin(true)
                 .SetSearch()
                 .SetMinWidth(UILayoutLength.Absolute(180))
                 .SetItems(entries)

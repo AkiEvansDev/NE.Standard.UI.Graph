@@ -27,10 +27,10 @@
 @ui-space-5: 1.5rem;   
 
 @ui-control-height: 2.5rem;
-// A button says its own size — see UIButtonSize. @ui-control-height stays the medium one so other controls reading it are unaffected.
+// A button says its own size — see UISize. @ui-control-height stays the medium one so other controls reading it are unaffected.
 @ui-button-height-sm: 1.75rem;
 @ui-button-height-lg: 3rem;  
-// A field says its own size too — see UIInputSize. A small one is a line of caption text with room for a glyph, for a dense surface.
+// A field says its own size too — see UISize. A small one is a line of caption text with room for a glyph, for a dense surface.
 @ui-control-height-sm: 1.5rem;
 @ui-control-height-lg: 3rem;
 // A small field's side padding, and the gap between the parts of its row: half a medium field's padding, for a caption line.
@@ -44,6 +44,11 @@
 @ui-glyph-md-lg: 1.125rem; // 18px — an icon-only control's glyph: a button, the theme switcher, an icon strip
 @ui-glyph-lg: 1.25rem; // 20px — a mark standing on its own, over a picture or in a corner; a medium icon, a rail's glyph
 @ui-glyph-xl: 1.5rem; // 24px — a large icon button's glyph, a large icon, a large rail's glyph
+@ui-glyph-xxl: 1.75rem; // 28px — a stand-in filling a tile: a file's kind, an empty picture's or an avatar's
+@ui-glyph-xxxl: 2rem; // 32px — an empty picture field's stand-in
+
+// The chosen entry's weight among its siblings — a tab, a page, a crumb, a time: bold enough to tell it, not a title's.
+@ui-chosen-weight: 600;
 
 // A line in a list that is scanned, not pressed - a menu entry, a breadcrumb step, a calendar cell: read-down height, not press-target.
 @ui-list-row-height: 1.75rem;
@@ -52,27 +57,20 @@
 @ui-list-entry-gap: 2px;
 
 // An entry's corner in a list (a select's options, a popup menu's entries, the "…" and language lists, a calendar's cells, a sidebar's
-// entries): two thirds of a button's, 4 px to its 6, so a theme's shape scales both and a list reads finer than its buttons.
-@ui-list-entry-radius: ~"calc(var(--ui-radius-button) * 2 / 3)";
+// entries): a button's (`--ui-radius-button`, 6 px by default), so a theme's shape scales both and list entries match field/button corners.
+@ui-list-entry-radius: var(--ui-radius-button);
 
 // How far past its element the keyboard's frame reaches where it is drawn outside (its 2 px gap and its 2 px line: a link, a toggle's
 // row; a quiet expander's header, padded and pulled back out by its air): the room a clipping panel leaves its children past its edge.
 // A link among running words keeps closer (core/keyboard.less).
-@ui-keyboard-frame-reach: 6px;
+@ui-keyboard-frame-reach: 8px;
 
-// The air inside a quiet expander's header, round its words, that its keyboard frame stands in (components/ui-expander.less).
-@ui-quiet-header-air-y: @ui-space-1;
-@ui-quiet-header-air-x: 6px;
-
-// The keyboard's frame's corner, one everywhere it is drawn: a button's, so a theme's shape scales it with the controls.
-@ui-keyboard-frame-radius: var(--ui-radius-button);
-
-// A popup's corner: its entries' widened by the list's padding, so the two curves run parallel — 8 px by default.
-@ui-popup-radius: ~"calc(var(--ui-radius-button) * 2 / 3 + @{ui-space-1})";
+// A popup's corner: its entries' widened by 2 px so the outer curve visually nests the 4 px-padded list entries — 8 px by default.
+@ui-popup-radius: ~"calc(var(--ui-radius-button) + 2px)";
 
 // A small part's corner inside a control — a row's grip, a stepper's half, a time segment, a tree's chevron, a field's own
-// picture: an entry's, so a theme's shape scales it too; a picture smaller than a line, half a button's (3 px by default).
-@ui-part-radius: @ui-list-entry-radius;
+// picture: two thirds of a button's (4 px by default), so a theme's shape scales it too; a picture smaller than a line, half a button's (3 px by default).
+@ui-part-radius: ~"calc(var(--ui-radius-button) * 2 / 3)";
 @ui-part-radius-sm: ~"calc(var(--ui-radius-button) / 2)";
 
 // The page's stacking ladder, low to high, in one place: a new layer takes its step here, never a number of its own.
@@ -122,11 +120,11 @@
 @ui-offer-opacity: 0.35;
 @ui-offer-opacity-hover: 0.7;
 
-// The ring, in a thing's own colour, round one the pointer holds or could land on: a slider's handle, a pin a pulled link can take.
-@ui-halo-share: 22%;
+// The ring, in a thing's own colour, round one that is focused, held or reachable: a focused field, a slider's handle, a pin a pulled link can take.
+@ui-halo-share: 28%;
 
 // The dark plate light marks stand on over a picture of any colours: a replaceable picture's glass, the lightbox's controls.
-@ui-picture-plate: color-mix(in srgb, black 50%, transparent);
+@ui-image-plate: color-mix(in srgb, black 50%, transparent);
 
 // How close to the viewport's edge a popup may sit; must match anchored-popup.ts's own margin.
 @ui-popup-viewport-margin: 4px;
@@ -136,34 +134,37 @@
 @ui-row-height-sm: 2.5rem;
 @ui-row-height-lg: 4rem;
 
-// One step off a row's ground for a table's header, stripe and footer, so the three never drift apart.
+// One step off a row's ground for a table's header and footer, and a subtler 2% step for striped even rows so hover (4% in dark mode)
+// stays clearly distinct from the stripe.
 @ui-table-tint: 6%;
 @ui-table-ground: color-mix(in srgb, var(--ui-color-on-surface) @ui-table-tint, transparent);
+@ui-table-stripe: color-mix(in srgb, var(--ui-color-on-surface) 2%, transparent);
 
 // The ink of the ground a part stands on, and its muted fade. `--ui-faint-base` is the ground's on-colour where the ground is filled
-// (a filled button or badge, a Background) and is reset where a ground of its own is opaque (a popup, a raised or flat surface); the root's
+// (a filled button or badge, a Background) and is reset where a ground of its own is opaque (a popup, a Surface panel); the root's
 // `--ui-text-muted` is fixed to the page's ink and never sees it, so a part that can stand on a filled ground reads these.
 @ui-text-ink: var(--ui-faint-base, var(--ui-color-on-surface));
-// Muted is the ink at 75% on the page and at 87% on a filled ground, which reads 4.5:1 on every theme fill (Success, the lowest,
-// 4.6:1). One expression rather than a second property to set beside every base: the base's own veil, mixed under the page's
-// share, lifts the ink only where a base is set — unset or reset, the veil is transparent and the page's muted is what it was.
-@ui-text-muted-share: 0.75;
+// Muted is the ink at `--ui-text-muted-share` (64% on dark, 70% on light) on the page and at 87% on a filled ground, which reads 4.5:1
+// on every theme fill (Success, the lowest, 4.6:1). One expression rather than a second property to set beside every base: the base's
+// own veil, mixed under the page's share, lifts the ink only where a base is set — unset or reset, the veil is transparent and the
+// page's muted is what it was.
+@ui-text-muted-share: 0.64;
 @ui-text-muted-filled-share: 0.87;
-// An aside's share of its ink, under the 4.5:1 floor on purpose: a muted separator's label at 55% of the muted ink, a text's fold at
+// An aside's share of its ink, under the 4.5:1 floor on purpose: a muted separator's title at 55% of the muted ink, a text's fold at
 // 55% of its words — at the muted ink itself they read as loud as the words around them (DECISIONS).
 @ui-text-faint-share: 0.55;
 @ui-faint-lift: color-mix(in srgb, var(--ui-faint-base, transparent) percentage(((@ui-text-muted-filled-share - @ui-text-muted-share) / (1 - @ui-text-muted-share))), transparent);
-@ui-text-muted: color-mix(in srgb, @ui-text-ink percentage(@ui-text-muted-share), @ui-faint-lift);
+@ui-text-muted: color-mix(in srgb, @ui-text-ink var(--ui-text-muted-share, percentage(@ui-text-muted-share)), @ui-faint-lift);
 
 // A faint ground of the ink a part stands on, so it reads on any ground: a file tile's, Markdown's code.
 @ui-ink-ground: color-mix(in srgb, @ui-text-ink 7%, transparent);
 
 // The ground a part stands on, for a part cut out of it (a chart's hollow marker, the edge between two sectors). `--ui-ground` is
 // written where `--ui-faint-base` is: a Background's colour inline, a filled button's or badge's fill, and the own colour of a
-// ground that is opaque (a popup, the dialog, a Background, Raised, Flat or Tinted surface); unset, the ground is the page's surface.
+// ground that is opaque (a popup, the dialog, a Background, Surface or Tinted surface); unset, the ground is the page's surface.
 @ui-ground: var(--ui-ground, var(--ui-color-surface));
 
-// A popup's own ground, one step above the ground it opens from: the page's surface colour over the page; over a raised or flat
+// A popup's own ground, one step above the ground it opens from: the page's surface colour over the page; over a Surface
 // panel or the dialog, what the panel writes to `--ui-popup-ground` — its fill with 8 % more of the text, the step the panel is off the
 // surface. A Background or Tinted ground is the page's level again and takes the step back; a popup on the body is handed its
 // opener's (`carryPopupGround`, anchored-popup.ts).
@@ -185,7 +186,7 @@
 // The brand's ink, not its fill: on a dark page the fill is as dark as the page, and a third of it was all but unseen.
 // A selection drawn in a ground's own colour (a graph node's rename field) takes the same share.
 @ui-text-selection-share: 48%;
-@ui-text-selection: color-mix(in srgb, var(--ui-color-primary-ink) @ui-text-selection-share, transparent);
+@ui-text-selection: color-mix(in srgb, var(--ui-color-primary) @ui-text-selection-share, transparent);
 
 // A quote's stroke, one width wherever one is drawn: a paragraph's quote line, a Markdown blockquote, the Extensions quote (its
 // `UIText.Quote` writes the same 3 px as a border, held equal by QuoteStrokeSyncTests). A quotation inside text is drawn in one
@@ -193,12 +194,12 @@
 @ui-quote-stroke: 3px;
 @ui-quote-ink: var(--ui-color-border);
 
-// A message's severity, drawn as a bar down its leading edge: a toast's and a validation tooltip's, one width.
-@ui-severity-stroke: 3px;
+// A message's accent, drawn as a bar down its leading edge: a toast's tone and a validation tooltip's severity, one width.
+@ui-accent-stroke: 3px;
 
 // A thing being dragged stays in its place as a ghost (a column's caption, a tab, a tree row), so the gap it will leave is what moves.
 @ui-drag-ghost-opacity: 0.45;
-// A label a loading ring stands beside rather than replacing (a button with no icon to turn into the ring) fades under it.
+// A label a loading ring stands over rather than replacing (a tab with no icon to turn into the ring) fades under it.
 @ui-loading-label-opacity: 0.35;
 
 // Code and anything else set in a fixed-width face: the platform's own monospace first.
@@ -450,7 +451,7 @@
 }
 
 // Outlined, not filled: a filled frame reads as a grey square standing on the surface rather than as a glyph.
-.ui-picture-glyph(@size: @ui-glyph-lg) {
+.ui-image-glyph(@size: @ui-glyph-lg) {
     .ui-glyph(@ui-glyph-image; @size; 0);
 }
 
@@ -481,11 +482,6 @@
     .ui-glyph(@ui-glyph-dark; @size);
 }
 
-// An eyedropper, for a colour picker that samples the screen.
-.ui-pipette-glyph(@size: @ui-glyph-sm) {
-    .ui-glyph(@ui-glyph-pipette; @size);
-}
-
 // --- mixins/interactive.less ---
 
 // Whether the text under an element selects (runtime.less's one rule set, STYLING.md). `-webkit-` too: Safari reads the prefixed
@@ -511,18 +507,6 @@
     font: inherit;
     text-align: start;
     cursor: pointer;
-}
-
-// A word that acts, in the primary ink at the caption's size, a list entry's height and corners: a date picker's Clear and Today, a
-// grid's filters' Clear. Its hover and press are its user's.
-.ui-word-action() {
-    .ui-bare-button();
-    min-height: @ui-list-row-height;
-    padding: 0 @ui-space-2;
-    border-radius: @ui-list-entry-radius;
-    color: var(--ui-color-primary-ink);
-    font-size: var(--ui-text-caption-font-size);
-    .ui-interactive-base();
 }
 
 // The least a pointer's target measures (WCAG 2.5.8, target size).
@@ -632,6 +616,15 @@
 
 .ui-elevation-2() {
     box-shadow: 0 2px 6px var(--ui-color-shadow), 0 1px 2px var(--ui-color-shadow);
+}
+
+// Level 2 cast away from a docked edge (a submenu sharing its parent popup's border), so none of the blur falls back over the parent.
+.ui-elevation-2-docked(right) {
+    box-shadow: 4px 2px 6px -2px var(--ui-color-shadow), 2px 1px 2px -1px var(--ui-color-shadow);
+}
+
+.ui-elevation-2-docked(left) {
+    box-shadow: -4px 2px 6px -2px var(--ui-color-shadow), -2px 1px 2px -1px var(--ui-color-shadow);
 }
 
 .ui-elevation-3() {
@@ -812,53 +805,11 @@
 // A list's current option put there by the keyboard: `@ui-list-current` less the pointer's.
 @ui-list-keyboard: ~"[data-ui-active]:not([data-ui-pointer-focus])";
 
-// Where the keyboard stands in a list — a host's row, a menu's or a popup list's entry, a select's option: one look everywhere, a frame
-// inside the entry in the theme's keyboard mark (`--ui-mark-keyboard`, the brand's ink unless the theme makes it neutral), which reads
-// 3:1 on either page (the focus ring's colour is a theme's own), and which the pointer's mark never wears. The washes alone were lost
-// against a stripe or a chosen ground. An outline, not a box-shadow, so a row's separator and a chosen entry's mark stay. Forced colours draw their own dashed mark (core/preferences.less).
-// One shape wherever it is drawn: a 2 px line whose corners are `@ui-keyboard-frame-radius`. An outline's corner is its host's widened
-// by its offset, so the host's corner while it is framed (`@host`) and the offset together keep the one radius: a host whose own corner
-// is smaller or none (a row, a cell, an entry) takes the frame's for the while (`@takes: true`, `chain` through the border chain on a
-// root an author's corners are written on), the frame on its edge; a host whose corner is the frame's (a button) keeps its own
-// (`@takes: false`). `@ink` the words' own colour on a filled ground, where the brand's ink would vanish into the brand's fill.
-.ui-keyboard-frame(@ink: var(--ui-mark-keyboard); @host: @ui-keyboard-frame-radius; @takes: true; @offset: -2px) {
-    @media (forced-colors: none) {
-        outline: 2px solid @ink;
-        outline-offset: @offset;
-    }
-
-    & when (@takes = true) {
-        border-radius: @host;
-    }
-
-    & when (@takes = chain) {
-        .ui-responsive-property(border-radius, --ui-border-radius, @host);
-    }
-}
-
-// Inside a host whose own corner, `@host`, is larger than the frame's (a card's): the frame stands in from it until concentric.
-.ui-keyboard-frame-inside(@host; @ink: var(--ui-mark-keyboard)) {
-    .ui-keyboard-frame(@ink: @ink; @takes: false; @offset: ~"calc(@{ui-keyboard-frame-radius} - @{host} - 2px)");
-}
-
-// Outside a host with no room in it, round a row with no padding (a toggle's) or words with no box of their own (a link): `@gap` off
-// it, 2 px by default, the host taking the corner that keeps the frame's one radius.
-.ui-keyboard-frame-outside(@gap: 2px) {
-    .ui-keyboard-frame(@host: ~"calc(@{ui-keyboard-frame-radius} - 2px - @{gap})"; @offset: @gap);
-}
-
-// Inside a host that draws a 2 px mark under its edge (a tab's caption over its chosen line): on its edges, its foot on the mark and square
-// there, so the frame stands on the straight line as a tab does — rounded down to the line, its corners stood clear of it. The host reaches
-// down over the mark while framed, a transparent border its margin takes back, so nothing moves and the mark, placed from the padding box,
-// stays; it takes the frame's corner above and none below (`@takes: chain` on a root an author's corners are written on). Not a
-// pseudo-element: a caption's are its line, its loading ring, its picture's blur.
-.ui-keyboard-frame-inset(@takes: true) {
-    .ui-keyboard-frame(@host: ~"@{ui-keyboard-frame-radius} @{ui-keyboard-frame-radius} 0 0"; @takes: @takes);
-
-    @media (forced-colors: none) {
-        margin-bottom: -2px;
-        border-bottom: 2px solid transparent;
-    }
+// Unified pointer hover and keyboard focus: under `forced-colors: none`, keyboard focus does not draw a separate 2px outline frame.
+// Instead, keyboard-focused elements use the exact same surface wash and text step-up as pointer hover, while suppressing the browser's
+// default focus ring (`outline: none`). High-contrast `forced-colors: active` outlines remain in `core/preferences.less`.
+.ui-keyboard-frame() {
+    outline: none;
 }
 
 // What a drop target wears while something it takes is over it (runtime.less, a field's box in ui-input.less): a dashed edge inside
@@ -942,7 +893,7 @@
 // stands, else the box's own padding there.
 
 // A box's sides with no Padding of its author's — a scroller's, a region's root's; 0 on any other box, which keeps no room.
-@ui-scroll-room-padding: ~"0 max(var(--ui-scroll-room-right), var(--ui-scroll-cap)) var(--ui-scroll-room-x) max(var(--ui-scroll-room-left), var(--ui-scroll-cap))";
+@ui-scroll-room-padding: ~"0 max(var(--ui-scroll-room-right), var(--ui-scroll-cap)) var(--ui-scroll-room-x) var(--ui-scroll-cap)";
 
 @ui-scrollers-y: ~":is(.ui-items-view__host, .ui-items-view > [data-ui-items-host], .ui-tree__host, .ui-scroll):is(.ui-scroll-y--auto, .ui-scroll-y--always), .ui-text-area__field";
 @ui-scrollers-x: ~":is(.ui-items-view__host, .ui-items-view > [data-ui-items-host], .ui-tree__host, .ui-scroll):is(.ui-scroll-x--auto, .ui-scroll-x--always)";
@@ -952,15 +903,10 @@
 @ui-scroll-bound: ~'[style*="--ui-height"], [style*="--ui-max-height"]';
 @ui-scrollers-y-unbounded: ~":is(.ui-items-view:not(@{ui-scroll-bound}) > :is(.ui-items-view__host, [data-ui-items-host]), .ui-tree:not(@{ui-scroll-bound}) > .ui-tree__host, .ui-scroll:not(@{ui-scroll-bound})):is(.ui-scroll-y--auto, .ui-scroll-y--always)";
 
-// Keeps the room down the box's inline end, where an upright bar stands in either direction.
+// Keeps the room down the box's right side, where an upright bar stands.
 .ui-scroll-room-y() {
     --ui-scroll-room-y: var(--ui-scrollbar-room);
     --ui-scroll-room-right: var(--ui-scroll-room-y);
-
-    &:dir(rtl) {
-        --ui-scroll-room-right: 0px;
-        --ui-scroll-room-left: var(--ui-scroll-room-y);
-    }
 }
 
 // Keeps the room down the inline end only while the box holds more than it shows, read off its own scroll timeline: none while it fits,
@@ -975,6 +921,35 @@
                 animation-timeline: scroll(self block);
             }
         }
+    }
+}
+
+
+// Horizontal and vertical scroll-visibility classes shared by every scrolling host (`ui-items-view__host`, `ui-table__host`,
+// `ui-tree__host`, `ui-scroll`).
+.ui-scroll-axes() {
+    &.ui-scroll-x--disabled {
+        overflow-x: hidden;
+    }
+
+    &.ui-scroll-x--auto {
+        overflow-x: auto;
+    }
+
+    &.ui-scroll-x--always {
+        overflow-x: scroll;
+    }
+
+    &.ui-scroll-y--disabled {
+        overflow-y: hidden;
+    }
+
+    &.ui-scroll-y--auto {
+        overflow-y: auto;
+    }
+
+    &.ui-scroll-y--always {
+        overflow-y: scroll;
     }
 }
 
@@ -1100,16 +1075,22 @@
     }
 }
 
-// The keyboard's entry in a list: the keyboard's frame, on the `@current` one too, and washed as the pointer's would be but for the
-// current one (already marked). The pointer's own wash stays off it, so two never stack to a press's strength and nothing changes as
-// the pointer crosses it; a press still shows. The frame stands in for the focus ring; `@host` and `@offset` as `.ui-keyboard-frame()`'s.
-.ui-entry-keyboard(@current: ~"[aria-selected='true']"; @takes: true; @host: @ui-keyboard-frame-radius; @offset: -2px) {
+// The keyboard's entry in a list: washed and lifted to 2nd-degree ink as the pointer's would be, and layered with the hover wash
+// when already `@current` so the keyboard cursor remains visible on a selected entry too.
+.ui-entry-keyboard(@current: ~"[aria-selected='true']") {
     &@{ui-keyboard-focus} {
-        .ui-keyboard-frame(@host: @host; @takes: @takes; @offset: @offset);
+        .ui-keyboard-frame();
+    }
+
+    & when not (@current = ~"") {
+        &@{ui-keyboard-focus}:is(@{current}) {
+            background-image: linear-gradient(var(--ui-wash-hover), var(--ui-wash-hover));
+        }
     }
 
     &@{ui-keyboard-focus}:not(@{current}) {
         background-image: linear-gradient(var(--ui-wash-hover), var(--ui-wash-hover));
+        color: @ui-text-ink;
     }
 
     @media @{ui-can-hover} {
@@ -1171,7 +1152,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 2px;
-    max-width: calc(100vw - 2 * @ui-space-1);
+    max-width: calc(100vw - 2 * @ui-popup-viewport-margin);
     padding: 2px;
     // Its buttons' corner widened by its own padding, as a popup's is by its list's.
     border-radius: calc(var(--ui-radius-button) + 2px);
@@ -1183,7 +1164,7 @@
 }
 
 // An icon of such a strip, a small ghost button: a square, as the framework's icon-only button is, named by its `aria-label` alone —
-// a tooltip would be a popup over a popup. The keyboard's place wears the keyboard's frame, since a theme's focus ring may be none.
+// a tooltip would be a popup over a popup.
 .ui-icon-bar-button() {
     aspect-ratio: 1;
     padding: @ui-space-1;
@@ -1193,7 +1174,9 @@
     }
 
     &@{ui-keyboard-focus} {
-        .ui-keyboard-frame(@takes: false);
+        background-color: var(--ui-wash-hover);
+        color: @ui-text-ink;
+        .ui-keyboard-frame();
     }
 }
 
@@ -1204,11 +1187,12 @@
 
 // --- mixins/lift.less ---
 
-// A popup opened on a lifted ground — a raised panel, a dialog — stands one step off it, as the panel stands off the page: 8 % more
-// of the text. The panel's own step, `--ui-surface-raised`, is the same mix of the page, written by `WebThemeCssBuilder`; the two keep
-// one number (`RaisedShare`, held equal by ThemeShareSyncTests).
+// A popup opened on a surface ground — a surface panel, a dialog, a node — stands one step off it: 8 % more of the text, and a
+// border and a control's mark step off that ground too so they keep their contrast over it.
 .ui-popup-ground-lifted(@ground) {
     --ui-popup-ground: color-mix(in srgb, @ground 92%, var(--ui-color-on-surface) 8%);
+    --ui-color-border: color-mix(in srgb, var(--ui-surface-fill, @ground) 88%, var(--ui-color-on-surface) 12%);
+    --ui-color-mark: color-mix(in srgb, var(--ui-surface-fill, @ground) 82%, var(--ui-color-on-surface) 18%);
 }
 
 // --- mixins/dialog.less ---
@@ -1218,16 +1202,16 @@
     background: var(--ui-color-overlay);
 }
 
-// A dialog's panel: the raised ground and what stands on it — a field's fill, muted ink, the ground a part cut out of it paints, a
+// A dialog's panel: the surface ground and what stands on it — a field's fill, muted ink, the ground a part cut out of it paints, a
 // popup opened in it lifted once more — for the framework's dialog and a package's own <dialog> alike, so the two are one ground.
 .ui-dialog-look() {
     border-radius: var(--ui-radius-card);
-    background: var(--ui-surface-raised);
+    background: var(--ui-color-surface);
     color: var(--ui-color-on-surface);
     --ui-faint-base: initial;
-    --ui-ground: var(--ui-surface-raised);
-    --ui-surface-fill: var(--ui-surface-raised);
-    .ui-popup-ground-lifted(var(--ui-surface-raised));
+    --ui-ground: var(--ui-color-surface);
+    --ui-surface-fill: var(--ui-color-surface);
+    .ui-popup-ground-lifted(var(--ui-color-surface));
     .ui-elevation-4();
 }
 
@@ -1310,6 +1294,20 @@
     flex-basis: calc((100% - 23 * var(@gap, 0px)) / 24 * var(@span) + (var(@span) - 1) * var(@gap, 0px));
 }
 
+// ItemMinWidth (EvenColumnsRenderer): even columns, as many to a line as fit at the narrowest width, each line's room shared out
+// equally, a wrapped one under the one above. A grid, since a flex line sizes each child to its own content and the next line
+// staggers under it; a column never wider than the flow. A group's caption takes a line of its own. On the element that lays the
+// children out; the root that wears `ui-even-columns` resets the width so a nested flow does not inherit it.
+.ui-even-columns() {
+    display: grid;
+    .ui-responsive-property(--ui-item-min, --ui-item-min-width, 0px);
+    grid-template-columns: repeat(auto-fill, minmax(min(var(--ui-item-min), 100%), 1fr));
+
+    > [data-ui-group-header] {
+        grid-column: 1 / -1;
+    }
+}
+
 // --- mixins/field.less ---
 
 // Mixins rather than rules on ui-input.less's shared list, which imports after each field's own file and would override its differences.
@@ -1319,10 +1317,6 @@
     // One step off whatever it stands on, falling back to the page background; mixed from on-surface, so it steps up dark and down light.
     --ui-field-ground: var(--ui-surface-fill, var(--ui-color-background));
     --ui-field-rest: color-mix(in srgb, var(--ui-color-on-surface) 10%, var(--ui-field-ground));
-    // Six points past resting, not the washes' ten: hover is a level of its own, not a full step change.
-    --ui-field-hover: color-mix(in srgb, var(--ui-color-on-surface) 16%, var(--ui-field-ground));
-    // Outline's and Underline's border on hover; a control that doesn't lift (a code field) sets it to its rest.
-    --ui-field-hover-accent: color-mix(in srgb, var(--ui-mark-field) 60%, transparent);
     .ui-authored-border(~"var(--ui-border-width, 1px)"; var(--ui-radius-input); var(--ui-field-rest));
     background: var(--ui-field-rest);
     transition: border-color @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;
@@ -1380,8 +1374,8 @@
 // never inside a `:has()`, which the browser drops whole.
 @ui-adornment-live: ~":not(:disabled, [aria-disabled='true'])";
 
-// A glyph button inside a field (a clear, a picker toggle): round, borderless, muted. Hover moves its ink alone — the row already
-// lifts, and a wash too would read as a button on a button — and nothing while `aria-disabled` (a read-only field's toggle). Drawn
+// A glyph button inside a field (a clear, a picker toggle): round, borderless, muted. Hover moves its ink alone — a wash inside
+// the field would read as a button on a field — and nothing while `aria-disabled` (a read-only field's toggle). Drawn
 // smaller than a target, it takes a target's press round it (`::after`; its glyph is its `::before`).
 .ui-field-adornment() {
     position: relative;
@@ -1389,8 +1383,8 @@
     flex: 0 0 auto;
     align-items: center;
     justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: @ui-glyph-sm;
+    height: @ui-glyph-sm;
     padding: 0;
     border: none;
     border-radius: 999px;
@@ -1445,7 +1439,7 @@
 }
 
 // One of those buttons, whatever its size: a small button's height, a caption's words, and a ghost answering with its ink alone,
-// since the field is the surface that lifts. A split button's padding is its parts' (ui-split-button.less), so its root keeps none
+// since a wash inside the field box reads heavy. A split button's padding is its parts' (ui-split-button.less), so its root keeps none
 // here either: padded twice, it stood taller than the line and lifted the whole group off it.
 .ui-field-action-button() {
     .ui-responsive-property(min-height, --ui-min-height, @ui-button-height-sm);
@@ -1495,14 +1489,13 @@
     }
 
     &.ui-button--ghost {
-        color: var(--ui-text-muted);
         .ui-reveal-hover-off({ color: var(--ui-color-on-surface); });
     }
 }
 
 // The veil over a replaceable picture: a pencil on the dark glass.
-.ui-picture-veil(@glyph: 1.5rem) {
-    .ui-picture-glass();
+.ui-image-veil(@glyph: 1.5rem) {
+    .ui-image-glass();
 
     &::before {
         .ui-pencil-glyph(@glyph; 0);
@@ -1511,13 +1504,13 @@
 
 // Dark glass over a whole picture with its mark centred on it, hidden and not pressable while it cannot be seen (on a touch screen
 // the tap that brings the hover is also the click); the caller draws the mark and shows it (pointer, keyboard, never when empty).
-.ui-picture-glass() {
+.ui-image-glass() {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: @ui-picture-plate;
+    background: @ui-image-plate;
     color: white;
     opacity: 0;
     transition: opacity @ui-motion-fast @ui-motion-ease;
@@ -1526,7 +1519,7 @@
 
 // Where nothing hovers, a veil's mark stands in the picture's corner at all times instead of over the whole picture: a small round
 // mark that leaves the picture to be seen (a shelf tile's cross, a picture's pencil).
-.ui-picture-corner-mark() {
+.ui-image-corner-mark() {
     inset: 0.25rem 0.25rem auto auto;
     width: 1.5rem;
     height: 1.5rem;
@@ -1545,9 +1538,12 @@
 // is the path from @root to the button; @empty a whole selector, since only the field knows how it says empty.
 .ui-field-clear-host(@root; @clear; @empty) {
     @{root}:not([data-ui-clearable]) @{clear},
-    @{root}:is(.ui-disabled, .ui-readonly) @{clear},
-    @{empty} {
+    @{root}:is(.ui-disabled, .ui-readonly) @{clear} {
         display: none;
+    }
+
+    @{empty} {
+        visibility: hidden;
     }
 }
 
@@ -1620,18 +1616,22 @@
     }
 }
 
-// The pick control at a file field's end: an ellipsis behind a stepper's divider, answering the pointer with its ink alone.
+// The pick control at a file field's end: an ellipsis behind a stepper's divider and matching its geometry, answering the pointer with its ink alone.
 .ui-field-pick() {
-    .ui-ellipsis-glyph();
+    .ui-ellipsis-glyph(horizontal; @ui-glyph-sm);
+    position: relative;
     display: inline-flex;
     flex: 0 0 auto;
     align-self: stretch;
     align-items: center;
     justify-content: center;
-    min-width: @ui-control-height;
-    padding: 0 @ui-space-3;
+    box-sizing: content-box;
+    width: 1.25rem;
+    margin: calc(@ui-space-1 - var(--ui-field-top-edge, var(--ui-border-width, 1px))) -0.5em calc(@ui-space-1 - var(--ui-border-width, 1px)) 0;
+    padding: 0 0 0 0.4em;
     border-left: 1px solid var(--ui-color-border);
     color: var(--ui-text-muted);
+    .ui-hit-area(after);
 }
 
 // The `*` beside a required field's caption; checkbox and switch place their caption beside the box instead and don't use this.
@@ -1641,24 +1641,20 @@
     line-height: 1;
 }
 
-// A field's state edges, for ui-input.less and a field-shaped non-input (a band button): hover, and focus or an open popup.
-.ui-field-edge-hover(@color: var(--ui-field-hover)) {
-    border-color: @color;
-}
-
+// A field's active edge and soft outer halo, for ui-input.less and a field-shaped non-input (a band button): focus or an open popup.
 .ui-field-edge-active(@color: var(--ui-mark-field)) {
     border-color: @color;
-    box-shadow: inset 0 0 0 var(--ui-input-focus-ring, 1px) @color;
+    box-shadow: 0 0 0 var(--ui-input-focus-ring, 2px) color-mix(in srgb, @color @ui-halo-share, transparent);
+
+    // Forced colours drop the shadow and force the edge's colour: the selection colour's outline stands for both (core/preferences.less).
+    @media (forced-colors: active) {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+    }
 }
 
-// The states of an own field-shaped control on `.ui-field-ground()`: hover, and the active edge on a field's focus or an open popup.
-.ui-field-states(@hover: var(--ui-field-hover)) {
-    @media @{ui-can-hover} {
-        &@{ui-button-live}:hover {
-            .ui-field-edge-hover(@hover);
-        }
-    }
-
+// The states of an own field-shaped control on `.ui-field-ground()`: the active edge on a field's focus or an open popup.
+.ui-field-states() {
     &@{ui-button-live}:is(@{ui-field-focus}, [aria-expanded="true"]) {
         .ui-field-edge-active();
     }
@@ -1682,10 +1678,6 @@
     }
 }
 
-// A Ghost field under the pointer: its focus's wash at 80%, a step under the focus it would take. Rejected: half and 70%, which read
-// as nothing on the dark page.
-@ui-ghost-hover-wash: color-mix(in srgb, var(--ui-wash-hover) 80%, transparent);
-
 // A field showing any message, which colours its edge in the message's own colour (--ui-validation-color): an error, a warning, an info.
 @ui-validation-marked: ~".ui-invalid, .ui-validation--warning, .ui-validation--info";
 
@@ -1708,15 +1700,14 @@
     --ui-row-wash: var(--ui-selected-background, @default);
 }
 
-// The ink and its weight together: a control that emphasises its chosen entry passes its own weight as the fallback. The text's ink,
-// never the brand's: over the chosen wash the brand's words fell under 4.5:1 (3.2:1 on dark) — the brand stays in the mark.
-.ui-selected-ink(@default: @ui-text-ink; @weight: inherit) {
+// The ink and its weight together: a control that emphasises its chosen entry passes its own weight as the fallback.
+.ui-selected-ink(@default: var(--ui-text-selected); @weight: inherit) {
     color: var(--ui-selected-foreground, @default);
     font-weight: var(--ui-selected-font-weight, @weight);
 }
 
 // The mark's colour alone, for a control that draws the mark its own way (a tab's line) rather than via box-shadow: the mode's
-// (WebThemeCssBuilder), the brand's ink on light and that ink lifted for a tint on dark, where the raw brand read 2.1:1 on the wash.
+// `--ui-mark-selected` (WebThemeCssBuilder), raw `--ui-color-primary` unless a custom primary needs shading or lifting to read.
 @ui-selected-mark-color: ~"var(--ui-selected-mark-color, var(--ui-mark-selected))";
 
 // The mark itself is a box-shadow so it takes no room and lies over the ground; these are the four edges WebCssValues.SelectionMark writes.
@@ -1729,14 +1720,13 @@
     box-shadow: var(--ui-selected-mark, @default);
 }
 
-// A chosen row: ground, inherited ink, the brand's line on its leading edge — a list on the page, which the reader goes by, says which
-// row it holds in the brand's colour while its ground stays neutral — and the cursor's layer, transparent until
-// `.ui-row-cursor-layer()`, so it fades both ways. A list in a popup marks no line: its chosen entry is its ground and its own check.
+// A chosen row: ground, 3rd-degree selected ink, an optional authored mark, and the cursor's layer, transparent until
+// `.ui-row-cursor-layer()`, so it fades both ways.
 .ui-selected-row() {
     .ui-selected-ground();
     background-image: linear-gradient(var(--ui-row-cursor-wash, transparent), var(--ui-row-cursor-wash, transparent));
-    .ui-selected-ink(inherit);
-    .ui-selected-mark(@ui-selected-mark-left);
+    .ui-selected-ink();
+    .ui-selected-mark();
 }
 
 // A chosen tile: a chosen row over the tile's own picture and its dim, which the row's `background` shorthand would reset (`.ui-tile-wash()`
@@ -1744,7 +1734,7 @@
 .ui-selected-tile() {
     .ui-selected-ground(@property: background-color);
     background-image: linear-gradient(var(--ui-row-cursor-wash, transparent), var(--ui-row-cursor-wash, transparent)), var(--ui-surface-image-veil, none), var(--ui-surface-image, none);
-    .ui-selected-ink(inherit);
+    .ui-selected-ink();
     .ui-selected-mark();
 }
 
@@ -1791,7 +1781,7 @@
 
         // The parts, never a root (a two-part split button's hovered part alone): a filter makes the root the containing block of a popup
         // inside it, which would jump.
-        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-not-split-parts}@{ui-row-own}@{ui-button-live}:hover > :not([role="menu"], [role="listbox"]),
+        :is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-not-split-parts}@{ui-row-own}@{ui-button-live}:hover > :not([role="menu"], [role="listbox"], .ui-split-button__menu),
         @{ui-split-parts}:is(.ui-button--ghost, .ui-button--outline, .ui-button--link)@{ui-row-own}@{ui-button-live} > :is(.ui-split-button__main, .ui-split-button__toggle):hover {
             .ui-brighten-hover();
         }
@@ -1811,16 +1801,18 @@
 
 // The pointer's wash on a list's entry, but not on the `@current` one, which keeps its ground so two never look current.
 .ui-entry-hover(@current: ~"[aria-selected='true']") {
-    transition: background-color @ui-motion-fast @ui-motion-ease;
+    transition: background-color @ui-motion-fast @ui-motion-ease, color @ui-motion-fast @ui-motion-ease;
 
     @media @{ui-can-hover} {
         &:not(@{current}):hover {
             background-color: var(--ui-wash-hover);
+            color: @ui-text-ink;
         }
     }
 
     &:not(@{current}):active {
         background-color: var(--ui-wash-active);
+        color: @ui-text-ink;
     }
 }
 
@@ -1834,7 +1826,7 @@
     border: 0;
     border-radius: @ui-list-entry-radius;
     background: none;
-    color: inherit;
+    color: @ui-text-muted;
     font: inherit;
     white-space: nowrap;
     cursor: pointer;
@@ -1848,40 +1840,53 @@
     }
 }
 
-// The keyboard's row washes like the pointer's; on a chosen row, as a layer, so it still reads as chosen. It also wears the keyboard's
-// frame (`.ui-keyboard-frame()`), which the pointer's row never has — under a single choice too, whose chosen row the arrows move: left
-// out there, a list holding the keyboard looked the same as one a pointer had chosen in.
+// The keyboard's row washes like the pointer's; on a chosen row, as a layer, so it still reads as chosen.
 // `@via` the path from host to items host when not direct (a table's scroll box), ending in " > ".
 .ui-row-cursor(@host; @row; @via: ~"") {
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]:not([data-ui-selected]) {
         .ui-row-hover();
-        .ui-keyboard-frame();
     }
 
-    // A chosen row's line stands on its leading edge: the frame stays straight there, standing on the line, as a tab's on its own.
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
         .ui-row-cursor-layer();
-        .ui-keyboard-frame();
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
     }
 
-    // A key moves the cursor at once, frame and wash together: the washes' fade trailed the frame, which has none.
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row} {
         transition: @ui-root-transition;
     }
 }
 
+// The same where the row holds the focus itself — a list's, a table's and a key-value list's, whose roles take no active descendant, so
+// the cursor's row is the host's one Tab stop (row-cursor.ts): the wash on the focused row, and no ring of its own.
+// `:focus-within` moves every row at once while the focus is among them, as the host's own focus did.
+.ui-row-cursor-on-row(@host; @row; @via: ~"") {
+    @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]@{ui-row-cursor-focus}:not([data-ui-selected]) {
+        .ui-row-hover();
+    }
+
+    @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]@{ui-row-cursor-focus}[data-ui-selected] {
+        .ui-row-cursor-layer();
+    }
+
+    @{host}:focus-within > @{via}[data-ui-items-host] > @{row} {
+        transition: @ui-root-transition;
+    }
+
+    @{host} > @{via}[data-ui-items-host] > @{row}:focus {
+        outline: none;
+    }
+}
+
 // A list's rows (an items view's stack, a tree) round every wash they wear — the pointer's, the press's wave, the keyboard's, the
-// chosen ground — as a menu's entry does, and a chosen row is straight only on the edge its mark stands on: the leading one, or the
-// one SelectionStyle moved it to, read off the host's own inline mark (`.ui-selected-scope()` fences an ancestor's). A table's and a
-// key-value list's rows, edge to edge in a grid, stay square. The keyboard's frame, at a greater weight, takes its own corner.
+// chosen ground — as a menu's entry does, and a chosen row is straight only on the edge an authored SelectionStyle mark stands on.
+// A table's and a key-value list's rows, edge to edge in a grid, stay square.
 .ui-list-row-corners(@host; @row) {
     @{host} > [data-ui-items-host] > @{row} {
         border-radius: @ui-list-entry-radius;
     }
 
-    @{host} > [data-ui-items-host] > @{row}[data-ui-selected] {
+    @{host}[style*="--ui-selected-mark: inset 2px"] > [data-ui-items-host] > @{row}[data-ui-selected] {
+        border-radius: @ui-list-entry-radius;
         border-top-left-radius: 0;
         border-bottom-left-radius: 0;
     }
@@ -2012,6 +2017,25 @@
     &,
     &:focus-visible {
         outline: none;
+    }
+}
+
+
+// Every choice's words stacked in a single 1x1 grid cell so switching the active label never shifts surrounding controls.
+.ui-stacked-choice-label(@text; @current) {
+    display: inline-grid;
+    grid-template-columns: minmax(0, auto);
+    min-width: 0;
+    white-space: nowrap;
+
+    > @{text} {
+        grid-area: 1 / 1;
+        max-width: 100%;
+        .ui-text-nowrap();
+    }
+
+    > @{text}:not(@{current}) {
+        visibility: hidden;
     }
 }
 

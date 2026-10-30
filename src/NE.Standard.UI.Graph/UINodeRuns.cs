@@ -13,7 +13,7 @@ namespace NE.Standard.UI.Graph;
 ///
 /// public MyController()
 /// {
-///     _runs = new(CanvasId, Catalog, () =&gt; Sheet, sheet =&gt; Sheet = sheet);
+///     _runs = new(CanvasId, Catalog, () =&gt; Sheet, sheet =&gt; Sheet = sheet) { ShowRunPanel = true };
 /// }
 ///
 /// [UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background, MaxConcurrent = 4)]
@@ -32,6 +32,9 @@ namespace NE.Standard.UI.Graph;
 /// </example>
 public sealed class UINodeRuns
 {
+    /// <summary>The longest one asked-for run lasts unless the application says otherwise: ten minutes.</summary>
+    public static readonly TimeSpan DefaultMaxRunTime = TimeSpan.FromMinutes(10);
+
     private readonly string _canvasId;
     private readonly UINodeCatalog _catalog;
     private readonly Func<UINodeDocument> _sheet;
@@ -65,6 +68,34 @@ public sealed class UINodeRuns
     public int MaxRuns { get; init; } = 500;
 
     /// <summary>
+    /// Gets or sets whether the canvas carries its run panel, as the view's <c>SetShowRunPanel</c> says; while it does not, a save
+    /// under a run's reason runs nothing.
+    /// </summary>
+    /// <remarks>
+    /// The reason is the browser's to send, so the server holds the panel's rule: a controller whose panel is bound sets this as it
+    /// sets the bound value.
+    /// </remarks>
+    public bool ShowRunPanel { get; set; }
+
+    /// <summary>Gets the most nodes a sheet may hold to be run (<see cref="UINodeRunner.MaxNodes"/>).</summary>
+    public int MaxNodes { get; init; } = UINodeRunner.DefaultMaxNodes;
+
+    /// <summary>Gets the most characters a node's text output may hold (<see cref="UINodeRunner.MaxTextLength"/>).</summary>
+    public int MaxTextLength { get; init; } = UINodeRunner.DefaultMaxTextLength;
+
+    /// <summary>
+    /// Gets the longest one asked-for run lasts — a run of all as a whole; past it, the run ends as a Stop ends it, and the outcome
+    /// says it ran out of time.
+    /// </summary>
+    public TimeSpan MaxRunTime { get; init; } = DefaultMaxRunTime;
+
+    /// <summary>
+    /// Gets whether the viewer reads an unforeseen exception's own message (<see cref="UINodeRunner.IncludeExceptionDetail"/>): the
+    /// application's <c>IncludeExceptionDetail</c>, handed on.
+    /// </summary>
+    public bool IncludeExceptionDetail { get; init; }
+
+    /// <summary>
     /// Gets what the sheet's nodes last came to, so a node run again on the inputs it last ran on is handed on rather than run.
     /// </summary>
     /// <remarks><see cref="UINodeRunCache.Clear"/> makes the next run run every node.</remarks>
@@ -87,7 +118,8 @@ public sealed class UINodeRuns
     /// <see cref="UIGraphArguments.RunAllReason"/> until its sequences run out; any other save answers null.
     /// </summary>
     /// <remarks>
-    /// So does a run asked for while one is under way. What the run says goes to the canvas through <paramref name="send"/> as it
+    /// So does a run asked for while one is under way, or while the canvas carries no run panel (<see cref="ShowRunPanel"/>). What
+    /// the run says goes to the canvas through <paramref name="send"/> as it
     /// happens (a controller's <c>Context.SendEffectsAsync</c>). The state the runs leave is written onto the sheet inside
     /// <paramref name="invoke"/> (a controller's <c>Context.Runtime.InvokeAsync</c>), so a save the viewer makes meanwhile is
     /// neither lost nor half read.
@@ -99,10 +131,11 @@ public sealed class UINodeRuns
 
         var all = string.Equals(reason, UIGraphArguments.RunAllReason, StringComparison.Ordinal);
 
-        if (!all && !string.Equals(reason, UIGraphArguments.RunReason, StringComparison.Ordinal))
+        if ((!all && !string.Equals(reason, UIGraphArguments.RunReason, StringComparison.Ordinal)) || !ShowRunPanel)
             return null;
 
-        CancellationTokenSource running = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using CancellationTokenSource budget = new(MaxRunTime);
+        CancellationTokenSource running = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, budget.Token);
 
         lock (_sync)
         {
@@ -129,6 +162,9 @@ public sealed class UINodeRuns
         UINodeRunner runner = new(_catalog, services)
         {
             Cache = Cache,
+            IncludeExceptionDetail = IncludeExceptionDetail,
+            MaxNodes = MaxNodes,
+            MaxTextLength = MaxTextLength,
             OnStatus = (nodeId, state, progress, message) => Push(new SetNodeStatusEffect(_canvasId, nodeId, state) { Progress = progress, Message = message }),
             OnDisplay = (nodeId, pinName, value) => Push(new SetNodeDisplayEffect(_canvasId, nodeId, pinName, value)),
             OnLog = (nodeId, level, message) => Push(new AddNodeLogEffect(_canvasId, nodeId, level, message)),
@@ -156,16 +192,28 @@ public sealed class UINodeRuns
         {
             await Push(new SetRunningEffect(_canvasId, running: true)).ConfigureAwait(false);
 
+            UINodeRunOutcome outcome;
+
             if (!all)
-                return new UINodeRunOutcome(await runner.RunAsync(sheet, running.Token).ConfigureAwait(false), 1, Stopped: false);
+            {
+                outcome = new UINodeRunOutcome(await runner.RunAsync(sheet, running.Token).ConfigureAwait(false), 1, Stopped: false);
+            }
+            else
+            {
+                UINodeRunAllResult result = await runner.RunAllAsync(sheet, MaxRuns, running.Token).ConfigureAwait(false);
 
-            UINodeRunAllResult result = await runner.RunAllAsync(sheet, MaxRuns, running.Token).ConfigureAwait(false);
+                outcome = new UINodeRunOutcome(result.Last, result.Runs, Stopped: false);
+            }
 
-            return new UINodeRunOutcome(result.Last, result.Runs, Stopped: false);
+            // Refused whole, the runner reported no progress at all: the canvas's run line would say nothing of why nothing ran.
+            if (outcome.Last?.Refusal is { } refusal)
+                await Push(new SetRunProgressEffect(_canvasId, 0, 0) { Refusal = refusal }).ConfigureAwait(false);
+
+            return outcome;
         }
         catch (OperationCanceledException) when (running.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            return new UINodeRunOutcome(null, runs, Stopped: true);
+            return new UINodeRunOutcome(null, runs, Stopped: true) { TimedOut = budget.IsCancellationRequested };
         }
         finally
         {
@@ -192,4 +240,9 @@ public sealed class UINodeRuns
 /// What a run the panel asked for came to: the last run's result (none if it was stopped part way), how many runs there were, and
 /// whether Stop ended them.
 /// </summary>
-public sealed record UINodeRunOutcome(UINodeRunResult? Last, int Runs, bool Stopped);
+public sealed record UINodeRunOutcome(UINodeRunResult? Last, int Runs, bool Stopped)
+{
+    /// <summary>Gets whether the run was ended for lasting past <see cref="UINodeRuns.MaxRunTime"/> rather than by Stop.</summary>
+    public bool TimedOut { get; init; }
+}
+

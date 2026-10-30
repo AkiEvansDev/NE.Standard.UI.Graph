@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NE.Standard.UI.Primitives.Constants;
@@ -29,7 +28,7 @@ public sealed class LoadImageNode : IGraphNodeAsync
         var bytes = await UINodeFiles.Of(context).ReadAsync(Path, cancellationToken).ConfigureAwait(false);
         var name = System.IO.Path.GetFileName(Path);
         // By its first bytes, not its name: a file that is no picture is refused rather than kept and served back.
-        var contentType = UIPictureTypes.Sniff(bytes) ?? throw new InvalidOperationException($"'{name}' is not a picture (PNG, JPEG, GIF, WebP or BMP).");
+        var contentType = UIPictureTypes.Sniff(bytes) ?? throw new UINodeFailureException($"'{name}' is not a picture (PNG, JPEG, GIF, WebP or BMP).");
 
         Result = await ImageWork.StoreOf(context).WriteAsync(new UINodeImageFile(bytes, contentType, name), cancellationToken).ConfigureAwait(false);
     }

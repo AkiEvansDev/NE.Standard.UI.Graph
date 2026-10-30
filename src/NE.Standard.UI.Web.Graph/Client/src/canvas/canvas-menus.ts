@@ -11,7 +11,7 @@ import type { CanvasKind, MenuTarget } from "./canvas-kind.ts";
 import type { CanvasSelection } from "./canvas-selection.ts";
 import type { CanvasSettings } from "./canvas-settings.ts";
 import type { CanvasView } from "./canvas-view.ts";
-import { CoreNames, EdgeAttribute, GroupAttribute, ItemTitleSelector, MenuPanelAttribute, NodeAttribute } from "./canvas-dom.ts";
+import { EdgeAttribute, GroupAttribute, ItemTitleSelector, MenuPanelAttribute, NodeAttribute } from "./canvas-dom.ts";
 import { SidePanelFold } from "./side-panel.ts";
 
 const ColorsAttribute = "data-ui-graph-colors";
@@ -88,7 +88,7 @@ export class CanvasMenus {
         this.groupLayer = groupLayer;
         this.colors = readColors(root.getAttribute(ColorsAttribute));
         this.scope = { root, context };
-        this.cornerFold = new SidePanelFold(context.store, root, root.querySelector<HTMLElement>(`[${MenuPanelAttribute}]`), CornerFoldSlot);
+        this.cornerFold = new SidePanelFold(context.store, context.names, root, root.querySelector<HTMLElement>(`[${MenuPanelAttribute}]`), CornerFoldSlot);
     }
 
     /** A press on the corner menu panel's switch, which the framework's engine folded on the way down, is remembered; false for any other. */
@@ -230,7 +230,7 @@ export class CanvasMenus {
         for (const entry of menuEntries({ root: menu, context: this.context }, "graph:color")) {
             this.context.states.setDisabled(entry, !editable);
 
-            const value = entry.querySelector<HTMLElement>(`.${CoreNames.menuItemValueClass}`);
+            const value = entry.querySelector<HTMLElement>(`.${this.context.names.menuItemValueClass}`);
 
             if (value !== null)
                 value.textContent = chosen;
@@ -261,13 +261,17 @@ export class CanvasMenus {
         return [item, ...kind.filter(candidate => candidate !== item && this.selection.has(candidate.id))];
     }
 
-    /** Raises an application entry's command with which entry ran and what its menu was opened on — an item, group, edge, or the sheet as a whole. */
-    public raiseEntry(key: string, menuName: string): void {
+    /**
+     * Raises an application entry's command on the entry itself, as its menu's own event — the server holds it to the entries that menu
+     * offers — with the id of what the menu was opened on: an item, a group, an edge, or nothing for the sheet as a whole.
+     */
+    public raiseEntry(keyed: HTMLElement, menuName: string): void {
+        const entry = ownEntry(keyed, this.context.names);
         const target = this.menuTarget;
         const kind = menuName === NodeMenuName ? "node" : menuName === GroupMenuName ? "group" : menuName === EdgeMenuName ? "edge" : "canvas";
         const id = target !== null && target.kind === kind ? target.id : "";
 
-        this.root.dispatchEvent(new CustomEvent("menu-entry", { bubbles: true, detail: { keys: [key, kind, id] } }));
+        entry?.dispatchEvent(new CustomEvent("menu-entry", { bubbles: true, detail: { target: id } }));
     }
 
     public run(key: string, menuName: string): void {

@@ -35,6 +35,13 @@ test("the legs that enter one node from apart share the lane they merge in", () 
     assert.equal(lanes.get("a>sum"), lanes.get("b>sum"));
 });
 
+test("two single-leg turns that only touch at one level from opposite sides both keep the middle of their gap", () => {
+    const lanes = assignLanes([leg("mid", "top", 100, 0), leg("bottom", "mid2", 200, 100)]);
+
+    assert.equal(lanes.get("mid>top"), 50);
+    assert.equal(lanes.get("bottom>mid2"), 50);
+});
+
 test("the legs a card sets apart along its side each take a lane of their own", () => {
     // One node sends three edges out at three points of its side, and a second one enters the third's target beside it.
     const lanes = assignLanes([leg("runtime", "api", 40, 0), leg("runtime", "web", 50, 80), leg("runtime", "sessions", 60, 150), leg("accounts", "sessions", 150, 158)]);

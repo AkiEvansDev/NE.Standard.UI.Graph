@@ -128,6 +128,7 @@ test("a slanted edge is painted as the straight pieces of its path, each carryin
 
 test("an edge whose every step runs along an axis is painted as its path, which draws crisp", () => {
     assert.equal(drawEdge("orthogonal", { x: 0, y: 0 }, { x: 100, y: 40 }).pieces, null);
+    assert.equal(drawEdge("orthogonal", { x: 10.333333, y: 82.8571428 }, { x: 210.666666, y: 142.1428571 }).pieces, null);
     assert.equal(drawEdge("straight", { x: 0, y: 0 }, { x: 100, y: 0 }).pieces, null);
     assert.notEqual(drawEdge("orthogonal", { x: 300, y: 100 }, { x: 0, y: 100 }, [], { back: true }).pieces, null);
 });

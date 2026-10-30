@@ -9,7 +9,7 @@ import type { GraphDocument } from "./model.ts";
 import { UploadAttribute, ValueAttribute } from "./node-view.ts";
 
 /** The event a finished upload is raised as; its keys name the node, the pin, the selection and the file. */
-export const UploadEventName = "image-upload";
+export const UploadEventName = "graph-image-upload";
 
 /** What a picture pin takes: the chooser's filter, and the judge of a file picked past it under "All files". */
 const PictureAccept = "image/*";

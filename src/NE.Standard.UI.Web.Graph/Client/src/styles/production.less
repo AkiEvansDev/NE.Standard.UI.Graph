@@ -92,7 +92,7 @@
 
 .ui-graph__plan-caption {
     color: var(--ui-text-muted);
-    font-weight: 600;
+    font-weight: var(--ui-text-title-font-weight);
     letter-spacing: 0.02em;
     text-transform: uppercase;
 }
@@ -146,16 +146,24 @@
     // A button is as wide as its words however wide its cell: held to the cell, the words are what ellipsise, not the cell's clip.
     max-width: 100%;
 
-    // The name is what the keyboard stands on for its row: it takes the brand's colour, as the row does under the pointer.
-    &@{ui-keyboard-focus} {
-        color: var(--ui-color-primary-ink);
-    }
-
     > span:last-child {
         min-width: 0;
         .ui-text-nowrap();
     }
 }
+
+    // In the targets list the name stands beside a field and a remove button, so it answers the pointer and keyboard as a Ghost
+    // button does, its padding hanging into the side body's so the icon stays on the caption's edge (as .ui-graph__parameter-name).
+    .ui-graph__plan-target > .ui-graph__plan-name {
+        margin-inline-start: -@ui-space-1;
+        padding: @ui-space-1;
+        border-radius: var(--ui-radius-button);
+        .ui-reveal-hover();
+
+        &@{ui-keyboard-focus} {
+            background-color: var(--ui-wash-hover);
+        }
+    }
 
 .ui-graph__plan-icon {
     .ui-glyph-host();
@@ -187,13 +195,14 @@
 }
 
 .ui-graph__plan-table {
-    width: 100%;
+    width: calc(100% + 2 * @ui-space-1);
+    margin-inline: -@ui-space-1;
     border-collapse: collapse;
     font-variant-numeric: tabular-nums;
 
     th,
     td {
-        padding: 0.1875rem 0;
+        padding: @ui-space-1;
         border-bottom: var(--ui-border-width) solid var(--ui-color-border);
         font-weight: inherit;
         text-align: end;
@@ -216,15 +225,24 @@
         color: var(--ui-text-muted);
     }
 
-    // The whole row is pressed, so the whole row says so, not its name alone.
+    // The whole row is pressed, so the whole row washes under the pointer, keyboard focus or press rather than recolouring its name.
     tbody tr {
         cursor: pointer;
+        transition: background-color @ui-motion-fast @ui-motion-ease;
     }
 
     @media @{ui-can-hover} {
-        tbody tr:hover > th {
-            color: var(--ui-color-primary-ink);
+        tbody tr:hover {
+            background-color: var(--ui-wash-hover);
         }
+    }
+
+    tbody tr@{ui-keyboard-within} {
+        background-color: var(--ui-wash-hover);
+    }
+
+    tbody tr:active {
+        background-color: var(--ui-wash-active);
     }
 }
 

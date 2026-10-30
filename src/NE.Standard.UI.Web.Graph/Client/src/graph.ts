@@ -15,25 +15,51 @@ const api = frameworkApi();
 // Every kind of canvas the package draws, by the name its renderer writes on the root.
 const kinds = [NodesKindDefinition, LayeredKindDefinition, ProductionKindDefinition] as readonly CanvasKindDefinition<CanvasDocument>[];
 
-// The engine is what the effects below reach into; it starts after every built-in one and before the page's first changes.
-let engine: GraphEngine | null = null;
+// One engine per runtime root, reached by climbing from the canvas element an event, sink or effect names.
+const engines = new Map<ParentNode, GraphEngine>();
+
+function engineFor(element: Node): GraphEngine | null {
+    for (let current: Node | null = element; current !== null; current = current.parentNode) {
+        const found = engines.get(current as ParentNode);
+
+        if (found !== undefined)
+            return found;
+    }
+
+    return null;
+}
 
 api.registerEngine(context => {
-    engine = new GraphEngine(context, kinds);
+    const engine = new GraphEngine(context, kinds);
+
+    engines.set(context.root, engine);
+
+    return {
+        dispose(): void {
+            if (engines.get(context.root) === engine)
+                engines.delete(context.root);
+
+            engine.dispose();
+        }
+    };
 });
 
 // Ctrl+S, the menu's Save, or a command's save request, raised on the value element after its `change`; the command waits for
 // the document first and, bound `OnSubmit`, submits the canvas's form — the canvas counts itself saved once it answers.
-api.registerEvent<CustomEvent<{ reason: string; id?: number }>>("save", {
+// Written out, as every registration is, for the server's tests to read: `SaveEventName`, which the document dispatches.
+api.registerEvent<CustomEvent<{ reason: string; id?: number }>>("graph-save", {
     settlesValue: true,
+    ownTarget: true,
     submitsForm: true,
     dynamicParameters: context => [context.domEvent.detail?.reason ?? ""],
-    completed: context => engine?.saveCompleted(context.component, context.success, context.domEvent.detail?.id, context.domEvent.detail?.reason ?? "")
+    completed: context => engineFor(context.component)?.saveCompleted(context.component, context.success, context.domEvent.detail?.id, context.domEvent.detail?.reason ?? "")
 });
 
-// An entry an application put into one of the canvas's menus: which entry, the kind of thing the menu was opened on, and its id.
-api.registerEvent<CustomEvent<{ keys: readonly string[] }>>("menu-entry", {
-    dynamicParameters: context => [...(context.domEvent.detail?.keys ?? [])]
+// An entry an application put into one of the canvas's menus, raised on the entry as its menu's own event: the entry's keys, which
+// the server checks against the menu, then the id of what the menu was opened on (`CanvasMenus.raiseEntry`).
+api.registerEvent<CustomEvent<{ target?: string }>>("menu-entry", {
+    ownTarget: true,
+    dynamicParameters: context => [...context.dynamicParameters, context.domEvent.detail?.target ?? ""]
 });
 
 // A canvas's one writable value: the document, as JSON on the hidden element the renderer wrote.
@@ -71,17 +97,17 @@ api.registerEffect({
         const component = findCanvas(context, effect);
 
         if (component !== null)
-            engine?.requestSave(component, typeof effect.reason === "string" ? effect.reason : "");
+            engineFor(component)?.requestSave(component, typeof effect.reason === "string" ? effect.reason : "");
     }
 });
 
-registerNodes(api, () => engine);
+registerNodes(api, engineFor);
 
 // A graph's nodes: its bound collection reaches the canvas as values, the initial reset and insert among them.
-api.registerCollectionSink({ kind: "layered", handler: change => engine?.kindOf(change.component, LayeredKind)?.applyChange(change) });
+api.registerCollectionSink({ kind: "layered", handler: change => engineFor(change.component)?.kindOf(change.component, LayeredKind)?.applyChange(change) });
 
 // A production graph's catalogue: resources and crafts in one bound collection, reaching the canvas the same way.
-api.registerCollectionSink({ kind: "production", handler: change => engine?.kindOf(change.component, ProductionKind)?.applyChange(change) });
+api.registerCollectionSink({ kind: "production", handler: change => engineFor(change.component)?.kindOf(change.component, ProductionKind)?.applyChange(change) });
 
 // One corner of a corner radius as the wire carries it, in px; unset clears the variable, and the stylesheet's radius stands.
 function cornerCss(value: unknown, corner: "topLeft" | "topRight" | "bottomRight" | "bottomLeft"): string {

@@ -18,13 +18,13 @@ export type GraphNodeShape = "card" | "icon";
 export type GraphNode = {
     readonly id: string;
     readonly title: string | null;
-    readonly subtitle: string | null;
+    readonly description: string | null;
     readonly icon: string | null;
     readonly image: string | null;
     /** The node's own shape; unset, the graph's. */
     readonly shape: GraphNodeShape | null;
     readonly color: string | null;
-    readonly badge: string | null;
+    readonly badgeTitle: string | null;
     readonly tooltip: string | null;
     readonly links: readonly GraphLink[];
 };
@@ -36,12 +36,12 @@ export type GraphEdge = GraphLink & { readonly from: string };
 export type GraphNodeDraft = {
     id: string;
     title: string | null;
-    subtitle: string | null;
+    description: string | null;
     icon: string | null;
     image: string | null;
     shape: "Card" | "Icon" | null;
     color: string | null;
-    badge: string | null;
+    badgeTitle: string | null;
     tooltip: string | null;
     links: GraphLink[];
     created: boolean;
@@ -96,12 +96,12 @@ export function toDraft(node: GraphNode): GraphNodeDraft {
     return {
         id: node.id,
         title: node.title,
-        subtitle: node.subtitle,
+        description: node.description,
         icon: node.icon,
         image: node.image,
         shape: node.shape === "icon" ? "Icon" : node.shape === "card" ? "Card" : null,
         color: node.color,
-        badge: node.badge,
+        badgeTitle: node.badgeTitle,
         tooltip: node.tooltip,
         links: node.links.map(link => ({ ...link })),
         created: false,
@@ -197,12 +197,12 @@ export function readGraphNode(value: unknown): GraphNode | null {
     return {
         id,
         title: readText(source.title),
-        subtitle: readText(source.subtitle),
+        description: readText(source.description),
         icon: readText(source.icon),
         image: readText(source.image),
         shape: readShape(source.shape),
         color: readText(source.color),
-        badge: readText(source.badge),
+        badgeTitle: readText(source.badgeTitle),
         tooltip: readText(source.tooltip),
         links: links.flatMap(link => {
             const entry = link as Record<string, unknown> | null;

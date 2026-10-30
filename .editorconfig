@@ -205,15 +205,23 @@ dotnet_diagnostic.IDE0305.severity = warning
 dotnet_diagnostic.IDE0306.severity = warning
 
 # Disabled or intentionally relaxed diagnostics
+# IDE0072 wants every enum member listed even beside a `_` arm; a switch here names the members it treats and lets `_` take the rest.
 dotnet_diagnostic.IDE0072.severity = none
+# CS1591 would demand a summary that restates the name on every icon, constant, renderer override and test member.
 dotnet_diagnostic.CS1591.severity = none
+# CA1819: contract and compiled-view arrays are read-only snapshots by convention; a copy per read would cost the hot path.
 dotnet_diagnostic.CA1819.severity = none
+# CA1812 cannot see DI, routing or JSON, which create every view, controller, service and wire request here: all of its hits were those.
 dotnet_diagnostic.CA1812.severity = none
+# CA1711 objects to names that say what the type is: IRecursiveCollection is a collection, UINotificationPermission the browser's permission.
 dotnet_diagnostic.CA1711.severity = none
+# CA1716 guards Visual Basic keywords (Property, Next, End, AddressOf, On); the framework is consumed from C#.
 dotnet_diagnostic.CA1716.severity = none
+# CA1308: lower case is the wire and CSS form (class names, kebab-case values, language tags), not a normalized key for comparison.
 dotnet_diagnostic.CA1308.severity = none
-dotnet_diagnostic.CA1305.severity = none
+# CA1303 asks for resource lookups; text is localized through phrase keys, and its one hit is a console line in a benchmark.
 dotnet_diagnostic.CA1303.severity = none
+# CA1031: the host's boundaries around application code (commands, hooks, jobs, disposal, change delivery) catch everything to log or report it.
 dotnet_diagnostic.CA1031.severity = none
 # CA1062 predates nullable reference types and duplicates them badly: it asks a public method to null-check a
 # parameter the compiler already proved cannot be null, and misses the flow through a helper that handles it.

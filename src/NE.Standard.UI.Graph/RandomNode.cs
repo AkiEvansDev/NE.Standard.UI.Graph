@@ -27,7 +27,7 @@ public enum UIRandomMode
 /// becomes for the next run — the same, another drawn at random, one more or one less. Neighbouring seeds draw numbers with nothing
 /// to do with each other.
 /// </remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Random", Description = "A number drawn at random, from a seed the sheet keeps.", Icon = UIGlyphs.Dice, Color = "var(--ui-color-series-3)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Random", Description = "A number drawn at random, from a seed the sheet keeps.", Icon = UIGlyphs.Dice, Color = UINodeKinds.NumberColor)]
 public sealed class RandomNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -103,6 +103,6 @@ public sealed class RandomNode : IGraphNode
 
         return first <= last
             ? Math.Min(first + Math.Floor(draw * (last - first + 1)), last)
-            : throw new InvalidOperationException("No whole number lies between From and To.");
+            : throw new UINodeFailureException("No whole number lies between From and To.");
     }
 }

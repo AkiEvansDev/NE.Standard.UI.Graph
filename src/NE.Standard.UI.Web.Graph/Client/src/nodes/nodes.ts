@@ -40,9 +40,10 @@ type NodeEffect = {
     state?: string;
     progress?: unknown;
     message?: unknown;
+    refusal?: unknown;
 };
 
-export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null): void {
+export function registerNodes(api: GlobalApi, engineFor: (element: Node) => GraphEngine | null): void {
     // A click on a node: the command's key is the node's id, which the canvas names rather than the `data-ui-key` chain.
     api.registerEvent<CustomEvent<{ nodeId: string }>>("node-click", {
         dynamicParameters: context => [context.domEvent.detail?.nodeId ?? ""]
@@ -57,7 +58,7 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
     const nodesOf = (context: EffectContext, effect: NodeEffect): NodesKind | null => {
         const component = findCanvas(context, effect);
 
-        return component === null ? null : engine()?.kindOf(component, NodesKind) ?? null;
+        return component === null ? null : engineFor(component)?.kindOf(component, NodesKind) ?? null;
     };
 
     const withNodes = (context: EffectContext, apply: (kind: NodesKind, nodeId: string, effect: NodeEffect) => void): void => {
@@ -91,13 +92,13 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
         handler: context => withNodes(context, (kind, nodeId, effect) => kind.addLog(nodeId, String(effect.level ?? "Info"), effect.message ?? null))
     });
 
-    // How far a run has come: none through begins it (and clears the log), all through ends it.
+    // How far a run has come: none through begins it (and clears the log), all through ends it; a refusal says why none ran.
     api.registerEffect({
         kind: RunProgressEffectKind,
         handler: context => {
             const effect = context.effect as NodeEffect;
 
-            nodesOf(context, effect)?.setRunProgress(Number(effect.completed) || 0, Number(effect.total) || 0);
+            nodesOf(context, effect)?.setRunProgress(Number(effect.completed) || 0, Number(effect.total) || 0, effect.refusal ?? null);
         }
     });
 
@@ -117,14 +118,20 @@ export function registerNodes(api: GlobalApi, engine: () => GraphEngine | null):
     // A parameters column that arrives on the page — drawn after its canvas, or drawn again — takes its rows from the canvas it is
     // aimed at; one drawn before its canvas is found by the canvas's first draw.
     api.registerEngine(context => {
-        context.observeComponents(context.root, `[${ParametersTargetAttribute}]`, { childList: true }, panels => {
+        const observer = context.observeComponents(context.root, `[${ParametersTargetAttribute}]`, { childList: true }, panels => {
             for (const panel of panels) {
                 const id = Number(panel.getAttribute(ParametersTargetAttribute));
                 const canvas = Number.isInteger(id) && id > 0 ? context.dom.findComponent(id, []) : null;
 
                 if (canvas !== null)
-                    engine()?.kindOf(canvas, NodesKind)?.parametersArrived();
+                    engineFor(canvas)?.kindOf(canvas, NodesKind)?.parametersArrived();
             }
         });
+
+        return {
+            dispose(): void {
+                observer?.disconnect();
+            }
+        };
     });
 }

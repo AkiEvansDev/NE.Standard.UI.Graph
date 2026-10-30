@@ -4,17 +4,17 @@ using System.Text.Json.Serialization;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>Writes a <see cref="UINodePicture"/> as the display reads one, and reads it back.</summary>
-public sealed class UINodePictureJsonConverter : JsonConverter<UINodePicture>
+/// <summary>Writes a <see cref="UINodeImage"/> as the display reads one, and reads it back.</summary>
+public sealed class UINodeImageJsonConverter : JsonConverter<UINodeImage>
 {
     /// <inheritdoc/>
-    public override UINodePicture? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override UINodeImage? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         using JsonDocument document = JsonDocument.ParseValue(ref reader);
         JsonElement root = document.RootElement;
 
-        return root.ValueKind == JsonValueKind.Object && root.TryGetProperty(UINodePicture.WireKey, out JsonElement address) && address.ValueKind == JsonValueKind.String && address.GetString() is { } text
-            ? new UINodePicture(text, SizeOf(root, "width"), SizeOf(root, "height"))
+        return root.ValueKind == JsonValueKind.Object && root.TryGetProperty(UINodeImage.WireKey, out JsonElement address) && address.ValueKind == JsonValueKind.String && address.GetString() is { } text
+            ? new UINodeImage(text, SizeOf(root, "width"), SizeOf(root, "height"))
             : null;
     }
 
@@ -22,13 +22,13 @@ public sealed class UINodePictureJsonConverter : JsonConverter<UINodePicture>
         => root.TryGetProperty(name, out JsonElement size) && size.ValueKind == JsonValueKind.Number ? size.GetDouble() : null;
 
     /// <inheritdoc/>
-    public override void Write(Utf8JsonWriter writer, UINodePicture value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, UINodeImage value, JsonSerializerOptions options)
     {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(value);
 
         writer.WriteStartObject();
-        writer.WriteString(UINodePicture.WireKey, value.Address);
+        writer.WriteString(UINodeImage.WireKey, value.Address);
 
         // A size JSON cannot spell is no size: the picture is drawn at its own.
         if (value.Width is double width && double.IsFinite(width))

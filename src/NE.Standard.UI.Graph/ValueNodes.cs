@@ -6,7 +6,7 @@ namespace NE.Standard.UI.Graph;
 /// <summary>
 /// A number typed in on the node; nothing feeds it.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Number", Description = "A number typed in on the node.", Icon = UIGlyphs.Numbers, Color = "var(--ui-color-series-3)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Number", Description = "A number typed in on the node.", Icon = UIGlyphs.Numbers, Color = UINodeKinds.NumberColor)]
 public sealed class NumberNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -28,7 +28,7 @@ public sealed class NumberNode : IGraphNode
 /// <summary>
 /// A text typed in on the node; nothing feeds it.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Text", Description = "A text typed in on the node.", Icon = UIGlyphs.TextFields, Color = "var(--ui-color-series-5)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Text", Description = "A text typed in on the node.", Icon = UIGlyphs.TextFields, Color = UINodeKinds.TextColor)]
 public sealed class TextNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -50,7 +50,7 @@ public sealed class TextNode : IGraphNode
 /// <summary>
 /// A day picked on the node; nothing feeds it.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Date", Description = "A day picked on the node, or today.", Icon = UIGlyphs.Calendar, Color = "var(--ui-color-series-8)", AlwaysRuns = true)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Date", Description = "A day picked on the node, or today.", Icon = UIGlyphs.Calendar, Color = UINodeKinds.DateColor, AlwaysRuns = true)]
 public sealed class DateNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -72,7 +72,7 @@ public sealed class DateNode : IGraphNode
 /// <summary>
 /// A yes or a no switched on the node; nothing feeds it.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Yes or no", Description = "A switch set on the node.", Icon = UIGlyphs.ToggleOn, Color = "var(--ui-color-series-4)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.ValuesCategory, Title = "Yes or no", Description = "A switch set on the node.", Icon = UIGlyphs.ToggleOn, Color = UINodeKinds.LogicColor)]
 public sealed class YesNoNode : IGraphNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>

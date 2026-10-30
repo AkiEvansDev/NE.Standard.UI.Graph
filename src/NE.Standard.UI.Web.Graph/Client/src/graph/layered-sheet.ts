@@ -26,8 +26,6 @@ export type LayeredSheetHost = {
     links(): readonly LayeredEdge[];
     /** What the layout is laid for beside its direction — how nodes are drawn — so a change lays out again what it placed. */
     layoutKey(): string;
-    /** Whether a node's edges leave and enter at points of their own along its side, rather than all at its middle — a card's. */
-    spreadsEnds?(id: string): boolean;
     /** What a node wears under its box (a circle's name): an edge meeting its bottom ends below it rather than through it. */
     footRoom?(id: string): number;
 };
@@ -39,20 +37,11 @@ const NoFeet: EdgeFeet = { from: 0, to: 0 };
 
 /** How far along its side, as a share, a backward edge meets a node: high up, clear of the forward edges at the middle. */
 const SideHigh = 0.35;
-/** The most room between two points one side of a node sets edges apart at, and the share of the side they may take. */
-const EndGap = 12;
-const EndShare = 0.6;
 
 export type LayeredSheetOptions = {
     readonly nodeGap: number;
     readonly layerGap?: number;
 };
-
-/** How far an edge's two ends stand from the middles of their sides. */
-type EndShift = { from: number; to: number };
-
-/** One edge at one side of a node, where its other end lies across the layers, and whether it runs level all the way. */
-type SideEnd = { readonly id: string; readonly across: number; readonly level: boolean };
 
 export class LayeredSheet {
     private readonly services: CanvasServices<LayeredDocument>;
@@ -71,8 +60,6 @@ export class LayeredSheet {
     private routes = new Map<string, Point[]>();
     // Where the stepped edges turn, by leg; worked out with the first edge of a draw and let go with the next draw.
     private lanes: Map<string, number> | null = null;
-    // How far each edge's two ends stand from the middle of their sides, by link; worked out and let go as the lanes are.
-    private shifts: Map<string, EndShift> | null = null;
     // What the last layout was laid for: a turned direction or another shape of node lays out again what it placed.
     private laidFor: string;
     // Watches a canvas drawn where it has no size yet, to lay it out once it has one.
@@ -159,10 +146,9 @@ export class LayeredSheet {
 
     /** A route per link, taken from the document or added to it, so a reroute point dropped on an edge lands in the document. */
     public edges(): CanvasEdge[] {
-        // The edges are about to be drawn again, over nodes that may have moved: the lanes and the ends' places are worked out afresh
-        // with the first of them, and where each node stands is read off the document once for all of them.
+        // The edges are about to be drawn again, over nodes that may have moved: the lanes are worked out afresh with the first of
+        // them, and where each node stands is read off the document once for all of them.
         this.lanes = null;
-        this.shifts = null;
         this.placements = null;
 
         const document = this.document;
@@ -321,41 +307,86 @@ export class LayeredSheet {
         this.waiting = null;
     }
 
-    /** Runs the layered layout, snapped to the grid; a long edge's via-points move with its source's snap so it sets out level — remembered positions tell laid-out nodes from hand-placed ones. */
+    /** Runs the layered layout, snapped to the grid; a long edge's via-points move with the end it runs level with and stand at the layer's edge facing the bend — remembered positions tell laid-out nodes from hand-placed ones. */
     private layout(sizes: readonly { id: string; width: number; height: number }[]): ReturnType<typeof layered> {
         let widest = 0;
 
-        // A loop rather than a spread: thousands of nodes pass more arguments than a call may take.
+        // A loop rather than a spread: thousands of nodes pass more arguments than a call may take. Only nodes whose extent exceeds
+        // their own box (circles wearing captions/chips) widen the circle room, so a wide card never inflates a circle beside it.
         if (this.host.nodeBox !== undefined) {
-            for (const size of sizes)
-                widest = Math.max(widest, this.services.nodeExtent(size.id)?.width ?? 0);
+            for (const size of sizes) {
+                const extent = this.services.nodeExtent(size.id)?.width ?? 0;
+
+                if (extent > size.width)
+                    widest = Math.max(widest, extent);
+            }
         }
 
+        const down = this.direction === "down" || this.direction === "up";
+        const turned = this.direction === "left" || this.direction === "up";
         const boxes = sizes.map(size => ({ id: size.id, ...this.box(size.id, size.width, size.height, widest) }));
         const result = layered(boxes, this.host.links(), { direction: this.direction, nodeGap: this.options.nodeGap, layerGap: this.options.layerGap });
+        const unsnappedLine = new Map<string, number>();
         const moved = new Map<string, Point>();
+        const layerLead = new Map<number, number>();
+        const layerTrail = new Map<number, number>();
 
         for (const [index, size] of sizes.entries()) {
             const place = result.positions.get(size.id);
 
+            if (place === undefined)
+                continue;
+
+            const box = boxes[index];
             // A node stands in the middle of the room it was given, as what it wears hangs either side of it.
-            if (place !== undefined)
-                result.positions.set(size.id, { x: place.x + (boxes[index].width - size.width) / 2, y: place.y });
-        }
+            const centered = { x: place.x + (box.width - size.width) / 2, y: place.y };
+            const byCenter = this.services.snapPlace(size.id, centered);
+            // A card (no anchor) stands against its layer's leading edge, so that edge snaps to the grid and every card of the column
+            // shares one line; across the layers its middle still snaps, level with circles beside it.
+            const snapped = box.anchor !== undefined ? byCenter : this.snapCard(centered, size, byCenter, down, turned);
 
-        for (const [id, place] of result.positions) {
-            const snapped = this.services.snapPlace(id, place);
+            unsnappedLine.set(size.id, down ? centered.x + size.width / 2 : centered.y + size.height / 2);
+            moved.set(size.id, { x: snapped.x - centered.x, y: snapped.y - centered.y });
+            result.positions.set(size.id, snapped);
 
-            moved.set(id, { x: snapped.x - place.x, y: snapped.y - place.y });
-            result.positions.set(id, snapped);
+            const layer = result.layers.get(size.id);
+
+            if (layer !== undefined) {
+                const start = down ? snapped.y : snapped.x;
+                const end = start + (down ? size.height : size.width);
+                const lead = turned ? end : start;
+                const trail = turned ? start : end;
+                const prevLead = layerLead.get(layer);
+                const prevTrail = layerTrail.get(layer);
+
+                layerLead.set(layer, prevLead === undefined ? lead : turned ? Math.max(prevLead, lead) : Math.min(prevLead, lead));
+                layerTrail.set(layer, prevTrail === undefined ? trail : turned ? Math.min(prevTrail, trail) : Math.max(prevTrail, trail));
+            }
         }
 
         for (const link of this.host.links()) {
-            const by = moved.get(link.from);
             const route = result.routes.get(link.id);
+            const fromMove = moved.get(link.from);
+            const toMove = moved.get(link.to);
 
-            if (by !== undefined && route !== undefined)
-                result.routes.set(link.id, route.map(point => ({ x: point.x + by.x, y: point.y + by.y })));
+            if (route === undefined || fromMove === undefined)
+                continue;
+
+            const fromLine = unsnappedLine.get(link.from);
+            const toLine = unsnappedLine.get(link.to);
+            const fromLayer = result.layers.get(link.from);
+
+            result.routes.set(link.id, route.map((point, step) => {
+                const pointAcross = down ? point.x : point.y;
+                const withTo = fromLine !== undefined && toLine !== undefined && Math.abs(pointAcross - toLine) < Math.abs(pointAcross - fromLine);
+                const acrossMove = (withTo ? toMove : fromMove) ?? fromMove;
+                const across = pointAcross + (down ? acrossMove.x : acrossMove.y);
+                const layer = fromLayer === undefined ? undefined : fromLayer + 1 + step;
+                const bound = layer === undefined ? undefined : (withTo ? layerLead : layerTrail).get(layer);
+                const along = bound ?? (down ? point.y + fromMove.y : point.x + fromMove.x);
+
+                return down ? { x: across, y: along } : { x: along, y: across };
+            }));
         }
 
         return result;
@@ -372,6 +403,21 @@ export class LayeredSheet {
     /** A node's box as the layout sees it: its own, or what the kind draws around it. */
     private box(id: string, width: number, height: number, widest: number): { width: number; height: number; anchor?: Point } {
         return this.host.nodeBox === undefined ? { width, height } : this.host.nodeBox(id, width, height, widest);
+    }
+
+    /** Snaps a card's leading edge along the layers (so cards of different widths share their column's line) and its middle across them. */
+    private snapCard(centered: Point, size: { width: number; height: number }, byCenter: Point, down: boolean, turned: boolean): Point {
+        if (down) {
+            const edge = turned ? centered.y + size.height : centered.y;
+            const snappedEdge = this.services.snapPlace("", { x: 0, y: edge }).y;
+
+            return { x: byCenter.x, y: turned ? snappedEdge - size.height : snappedEdge };
+        }
+
+        const edge = turned ? centered.x + size.width : centered.x;
+        const snappedEdge = this.services.snapPlace("", { x: edge, y: 0 }).x;
+
+        return { x: turned ? snappedEdge - size.width : snappedEdge, y: byCenter.y };
     }
 
     /** Where Arrange puts each moving node: the whole layout, remembered as the one edges keep their routes by. */
@@ -436,81 +482,8 @@ export class LayeredSheet {
         return reversed ? new Map([...lanes].map(([id, at]) => [id, -at])) : lanes;
     }
 
-    /** A link's ends, each moved along its side to the point that side sets it at. */
-    private endsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "loop" | "via" | "reversed"> | null {
-        const ends = this.middleEndsOf(link);
-
-        if (ends === null || ends.back === true || this.host.spreadsEnds === undefined)
-            return ends;
-
-        this.shifts ??= this.assignShifts();
-
-        const shift = this.shifts.get(link.id);
-
-        if (shift === undefined)
-            return ends;
-
-        const move = (point: Point, by: number): Point => (ends.axis === "vertical" ? { x: point.x + by, y: point.y } : { x: point.x, y: point.y + by });
-
-        return { ...ends, from: move(ends.from, shift.from), to: move(ends.to, shift.to) };
-    }
-
-    /**
-     * Spreads the edges on one side of a card in the order their other ends lie, so none overlaps another; a lone edge, or every
-     * edge of a node that doesn't spread its ends, stays at the middle.
-     */
-    private assignShifts(): Map<string, EndShift> {
-        const shifts = new Map<string, EndShift>();
-        const leaving = new Map<string, SideEnd[]>();
-        const entering = new Map<string, SideEnd[]>();
-
-        for (const link of this.host.links()) {
-            const ends = this.middleEndsOf(link);
-
-            if (ends === null || ends.back === true || link.from === link.to)
-                continue;
-
-            // Where the edge heads once it has left, and where it comes from as it arrives: the first and last of its stops.
-            const via = ends.via ?? [];
-            const across = (point: Point): number => (ends.axis === "vertical" ? point.x : point.y);
-            const level = [ends.to, ...via].every(point => Math.abs(across(point) - across(ends.from)) < 0.5);
-
-            shifts.set(link.id, { from: 0, to: 0 });
-            leaving.set(link.from, [...leaving.get(link.from) ?? [], { id: link.id, across: across(via[0] ?? ends.to), level }]);
-            entering.set(link.to, [...entering.get(link.to) ?? [], { id: link.id, across: across(via.at(-1) ?? ends.from), level }]);
-        }
-
-        this.spread(leaving, shifts, "from");
-        this.spread(entering, shifts, "to");
-
-        return shifts;
-    }
-
-    private spread(sides: ReadonlyMap<string, SideEnd[]>, shifts: Map<string, EndShift>, end: "from" | "to"): void {
-        const down = this.direction === "down" || this.direction === "up";
-
-        for (const [id, side] of sides) {
-            const rect = side.length > 1 && this.host.spreadsEnds!(id) ? this.services.nodeRect(id) : null;
-
-            if (rect === null)
-                continue;
-
-            const sorted = [...side].sort((left, right) => left.across - right.across);
-            // An edge that runs level between two nodes set in line keeps the middle of both its sides, so it stays one straight line;
-            // the others fan out either side of it in their order. With none level, the side's edges stand evenly about its middle.
-            const straight = sorted.findIndex(sideEnd => sideEnd.level);
-            const middle = straight >= 0 ? straight : (sorted.length - 1) / 2;
-            const reach = Math.max(middle, sorted.length - 1 - middle);
-            const step = Math.min(EndGap, ((down ? rect.width : rect.height) * EndShare) / (2 * reach));
-
-            sorted.forEach((sideEnd, index) => {
-                shifts.get(sideEnd.id)![end] = (index - middle) * step;
-            });
-        }
-    }
-
     /** A link's ends at the middles of the sides it leaves and enters. */
-    private middleEndsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "loop" | "via" | "reversed"> | null {
+    private endsOf(link: LayeredEdge): Pick<EdgeEnds, "from" | "to" | "axis" | "back" | "loop" | "via" | "reversed"> | null {
         const from = this.services.nodeRect(link.from);
         const to = this.services.nodeRect(link.to);
 

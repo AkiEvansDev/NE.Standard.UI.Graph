@@ -18,6 +18,7 @@ internal static class NodesDemoWords
 
     private static readonly Dictionary<string, string> English = new(StringComparer.Ordinal)
     {
+        ["nodes.title"] = "{page} · NE.Standard.UI.Graph",
         ["nodes.nav.kinds"] = "Kinds",
         ["nodes.page.common"] = "Common",
         ["nodes.page.common.description"] = "The kinds every catalogue carries, on the node canvas: double-click the background to add a node, drag from a pin to wire one, press a node for its frequent entries in a bar above it, the panel in the leading corner or the right button for the menu, Ctrl+S to save, Ctrl+Z to undo; the one in the trailing corner runs the sheet, once or until a counter runs out.",
@@ -28,6 +29,9 @@ internal static class NodesDemoWords
         ["nodes.sheet.calculator"] = "Calculator",
         ["nodes.sheet.image"] = "Pictures",
         ["nodes.page.image.description"] = "The picture package's kinds, NE.Standard.UI.Graph.Image, with the file kinds: a picture chosen on the sheet and worked on the server, and a folder's pictures made thumbnails one a run.",
+        ["nodes.page.all"] = "All kinds",
+        ["nodes.page.all.description"] = "Every node kind across all packages, grouped by category and colour: values, calculator, logic, text, lists, dates, files, pictures and utilities on one sheet.",
+        ["nodes.sheet.all"] = "All kinds",
         ["nodes.code"] = "Code",
         ["nodes.copy"] = "Copy",
         ["nodes.edges"] = "Edges",
@@ -44,8 +48,10 @@ internal static class NodesDemoWords
         ["nodes.status.common"] = "Run works the sheet out once; Run all walks the counter to its end. The counter's Next starts over by its reset.",
         ["nodes.status.calculator"] = "Drag from a pin to wire two nodes, double-click the background to add one, Ctrl+S to save, Run to work it out.",
         ["nodes.status.image"] = "Choose a picture on the Image node and press Run; Run all goes through the folder's pictures one a run, and Stop ends it part way.",
+        ["nodes.status.all"] = "Every node kind in its category's group and colour: pan and zoom the sheet, or open the Color submenu on any node or group.",
         ["nodes.status.saved"] = "Saved at {time}: nodes {nodes}, connections {edges}.",
         ["nodes.status.stopped"] = "Stopped in run {run}. The counters and the folder stand where the runs before it left them.",
+        ["nodes.status.timed-out"] = "Out of time in run {run}. The counters and the folder stand where the runs before it left them.",
         ["nodes.status.runs"] = "{runs} runs. {line}",
         ["nodes.status.ran.one"] = "Ran {count} node.",
         ["nodes.status.ran.other"] = "Ran {count} nodes.",
@@ -53,6 +59,7 @@ internal static class NodesDemoWords
         ["nodes.status.failed-skipped"] = "{node}: {error} {skipped} below it were skipped. Ran {ran} of {total} nodes.",
         ["nodes.status.position"] = "{node} at {x}, {y}.",
         ["nodes.status.no-picture"] = "That upload carried no single picture.",
+        ["nodes.status.too-large"] = "That picture is larger than the 32 MB limit.",
         ["nodes.status.kept"] = "Kept {file} ({size} KB). Press Run.",
         ["nodes.status.reset"] = "The sheet is back to the one the page opened with.",
         ["nodes.answer.none"] = "Add a Result node to see an answer."
@@ -61,6 +68,7 @@ internal static class NodesDemoWords
     // The demo's second language, whole for its own words, so the missing-word report names only a real gap (DemoWordsCoverageTests).
     private static readonly Dictionary<string, string> Chinese = new(StringComparer.Ordinal)
     {
+        ["nodes.title"] = "{page} · NE.Standard.UI.Graph",
         ["nodes.nav.kinds"] = "节点类型",
         ["nodes.page.common"] = "常用",
         ["nodes.page.common.description"] = "每个目录都带有的节点类型，放在节点画布上：双击背景添加节点，从引脚拖出连线，单击节点在其上方的操作栏中使用常用命令，用起始角的面板或右键打开菜单，Ctrl+S 保存，Ctrl+Z 撤销；末尾角的面板运行整张画布，运行一次，或一直运行到计数器用完。",
@@ -71,6 +79,9 @@ internal static class NodesDemoWords
         ["nodes.sheet.calculator"] = "计算器",
         ["nodes.sheet.image"] = "图片",
         ["nodes.page.image.description"] = "图片包的节点类型 NE.Standard.UI.Graph.Image，以及文件类节点：在画布上选一张图片，由服务器处理；再把一个文件夹里的图片每次运行一张地做成缩略图。",
+        ["nodes.page.all"] = "全部节点",
+        ["nodes.page.all.description"] = "所有包的全部节点类型，按分类和颜色分组排列在同一张画布上：数值、计算器、逻辑、文本、列表、日期、文件、图片和工具。",
+        ["nodes.sheet.all"] = "全部节点",
         ["nodes.code"] = "代码",
         ["nodes.copy"] = "复制",
         ["nodes.edges"] = "连线",
@@ -87,14 +98,17 @@ internal static class NodesDemoWords
         ["nodes.status.common"] = "“运行”把画布算一遍；“全部运行”让计数器一直走到尽头。计数器的 Next 可以用它的重置重新开始。",
         ["nodes.status.calculator"] = "从引脚拖出连线连接两个节点，双击背景添加节点，Ctrl+S 保存，“运行”算出结果。",
         ["nodes.status.image"] = "在 Image 节点上选一张图片，然后按“运行”；“全部运行”每次运行处理文件夹里的一张图片，“停止”可以中途结束。",
+        ["nodes.status.all"] = "所有节点类型按分类分组并着色排列：平移和缩放画布，或在任意节点或分组上打开“颜色”子菜单。",
         ["nodes.status.saved"] = "已于 {time} 保存：节点 {nodes} 个，连线 {edges} 条。",
         ["nodes.status.stopped"] = "在第 {run} 次运行中停止。计数器和文件夹停在之前各次运行留下的位置。",
+        ["nodes.status.timed-out"] = "在第 {run} 次运行中超时。计数器和文件夹停在之前各次运行留下的位置。",
         ["nodes.status.runs"] = "共 {runs} 次运行。{line}",
         ["nodes.status.ran.other"] = "运行了 {count} 个节点。",
         ["nodes.status.failed"] = "{node}：{error} 运行了 {ran} 个节点，共 {total} 个。",
         ["nodes.status.failed-skipped"] = "{node}：{error} 其下 {skipped} 个节点被跳过。运行了 {ran} 个节点，共 {total} 个。",
         ["nodes.status.position"] = "{node} 位于 {x}, {y}。",
         ["nodes.status.no-picture"] = "这次上传没有带来单独一张图片。",
+        ["nodes.status.too-large"] = "这张图片超过了 32 MB 的大小限制。",
         ["nodes.status.kept"] = "已保存 {file}（{size} KB）。请按“运行”。",
         ["nodes.status.reset"] = "画布已恢复为页面打开时的样子。",
         ["nodes.answer.none"] = "添加一个 Result 节点来查看结果。"

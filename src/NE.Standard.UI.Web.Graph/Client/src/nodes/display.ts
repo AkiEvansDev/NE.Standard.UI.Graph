@@ -1,12 +1,12 @@
 // What a display pin draws: a picture where a type says so, a list of records as a table, any other list as lines, an object as
 // its fields, the rest as text. A text is a picture only when the pin's type is a picture's (`picture` in the options), and a
-// record's field or a list's item only when the server marked it one (`UINodePicture`) — never by what the text looks like. What
+// record's field or a list's item only when the server marked it one (`UINodeImage`) — never by what the text looks like. What
 // the server cut from a long value arrives as a word (`ui.graph.more`, with a count) written in the page's language.
 
 import { readSize } from "../canvas/canvas-model.ts";
 
-// `UINodePicture.WireKey` on the server: the key a picture marked as one travels under.
-const PictureKey = "$picture";
+// `UINodeImage.WireKey` on the server: the key a picture marked as one travels under.
+const ImageKey = "$image";
 
 type MarkedPicture = { readonly address: string; readonly width: number | null; readonly height: number | null };
 
@@ -93,13 +93,13 @@ function leftOut(value: unknown): number | null {
     return phrase.key === MoreKey && Object.keys(value).length === 2 && typeof phrase.args?.count === "number" ? phrase.args.count : null;
 }
 
-/** A picture the server marked as one (`UINodePicture`), with the size to draw it at, or null for any other value. */
+/** A picture the server marked as one (`UINodeImage`), with the size to draw it at, or null for any other value. */
 function markedPicture(value: unknown): MarkedPicture | null {
     if (value === null || typeof value !== "object" || Array.isArray(value))
         return null;
 
     const fields = value as Record<string, unknown>;
-    const address = fields[PictureKey];
+    const address = fields[ImageKey];
 
     return typeof address === "string" ? { address, width: readSize(fields["width"]), height: readSize(fields["height"]) } : null;
 }

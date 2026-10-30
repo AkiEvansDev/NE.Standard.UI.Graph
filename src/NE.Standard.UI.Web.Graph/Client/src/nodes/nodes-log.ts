@@ -2,7 +2,7 @@
 // run line. One channel, since the run line reads both the log's failures and the running node.
 
 import type { PluginEngineContext } from "ne-standard-ui";
-import { CoreNames, percentText } from "../canvas/canvas-dom.ts";
+import { percentText } from "../canvas/canvas-dom.ts";
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { focusAfterRemoval } from "../canvas/side-panel.ts";
 import { showDisplayValue } from "./display.ts";
@@ -42,6 +42,7 @@ export class NodesLog {
     private readonly logEntries: HTMLElement | null;
     private readonly logToggle: HTMLElement | null;
     private readonly logCount: HTMLElement | null;
+    private readonly logClear: HTMLElement | null;
 
     // The log is the canvas's own and nothing of it is saved: it lives as long as the page, and a run that begins clears it.
     private readonly log: LogEntry[] = [];
@@ -52,6 +53,8 @@ export class NodesLog {
     private runTotal = 0;
     private runFailed = false;
     private runStopped = false;
+    // Why the server refused the run whole, before any node ran: the line's words while no node has any.
+    private runRefusal: Said = null;
     private runningNode: string | null = null;
 
     private readonly statuses = new Map<string, NodeStatus>();
@@ -71,6 +74,8 @@ export class NodesLog {
         this.logEntries = root.querySelector<HTMLElement>("[data-ui-graph-log-entries]");
         this.logToggle = root.querySelector<HTMLElement>("[data-ui-graph-log-toggle]");
         this.logCount = root.querySelector<HTMLElement>("[data-ui-graph-log-count]");
+        this.logClear = root.querySelector<HTMLElement>("[data-ui-graph-log-clear]");
+        this.syncClearButton();
     }
 
     // --- statuses and node redraws ------------------------------------------------------------------------------------------
@@ -281,6 +286,8 @@ export class NodesLog {
 
     /** The count on the log's head, in the colour of the worst line under it, so a failure reads even with the log folded. */
     private drawLogCount(): void {
+        this.syncClearButton();
+
         if (this.logCount === null)
             return;
 
@@ -289,9 +296,14 @@ export class NodesLog {
 
         this.logCount.hidden = this.log.length === 0;
         this.context.badges.writeCount(this.logCount, this.log.length);
-        this.logCount.classList.toggle(CoreNames.badgeDangerClass, errors > 0);
-        this.logCount.classList.toggle(CoreNames.badgeWarningClass, errors === 0 && warnings > 0);
-        this.logCount.classList.toggle(CoreNames.badgeSurfaceClass, errors === 0 && warnings === 0);
+        this.logCount.classList.toggle(this.context.names.badgeDangerClass, errors > 0);
+        this.logCount.classList.toggle(this.context.names.badgeWarningClass, errors === 0 && warnings > 0);
+        this.logCount.classList.toggle(this.context.names.badgeSurfaceClass, errors === 0 && warnings === 0);
+    }
+
+    private syncClearButton(): void {
+        if (this.logClear !== null)
+            this.context.states.setDisabled(this.logClear, this.log.length === 0);
     }
 
     /** The page's words changed: the run line's share is written again in them. */
@@ -349,14 +361,18 @@ export class NodesLog {
 
     // --- the run line ----------------------------------------------------------------------------------------------------------
 
-    /** How far the run has come. None through begins a run — and clears the log and the failure the last one left. */
-    public setRunProgress(completed: number, total: number): void {
+    /**
+     * How far the run has come. None through begins a run — and clears the log and the failure the last one left; with a refusal, the
+     * run was refused whole and the line says why, failed.
+     */
+    public setRunProgress(completed: number, total: number, refusal: Said = null): void {
         if (completed <= 0) {
             this.clearLog();
             this.runStarted = true;
-            this.runFailed = false;
             this.runStopped = false;
             this.runningNode = null;
+            this.runRefusal = this.said(refusal).length > 0 ? refusal : null;
+            this.runFailed = this.runRefusal !== null;
         }
 
         this.runCompleted = Math.max(0, completed);
@@ -408,6 +424,9 @@ export class NodesLog {
 
             return said.length > 0 ? this.joined(this.runningNode, said) : this.nodeName(this.runningNode);
         }
+
+        if (this.runRefusal !== null)
+            return this.said(this.runRefusal);
 
         // Stopped, the line the stop left in the log — the node it cut short — rather than a failure from before it.
         const said = this.runStopped && !this.runFailed

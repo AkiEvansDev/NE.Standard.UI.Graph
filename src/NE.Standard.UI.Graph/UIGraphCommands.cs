@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace NE.Standard.UI.Graph;
@@ -333,10 +334,10 @@ public static class UIGraphWords
     public const string Blue = "ui.graph.color-blue";
 
     /// <summary>The theme's second series, as a colour choice.</summary>
-    public const string Amber = "ui.graph.color-amber";
+    public const string Bronze = "ui.graph.color-bronze";
 
     /// <summary>The theme's third series, as a colour choice.</summary>
-    public const string Green = "ui.graph.color-green";
+    public const string Mint = "ui.graph.color-mint";
 
     /// <summary>The theme's fourth series, as a colour choice.</summary>
     public const string Rose = "ui.graph.color-rose";
@@ -345,13 +346,13 @@ public static class UIGraphWords
     public const string Purple = "ui.graph.color-purple";
 
     /// <summary>The theme's sixth series, as a colour choice.</summary>
-    public const string Cyan = "ui.graph.color-cyan";
+    public const string Teal = "ui.graph.color-teal";
 
     /// <summary>The theme's seventh series, as a colour choice.</summary>
-    public const string Bronze = "ui.graph.color-bronze";
+    public const string Lavender = "ui.graph.color-lavender";
 
     /// <summary>The theme's eighth series, as a colour choice.</summary>
-    public const string Fern = "ui.graph.color-fern";
+    public const string Violet = "ui.graph.color-violet";
 
     /// <summary>A list row's or a plan target's remove button.</summary>
     public const string Remove = "ui.graph.remove";
@@ -419,6 +420,15 @@ public static class UIGraphWords
     /// <summary>The run's failure of a node that waits for itself.</summary>
     public const string RunCycle = "ui.graph.run-cycle";
 
+    /// <summary>The run's failure of a node a value of the document's own holds outside its input's bounds, with the input's <c>pin</c> title.</summary>
+    public const string RunOutOfBounds = "ui.graph.run-out-of-bounds";
+
+    /// <summary>The run's failure of a node whose text came out longer than a run allows, with the output's <c>pin</c> title.</summary>
+    public const string RunTooLong = "ui.graph.run-too-long";
+
+    /// <summary>The run's refusal of a sheet with more nodes than it takes, with the <c>max</c> it takes.</summary>
+    public const string RunTooManyNodes = "ui.graph.run-too-many-nodes";
+
     /// <summary>A folder's line on the file a run takes: its <c>index</c> of the <c>total</c>, and the file's <c>name</c>.</summary>
     public const string FileProgress = "ui.graph.file-progress";
 }
@@ -426,7 +436,25 @@ public static class UIGraphWords
 /// <summary>
 /// One colour an item or a group may be given from its menu: the name the entry says, and the CSS colour it paints.
 /// </summary>
-public sealed record UIGraphColorChoice(string Title, string Color);
+public sealed record UIGraphColorChoice(string Title, string Color)
+{
+    /// <summary>Gets the choices a canvas offers until <c>SetColorChoices</c> names its own.</summary>
+    /// <remarks>
+    /// The theme's own series, named for the hues the default theme gives them: an application whose theme paints them otherwise
+    /// names its own.
+    /// </remarks>
+    public static IReadOnlyList<UIGraphColorChoice> Defaults { get; } =
+    [
+        new(UIGraphWords.Blue, "var(--ui-color-series-1)"),
+        new(UIGraphWords.Bronze, "var(--ui-color-series-2)"),
+        new(UIGraphWords.Mint, "var(--ui-color-series-3)"),
+        new(UIGraphWords.Rose, "var(--ui-color-series-4)"),
+        new(UIGraphWords.Purple, "var(--ui-color-series-5)"),
+        new(UIGraphWords.Teal, "var(--ui-color-series-6)"),
+        new(UIGraphWords.Lavender, "var(--ui-color-series-7)"),
+        new(UIGraphWords.Violet, "var(--ui-color-series-8)")
+    ];
+}
 
 /// <summary>
 /// The events a canvas of the package raises beyond an input's own.
@@ -437,7 +465,8 @@ public static class GraphEvents
     /// Raised after the document commits; its key is the save's reason (<see cref="UIGraphArguments.Reason"/>), empty for the
     /// viewer's own.
     /// </summary>
-    public const string Save = "save";
+    /// <remarks>The package's own name: another package's <c>save</c> would take the client's registration of a plain one.</remarks>
+    public const string Save = "graph-save";
 
     /// <summary>A click on a node, with the node's id as the command's key.</summary>
     public const string NodeClick = "node-click";
@@ -446,7 +475,10 @@ public static class GraphEvents
     /// A click on an application's own menu entry, naming the entry, the target kind (<see cref="UIGraphMenuTargets"/>) and its id
     /// via <see cref="UIGraphArguments"/>.
     /// </summary>
-    /// <remarks>The canvas's own entries never raise it.</remarks>
+    /// <remarks>
+    /// Raised on the entry, as the event of its menu's item templates (<c>OnMenuEntry</c>), its target's id after the entry's keys:
+    /// the server takes it only for an entry the menu holds, enabled and shown. The canvas's own entries never raise it.
+    /// </remarks>
     public const string MenuEntry = "menu-entry";
 
     /// <summary>
@@ -454,7 +486,7 @@ public static class GraphEvents
     /// <see cref="UIGraphArguments"/>.
     /// </summary>
     /// <remarks>The pin shows nothing until the application replies with the stored address.</remarks>
-    public const string ImageUpload = "image-upload";
+    public const string ImageUpload = "graph-image-upload";
 
     /// <summary>The run panel's Stop, while a run is on: the command ends it (<see cref="UINodeRuns.Stop"/>).</summary>
     public const string RunStop = "run-stop";

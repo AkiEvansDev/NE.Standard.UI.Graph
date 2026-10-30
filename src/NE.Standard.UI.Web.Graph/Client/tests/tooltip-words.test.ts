@@ -45,7 +45,7 @@ function hover(element: HTMLElement): void {
 }
 
 function node(title: string, tooltip: string | null) {
-    return { id: "ore", title, subtitle: null, icon: null, image: null, shape: "icon" as const, color: null, badge: null, tooltip, links: [] };
+    return { id: "ore", title, description: null, icon: null, image: null, shape: "icon" as const, color: null, badgeTitle: null, tooltip, links: [] };
 }
 
 function resource(id: string, title: string) {
@@ -57,7 +57,7 @@ function craft(tooltip: string | null) {
 }
 
 function cardOptions(tooltips: Tooltips) {
-    return { icons: real<Icons>({ apply: () => {} }), tooltips, urls: real<Urls>({ isImageSource: () => false }), shape: "icon" as const, connectable: false, conflict: null };
+    return { names: real<Parameters<typeof renderCard>[2]["names"]>({}), icons: real<Icons>({ apply: () => {} }), tooltips, urls: real<Urls>({ isImageSource: () => false }), shape: "icon" as const, connectable: false, conflict: null };
 }
 
 function craftOptions(tooltips: Tooltips) {

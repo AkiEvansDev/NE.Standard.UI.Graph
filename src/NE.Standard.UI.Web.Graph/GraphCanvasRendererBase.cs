@@ -85,10 +85,6 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
     /// <summary>The value kind the document is read by, and the custom operation a pushed one arrives through.</summary>
     public const string ValueKind = "graph-document";
 
-    // The framework client's mark (`data-ui-tooltip-mark`): a control speaking through the tooltip of a part inside it, which says
-    // nothing while that part is not laid out. The framework's web abstractions name no constant for it.
-    private const string TooltipMarkAttribute = "data-ui-tooltip-mark";
-
     // The wire's conventions, so the text a render writes is the text a patch would: camel-cased, an enum by its name.
     protected static readonly JsonSerializerOptions WireJson = WebWireJson.Options;
 
@@ -305,9 +301,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             // The form a save submits when the value is bound OnSubmit, and a DiscardFormEffect names; no field, so no browser's form.
             NativeInputRendererBase.RenderFormId(context, value, joinsForm: false);
 
-            _ = RenderProperty<TDocument?>(context, value, IInputComponent.ValueProperty, (target, document) =>
-                _ = target.Attribute(DocumentAttribute, JsonSerializer.Serialize(document ?? EmptyDocument, WireJson))
-            , [WebDomOperation.Custom(ValueKind)]);
+            _ = RenderProperty<TDocument?>(context, value, IInputComponent.ValueProperty, (target, document) => _ = target.Attribute(DocumentAttribute, JsonSerializer.Serialize(document ?? EmptyDocument, WireJson)), [WebDomOperation.Custom(ValueKind)]);
         });
     }
 
@@ -316,9 +310,12 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         _ = root.Element("div", viewport =>
         {
             _ = viewport.Class($"{ClassName}__viewport");
-            // The canvas takes the keyboard: Delete, the clipboard keys and Ctrl+S are its own, and it is reached by Tab.
+            // The canvas takes the keyboard: Delete, the clipboard keys and Ctrl+S are its own, and it is reached by Tab. A group the
+            // package's word describes, not an application: that would take a screen reader's own keys from the panels and fields
+            // inside it as well.
             _ = viewport.Attribute("tabindex", "0");
-            _ = viewport.Attribute("role", "application");
+            _ = viewport.Attribute("role", "group");
+            WebWords.Write(context, viewport, "aria-roledescription", GraphStrings.CanvasRole);
             // Enter or Escape leaving a node's field hands the keyboard back to the sheet.
             _ = viewport.Attribute(WebAttributes.FocusHolder);
             WebWords.Write(context, viewport, "aria-label", GraphStrings.Canvas);
@@ -326,7 +323,18 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
             // The canvas is what takes the keyboard, so a caption names it over the generic word.
             RenderFieldLabel(context, viewport);
 
-            _ = viewport.Element("div", grid => _ = grid.Class($"{ClassName}__grid"));
+            _ = viewport.Element("div", grid =>
+            {
+                _ = grid.Class($"{ClassName}__grid");
+
+                _ = grid.Element("svg", lines =>
+                {
+                    _ = lines.Class($"{ClassName}__grid-lines");
+                    _ = lines.Attribute("aria-hidden", "true");
+                    _ = lines.Element("path", minor => _ = minor.Class($"{ClassName}__grid-minor"));
+                    _ = lines.Element("path", major => _ = major.Class($"{ClassName}__grid-major"));
+                });
+            });
 
             _ = viewport.Element("div", scene =>
             {
@@ -556,7 +564,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                     WebWords.Write(context, toggle, "aria-label", wordKey);
                     // The switch speaks through its icon, so the word shows as a tooltip only while folded: open, the icon is not laid
                     // out and the word stands on the switch itself.
-                    _ = toggle.Attribute(TooltipMarkAttribute);
+                    _ = toggle.Attribute(WebAttributes.TooltipMark);
 
                     _ = toggle.Element("span", icon =>
                     {
@@ -608,10 +616,8 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                 _ = body.Class(CollapsibleChromeRenderer.ContentClassName);
                 // Its own keyboard holder: Enter or Escape leaving one of its fields hands the keyboard to the panel, not to the sheet.
                 _ = body.Attribute(WebAttributes.FocusHolder);
-                // A document inside the viewport's application region: a screen reader reads the panel's fields and names in browse mode.
-                // Unnamed, since the aside around it carries the panel's word: a second name would be read twice.
-                _ = body.Attribute("role", "document");
                 _ = body.Attribute("tabindex", "-1");
+
                 renderBody(body);
             });
         });
@@ -627,11 +633,13 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
         });
 
     /// <summary>One of the canvas's own small buttons: a mark of the framework's, its word as the tooltip, and the attribute the engine finds it by.</summary>
-    protected void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string attribute, string wordKey, string icon)
+    protected void RenderBarButton(WebRenderContext context, IHtmlElementBuilder bar, string attribute, string wordKey, string icon, string? extraClass = null)
     {
         _ = bar.Element("button", button =>
         {
-            _ = button.Class($"{ClassName}__bar-button ui-button ui-button--ghost ui-button--small");
+            var buttonClass = string.IsNullOrEmpty(extraClass) ? $"{ClassName}__bar-button" : $"{extraClass} {ClassName}__bar-button";
+
+            _ = button.Class($"{buttonClass} {WebClassNames.Button} {WebClassNames.ButtonVariant(UIButtonVariant.Ghost)} {WebClassNames.ButtonSize(UISize.Small)}");
             _ = button.Attribute("type", "button");
             _ = button.Attribute(WebAttributes.TextIcon);
             WebWords.Write(context, button, WebAttributes.Tooltip, wordKey);

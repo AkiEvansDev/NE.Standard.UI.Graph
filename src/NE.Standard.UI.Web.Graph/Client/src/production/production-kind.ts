@@ -85,10 +85,7 @@ export class ProductionKind extends DraftedLayeredKind<ProductionDocument, Produ
             layoutKey: () => (this.reading === null ? this.shape : `${this.shape}|${this.drawn.map(entry => entry.id).join(",")}`),
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
             // next layer's circles.
-            nodeBox: (_id, width, height, widest) => (this.shape === "icon" ? circleBox(width, height, widest) : { width, height }),
-            // A resource's card is long enough to set its edges apart along, as a layered graph's; a craft's pill and a circle meet
-            // their edges at the middle.
-            spreadsEnds: id => this.shape === "card" && this.collection.item(id)?.kind !== "craft",
+            nodeBox: (id, width, height, widest) => (this.shape === "icon" && this.collection.item(id)?.kind !== "craft" ? circleBox(width, height, widest) : { width, height }),
             footRoom: id => (this.shape === "icon" && this.collection.item(id)?.kind !== "craft" ? CaptionRoom : 0)
         }, { nodeGap: NodeGap, layerGap: LayerGap });
         this.panel = new PlanPanel(services, {
@@ -195,7 +192,7 @@ export class ProductionKind extends DraftedLayeredKind<ProductionDocument, Produ
         const output = this.outputs.get(resource.id);
         const planned = this.reading?.resources.get(resource.id);
 
-        // A resource is the graph's own node: its category is the card's subtitle, and its badge is what one run of its maker
+        // A resource is the graph's own node: its category is the card's description, and its badge is what one run of its maker
         // gives — or, under a plan, how much the plan makes plus its maker's runs.
         const badge = planned !== undefined && this.reading !== null
             ? resourceChip(planned, resource.unit ?? null, output !== undefined && this.collapsed.has(output.craft) ? this.reading.crafts.get(output.craft) : undefined, words, this.number)
@@ -204,15 +201,16 @@ export class ProductionKind extends DraftedLayeredKind<ProductionDocument, Produ
         const card = renderCard(item, {
             id: resource.id,
             title: resource.title,
-            subtitle: resource.category,
+            description: resource.category,
             icon: resource.icon,
             image: resource.image,
             shape: null,
             color: resource.color,
-            badge,
+            badgeTitle: badge,
             tooltip: resource.tooltip,
             links: []
         }, {
+            names: this.services.context.names,
             icons: this.services.context.icons,
             tooltips: this.services.context.tooltips,
             urls: this.services.context.urls,

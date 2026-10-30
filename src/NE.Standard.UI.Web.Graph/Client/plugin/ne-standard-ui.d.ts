@@ -131,6 +131,8 @@ declare module "ne-standard-ui" {
     export type EventRegistration<TEvent extends Event = Event> = {
         readonly domEventName?: string;
         readonly options?: AddEventListenerOptions;
+        /** The event is its target component's own, handed to no component around it; unsaid, the event's definition decides. */
+        readonly ownTarget?: boolean;
         readonly preventDefault?: boolean | ((context: EventDispatchContext<TEvent>) => boolean);
         readonly stopPropagation?: boolean | ((context: EventDispatchContext<TEvent>) => boolean);
         /** The command waits for the component's value to reach the server first, as an `.OnChange` command does. */
@@ -156,6 +158,8 @@ declare module "ne-standard-ui" {
         findComponent(componentId: number, dynamicParameters: readonly unknown[]): Element | null;
         findAllComponents(componentId: number, dynamicParameters: readonly unknown[]): Element[];
         findComponentParts(componentId: number, dynamicParameters: readonly unknown[], selector: string): HTMLElement[];
+        /** The matching descendants that belong to `root` rather than to one of the same kind nested inside it. */
+        ownDescendants<TElement extends Element = HTMLElement>(root: Element, selector: string, rootSelector: string): TElement[];
     };
 
     export type PropertyValueChange = {
@@ -223,6 +227,8 @@ declare module "ne-standard-ui" {
         readonly attributeFilter?: readonly string[];
         /** Which records the engine answers at all; the rest are skipped before their components are looked for. Default: every one. */
         readonly relevant?: (mutation: MutationRecord) => boolean;
+        /** Called once for a batch that took nodes out of the tree, so an engine can drop state for elements gone from the page. */
+        readonly removed?: () => void;
     };
 
     /** The one observer shape: which components under `root` a batch of mutations touched, whole components at a time. */
@@ -235,6 +241,9 @@ declare module "ne-standard-ui" {
 
     /** Calls back whenever an element's box changes; returns what stops it. The first size is the caller's to read. */
     export type ObserveSize = (element: Element, handler: (element: Element) => void) => () => void;
+
+    /** The matching descendants that belong to `root` rather than to one of the same kind nested inside it. */
+    export type OwnDescendants = <TElement extends Element = HTMLElement>(root: Element, selector: string, rootSelector: string) => TElement[];
 
     /** The page's dialogs by key — a view's declared ones and the ones a component registered with `AddDialog`. */
     export type Dialogs = {
@@ -330,6 +339,8 @@ declare module "ne-standard-ui" {
         parse(text: string): WrittenMoment | null;
         /** The moment as a local date whose own fields read the written clock, which `format` writes back as the same text. */
         toDate(moment: WrittenMoment): Date;
+        /** A number zero-padded to the given width (two digits by default). */
+        pad(value: number, length?: number): string;
     };
 
     /** Icons on a package's own elements, written as a renderer writes them; a package composes no icon class of its own. */
@@ -368,6 +379,12 @@ declare module "ne-standard-ui" {
         write(element: Element, value: unknown): boolean;
         /** Resolves once the value the element's component sent last is answered and the answer's changes are on the page; at once with none in flight. */
         whenSettled(element: Element): Promise<void>;
+        /**
+         * Whether the number field or temporal control an element stands in refuses the value it holds by its own bounds and format —
+         * past Min or Max, no number or no moment, a fraction or a negative it takes none of — as the server would; false for a field
+         * the reader cannot change, and for any other element.
+         */
+        isRefused(element: Element): boolean;
     };
 
     /** Sets a core component's property the package's renderer exposed (`RenderRegion`) as a push does; false, warned, for one not exposed. */
@@ -649,6 +666,8 @@ declare module "ne-standard-ui" {
     export type ComponentStates = {
         /** Itself natively or `aria-` disabled, or inside a disabled, loading or inert component. */
         isInert(element: Element): boolean;
+        /** Drawn: nothing around it `display: none` or `visibility: hidden`. */
+        isInSight(element: Element): boolean;
         /** Under a read-only input, by the nearest root's mark so a nested component answers for itself; focusable, changing nothing. */
         isReadOnly(element: Element): boolean;
         /**
@@ -865,6 +884,28 @@ declare module "ne-standard-ui" {
         readonly menuItemClass: "ui-menu-item";
         readonly menuItemKind: "data-ui-menu-item-kind";
         readonly menuItemCheckedClass: "ui-menu-item--checked";
+        readonly menuItemValueClass: "ui-menu-item__value";
+        /** Dispatched on a context menu's owner before the menu or its action bar shows (detail.target, detail.actionBar). */
+        readonly menuOpeningEvent: "ui-context-menu-opening";
+        /** A collapsible panel's folded attribute and its toggle button's attribute. */
+        readonly collapsed: "data-ui-collapsed";
+        readonly collapseToggle: "data-ui-collapse-toggle";
+        /** A checkbox's root, input and box classes, and an input's small size class. */
+        readonly checkboxClass: "ui-checkbox";
+        readonly checkboxInputClass: "ui-checkbox__input";
+        readonly checkboxBoxClass: "ui-checkbox__box";
+        readonly smallInputClass: "ui-input--small";
+        /** An image input's hidden selection input and filename text, and a text input's action group. */
+        readonly pictureSelectionClass: "ui-image-input__selection";
+        readonly pictureTextClass: "ui-image-input__text";
+        readonly textInputActionClass: "ui-text-input__action";
+        /** A badge's root, title element, title attribute, and semantic variant classes. */
+        readonly badgeClass: "ui-badge";
+        readonly badgeTitleClass: "ui-badge__title";
+        readonly badgeTitle: "data-ui-badge-title";
+        readonly badgeDangerClass: "ui-badge-variant--danger";
+        readonly badgeWarningClass: "ui-badge-variant--warning";
+        readonly badgeSurfaceClass: "ui-badge-variant--surface";
     };
 
     /** What a package's engine starts from: the page's root and the services a built-in engine gets. */
@@ -875,6 +916,7 @@ declare module "ne-standard-ui" {
         readonly strings: ClientStrings;
         readonly observeComponents: ObserveComponents;
         readonly observeSize: ObserveSize;
+        readonly ownDescendants: OwnDescendants;
         readonly dialogs: Dialogs;
         readonly store: ClientStore;
         readonly numbers: NumberFormatting;
@@ -903,7 +945,10 @@ declare module "ne-standard-ui" {
         readonly names: DomNames;
     };
 
-    export type PluginEngine = (context: PluginEngineContext) => unknown;
+    /** What an engine may return to clean up its work when the runtime is disposed. */
+    export type EngineDisposable = (() => void) | { readonly dispose?: () => void };
+
+    export type PluginEngine = (context: PluginEngineContext) => EngineDisposable | void;
 
     /**
      * What `window.NEStandardUI` holds, read with this type (the framework's own declaration carries more); a registration made

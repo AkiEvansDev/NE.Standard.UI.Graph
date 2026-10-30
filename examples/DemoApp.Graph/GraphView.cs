@@ -15,7 +15,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
 
     protected override string Route => GraphRoute;
 
-    public override string Title => "planner.page.graph";
+    protected override string Header => "planner.page.graph";
 
     // A short or narrow screen cannot hold the rows around the canvas and its floor: the page grows past the region and scrolls.
     protected override UIResponsive<UILayoutLength>? PageHeight => null;
@@ -33,56 +33,47 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             // Even columns that wrap, each list's caption inside its field so the set stays one line tall: at a narrow width the
-            // switches and the button go under, and the lines never stagger. Tonal, as a toolbar's fields are.
+            // switches and the button go under, and the lines never stagger. Filled, as a toolbar's fields are.
             .AddChild(new WrapPanelComponent()
                 .SetSpacing(16)
                 .SetLineSpacing(8)
                 .SetItemMinWidth(240)
+                .SetDefaults<SelectComponent>(static c => c.SetTitlePlacement(UIInputTitlePlacement.Inside).SetAppearance(UIInputAppearance.Filled).SetVerticalAlignment(UIAlignment.Center))
+                .SetDefaults<SwitchComponent>(static c => c.SetVerticalAlignment(UIAlignment.Center))
                 .AddChildren(
                     new SelectComponent()
                         .SetTitle("planner.graph.layers")
-                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphDirection.LeftToRight), Title = "planner.graph.left-to-right" },
                             new OptionItem { Id = nameof(UIGraphDirection.TopToBottom), Title = "planner.graph.top-to-bottom" },
                             new OptionItem { Id = nameof(UIGraphDirection.RightToLeft), Title = "planner.graph.right-to-left" },
                             new OptionItem { Id = nameof(UIGraphDirection.BottomToTop), Title = "planner.graph.bottom-to-top" }
                         ])
-                        .BindValue(nameof(DependenciesController.Direction))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<DependenciesController>(static c => c.Direction),
                     new SelectComponent()
                         .SetTitle("planner.graph.edges")
-                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "planner.graph.curved" },
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "planner.graph.straight" },
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "planner.graph.stepped" }
                         ])
-                        .BindValue(nameof(DependenciesController.EdgeShape))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<DependenciesController>(static c => c.EdgeShape),
                     new SelectComponent()
                         .SetTitle("planner.graph.nodes")
-                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphNodeShape.Card), Title = "planner.graph.cards" },
                             new OptionItem { Id = nameof(UIGraphNodeShape.Icon), Title = "planner.graph.circles" }
                         ])
-                        .BindValue(nameof(DependenciesController.NodeShape))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<DependenciesController>(static c => c.NodeShape),
                     new SwitchComponent()
                         .SetTitle("planner.graph.edit-structure")
-                        .BindValue(nameof(DependenciesController.EditStructure))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<DependenciesController>(static c => c.EditStructure),
                     new SwitchComponent()
                         .SetTitle("planner.graph.read-only")
-                        .BindValue(nameof(DependenciesController.ReadOnly))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<DependenciesController>(static c => c.ReadOnly),
                     new ButtonComponent()
                         .SetTitle("planner.graph.forget-layout")
-                        .SetType(UIButtonType.Ghost)
+                        .SetVariant(UIButtonVariant.Ghost)
                         .OnClick(nameof(DependenciesController.ResetLayout))
                         .SetHorizontalAlignment(UIAlignment.Start)
                         .SetVerticalAlignment(UIAlignment.Center)
@@ -91,7 +82,7 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                 .SetPlacement(1, 1, 24, 1)
             )
             .AddChild(new LayeredGraphComponent(DependenciesController.CanvasId)
-                .BindItems(nameof(DependenciesController.Modules))
+                .BindItems<DependenciesController>(static c => c.Modules)
                 .SetSheetName("planner.graph.sheet")
                 .SetCanvasHeight(CanvasHeight)
                 .SetHeight(UILayoutLength.Fill())
@@ -102,53 +93,52 @@ internal sealed class GraphView : GraphDemoView, IUIViewDefinition
                 .SetNodeActionBar()
                 // The layout is the viewer's until a save sends it; the modules are the server's and arrive as they change.
                 .SetFormId(DependenciesController.CanvasForm)
-                .BindValue(nameof(DependenciesController.Layout), mode: UIBindingMode.OnSubmit)
-                .BindDirection(nameof(DependenciesController.Direction))
-                .BindNodeShape(nameof(DependenciesController.NodeShape))
-                .BindEdgeShape(nameof(DependenciesController.EdgeShape))
-                .BindIsReadOnly(nameof(DependenciesController.ReadOnly))
-                .BindEditStructure(nameof(DependenciesController.EditStructure))
+                .BindValue<DependenciesController>(static c => c.Layout, mode: UIBindingMode.OnSubmit)
+                .BindDirection<DependenciesController>(static c => c.Direction)
+                .BindNodeShape<DependenciesController>(static c => c.NodeShape)
+                .BindEdgeShape<DependenciesController>(static c => c.EdgeShape)
+                .BindIsReadOnly<DependenciesController>(static c => c.ReadOnly)
+                .BindEditStructure<DependenciesController>(static c => c.EditStructure)
                 .OnSave(nameof(DependenciesController.Save))
                 .OnNodeClick(nameof(DependenciesController.ModuleClicked))
                 .SetPlacement(1, 2, 24, 1)
             )
-            // Wraps as the toolbar does: at a narrow width the buttons go under the two fields. Tonal: a lone row of fields beside its button.
+            // Wraps as the toolbar does: at a narrow width the buttons go under the two fields. Filled: a lone row of fields beside its button.
             .AddChild(UILayout.Row(12,
                     new TextInputComponent()
                         .SetTitle("planner.graph.module")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
-                        .BindValue(nameof(DependenciesController.NewModule))
+                        .SetAppearance(UIInputAppearance.Filled)
+                        .BindValue<DependenciesController>(static c => c.NewModule)
                         .SetWidth(UILayoutLength.Absolute(200))
                         .SetVerticalAlignment(UIAlignment.Center),
                     new SelectComponent()
                         .SetTitle("planner.graph.built-on")
                         .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
+                        .SetAppearance(UIInputAppearance.Filled)
                         .SetOptions(DependenciesController.Choices.Select(static choice => new OptionItem { Id = choice.Id, Title = choice.Title, IsContent = true }))
-                        .BindValue(nameof(DependenciesController.UsedModule))
+                        .BindValue<DependenciesController>(static c => c.UsedModule)
                         .SetWidth(UILayoutLength.Absolute(220))
                         .SetVerticalAlignment(UIAlignment.Center),
                     new ButtonComponent()
                         .SetTitle("planner.graph.add-module")
                         .SetIcon(DemoNodeIcons.AddNode)
-                        .SetType(UIButtonType.Primary)
+                        .SetVariant(UIButtonVariant.Primary)
                         .OnClick(nameof(DependenciesController.AddModule))
                         .SetVerticalAlignment(UIAlignment.Center),
                     new ButtonComponent()
                         .SetTitle("planner.graph.remove-added")
-                        .SetType(UIButtonType.Ghost)
+                        .SetVariant(UIButtonVariant.Ghost)
                         .OnClick(nameof(DependenciesController.RemoveAdded))
                         .SetVerticalAlignment(UIAlignment.Center)
                 )
                 .SetMargin(UIThickness.All(0, 12, 0, 4))
                 .SetPlacement(1, 3, 24, 1)
             )
-            .AddChild(new TextComponent()
-                .BindTitle(nameof(DependenciesController.Status))
+            .AddChild(UIText.Caption()
+                .Muted()
+                .BindTitle<DependenciesController>(static c => c.Status)
                 .SetTitleWrap(true)
-                .SetTitleType(UITextAppearance.Caption)
-                .SetTitleColor(UIThemeColor.FromStyle(UIColorStyle.Muted))
                 .SetPlacement(1, 4, 24, 1)
             )
         );

@@ -1,14 +1,15 @@
-// One graph node as a card (icon or picture, title, subtitle, badge) or a circle (picture or icon, titled under it and in its
+// One graph node as a card (icon or picture, title, description, badge) or a circle (picture or icon, titled under it and in its
 // tooltip). The title carries the rename field's class; the root the attribute every canvas finds an item by.
 
-import type { Icons, Tooltips, Urls } from "ne-standard-ui";
-import { CoreNames, hoverTooltip, ItemTitleSelector, nodeRoot } from "../canvas/canvas-dom.ts";
+import type { DomNames, Icons, Tooltips, Urls } from "ne-standard-ui";
+import { hoverTooltip, ItemTitleSelector, nodeRoot } from "../canvas/canvas-dom.ts";
 import type { CanvasItem } from "../canvas/canvas-model.ts";
 import type { DraftConflict } from "./draft.ts";
 import { appendLinkHandles } from "./link-drag.ts";
 import type { GraphNode, GraphNodeShape } from "./model.ts";
 
 export type CardViewOptions = {
+    readonly names: Pick<DomNames, "badgeClass" | "badgeSurfaceClass" | "badgeTitle" | "badgeTitleClass">;
     readonly icons: Icons;
     readonly tooltips: Tooltips;
     /** The framework's address rule, which a picture is fetched by only where it holds, as the picker and the panel read it. */
@@ -38,8 +39,8 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
     else
         root.append(renderText(node, title));
 
-    if (node.badge !== null)
-        root.append(renderBadge(node.badge, round ? "ui-graph__bubble-badge" : "ui-graph__card-badge"));
+    if (node.badgeTitle !== null)
+        root.append(renderBadge(node.badgeTitle, options.names, round ? "ui-graph__bubble-badge" : "ui-graph__card-badge"));
 
     if (options.connectable)
         appendLinkHandles(root);
@@ -91,12 +92,12 @@ function renderText(node: GraphNode, title: string): HTMLElement {
     text.className = "ui-graph__card-text";
     text.append(renderTitle(title, null));
 
-    if (node.subtitle !== null) {
-        const subtitle = document.createElement("span");
+    if (node.description !== null) {
+        const description = document.createElement("span");
 
-        subtitle.className = "ui-graph__card-subtitle";
-        subtitle.textContent = node.subtitle;
-        text.append(subtitle);
+        description.className = "ui-graph__card-description";
+        description.textContent = node.description;
+        text.append(description);
     }
 
     return text;
@@ -112,13 +113,13 @@ function renderTitle(title: string, className: string | null): HTMLElement {
 }
 
 /** The framework's own badge, drawn in its classes, as the log's count is. */
-function renderBadge(value: string, className: string): HTMLElement {
+function renderBadge(value: string, names: CardViewOptions["names"], className: string): HTMLElement {
     const badge = document.createElement("span");
     const text = document.createElement("span");
 
-    badge.className = `${CoreNames.badgeClass} ${CoreNames.badgeSurfaceClass} ${className}`;
-    badge.setAttribute(CoreNames.badgeText, "");
-    text.className = CoreNames.badgeTextClass;
+    badge.className = `${names.badgeClass} ${names.badgeSurfaceClass} ${className}`;
+    badge.setAttribute(names.badgeTitle, "");
+    text.className = names.badgeTitleClass;
     text.textContent = value;
     badge.append(text);
 

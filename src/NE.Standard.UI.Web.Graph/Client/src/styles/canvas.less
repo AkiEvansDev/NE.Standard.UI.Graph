@@ -18,10 +18,10 @@
 // The surface laid over the canvas, the sheet still showing through: the map, a run's bar, an editor's upload veil.
 @ui-graph-glass: color-mix(in srgb, var(--ui-color-surface) 85%, transparent);
 // A halo in the chosen colour off a thing's edge: a chosen frame, the node a pulled link would land on.
-@ui-graph-chosen-halo: 0 0 0 2px color-mix(in srgb, var(--ui-mark-selected-fill) 45%, transparent);
+@ui-graph-chosen-halo: 0 0 0 2px color-mix(in srgb, var(--ui-mark-selected) 45%, transparent);
 
 .ui-graph {
-    --ui-graph-grid-size: 20;
+    --ui-graph-grid-size: 32;
     --ui-graph-height: 32rem;
     --ui-graph-zoom: 1;
     --ui-graph-pin-color: var(--ui-color-primary);
@@ -81,18 +81,54 @@
         box-shadow: inset 0 0 0 var(--ui-focus-ring-width, 0) var(--ui-color-focus-ring);
     }
 
-// The grid is painted, not drawn: two repeating gradients whose step follows the zoom, and whose origin follows the pan.
+// The grid is two steps, every cell and every fourth: minor lines stand below the node border's weight and fade out below zoom 0.4
+// down to 0.16 as they crowd; major lines stand at four cells and soften below zoom 0.4 as the sheet is zoomed out further. Before
+// the engine draws its pixel-snapped SVG lines, the gradients paint the same two steps from the stored view.
 .ui-graph__grid {
+    --ui-graph-grid-step: calc(var(--ui-graph-grid-size) * var(--ui-graph-zoom) * 1px);
+    --ui-graph-grid-major: calc(4 * var(--ui-graph-grid-step));
+    --ui-graph-grid-minor-ink: color-mix(in srgb, var(--ui-color-border) calc(40% * clamp(0, calc((var(--ui-graph-zoom) - 0.16) / 0.24), 1)), transparent);
+    --ui-graph-grid-major-ink: color-mix(in srgb, var(--ui-color-border) calc(76% * clamp(0.4, calc(var(--ui-graph-zoom) / 0.4), 1)), transparent);
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.5;
     background-position: var(--ui-graph-pan-x, 0) var(--ui-graph-pan-y, 0);
-    background-size: calc(var(--ui-graph-grid-size) * var(--ui-graph-zoom) * 1px) calc(var(--ui-graph-grid-size) * var(--ui-graph-zoom) * 1px);
+    background-size:
+        var(--ui-graph-grid-major) var(--ui-graph-grid-major),
+        var(--ui-graph-grid-major) var(--ui-graph-grid-major),
+        var(--ui-graph-grid-step) var(--ui-graph-grid-step),
+        var(--ui-graph-grid-step) var(--ui-graph-grid-step);
     background-image:
-        linear-gradient(to right, var(--ui-color-border) 1px, transparent 1px),
-        linear-gradient(to bottom, var(--ui-color-border) 1px, transparent 1px);
+        linear-gradient(to right, var(--ui-graph-grid-major-ink) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--ui-graph-grid-major-ink) 1px, transparent 1px),
+        linear-gradient(to right, var(--ui-graph-grid-minor-ink) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--ui-graph-grid-minor-ink) 1px, transparent 1px);
 }
+
+    .ui-graph__grid[data-ui-graph-grid-drawn] {
+        background-image: none;
+    }
+
+    .ui-graph__grid-lines {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    .ui-graph__grid-minor,
+    .ui-graph__grid-major {
+        fill: none;
+        stroke-width: 1;
+        shape-rendering: crispEdges;
+    }
+
+    .ui-graph__grid-minor {
+        stroke: var(--ui-graph-grid-minor-ink);
+    }
+
+    .ui-graph__grid-major {
+        stroke: var(--ui-graph-grid-major-ink);
+    }
 
     .ui-graph:not([data-ui-graph-grid]) > .ui-graph__viewport > .ui-graph__grid {
         display: none;
@@ -243,7 +279,7 @@
 // --- groups ---------------------------------------------------------------------------------------------------------------
 
 .ui-graph__group {
-    --ui-graph-group-color: var(--ui-color-series-1);
+    --ui-graph-group-color: var(--ui-color-primary-ink);
 
     position: absolute;
     left: calc(var(--ui-graph-group-x) * 1px);
@@ -368,8 +404,8 @@
     top: calc(var(--ui-graph-marquee-y) * 1px);
     width: calc(var(--ui-graph-marquee-width) * 1px);
     height: calc(var(--ui-graph-marquee-height) * 1px);
-    border: var(--ui-border-width) dashed var(--ui-mark-selected-fill);
-    background: color-mix(in srgb, var(--ui-mark-selected-fill) 10%, transparent);
+    border: var(--ui-border-width) dashed var(--ui-mark-selected);
+    background: color-mix(in srgb, var(--ui-mark-selected) 10%, transparent);
     pointer-events: none;
 }
 
@@ -435,7 +471,7 @@
 // The part on screen washed as a chosen entry is — the brand's tint on a light palette, neutral on a dark one — and edged in the brand.
 .ui-graph__minimap-view {
     position: absolute;
-    border: var(--ui-border-width) solid var(--ui-mark-selected-fill);
+    border: var(--ui-border-width) solid var(--ui-mark-selected);
     border-radius: 1px;
     background: var(--ui-wash-selected);
     pointer-events: none;
@@ -558,6 +594,7 @@
     --ui-ground: var(--ui-color-surface);
     --ui-surface-fill: var(--ui-color-surface);
     --ui-faint-base: initial;
+    .ui-popup-ground-lifted(var(--ui-color-surface));
 }
 
 // --- a folding panel over the sheet ------------------------------------------------------------------------------------------
@@ -601,13 +638,8 @@
     gap: 0.375rem;
     padding: @ui-space-2 @ui-space-3;
     border-radius: 0;
-    font-weight: 600;
+    font-weight: var(--ui-text-title-font-weight);
     white-space: nowrap;
-
-    // The keyboard's focus takes the brand's colour; the ring is the framework's own (reset.less).
-    &@{ui-keyboard-focus} {
-        color: var(--ui-color-primary-ink);
-    }
 }
 
 // The switch's chevron points down while the panel is open, and along the switch once folded. The switch answers the pointer as an
@@ -629,9 +661,10 @@
         }
     }
 
-    // The keyboard's focus takes the whole switch in the brand's colour.
-    @{panel} > @{ui-keyboard-focus} > & {
-        color: inherit;
+    @media (forced-colors: none) {
+        @{panel} > @{ui-keyboard-focus} > & {
+            color: var(--ui-color-on-surface);
+        }
     }
 }
 

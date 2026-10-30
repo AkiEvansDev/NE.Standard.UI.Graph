@@ -213,6 +213,11 @@ public sealed class GraphInputAttribute : Attribute
     public int MaxLength { get; set; }
 
     /// <summary>
+    /// Gets or sets the stand-in text shown inside the editor while it holds no value; unset, the canvas's own.
+    /// </summary>
+    public string? Placeholder { get; set; }
+
+    /// <summary>
     /// Gets or sets where the pin stands among its siblings, counted from one; unset, the class's declaration order.
     /// </summary>
     /// <remarks>An explicit order takes precedence over declaration order; equal orders keep declaration order.</remarks>

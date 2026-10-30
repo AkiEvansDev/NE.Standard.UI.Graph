@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Abstractions.Styling;
-using NE.Standard.UI.Authoring.BuiltIns;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Components.BuiltIns.Actions;
 using NE.Standard.UI.Components.BuiltIns.Inputs;
 using NE.Standard.UI.Components.BuiltIns.Models;
 using NE.Standard.UI.Components.BuiltIns.Navigation;
+using NE.Standard.UI.Components.Foundation;
 using NE.Standard.UI.Primitives.Annotations;
 using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
@@ -47,10 +47,10 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 
         SetCanvasRegion(UIGraphMenus.Pin, pinMenu);
 
-        // The core's own field, not an input of the package's: its clear button and its focus ring; Tonal, since the picker's
-        // popup frames it, as a node frames its fields.
+        // The core's own field, not an input of the package's: its clear button and its focus ring; Filled, since the picker's
+        // popup frames it.
         PickerSearch = new TextInputComponent()
-            .SetAppearance(UIInputAppearance.Tonal)
+            .SetAppearance(UIInputAppearance.Filled)
             .SetSearch(UIGraphWords.SearchKinds);
 
         SetCanvasRegion(UIGraphRegions.PickerSearch, PickerSearch);
@@ -58,6 +58,9 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         SetCanvasRegion(UIGraphRegions.ListAdd, GlyphButton(UIGlyphs.Add, UIGraphWords.AddValue));
         SetCanvasRegion(UIGraphRegions.StateReset, GlyphButton(UIGlyphs.Restart, UIGraphWords.ResetState));
     }
+
+    private static ButtonComponent GlyphButton(string icon, string tooltip)
+        => new ButtonComponent().SetVariant(UIButtonVariant.Ghost).SetSize(UISize.Small).SetIcon(icon).SetTooltip(tooltip);
 
     /// <summary>
     /// Gets the search field over the node picker's catalogue.
@@ -121,38 +124,42 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         {
             foreach (UINodePin pin in type.Inputs)
             {
-                // A field keeps the default Tonal, the fill alone: a node frames its fields itself, and a Filled field's line would
-                // only add weight there.
+                // Single-line fields take Underline so the row reads as editable without a box; multi-line TextAreaComponent and large Picture keep Filled as an area.
                 if (CreateEditor(pin) is not IVisualComponent editor)
                     continue;
+
+                if (editor is IFieldInputComponent field)
+                    field.Appearance = editor is TextAreaComponent or ImageInputComponent ? UIInputAppearance.Filled : UIInputAppearance.Underline;
 
                 SetCanvasRegion(UIGraphRegions.Editor(type.Key, pin.Name), editor);
             }
         }
     }
 
-    // A field that fits one line keeps its caption inside the box; one too tall for a line has the node draw the caption above it.
-    // The pin's caption, unit and choices are the catalogue's text, the application's own like a node's name: shown as written.
+    // A field that fits one line keeps its caption inside the box; one too tall for a line has the node draw the caption above it,
+    // which is no label of the field's, so such a field is named by the pin's caption itself. The pin's caption, unit and choices
+    // are the catalogue's text, the application's own like a node's name: shown as written.
     private static IVisualComponent? CreateEditor(UINodePin pin)
         => pin.Editor switch
         {
             // Not resizable itself: it fills the node's height, and the node's corner sizes both on the grid.
-            UINodeEditor.Text when pin.MaxLines > 1 => Limited(new TextAreaComponent().SetRows(pin.MaxLines.Value).SetSize(UIInputSize.Small).SetResize(UITextAreaResizeMode.None), pin),
-            UINodeEditor.Text => Limited(TextEditor(pin), pin),
-            UINodeEditor.Number => NumberEditor(pin),
-            UINodeEditor.Boolean => new CheckboxComponent().SetSize(UIInputSize.Small),
-            UINodeEditor.Choice => ChoiceEditor(pin),
-            UINodeEditor.Date => new DateInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
-            UINodeEditor.Time => new TimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
-            UINodeEditor.DateTime => new DateTimeInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
+            UINodeEditor.Text when pin.MaxLines > 1 => Hinted(Limited(new TextAreaComponent().SetRows(pin.MaxLines.Value).SetSize(UISize.Small).SetResize(UITextAreaResizeMode.None).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin), pin),
+            UINodeEditor.Text => Hinted(Limited(TextEditor(pin), pin), pin),
+            UINodeEditor.Number => Hinted(NumberEditor(pin), pin),
+            UINodeEditor.Boolean => new CheckboxComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
+            UINodeEditor.Choice => Hinted(ChoiceEditor(pin), pin, fallback: false),
+            UINodeEditor.Date => new DateInputComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
+            UINodeEditor.Time => new TimeInputComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
+            UINodeEditor.DateTime => new DateTimeInputComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty),
             // Large draws the framework's picture field showing the whole image; small shows the address with a file-choose button.
-            UINodeEditor.Image when pin.Large => new ImageInputComponent().SetVariant(UIImageInputVariant.Picture).SetFit(UIImageFit.Contain),
-            UINodeEditor.Image => Limited(new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetTrailingAction(GlyphButton(UIGlyphs.MoreHorizontal, UIGraphWords.ChooseFile)), pin),
+            UINodeEditor.Image when pin.Large => new ImageInputComponent().SetVariant(UIImageInputVariant.Picture).SetFit(UIImageFit.Contain).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
+            UINodeEditor.Image => Hinted(Limited(new TextInputComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetTrailingAction(GlyphButton(UIGlyphs.MoreHorizontal, UIGraphWords.ChooseFile)), pin), pin),
             UINodeEditor.List => ListRowEditor(pin),
             _ => null
         };
 
-    // One row of a list, the field its element type asks for: a list of numbers is typed as numbers, not as text.
+    // One row of a list, the field its element type asks for: a list of numbers is typed as numbers, not as text. A row shows no
+    // caption of its own, so each is named by the list's.
     private static IVisualComponent ListRowEditor(UINodePin pin)
     {
         // An array pin names its element after the prefix; a pin that takes several names the element itself.
@@ -160,14 +167,32 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 
         return element switch
         {
-            UINodePinTypes.Number => Ranged(new NumberInputComponent().SetSize(UIInputSize.Small), pin),
-            UINodePinTypes.Boolean => new CheckboxComponent().SetSize(UIInputSize.Small),
-            UINodePinTypes.Date => new DateInputComponent().SetSize(UIInputSize.Small),
-            UINodePinTypes.Time => new TimeInputComponent().SetSize(UIInputSize.Small),
-            UINodePinTypes.DateAndTime => new DateTimeInputComponent().SetSize(UIInputSize.Small),
-            _ when pin.Choices.Length > 0 => new SelectComponent().SetSize(UIInputSize.Small).SetOptions(Options(pin)),
-            _ => Limited(new TextInputComponent().SetSize(UIInputSize.Small), pin)
+            UINodePinTypes.Number => Hinted(Ranged(new NumberInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin), pin),
+            UINodePinTypes.Boolean => new CheckboxComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
+            UINodePinTypes.Date => new DateInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
+            UINodePinTypes.Time => new TimeInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
+            UINodePinTypes.DateAndTime => new DateTimeInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
+            _ when pin.Choices.Length > 0 => Hinted(new SelectComponent().SetSize(UISize.Small).SetOptions(Options(pin)).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin, fallback: false),
+            _ => Hinted(Limited(new TextInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin), pin)
         };
+    }
+
+    private static TComponent Hinted<TComponent>(TComponent field, UINodePin pin, bool fallback = true)
+        where TComponent : VisualComponentBase<TComponent>, IUIComponentDefinition, IPlaceholderInputComponent
+    {
+        if (!string.IsNullOrWhiteSpace(pin.Placeholder))
+        {
+            field.Placeholder = pin.Placeholder;
+            return field.AsContent(IPlaceholderInputComponent.PlaceholderProperty);
+        }
+
+        if (fallback)
+        {
+            field.Placeholder = "—";
+            return field.AsContent(IPlaceholderInputComponent.PlaceholderProperty);
+        }
+
+        return field;
     }
 
     private static TComponent Limited<TComponent>(TComponent field, UINodePin pin)
@@ -177,15 +202,16 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     // What the value is measured in stands inside the field after the value, where it cannot drift from the number it belongs to.
     private static TextInputComponent TextEditor(UINodePin pin)
     {
-        TextInputComponent field = new TextInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty);
+        TextInputComponent field = new TextInputComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty);
 
         return string.IsNullOrWhiteSpace(pin.Unit) ? field : field.SetSuffixText(pin.Unit).AsContent(IAffixTextInputComponent.SuffixTextProperty);
     }
 
     private static NumberInputComponent NumberEditor(UINodePin pin)
-        => Ranged(new NumberInputComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty), pin);
+        => Ranged(new NumberInputComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty), pin);
 
-    // The pin's unit inside the field, and the range and step the pin's attributes give it.
+    // The pin's unit inside the field, and the range and step the pin's attributes give it; a whole number takes no fraction and an
+    // unsigned one nothing below zero, which the pin's type knows and its field would otherwise let through for the run to drop.
     private static NumberInputComponent Ranged(NumberInputComponent field, UINodePin pin)
     {
         if (!string.IsNullOrWhiteSpace(pin.Unit))
@@ -200,11 +226,23 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         if (pin.Step is double step)
             _ = field.SetStep((decimal)step);
 
+        if (pin.WholeNumber)
+            _ = field.SetAllowDecimals(false);
+
+        // The floor first: a field refuses a sign while its Min still stands below zero.
+        if (pin.Unsigned)
+        {
+            if (pin.Min is not double floor || floor < 0)
+                _ = field.SetMin(0);
+
+            _ = field.SetAllowNegative(false);
+        }
+
         return field;
     }
 
     private static SelectComponent ChoiceEditor(UINodePin pin)
-        => new SelectComponent().SetSize(UIInputSize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetOptions(Options(pin));
+        => new SelectComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetOptions(Options(pin));
 
     private static List<OptionItem> Options(UINodePin pin)
     {
@@ -215,13 +253,6 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 
         return options;
     }
-
-    private static ButtonComponent GlyphButton(string icon, string tooltip)
-        => new ButtonComponent()
-            .SetType(UIButtonType.Ghost)
-            .SetSize(UIButtonSize.Small)
-            .SetIcon(icon)
-            .SetTooltip(tooltip);
 }
 
 /// <summary>

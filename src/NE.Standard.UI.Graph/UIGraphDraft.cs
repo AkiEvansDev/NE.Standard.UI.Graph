@@ -11,6 +11,9 @@ namespace NE.Standard.UI.Graph;
 [method: JsonConstructor]
 public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? removed = null)
 {
+    /// <summary>The most nodes a graph holds once a draft is applied, unless the caller says otherwise.</summary>
+    public const int DefaultMaxNodes = 10_000;
+
     /// <summary>
     /// Gets the empty draft.
     /// </summary>
@@ -33,13 +36,29 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
     public bool IsEmpty => Nodes.Length == 0 && Removed.Length == 0;
 
     /// <summary>
-    /// Applies the draft to an application's nodes: removed nodes go, changed ones take the viewer's state, added ones join, and
-    /// links to removed nodes are dropped.
+    /// Applies the draft to an application's nodes, while the canvas lets them be edited: removed nodes go, changed ones take the
+    /// viewer's name, colour and links, added ones join, and links to removed nodes are dropped.
     /// </summary>
-    /// <remarks>Only differing properties are written.</remarks>
-    public void ApplyTo(IList<UIGraphNode> nodes)
+    /// <remarks>
+    /// The draft is the browser's, so it is held to what the canvas edits: refused whole, and nothing written, while
+    /// <paramref name="editStructure"/> is off or once the nodes would pass <paramref name="maxNodes"/>; a colour that is neither one
+    /// of <paramref name="colorChoices"/> (the canvas's defaults when null) nor one a node already wears is dropped; an added node
+    /// keeps what else it carries only as a copy of a node already there, as Duplicate makes one. Only differing properties are written.
+    /// </remarks>
+    /// <returns>Whether the draft was applied.</returns>
+    public bool ApplyTo(IList<UIGraphNode> nodes, bool editStructure, IReadOnlyList<UIGraphColorChoice>? colorChoices = null, int maxNodes = DefaultMaxNodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxNodes);
+
+        if (!editStructure || CountAfter(nodes) > maxNodes)
+            return false;
+
+        HashSet<string> colors = UIGraphDraftSupport.AllowedColors(colorChoices, nodes, static node => node.Color);
+        HashSet<UIGraphNodeLooks> looks = [];
+
+        foreach (UIGraphNode node in nodes)
+            _ = looks.Add(UIGraphNodeLooks.Of(node));
 
         HashSet<string> removed = UIGraphDraftSupport.RemoveAll(nodes, Removed);
 
@@ -55,9 +74,12 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
             {
                 node = new UIGraphNode(draft.Id);
                 nodes.Add(node);
+
+                if (looks.Contains(draft.Looks))
+                    draft.Looks.WriteTo(node);
             }
 
-            draft.WriteTo(node);
+            draft.WriteTo(node, colors);
         }
 
         HashSet<string> present = new(StringComparer.Ordinal);
@@ -78,6 +100,28 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
             if (kept.Count != node.Links.Count)
                 node.Links = kept;
         }
+
+        return true;
+    }
+
+    /// <summary>How many nodes the list would hold once the draft is applied: less those it removes, and the keys it adds.</summary>
+    private int CountAfter(IList<UIGraphNode> nodes)
+    {
+        HashSet<string> keys = new(StringComparer.Ordinal);
+
+        foreach (UIGraphNode node in nodes)
+            _ = keys.Add(node.Id);
+
+        foreach (UIGraphNodeDraft draft in Nodes)
+        {
+            if (!string.IsNullOrEmpty(draft.Id))
+                _ = keys.Add(draft.Id);
+        }
+
+        foreach (var id in Removed)
+            _ = keys.Remove(id);
+
+        return keys.Count;
     }
 }
 
@@ -86,7 +130,7 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 /// (for conflict detection).
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphNodeDraft(string id, string? title = null, string? subtitle = null, string? icon = null, string? image = null, UIGraphNodeShape? shape = null, string? color = null, string? badge = null, string? tooltip = null, UIGraphLink[]? links = null, bool created = false, string? baseline = null)
+public sealed class UIGraphNodeDraft(string id, string? title = null, string? description = null, string? icon = null, string? image = null, UIGraphNodeShape? shape = null, string? color = null, string? badgeTitle = null, string? tooltip = null, UIGraphLink[]? links = null, bool created = false, string? baseline = null)
 {
     /// <summary>Gets the node's key.</summary>
     public string Id { get; } = id;
@@ -95,7 +139,7 @@ public sealed class UIGraphNodeDraft(string id, string? title = null, string? su
     public string? Title { get; } = title;
 
     /// <summary>Gets the line under the title.</summary>
-    public string? Subtitle { get; } = subtitle;
+    public string? Description { get; } = description;
 
     /// <summary>Gets the node's icon.</summary>
     public string? Icon { get; } = icon;
@@ -109,8 +153,8 @@ public sealed class UIGraphNodeDraft(string id, string? title = null, string? su
     /// <summary>Gets the node's colour.</summary>
     public string? Color { get; } = color;
 
-    /// <summary>Gets the node's badge.</summary>
-    public string? Badge { get; } = badge;
+    /// <summary>Gets the short text the node's card carries at its end.</summary>
+    public string? BadgeTitle { get; } = badgeTitle;
 
     /// <summary>Gets the node's tooltip.</summary>
     public string? Tooltip { get; } = tooltip;
@@ -125,21 +169,35 @@ public sealed class UIGraphNodeDraft(string id, string? title = null, string? su
     /// <summary>Gets the application's node, as the browser read it, when the viewer first changed it; unset for a node the viewer added.</summary>
     public string? Baseline { get; } = baseline;
 
-    /// <summary>Writes this state onto a node, property by property, each setter leaving alone what already matches.</summary>
-    public void WriteTo(UIGraphNode node)
-    {
-        ArgumentNullException.ThrowIfNull(node);
+    /// <summary>What the node carries beside what the canvas edits.</summary>
+    internal UIGraphNodeLooks Looks => new(Description, Icon, Image, Shape, BadgeTitle, Tooltip);
 
+    /// <summary>Writes what the canvas edits onto a node — its name, a colour <paramref name="colors"/> holds, its links — each setter leaving alone what already matches.</summary>
+    internal void WriteTo(UIGraphNode node, HashSet<string> colors)
+    {
         node.Title = Title;
-        node.Subtitle = Subtitle;
-        node.Icon = Icon;
-        node.Image = Image;
-        node.Shape = Shape;
-        node.Color = Color;
-        node.Badge = Badge;
-        node.Tooltip = Tooltip;
+
+        if (Color is null || colors.Contains(Color))
+            node.Color = Color;
 
         if (!UIGraphDraftSupport.Same(node.Links, Links))
             node.Links = Links;
+    }
+}
+
+/// <summary>What a node carries beside what the canvas edits: what an added node keeps only as a copy of a node already there.</summary>
+internal readonly record struct UIGraphNodeLooks(string? Description, string? Icon, string? Image, UIGraphNodeShape? Shape, string? BadgeTitle, string? Tooltip)
+{
+    public static UIGraphNodeLooks Of(UIGraphNode node)
+        => new(node.Description, node.Icon, node.Image, node.Shape, node.BadgeTitle, node.Tooltip);
+
+    public void WriteTo(UIGraphNode node)
+    {
+        node.Description = Description;
+        node.Icon = Icon;
+        node.Image = Image;
+        node.Shape = Shape;
+        node.BadgeTitle = BadgeTitle;
+        node.Tooltip = Tooltip;
     }
 }

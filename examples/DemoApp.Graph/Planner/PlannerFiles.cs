@@ -28,12 +28,19 @@ public static class PlannerFiles
     private const string BuildsFormat = "ne-planner-builds";
     private const string ManifestName = "manifest.json";
     private const string IconsFolder = "icons/";
+    public const int MaxName = 100;
+
     private const int Version = 1;
-    private const int MaxName = 100;
     private const int MaxId = 64;
+    private const int MaxResources = 2000;
+    private const int MaxBuilds = 500;
+    private const int MaxRows = 100;
 
     /// <summary>The most the manifest is read to, whatever the archive claims: what it unpacks to is not taken on trust.</summary>
     private const long MaxManifestBytes = 16 * 1024 * 1024;
+
+    /// <summary>The most picture bytes one imported archive may unpack across all its entries combined.</summary>
+    private const long MaxArchivePictureBytes = 32 * 1024 * 1024;
 
     private static readonly JsonSerializerOptions Options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
@@ -120,8 +127,13 @@ public static class PlannerFiles
             if (file.Version > Version)
                 return (null, pictures, "planner.file.newer");
 
+            if (file.Resources.Length > MaxResources)
+                return (null, pictures, "planner.file.bad-resource");
+
             List<ResourceRecord> resources = new(file.Resources.Length);
             HashSet<string> ids = new(StringComparer.Ordinal);
+            Dictionary<string, PictureRecord?> picturesByPath = new(StringComparer.Ordinal);
+            var remainingPictureBytes = MaxArchivePictureBytes;
 
             foreach (ResourceEntry? entry in file.Resources)
             {
@@ -135,7 +147,7 @@ public static class PlannerFiles
 
                 resources.Add(new ResourceRecord(entry.Id, Clip(entry.Name), icon, color, Math.Clamp(entry.Output, 1, 999), seconds, []));
 
-                if (ReadPicture(archive, entry.Image) is { } picture)
+                if (ReadPicture(archive, entry.Image, picturesByPath, ref remainingPictureBytes) is { } picture)
                     pictures[entry.Id] = picture;
             }
 
@@ -151,18 +163,12 @@ public static class PlannerFiles
         }
     }
 
-    /// <summary>A picture the manifest names, when the archive holds it, it is small enough, and its bytes are a picture's.</summary>
-    private static PictureRecord? ReadPicture(ZipArchive archive, string? path)
-    {
-        if (path is null || !path.StartsWith(IconsFolder, StringComparison.Ordinal) || archive.GetEntry(path) is not { } entry)
-            return null;
-
-        return ReadEntry(entry, PlannerPictures.MaxBytes) is { } bytes && PlannerPictures.Sniff(bytes) is { } type ? new PictureRecord(bytes, type) : null;
-    }
-
     /// <summary>An entry's bytes, read no further than the limit: one that runs past it is refused, whatever size it claimed.</summary>
     private static byte[]? ReadEntry(ZipArchiveEntry entry, long limit)
     {
+        if (limit <= 0)
+            return null;
+
         using Stream stream = entry.Open();
         using MemoryStream buffer = new();
 
@@ -180,6 +186,89 @@ public static class PlannerFiles
         return buffer.ToArray();
     }
 
+    private static T? Read<T>(byte[] content)
+        where T : class
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(content, Options);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// A key as the planner makes them: letters, digits, dashes and underscores, which a picture's address carries as they are, and
+    /// never starting as a craft's key does, which would give one resource's recipe the key of another resource.
+    /// </summary>
+    private static bool IsId(string? id)
+        => !string.IsNullOrWhiteSpace(id)
+            && id.Length <= MaxId
+            && id.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_')
+            && !id.StartsWith(PlannerCatalogue.CraftPrefix, StringComparison.Ordinal);
+
+    public static string Clip(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        var trimmed = name.Trim();
+
+        return trimmed.Length <= MaxName ? trimmed : trimmed[..MaxName];
+    }
+
+    /// <summary>A picture the manifest names, read at most once per archive path and within the archive's picture budget.</summary>
+    private static PictureRecord? ReadPicture(ZipArchive archive, string? path, Dictionary<string, PictureRecord?> cache, ref long remainingBytes)
+    {
+        if (path is null || !path.StartsWith(IconsFolder, StringComparison.Ordinal))
+            return null;
+
+        var normalized = path.Replace('\\', '/');
+
+        if (cache.TryGetValue(normalized, out PictureRecord? cached))
+            return cached;
+
+        if (archive.GetEntry(normalized) is not { } entry)
+        {
+            cache[normalized] = null;
+            return null;
+        }
+
+        var limit = Math.Min(PlannerPictures.MaxBytes, remainingBytes);
+        PictureRecord? record = null;
+
+        if (ReadEntry(entry, limit) is { } bytes && PlannerPictures.Sniff(bytes) is { } type)
+        {
+            remainingBytes -= bytes.Length;
+            record = new PictureRecord(bytes, type);
+        }
+
+        cache[normalized] = record;
+
+        return record;
+    }
+
+    /// <summary>The rows whose resource passes, each given a fresh row id and its amount put in range.</summary>
+    private static AmountRecord[] Rows(AmountEntry?[]? entries, Predicate<string> named, double least, double most)
+    {
+        if (entries is null)
+            return [];
+
+        List<AmountRecord> rows = new(Math.Min(entries.Length, MaxRows));
+
+        foreach (AmountEntry? entry in entries)
+        {
+            if (rows.Count >= MaxRows)
+                break;
+
+            if (entry?.Resource is { } resource && named(resource) && double.IsFinite(entry.Amount) && entry.Amount > 0)
+                rows.Add(new AmountRecord(PlannerDatabase.NewId(), resource, Math.Clamp(entry.Amount, least, most)));
+        }
+
+        return [.. rows];
+    }
+
     /// <summary>The builds a file holds, or the reason it is not one; a goal's resource is checked against the catalogue when it is taken in.</summary>
     public static (IReadOnlyList<BuildRecord>? Builds, string? Error) ReadBuilds(byte[] content)
     {
@@ -191,6 +280,9 @@ public static class PlannerFiles
         if (file.Version > Version)
             return (null, "planner.file.newer");
 
+        if (file.Builds.Length > MaxBuilds)
+            return (null, "planner.file.bad-build");
+
         List<BuildRecord> builds = new(file.Builds.Length);
         HashSet<string> ids = new(StringComparer.Ordinal);
 
@@ -200,7 +292,7 @@ public static class PlannerFiles
                 return (null, "planner.file.bad-build");
 
             // A file from before the plan's settings travelled counts a minute, as the page then did; one from before the pin, unpinned.
-            string[] bought = [.. (entry.Bought ?? []).Where(IsId)];
+            string[] bought = [.. (entry.Bought ?? []).Where(IsId).Take(MaxResources)];
 
             builds.Add(new BuildRecord(entry.Id, Clip(entry.Name), Rows(entry.Goals, IsId, 0.01, 100000), entry.Period ?? UIProductionPeriod.Minute, entry.Objective ?? UIProductionObjective.LeastRaw, bought, entry.Pinned == true));
         }
@@ -220,7 +312,7 @@ public static class PlannerFiles
         (var content, var uploadError) = await ReadUploadAsync(context, selectionId, cancellationToken).ConfigureAwait(false);
         UICommandResult answer = UICommandResult.Ok();
 
-        _ = await context.Runtime.InvokeAsync(() => answer = content is null ? Refuse(uploadError) : take(content), cancellationToken).ConfigureAwait(false);
+        await context.Runtime.InvokeAsync(() => answer = content is null ? Refuse(uploadError) : take(content), cancellationToken).ConfigureAwait(false);
 
         return answer;
     }
@@ -255,53 +347,6 @@ public static class PlannerFiles
     /// <summary>A notification of why nothing was taken, the reason one of the demo's keys.</summary>
     public static UICommandResult Refuse(string? reason)
         => UICommandResult.Ok([new ShowNotificationEffect(new UIPhrase(reason ?? "planner.file.nothing-read"), UIColorStyle.Danger)]);
-
-    private static T? Read<T>(byte[] content)
-        where T : class
-    {
-        try
-        {
-            return JsonSerializer.Deserialize<T>(content, Options);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    /// <summary>The rows whose resource passes, each given a fresh row id and its amount put in range.</summary>
-    private static AmountRecord[] Rows(AmountEntry?[]? entries, Predicate<string> named, double least, double most)
-    {
-        if (entries is null)
-            return [];
-
-        List<AmountRecord> rows = new(entries.Length);
-
-        foreach (AmountEntry? entry in entries)
-        {
-            if (entry?.Resource is { } resource && named(resource) && double.IsFinite(entry.Amount) && entry.Amount > 0)
-                rows.Add(new AmountRecord(PlannerDatabase.NewId(), resource, Math.Clamp(entry.Amount, least, most)));
-        }
-
-        return [.. rows];
-    }
-
-    /// <summary>
-    /// A key as the planner makes them: letters, digits, dashes and underscores, which a picture's address carries as they are, and
-    /// never starting as a craft's key does, which would give one resource's recipe the key of another resource.
-    /// </summary>
-    private static bool IsId(string? id)
-        => !string.IsNullOrWhiteSpace(id)
-            && id.Length <= MaxId
-            && id.All(static character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_')
-            && !id.StartsWith(PlannerCatalogue.CraftPrefix, StringComparison.Ordinal);
-
-    private static string Clip(string name)
-    {
-        var trimmed = name.Trim();
-
-        return trimmed.Length <= MaxName ? trimmed : trimmed[..MaxName];
-    }
 
     private sealed record ResourcesFile(string? Format, int Version, ResourceEntry?[]? Resources);
 

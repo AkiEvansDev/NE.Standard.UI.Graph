@@ -12,6 +12,11 @@ public sealed partial class GraphStrings
         ["ru"] = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [Canvas] = "Холст узлов",
+            [CanvasRole] = "холст",
+            [NodeContents] = "Содержимое «{node}»",
+            [PinNode] = "Закрепить «{node}»",
+            [RemoveRow] = "Удалить элемент {index} из «{pin}»",
+            [RemoveParameterOf] = "Убрать параметр «{pin}» узла «{node}»",
             [AddNode] = "Добавить узел",
             [SearchKinds] = "Искать типы узлов",
             [NoKinds] = "Нет подходящих типов узлов",
@@ -48,6 +53,9 @@ public sealed partial class GraphStrings
             [RunRequired] = "Нужно задать «{pin}».",
             [RunStopped] = "Остановлено.",
             [RunCycle] = "Узел в цикле: он ждёт сам себя.",
+            [RunOutOfBounds] = "Значение «{pin}» выходит за допустимые границы.",
+            [RunTooLong] = "«{pin}» получился длиннее, чем запуск разрешает тексту.",
+            [RunTooManyNodes] = "На листе больше узлов, чем принимает запуск ({max}).",
             [FileProgress] = "{index} из {total}: {name}.",
             [Collapse] = "Свернуть",
             [Expand] = "Развернуть",
@@ -133,17 +141,23 @@ public sealed partial class GraphStrings
             [LinkIngredient] = "Добавить как ингредиент",
             [LinkRecipe] = "Новый рецепт",
             [Blue] = "Синий",
-            [Amber] = "Янтарный",
-            [Green] = "Зелёный",
+            [Bronze] = "Бронзовый",
+            [Mint] = "Мятный",
             [Rose] = "Розовый",
             [Purple] = "Фиолетовый",
-            [Cyan] = "Бирюзовый",
-            [Bronze] = "Бронзовый",
-            [Fern] = "Папоротниковый"
+            [Teal] = "Бирюзовый",
+            [Lavender] = "Лавандовый",
+            [Violet] = "Сиреневый"
         }.ToFrozenDictionary(StringComparer.Ordinal),
         ["zh-Hans"] = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [Canvas] = "节点画布",
+            [CanvasRole] = "画布",
+            [NodeContents] = "“{node}”的内容",
+            [PinNode] = "固定“{node}”",
+            [RemoveRow] = "从“{pin}”中删除第 {index} 项",
+            [RemoveParameterOf] = "移除节点“{node}”的参数“{pin}”",
+
             [AddNode] = "添加节点",
             [SearchKinds] = "搜索节点类型",
             [NoKinds] = "没有匹配的节点类型",
@@ -180,6 +194,10 @@ public sealed partial class GraphStrings
             [RunRequired] = "必须提供“{pin}”。",
             [RunStopped] = "已停止。",
             [RunCycle] = "该节点处于循环中：它在等待自己。",
+            [RunOutOfBounds] = "“{pin}”的值超出了允许的范围。",
+            [RunTooLong] = "“{pin}”的结果超出了运行允许的文本长度。",
+            [RunTooManyNodes] = "工作表中的节点多于一次运行可接受的数量（{max}）。",
+
             [FileProgress] = "第 {index} 个，共 {total} 个：{name}。",
             [Collapse] = "折叠",
             [Expand] = "展开",
@@ -265,13 +283,13 @@ public sealed partial class GraphStrings
             [LinkIngredient] = "作为原料添加",
             [LinkRecipe] = "新配方",
             [Blue] = "蓝色",
-            [Amber] = "琥珀色",
-            [Green] = "绿色",
+            [Bronze] = "青铜色",
+            [Mint] = "薄荷色",
             [Rose] = "玫瑰色",
             [Purple] = "紫色",
-            [Cyan] = "青色",
-            [Bronze] = "青铜色",
-            [Fern] = "蕨绿色"
+            [Teal] = "青色",
+            [Lavender] = "薰衣草色",
+            [Violet] = "紫罗兰色"
         }.ToFrozenDictionary(StringComparer.Ordinal)
     }.ToFrozenDictionary(StringComparer.Ordinal);
 }

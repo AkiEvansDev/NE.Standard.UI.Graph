@@ -24,6 +24,13 @@
     <ProjectReference Include="..\..\..\CodeInput\src\NE.Standard.UI.CodeInput\NE.Standard.UI.CodeInput.csproj" />
   </ItemGroup>
 
+  <!-- The monorepo's tests reach the controller, which the demo keeps internal; a mirror has no tests to name. -->
+  <ItemGroup Condition="'$(InMonorepo)' == 'true'">
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NE.Test.Standard.UI.Examples</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
   <ItemGroup Condition="'$(InMonorepo)' != 'true'">
     <PackageReference Include="NE.Standard.UI" Version="$(CoreVersion)" />
     <PackageReference Include="NE.Standard.UI.Components" Version="$(CoreVersion)" />

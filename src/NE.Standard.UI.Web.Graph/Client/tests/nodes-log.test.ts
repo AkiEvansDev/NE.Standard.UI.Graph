@@ -123,3 +123,64 @@ test("a node turned off loses what the last run left on it at its next redraw, w
     assert.equal(page.nodes.get("n1")!.getAttribute("data-ui-graph-state"), null);
     assert.equal(page.nodes.get("n2")!.getAttribute("data-ui-graph-state"), "done");
 });
+
+test("a run refused whole says why on the run line, failed, and the next run clears it", () => {
+    // The run line as the renderer writes it along the canvas's top.
+    const label = FakeElement.of("ui-graph__run-label", { "data-ui-graph-run-label": "" }, "span");
+    const run = FakeElement.of("ui-graph__run", { "data-ui-graph-run": "", role: "progressbar" }).append(
+        FakeElement.of("ui-graph__run-track ui-graph__run-track--run"),
+        FakeElement.of("ui-graph__run-track ui-graph__run-track--step"),
+        label,
+        FakeElement.of("ui-graph__run-share", { "data-ui-graph-run-share": "" }, "span")
+    );
+    const root = FakeElement.of("ui-graph").append(run);
+    const context = {
+        temporal: { format: () => "12:00:00", readCulture: () => ({}) },
+        numbers: { format: (value: number) => String(value), readCulture: () => ({}) },
+        strings: { format: (key: string, args: Readonly<Record<string, unknown>>) => `[${key}:${String(args.max ?? args.value ?? "")}]` }
+    };
+    const services = { root, context, nodeElements: new Map<string, FakeElement>(), documentState: { document: { nodes: [] } } };
+    const log = new NodesLog(real<CanvasServices<GraphDocument>>(services), new Map<string, NodeType>());
+
+    log.setRunProgress(0, 0, { key: "ui.graph.run-too-many-nodes", args: { max: 2000 } });
+
+    assert.equal(label.textContent, "[ui.graph.run-too-many-nodes:2000]");
+    assert.equal(run.getAttribute("data-ui-graph-run-state"), "failed");
+
+    log.setRunProgress(0, 3);
+
+    assert.equal(label.textContent, "");
+    assert.equal(run.getAttribute("data-ui-graph-run-state"), "running");
+});
+
+test("the log's clear button is disabled while the log is empty and enabled while lines stand in it", () => {
+    const clear = FakeElement.of("ui-graph__log-clear ui-button", { "data-ui-graph-log-clear": "" }, "button");
+    const lines = FakeElement.of("ui-graph__log-entries", { "data-ui-graph-log-entries": "" }, "ol");
+    const root = FakeElement.of("ui-graph").append(
+        FakeElement.of("ui-graph__log", { "data-ui-graph-log": "" }).append(lines, FakeElement.of("ui-graph__log-head").append(clear))
+    );
+    const context = {
+        temporal: { format: () => "12:00:00", readCulture: () => ({}) },
+        strings: { write: () => undefined, format: (key: string) => key },
+        states: {
+            setDisabled: (element: FakeElement, disabled: boolean) => {
+                element.classList.toggle("ui-disabled", disabled);
+            }
+        }
+    };
+    const services = {
+        root,
+        context,
+        nodeElements: new Map<string, FakeElement>(),
+        documentState: { document: { nodes: [{ id: "n1", type: "graph.text", title: "Reader" }] } }
+    };
+    const log = new NodesLog(real<CanvasServices<GraphDocument>>(services), new Map<string, NodeType>());
+
+    assert.equal(clear.classList.contains("ui-disabled"), true);
+
+    log.addLog("n1", "Info", { text: "Ready" });
+    assert.equal(clear.classList.contains("ui-disabled"), false);
+
+    log.clearLog();
+    assert.equal(clear.classList.contains("ui-disabled"), true);
+});

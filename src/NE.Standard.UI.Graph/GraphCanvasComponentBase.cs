@@ -18,19 +18,7 @@ namespace NE.Standard.UI.Graph;
 public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent, IFormSubmittingComponent, IShortcutOwnerComponent
     where T : GraphCanvasComponentBase<T, TDocument>, IUIComponentDefinition
 {
-    // The theme's own series, named for the hues the default theme gives them: an application whose theme paints them otherwise
-    // names its own with SetColorChoices.
-    private static readonly UIGraphColorChoice[] DefaultColorChoices =
-    [
-        new(UIGraphWords.Blue, "var(--ui-color-series-1)"),
-        new(UIGraphWords.Amber, "var(--ui-color-series-2)"),
-        new(UIGraphWords.Green, "var(--ui-color-series-3)"),
-        new(UIGraphWords.Rose, "var(--ui-color-series-4)"),
-        new(UIGraphWords.Purple, "var(--ui-color-series-5)"),
-        new(UIGraphWords.Cyan, "var(--ui-color-series-6)"),
-        new(UIGraphWords.Bronze, "var(--ui-color-series-7)"),
-        new(UIGraphWords.Fern, "var(--ui-color-series-8)")
-    ];
+    private static readonly UIGraphColorChoice[] DefaultColorChoices = [.. UIGraphColorChoice.Defaults];
 
     // Every entry the package put in any of its menus, so SetCommandIcon replaces a command's glyph wherever it stands.
     private readonly List<MenuItem> _builtIn = [];
@@ -60,8 +48,6 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
             Entry(UIGraphCommands.Arrange, UIGraphWords.Arrange, UIGlyphs.Sort),
             Entry(UIGraphCommands.Fit, UIGraphWords.Fit, UIGlyphs.Fit)
         ]);
-
-        ColorChoices = DefaultColorChoices;
 
         // Pin, rename and delete are what a node is most often asked for: they stand in its action bar (SetNodeActionBar); what is
         // done to the node leads its "…", colour under it. A group's band has no bar, and nothing to copy or cut loose.
@@ -124,9 +110,9 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         color.Items.Clear();
         color.Items.Add(new MenuItem { Id = UIGraphCommands.DefaultColor, Title = UIGraphWords.DefaultColor, Kind = UIMenuItemKind.Check });
 
-        UIGraphColorChoice[] choices = ColorChoices ?? [];
+        IReadOnlyList<UIGraphColorChoice> choices = ColorChoices ?? UIGraphColorChoice.Defaults;
 
-        for (var index = 0; index < choices.Length; index++)
+        for (var index = 0; index < choices.Count; index++)
             color.Items.Add(new MenuItem { Id = UIGraphCommands.ColorChoice(index), Title = choices[index].Title, Kind = UIMenuItemKind.Check });
     }
 
@@ -136,7 +122,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// </summary>
     /// <remarks>
     /// Application entries append after the fixed ones via <see cref="AddMenuEntries"/> (and the sibling Add*MenuEntries methods); a
-    /// click on one raises <see cref="GraphEvents.MenuEntry"/>, naming the entry and what the menu was opened on.
+    /// click on one raises <see cref="GraphEvents.MenuEntry"/> on the entry, naming it and what the menu was opened on.
     /// </remarks>
     public MenuComponent Menu { get; }
 
@@ -172,8 +158,21 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// Gets the colours an item's or a group's menu offers, in their order.
     /// </summary>
     /// <remarks>Render-time only: the choices are how the menus are built.</remarks>
-    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), IsBindable = false, GenerateSetter = false, DefaultValue = null)]
-    public UIGraphColorChoice[]? ColorChoices { get; private set; }
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), IsBindable = false, GenerateSetter = false, DefaultValueMember = nameof(DefaultColorChoices))]
+    public UIGraphColorChoice[]? ColorChoices
+    {
+        get;
+        private set
+        {
+            field = value;
+
+            foreach (MenuItem entry in _builtIn)
+            {
+                if (string.Equals(entry.Id, UIGraphCommands.Color, StringComparison.Ordinal))
+                    FillColorChoices(entry);
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the menus and the kind's own parts the canvas carries as regions, by the names <see cref="UIGraphMenus"/> and the kind
@@ -193,7 +192,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// <summary>
     /// Gets or sets the step of the grid behind the canvas, in canvas units.
     /// </summary>
-    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = 20d, GenerateSetter = false)]
+    [UIComponentProperty(Contract = typeof(IGraphCanvasComponent), DefaultValue = 32d, GenerateSetter = false)]
     public double? GridSize { get; set; }
 
     /// <summary>
@@ -407,13 +406,6 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         }
 
         ColorChoices = [.. choices];
-
-        foreach (MenuItem entry in _builtIn)
-        {
-            if (string.Equals(entry.Id, UIGraphCommands.Color, StringComparison.Ordinal))
-                FillColorChoices(entry);
-        }
-
         return Self;
     }
 

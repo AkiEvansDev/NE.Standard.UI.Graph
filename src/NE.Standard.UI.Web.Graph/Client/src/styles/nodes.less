@@ -38,10 +38,9 @@
 }
 
 .ui-graph__node {
-    --ui-graph-node-color: var(--ui-color-primary);
-    // The colour as it is drawn: the theme's series colours are set deep for a light ground, so on a dark one they are lifted
-    // toward white, or a node's strip, icon and head would sink into the surface around them.
-    --ui-graph-node-ink: light-dark(var(--ui-graph-node-color), color-mix(in oklab, var(--ui-graph-node-color) 70%, white));
+    --ui-graph-node-color: var(--ui-color-primary-ink);
+    // The colour as it is drawn: the theme's series colours and brand inks are already fitted to both grounds.
+    --ui-graph-node-ink: var(--ui-graph-node-color);
     // The edge and corner every shape sets here rather than on its own border, so a chosen one's ring follows them.
     --ui-graph-node-border: var(--ui-border-width);
     --ui-graph-node-radius: var(--ui-radius-card);
@@ -63,6 +62,8 @@
     min-height: calc(var(--ui-graph-node-h, 0) * 1px);
     border: var(--ui-graph-node-border) solid var(--ui-color-border);
     border-radius: var(--ui-graph-node-radius-tl) var(--ui-graph-node-radius-tr) var(--ui-graph-node-radius-br) var(--ui-graph-node-radius-bl);
+    --ui-surface-fill: var(--ui-color-surface);
+    .ui-popup-ground-lifted(var(--ui-color-surface));
     background: var(--ui-color-surface);
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
@@ -85,9 +86,9 @@
         position: absolute;
         inset: calc(-1 * (var(--ui-graph-node-border) + var(--ui-graph-node-chosen-gap) + 1px));
         z-index: -1;
-        border: 1px solid var(--ui-mark-selected-fill);
+        border: 1px solid var(--ui-mark-selected);
         border-radius: .ui-graph-ring-corner(tl)[@value] .ui-graph-ring-corner(tr)[@value] .ui-graph-ring-corner(br)[@value] .ui-graph-ring-corner(bl)[@value];
-        box-shadow: 0 0 10px 0 color-mix(in srgb, var(--ui-mark-selected-fill) 55%, transparent);
+        box-shadow: 0 0 10px 0 color-mix(in srgb, var(--ui-mark-selected) 55%, transparent);
         pointer-events: none;
     }
 
@@ -116,7 +117,7 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0.375rem @ui-space-2;
+    padding: 0.375rem @ui-space-3;
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: .ui-graph-inner-corner(tl)[@value] .ui-graph-inner-corner(tr)[@value] 0 0;
     background: @ui-graph-node-tint;
@@ -155,6 +156,10 @@
         .ui-graph__node-fold:hover:not([aria-disabled='true']) {
             opacity: 1;
         }
+    }
+
+    .ui-graph__node-fold@{ui-keyboard-focus}:not([aria-disabled='true']) {
+        opacity: 1;
     }
 
 // Folded, the node is only as wide as its head's words (min-width belongs to the open body), never narrower than reads as a node;
@@ -237,6 +242,10 @@
         }
     }
 
+    .ui-graph__node-pinned@{ui-keyboard-focus}:not([aria-disabled='true']) {
+        opacity: @ui-offer-opacity-hover;
+    }
+
     .ui-graph__node[data-ui-graph-pinned] .ui-graph__node-pinned {
         opacity: 1;
     }
@@ -275,7 +284,7 @@
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
-    gap: @ui-space-1;
+    gap: @ui-list-entry-gap;
     min-height: 0;
     padding: 0.375rem 0;
 }
@@ -305,7 +314,7 @@
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    padding: 0 @ui-space-2;
+    padding: 0 @ui-space-3;
     min-height: @ui-graph-row-line;
 }
 
@@ -644,6 +653,11 @@
     gap: @ui-space-1;
 }
 
+// An empty list draws no rows: `hidden` alone loses to the display above.
+.ui-graph__list-rows[hidden] {
+    display: none;
+}
+
 .ui-graph__list-row {
     display: flex;
     align-items: center;
@@ -761,6 +775,10 @@ dialog.ui-graph__picker {
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
     font-weight: var(--ui-text-title-font-weight);
     .ui-reveal-hover();
+
+    &@{ui-keyboard-focus} {
+        background-color: var(--ui-wash-hover);
+    }
 }
 
 .ui-graph__picker-rail-caption {
@@ -823,7 +841,7 @@ dialog.ui-graph__picker {
 
     .ui-graph__picker-category[aria-selected="true"] {
         .ui-selected-ground();
-        font-weight: var(--ui-text-title-font-weight);
+        .ui-selected-ink(@weight: var(--ui-text-title-font-weight));
     }
 
 // The chevron of a category with others under it; one with none keeps the room, so every name starts on the same line.
@@ -867,18 +885,19 @@ dialog.ui-graph__picker {
     padding: @ui-space-2 0.625rem;
     border-radius: @ui-list-entry-radius;
     transition: background-color @ui-motion-fast @ui-motion-ease;
-
-    &:not([aria-selected='true']):active {
-        background-color: var(--ui-wash-active);
-    }
 }
 
     .ui-graph__picker-entry--current {
-        .ui-selected-ground();
+        background-color: var(--ui-wash-hover);
+        color: var(--ui-color-on-surface);
     }
 
-    // Where the arrows or typing put it, the current entry wears the keyboard's frame; the pointer's, or the first on opening, its
-    // ground alone.
+    .ui-graph__picker-entry:active {
+        background-color: var(--ui-wash-active);
+    }
+
+    // Where the arrows or typing put it, the current entry suppresses the browser ring; the pointer's, or the first on opening, keeps
+    // its ground alone.
     .ui-graph__picker-entry--current:not(.ui-graph__picker-entry--pointed) {
         .ui-keyboard-frame();
     }
@@ -955,8 +974,7 @@ dialog.ui-graph__picker {
         top: calc(var(--ui-graph-run-height) + @ui-space-2);
     }
 
-    // Run speaks in the page's own colour, so the panel reads as the way to run the sheet rather than three marks alike: its ink,
-    // which reads on the panel's ground in both themes, where the brand's own fill stood under 3:1 on a dark one.
+    // Run speaks in the theme's primary ink, so the panel reads as the way to run the sheet rather than three marks alike.
     .ui-graph__run-panel > [data-ui-graph-run-once]:not([aria-disabled='true']) {
         color: var(--ui-color-primary-ink);
     }
@@ -1035,6 +1053,10 @@ dialog.ui-graph__picker {
     line-height: 1.25;
     .ui-reveal-hover();
 
+    &@{ui-keyboard-focus} {
+        background-color: var(--ui-wash-hover);
+    }
+
     > span {
         min-width: 0;
         .ui-text-nowrap();
@@ -1042,7 +1064,7 @@ dialog.ui-graph__picker {
 }
 
 .ui-graph__parameter-node {
-    font-weight: 600;
+    font-weight: var(--ui-text-title-font-weight);
 }
 
 .ui-graph__parameter-pin {
@@ -1169,34 +1191,28 @@ dialog.ui-graph__picker {
     }
 
 // The whole strip opens the log: square, the strip's height, with the faintest hover response (just the word brightens, no wash), since the log sits under the sheet and isn't what a reader looks at.
-.ui-graph__log-toggle,
-.ui-graph__log-clear {
+.ui-graph__log-toggle {
     .ui-bare-button();
     display: flex;
     align-items: center;
+    flex: 1 1 auto;
+    gap: 0.375rem;
+    min-width: 0;
+    padding: 0 @ui-space-2;
     border-radius: 0;
     transition: color @ui-motion-fast @ui-motion-ease;
 }
 
     @media @{ui-can-hover} {
-        .ui-graph__log-toggle:hover,
-        .ui-graph__log-clear:hover {
+        .ui-graph__log-toggle:hover {
             color: var(--ui-color-on-surface);
         }
     }
 
-    // The keyboard's focus brightens the word as the hover does; the ring is the framework's own (reset.less).
-    .ui-graph__log-toggle@{ui-keyboard-focus},
-    .ui-graph__log-clear@{ui-keyboard-focus} {
+    // The keyboard's focus brightens the word as the hover does.
+    .ui-graph__log-toggle@{ui-keyboard-focus} {
         color: var(--ui-color-on-surface);
     }
-
-.ui-graph__log-toggle {
-    flex: 1 1 auto;
-    gap: 0.375rem;
-    min-width: 0;
-    padding: 0 @ui-space-2;
-}
 
 .ui-graph__log-chevron {
     .ui-glyph-host();
@@ -1217,10 +1233,15 @@ dialog.ui-graph__picker {
         display: none;
     }
 
-// The clear control belongs to the open panel: folded, the strip is only what opens it. The lines leave the page's order once the
-// fold is over, so they slide down under the strip in sight.
+// The clear control stands in the open panel's top trailing corner, out of the strip's flow so the save state on the strip never
+// shifts when the log opens or closes. The lines leave the page's order once the fold is over, so they slide down under the strip.
 .ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-clear {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+        opacity @ui-motion-fast @ui-motion-ease,
+        visibility 0s @ui-motion-fast;
 }
 
 .ui-graph:not([data-ui-graph-log-open]) .ui-graph__log-entries {
@@ -1229,10 +1250,10 @@ dialog.ui-graph__picker {
 }
 
 .ui-graph__log-clear {
-    flex: 0 0 auto;
-    justify-content: center;
-    width: var(--ui-graph-log-strip-height);
-    padding: 0;
+    position: absolute;
+    right: @ui-space-1;
+    bottom: calc(var(--ui-graph-log-height) - var(--ui-border-width) - @ui-button-height-sm - @ui-space-1);
+    z-index: 1;
 
     > .ui-icon {
         font-size: @ui-glyph-sm;
@@ -1243,7 +1264,7 @@ dialog.ui-graph__picker {
     flex: 0 0 auto;
     height: calc(var(--ui-graph-log-height) - var(--ui-graph-log-strip-height) - var(--ui-border-width));
     margin: 0;
-    padding: @ui-space-1 0;
+    padding: @ui-space-1 (@ui-button-height-sm + 2 * @ui-space-1) @ui-space-1 0;
     overflow: auto;
     list-style: none;
     font-size: var(--ui-text-caption-font-size);
@@ -1295,6 +1316,10 @@ dialog.ui-graph__picker {
         .ui-graph__log-node:hover {
             text-decoration: underline;
         }
+    }
+
+    .ui-graph__log-node@{ui-keyboard-focus} {
+        text-decoration: underline;
     }
 
 .ui-graph__log-message {

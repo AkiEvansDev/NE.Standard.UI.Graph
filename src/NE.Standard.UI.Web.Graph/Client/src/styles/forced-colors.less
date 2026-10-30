@@ -15,7 +15,7 @@
         display: none;
     }
 
-    // A plan target, whose success edge the mode paints over: a double outline in the text's colour, in the selection's when chosen.
+    // A plan target, whose accent edge the mode paints over: a double outline in the text's colour, in the selection's when chosen.
     .ui-graph__node[data-ui-graph-target] {
         outline: 3px double CanvasText;
         outline-offset: 0;
@@ -49,6 +49,12 @@
     // The arrows' category, whose wash the mode drops: dashed, as a menu's keyboard entry is; the chosen one keeps its own mark.
     .ui-graph__picker-category@{ui-keyboard-focus}:not([aria-selected="true"]) {
         outline: 2px dashed Highlight;
+        outline-offset: -2px;
+    }
+
+    // A plan table's cell clips an outer ring on its name button: frame the whole keyboard-focused row inside its edges instead.
+    .ui-graph__plan-table tbody tr@{ui-keyboard-within} {
+        outline: 2px dashed CanvasText;
         outline-offset: -2px;
     }
 

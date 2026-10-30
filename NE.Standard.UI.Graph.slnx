@@ -17,8 +17,11 @@
 
   <Folder Name="/solution/">
     <File Path=".editorconfig" />
+    <File Path=".oxlintrc.json" />
     <File Path="global.json" />
     <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="WebClient.targets" />
     <File Path=".gitattributes" />
     <File Path=".gitignore" />
     <File Path="LICENSE.md" />

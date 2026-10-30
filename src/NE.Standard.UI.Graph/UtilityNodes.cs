@@ -29,14 +29,23 @@ public sealed class ToTextNode : IGraphNode
 
     /// <inheritdoc/>
     public void Execute(UINodeRunContext context)
-        => Text = Value is IFormattable formattable && Format.Length > 0
-            ? formattable.ToString(Format, CultureInfo.InvariantCulture)
-            : Convert.ToString(Value, CultureInfo.InvariantCulture) ?? string.Empty;
+    {
+        try
+        {
+            Text = Value is IFormattable formattable && Format.Length > 0
+                ? formattable.ToString(Format, CultureInfo.InvariantCulture)
+                : Convert.ToString(Value, CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+        catch (FormatException exception)
+        {
+            throw new UINodeFailureException($"'{Format}' is not a valid format.", exception);
+        }
+    }
 }
 
 /// <summary>
 /// Shows whatever reaches it, drawn by the shape the run gave it: a number, a line of text, a list or a table of records — and a
-/// picture where a type says so: a picture's output feeds it, or the value is a <see cref="UINodePicture"/>.
+/// picture where a type says so: a picture's output feeds it, or the value is a <see cref="UINodeImage"/>.
 /// </summary>
 [GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Display", Description = "Shows whatever reaches it, drawn by the shape it has.", Icon = UIGlyphs.Visibility, Color = UINodeKinds.AnyColor, MinWidth = 16)]
 public sealed class DisplayNode
@@ -52,7 +61,7 @@ public sealed class DisplayNode
 /// <summary>
 /// A note on the sheet: text for whoever reads it, with no pins, which a run passes over.
 /// </summary>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Note", Description = "Text for whoever reads the sheet.", Icon = UIGlyphs.StickyNote, Color = "var(--ui-color-warning)", MinWidth = 15)]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Note", Description = "Text for whoever reads the sheet.", Icon = UIGlyphs.StickyNote, Color = UINodeKinds.UtilityColor, MinWidth = 15)]
 public sealed class NoteNode
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -143,7 +152,7 @@ public sealed class DelayNode : IGraphNodeAsync
 /// counter's <see cref="Wrapped"/> wired into another's <see cref="Advance"/> makes a loop inside a loop: every value of the inner
 /// one for each value of the outer.
 /// </remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Counter", Description = "Counts one step further each run.", Icon = UIGlyphs.PlusOne, Color = "var(--ui-color-series-3)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Counter", Description = "Counts one step further each run.", Icon = UIGlyphs.PlusOne, Color = UINodeKinds.NumberColor)]
 public sealed class CounterNode : IGraphNode, IGraphNodeSequence
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -197,7 +206,7 @@ public sealed class CounterNode : IGraphNode, IGraphNodeSequence
         if (!(place >= 0 && place < axis.Count))
         {
             if (!Wrap)
-                throw new InvalidOperationException("The counter is past its end: Reset it from its menu to count again.");
+                throw new UINodeFailureException("The counter is past its end: Reset it from its menu to count again.");
 
             place = 0;
         }

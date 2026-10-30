@@ -131,7 +131,7 @@ public sealed class UINodePin
     /// Creates a pin.
     /// </summary>
     [JsonConstructor]
-    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false, string? typeTitle = null)
+    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false, string? typeTitle = null, string? placeholder = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(type);
@@ -161,6 +161,7 @@ public sealed class UINodePin
         State = state;
         Hidden = hidden;
         TypeTitle = typeTitle;
+        Placeholder = placeholder;
     }
 
     /// <summary>
@@ -288,4 +289,16 @@ public sealed class UINodePin
     /// </summary>
     /// <remarks>Unset for a built-in type, which the canvas names in the page's words.</remarks>
     public string? TypeTitle { get; }
+
+    /// <summary>
+    /// Gets the stand-in text shown inside the editor while it holds no value.
+    /// </summary>
+    public string? Placeholder { get; }
+
+    /// <summary>Gets whether the value, or a list's element, is a whole number: its editor takes no fraction.</summary>
+    internal bool WholeNumber { get; init; }
+
+    /// <summary>Gets whether the value, or a list's element, holds nothing below zero: its editor takes no sign.</summary>
+    internal bool Unsigned { get; init; }
 }
+

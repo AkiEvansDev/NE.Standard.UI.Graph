@@ -6,7 +6,7 @@ namespace NE.Standard.UI.Graph;
 
 /// <summary>
 /// The overlay-by-key plumbing both drafts share: reading a list off the wire, removing keys, finding an entry by key, comparing
-/// value lists.
+/// value lists, the colours a draft may paint.
 /// </summary>
 /// <remarks>Each draft's own <c>ApplyTo</c> covers what differs between a node and a craft.</remarks>
 internal static class UIGraphDraftSupport
@@ -58,5 +58,25 @@ internal static class UIGraphDraftSupport
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// The colours a draft may paint with: the canvas's choices — its defaults when none are named — and every colour an entry
+    /// already wears, which a copy of it carries.
+    /// </summary>
+    public static HashSet<string> AllowedColors<TEntry>(IReadOnlyList<UIGraphColorChoice>? choices, IEnumerable<TEntry> entries, Func<TEntry, string?> color)
+    {
+        HashSet<string> colors = new(StringComparer.Ordinal);
+
+        foreach (UIGraphColorChoice choice in choices ?? UIGraphColorChoice.Defaults)
+            _ = colors.Add(choice.Color);
+
+        foreach (TEntry entry in entries)
+        {
+            if (color(entry) is { } worn)
+                _ = colors.Add(worn);
+        }
+
+        return colors;
     }
 }

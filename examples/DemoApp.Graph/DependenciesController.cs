@@ -21,7 +21,7 @@ internal sealed partial class DependenciesController : UIControllerBase
     private const string Core = "var(--ui-color-series-4)";
     private const string Identity = "var(--ui-color-series-1)";
     private const string Pages = "var(--ui-color-series-5)";
-    private const string Hosting = "var(--ui-color-series-8)";
+    private const string Hosting = "var(--ui-color-series-6)";
 
     // A picture the page carries itself, so the demo shows one without a file to fetch: a storefront's awning in the theme's hues.
     private const string ShopPicture = "data:image/svg+xml;charset=utf-8,"
@@ -150,7 +150,13 @@ internal sealed partial class DependenciesController : UIControllerBase
             return;
         }
 
-        draft.ApplyTo(Modules);
+        if (!draft.ApplyTo(Modules, EditStructure))
+        {
+            Layout = Layout.WithoutDraft();
+            Status = UIPhrase.Of("planner.graph.status.refused", ("time", at));
+            return;
+        }
+
         Layout = Layout.WithoutDraft();
 
         Status = UIPhrase.Of("planner.graph.status.applied", ("changed", draft.Nodes.Length), ("count", draft.Removed.Length), ("time", at));
@@ -235,8 +241,8 @@ internal sealed partial class DependenciesController : UIControllerBase
         return modules;
     }
 
-    private static UIGraphNode Module(string id, string title, string subtitle, string icon, string color, string? badge = null)
-        => new(id) { Title = title, Subtitle = subtitle, Icon = icon, Color = color, Badge = badge, Tooltip = $"{title} — {subtitle.ToLowerInvariant()}." };
+    private static UIGraphNode Module(string id, string title, string description, string icon, string color, string? badge = null)
+        => new(id) { Title = title, Description = description, Icon = icon, Color = color, BadgeTitle = badge, Tooltip = $"{title} — {description.ToLowerInvariant()}." };
 
     private static void Link(UIGraphNode[] modules, string from, params string[] to)
     {

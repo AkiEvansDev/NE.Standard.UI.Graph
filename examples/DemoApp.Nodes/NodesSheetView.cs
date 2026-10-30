@@ -35,45 +35,39 @@ internal abstract class NodesSheetView : NodesDemoView
             .AddRow(UIGridUnit.Auto())
             // Every control in the row is one line tall and centred on the same line: a caption above a field would raise that
             // field's middle above its neighbours', so the select wears its caption inside it, as one line. The set wraps in even
-            // columns, so a narrow page takes the switches and the button under it. Tonal, as a toolbar's fields are.
+            // columns, so a narrow page takes the switches and the button under it. Filled, as a toolbar's fields are.
             .AddChild(new WrapPanelComponent()
                 .SetSpacing(16)
                 .SetLineSpacing(8)
                 .SetItemMinWidth(240)
+                .SetDefaults<SelectComponent>(static c => c.SetTitlePlacement(UIInputTitlePlacement.Inside).SetAppearance(UIInputAppearance.Filled).SetVerticalAlignment(UIAlignment.Center))
+                .SetDefaults<SwitchComponent>(static c => c.SetVerticalAlignment(UIAlignment.Center))
                 .AddChildren(
                     new SelectComponent()
                         .SetTitle("nodes.edges")
-                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Bezier), Title = "nodes.edges.curved" },
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Straight), Title = "nodes.edges.straight" },
                             new OptionItem { Id = nameof(UIGraphEdgeShape.Orthogonal), Title = "nodes.edges.stepped" }
                         ])
-                        .BindValue(nameof(NodesSheetController.EdgeShape))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<NodesSheetController>(static c => c.EdgeShape),
                     new SelectComponent()
                         .SetTitle("nodes.corners")
-                        .SetTitlePlacement(UIInputTitlePlacement.Inside)
-                        .SetAppearance(UIInputAppearance.Tonal)
                         .SetOptions([
                             new OptionItem { Id = NodesSheetController.RoundedCorners, Title = "nodes.corners.rounded" },
                             new OptionItem { Id = NodesSheetController.SquareCorners, Title = "nodes.corners.square" }
                         ])
-                        .BindValue(nameof(NodesSheetController.Corners))
-                        .OnChange(nameof(NodesSheetController.CornersChosen))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<NodesSheetController>(static c => c.Corners)
+                        .OnChange(nameof(NodesSheetController.CornersChosen)),
                     new SwitchComponent()
                         .SetTitle("nodes.snap")
-                        .BindValue(nameof(NodesSheetController.SnapToGrid))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<NodesSheetController>(static c => c.SnapToGrid),
                     new SwitchComponent()
                         .SetTitle("nodes.read-only")
-                        .BindValue(nameof(NodesSheetController.ReadOnly))
-                        .SetVerticalAlignment(UIAlignment.Center),
+                        .BindValue<NodesSheetController>(static c => c.ReadOnly),
                     new ButtonComponent()
                         .SetTitle("nodes.reset")
-                        .SetType(UIButtonType.Ghost)
+                        .SetVariant(UIButtonVariant.Ghost)
                         .OnClick(nameof(NodesSheetController.Reset))
                         .SetHorizontalAlignment(UIAlignment.Start)
                         .SetVerticalAlignment(UIAlignment.Center)
@@ -94,13 +88,13 @@ internal abstract class NodesSheetView : NodesDemoView
                 .SetPlacement(1, 2, 24, 1)
             )
             .AddChild(UIText.Subtitle()
-                .BindTitle(nameof(NodesSheetController.Answer))
+                .BindTitle<NodesSheetController>(static c => c.Answer)
                 .SetMargin(UIThickness.All(0, 8, 0, 0))
                 .SetPlacement(1, 3, 24, 1)
             )
             .AddChild(UIText.Caption()
                 .Muted()
-                .BindTitle(nameof(NodesSheetController.Status))
+                .BindTitle<NodesSheetController>(static c => c.Status)
                 .SetTitleWrap(true)
                 .SetPlacement(1, 4, 24, 1)
             )
@@ -124,11 +118,11 @@ internal abstract class NodesSheetView : NodesDemoView
             .OnStop(nameof(NodesSheetController.Stop))
             // Held in the browser until a save sends it: the sheet is the viewer's until then.
             .SetFormId(NodesSheetController.CanvasForm)
-            .BindValue(nameof(NodesSheetController.Sheet), mode: UIBindingMode.OnSubmit)
-            .BindEdgeShape(nameof(NodesSheetController.EdgeShape))
-            .BindSnapToGrid(nameof(NodesSheetController.SnapToGrid))
-            .BindIsReadOnly(nameof(NodesSheetController.ReadOnly))
-            .BindNodeCornerRadius(nameof(NodesSheetController.NodeCornerRadius))
+            .BindValue<NodesSheetController>(static c => c.Sheet, mode: UIBindingMode.OnSubmit)
+            .BindEdgeShape<NodesSheetController>(static c => c.EdgeShape)
+            .BindSnapToGrid<NodesSheetController>(static c => c.SnapToGrid)
+            .BindIsReadOnly<NodesSheetController>(static c => c.ReadOnly)
+            .BindNodeCornerRadius<NodesSheetController>(static c => c.NodeCornerRadius)
             .AddMenuEntries(new MenuItem { Id = RunEntryKey, Title = "nodes.run-sheet", Icon = NodesIcons.Run })
             .OnMenuEntry(nameof(NodesSheetController.MenuEntry), UIGraphArguments.Entry("key"))
             .OnSave(nameof(NodesSheetController.SaveAsync), UIGraphArguments.Reason("reason"))

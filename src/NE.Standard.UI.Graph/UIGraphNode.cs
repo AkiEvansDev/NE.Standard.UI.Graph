@@ -5,7 +5,7 @@ using NE.Standard.UI.Primitives.Annotations;
 
 namespace NE.Standard.UI.Graph;
 
-/// <summary>One node of a graph, drawn as a card: title, subtitle, icon, colour, badge, tooltip, and the links it leaves by.</summary>
+/// <summary>One node of a graph, drawn as a card: title, description, icon, colour, badge, tooltip, and the links it leaves by.</summary>
 /// <remarks>Bound as a collection; a change arrives in the browser as the node replaced.</remarks>
 public sealed partial class UIGraphNode(string id) : RecursiveObservable, IBindableItem
 {
@@ -25,7 +25,7 @@ public sealed partial class UIGraphNode(string id) : RecursiveObservable, IBinda
     /// Gets or sets the line under the title.
     /// </summary>
     [RecursiveMember]
-    public partial string? Subtitle { get; set; }
+    public partial string? Description { get; set; }
 
     /// <summary>
     /// Gets or sets the icon beside the title: a glyph name from the icon pack the application registered.
@@ -55,7 +55,7 @@ public sealed partial class UIGraphNode(string id) : RecursiveObservable, IBinda
     /// Gets or sets the short text the card carries at its end — a count, an amount, a state.
     /// </summary>
     [RecursiveMember]
-    public partial string? Badge { get; set; }
+    public partial string? BadgeTitle { get; set; }
 
     /// <summary>
     /// Gets or sets what the card says when the pointer rests on it.

@@ -10,15 +10,26 @@ namespace NE.Standard.UI.Graph;
 /// </remarks>
 public static class UIProductionPlanner
 {
+    /// <summary>
+    /// The most cells — resources made, times the crafts that help — a plan weighs unless the caller says otherwise: a table of a
+    /// thousand by a thousand.
+    /// </summary>
+    public const int DefaultMaxCells = 1_000_000;
+
     private const double Eps = 1e-9;
 
     /// <summary>
     /// Solves <paramref name="request"/> over a catalogue of resources and crafts.
     /// </summary>
-    public static UIProductionPlan Solve(IEnumerable<UIProductionEntry> entries, UIProductionPlanRequest request)
+    /// <remarks>
+    /// The catalogue and the request may be the browser's, so a plan that would weigh more than <paramref name="maxCells"/> is not
+    /// worked out: it answers <see cref="UIProductionPlanStatus.TooLarge"/>.
+    /// </remarks>
+    public static UIProductionPlan Solve(IEnumerable<UIProductionEntry> entries, UIProductionPlanRequest request, int maxCells = DefaultMaxCells)
     {
         ArgumentNullException.ThrowIfNull(entries);
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxCells);
 
         List<UIResource> catalogue = [];
         Dictionary<string, UIResource> resources = new(StringComparer.Ordinal);
@@ -71,6 +82,10 @@ public static class UIProductionPlanner
             if (needed.Contains(resource.Id) && makers.ContainsKey(resource.Id))
                 made.Add(resource.Id);
         }
+
+        // The table is dense, so it is weighed before it is built.
+        if ((long)made.Count * columns.Count > maxCells)
+            return new UIProductionPlan(UIProductionPlanStatus.TooLarge);
 
         var rows = new double[made.Count][];
         var atLeast = new double[made.Count];

@@ -5,11 +5,14 @@ export default defineConfig({
     build: {
         emptyOutDir: true,
         outDir: "dist",
-        lib: {
-            entry: resolve(__dirname, "src/graph.ts"),
-            formats: ["es"],
-            fileName: () => "ui-graph.js",
-            cssFileName: "ui-graph"
+        modulePreload: false,
+        cssCodeSplit: false,
+        rolldownOptions: {
+            input: resolve(import.meta.dirname, "src/graph.ts"),
+            output: {
+                entryFileNames: "ui-graph.js",
+                assetFileNames: "ui-graph[extname]"
+            }
         }
     }
 });

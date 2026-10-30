@@ -1,4 +1,4 @@
-// The graph over the canvas's own parts: a node is a card (icon, title, subtitle, badge) edged in its colour, sized by its
+// The graph over the canvas's own parts: a node is a card (icon, title, description, badge) edged in its colour, sized by its
 // content rather than dragged.
 
 @import (reference) "../../plugin/ne-standard-ui.less";
@@ -117,7 +117,7 @@
         font-weight: var(--ui-text-title-font-weight);
     }
 
-.ui-graph__card-subtitle {
+.ui-graph__card-description {
     color: var(--ui-text-muted);
     .ui-text-nowrap();
 }
@@ -233,7 +233,7 @@
 
 // The node a pulled link would land on stands forward in the brand colour.
 .ui-graph--connecting .ui-graph__node[data-ui-graph-drop="yes"] {
-    border-color: var(--ui-mark-selected-fill);
+    border-color: var(--ui-mark-selected);
     box-shadow: @ui-graph-chosen-halo;
 }
 

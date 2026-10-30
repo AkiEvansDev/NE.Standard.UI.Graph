@@ -8,7 +8,7 @@ namespace NE.Standard.UI.Graph;
 /// X moves fastest, and Y moves on once X has been round. Where it stands in the grid is kept in the document and shown on the
 /// node, and its reset puts it back to the first; after the last it starts over, or it ends a run of all.
 /// </remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Range XY", Description = "Every point of a grid, one a run.", Icon = UIGlyphs.PlusOne, Color = "var(--ui-color-series-3)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Range XY", Description = "Every point of a grid, one a run.", Icon = UIGlyphs.PlusOne, Color = UINodeKinds.NumberColor)]
 public sealed class RangeXYNode : IGraphNode, IGraphNodeSequence
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -79,7 +79,7 @@ public sealed class RangeXYNode : IGraphNode, IGraphNodeSequence
 /// X moves fastest, then Y, then Z. Where it stands in the box is kept in the document and shown on the node, and its reset puts it
 /// back to the first; after the last it starts over, or it ends a run of all.
 /// </remarks>
-[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Range XYZ", Description = "Every point of a box, one a run.", Icon = UIGlyphs.PlusOne, Color = "var(--ui-color-series-3)")]
+[GraphNode(Key = NodeKey, Category = UINodeKinds.UtilitiesCategory, Title = "Range XYZ", Description = "Every point of a box, one a run.", Icon = UIGlyphs.PlusOne, Color = UINodeKinds.NumberColor)]
 public sealed class RangeXYZNode : IGraphNode, IGraphNodeSequence
 {
     /// <summary>The kind's key in a saved sheet.</summary>
@@ -175,19 +175,19 @@ internal readonly record struct GridAxis(double From, double To, double Step, in
     public static GridAxis Of(string name, double from, double to, double step)
     {
         if (step == 0 || !double.IsFinite(step))
-            throw new InvalidOperationException($"{name}'s step cannot be zero.");
+            throw new UINodeFailureException($"{name}'s step cannot be zero.");
 
         if (!double.IsFinite(from) || !double.IsFinite(to))
-            throw new InvalidOperationException($"{name}'s From and To must be numbers.");
+            throw new UINodeFailureException($"{name}'s From and To must be numbers.");
 
         // The last place that stays within To, counted once rather than found by adding up, which drifts.
         var last = Math.Floor(((to - from) / step) + Tolerance);
 
         if (last < 0)
-            throw new InvalidOperationException($"{name} starts past its end: its step leads away from its To.");
+            throw new UINodeFailureException($"{name} starts past its end: its step leads away from its To.");
 
         if (last >= MaxCount)
-            throw new InvalidOperationException($"{name} holds more than {MaxCount} values: its step is too small for its bounds.");
+            throw new UINodeFailureException($"{name} holds more than {MaxCount} values: its step is too small for its bounds.");
 
         return new GridAxis(from, to, step, (int)last + 1);
     }
@@ -207,14 +207,14 @@ internal readonly record struct GridWalk(int Point, int Taken, bool Wrapped, boo
     public static GridWalk Take(int taken, long count, bool wrap)
     {
         if (count > int.MaxValue)
-            throw new InvalidOperationException("The range holds too many points to walk one a run.");
+            throw new UINodeFailureException("The range holds too many points to walk one a run.");
 
         var total = (int)count;
 
         if (taken < 0 || taken >= total)
         {
             if (!wrap)
-                throw new InvalidOperationException("The range is past its last point: Reset it from its menu to walk it again.");
+                throw new UINodeFailureException("The range is past its last point: Reset it from its menu to walk it again.");
 
             taken = 0;
         }

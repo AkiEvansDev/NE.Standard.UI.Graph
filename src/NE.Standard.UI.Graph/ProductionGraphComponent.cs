@@ -18,16 +18,17 @@ namespace NE.Standard.UI.Graph;
 /// <see cref="Mode"/>: the constructor, editing the catalogue, and the plan, where the viewer sets target amounts and the graph draws
 /// the runs to reach them.
 /// </remarks>
+[UIComponentPropertyDefault(nameof(ILayeredGraphComponent.NodeShape), nameof(DefaultNodeShape))]
 public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponentBase<T, UIProductionDocument>, IBindableItemsComponent
     where T : ProductionGraphComponent<T>, IUIComponentDefinition
 {
+    // A resource is its icon, its name standing under it: a production graph is read by its shapes before its captions.
+    private const UIGraphNodeShape DefaultNodeShape = UIGraphNodeShape.Icon;
+
     private readonly List<UIProductionEntry> _items = [];
 
     protected ProductionGraphComponent(string? id = null) : base(id)
     {
-        // A resource is its icon, its name standing under it: a production graph is read by its shapes before its captions.
-        NodeShape = UIGraphNodeShape.Icon;
-
         PrependEntries(CanvasMenu, Entry(UIGraphCommands.AddNode, UIGraphWords.AddResource, UIGlyphs.Add));
         // Target and Brought in are a plan's, and stand in the menu only of a graph that plans.
         PrependEntries(NodeMenu, Entry(UIGraphCommands.CraftTime, UIGraphWords.CraftTime, UIGlyphs.Hourglass), Entry(UIGraphCommands.Target, UIGraphWords.Target, UIGlyphs.Flag), Entry(UIGraphCommands.Bought, UIGraphWords.Bought, UIGlyphs.Download, kind: UIMenuItemKind.Check));
@@ -41,16 +42,16 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         // The plan panel's controls are the core's own fields, carried as regions: the engine reads and writes their values.
         PlanPeriod = PlanSelect(UIGraphWords.Period, (nameof(UIProductionPeriod.Once), UIGraphWords.PeriodOnce), (nameof(UIProductionPeriod.Minute), UIGraphWords.PeriodMinute), (nameof(UIProductionPeriod.Hour), UIGraphWords.PeriodHour));
         PlanObjective = PlanSelect(UIGraphWords.Objective, (nameof(UIProductionObjective.LeastRaw), UIGraphWords.LeastRaw), (nameof(UIProductionObjective.LeastTime), UIGraphWords.LeastTime), (nameof(UIProductionObjective.LeastCost), UIGraphWords.LeastCost));
-        // Tonal, as a node's fields are: the picker's popup frames it.
+        // Filled, since the picker's popup frames it.
         PickerSearch = new TextInputComponent()
-            .SetAppearance(UIInputAppearance.Tonal)
+            .SetAppearance(UIInputAppearance.Filled)
             .SetSearch(UIGraphWords.SearchResources);
 
         SetCanvasRegion(UIGraphRegions.PlanPeriod, PlanPeriod);
         SetCanvasRegion(UIGraphRegions.PlanObjective, PlanObjective);
-        SetCanvasRegion(UIGraphRegions.PlanAmount, new NumberInputComponent().SetSize(UIInputSize.Small).SetAppearance(UIInputAppearance.Tonal).SetMin(0));
-        SetCanvasRegion(UIGraphRegions.PlanRemove, new ButtonComponent().SetType(UIButtonType.Ghost).SetSize(UIButtonSize.Small).SetIcon(UIGlyphs.Close).SetTooltip(UIGraphWords.Remove));
-        SetCanvasRegion(UIGraphRegions.PlanAdd, new ButtonComponent().SetType(UIButtonType.Ghost).SetSize(UIButtonSize.Small).SetIcon(UIGlyphs.Add).SetTitle(UIGraphWords.AddTarget));
+        SetCanvasRegion(UIGraphRegions.PlanAmount, new NumberInputComponent().SetSize(UISize.Small).SetAppearance(UIInputAppearance.Filled).SetMin(0));
+        SetCanvasRegion(UIGraphRegions.PlanRemove, new ButtonComponent().SetVariant(UIButtonVariant.Ghost).SetSize(UISize.Small).SetIcon(UIGlyphs.Close).SetTooltip(UIGraphWords.Remove));
+        SetCanvasRegion(UIGraphRegions.PlanAdd, new ButtonComponent().SetVariant(UIButtonVariant.Ghost).SetSize(UISize.Small).SetIcon(UIGlyphs.Add).SetTitle(UIGraphWords.AddTarget));
         SetCanvasRegion(UIGraphRegions.PickerSearch, PickerSearch);
     }
 
@@ -61,8 +62,8 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
         foreach ((var id, var word) in options)
             items.Add(new OptionItem { Id = id, Title = word });
 
-        // Tonal: the plan panel on the canvas frames its fields, as a node does.
-        return new SelectComponent().SetSize(UIInputSize.Small).SetAppearance(UIInputAppearance.Tonal).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(title).SetOptions(items);
+        // Filled: the plan panel on the canvas frames its fields.
+        return new SelectComponent().SetSize(UISize.Small).SetAppearance(UIInputAppearance.Filled).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(title).SetOptions(items);
     }
 
     /// <summary>

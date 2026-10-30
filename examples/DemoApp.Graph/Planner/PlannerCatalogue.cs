@@ -46,13 +46,13 @@ public static class PlannerCatalogue
     public static readonly (string Color, string Title)[] Colors =
     [
         ("var(--ui-color-series-1)", UIGraphWords.Blue),
-        ("var(--ui-color-series-2)", UIGraphWords.Amber),
-        ("var(--ui-color-series-3)", UIGraphWords.Green),
+        ("var(--ui-color-series-2)", UIGraphWords.Bronze),
+        ("var(--ui-color-series-3)", UIGraphWords.Mint),
         ("var(--ui-color-series-4)", UIGraphWords.Rose),
         ("var(--ui-color-series-5)", UIGraphWords.Purple),
-        ("var(--ui-color-series-6)", UIGraphWords.Cyan),
-        ("var(--ui-color-series-7)", UIGraphWords.Bronze),
-        ("var(--ui-color-series-8)", UIGraphWords.Fern)
+        ("var(--ui-color-series-6)", UIGraphWords.Teal),
+        ("var(--ui-color-series-7)", UIGraphWords.Lavender),
+        ("var(--ui-color-series-8)", UIGraphWords.Violet)
     ];
 
     public static OptionItem[] IconOptions()

@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NE.Standard.UI.Primitives.Constants;
@@ -55,9 +56,11 @@ public sealed class ConvertImageNode : IGraphNodeAsync
             _ => SKEncodedImageFormat.Png
         };
 
-        Result = await ImageWork.TransformAsync(context, Image, Copy, null, format, Quality, cancellationToken).ConfigureAwait(false);
-    }
+        // Decode marks `source` immutable; copy only when JPEG needs a mutable target to composite white behind non-opaque pixels.
+        Func<SKBitmap, SKBitmap> transform = format == SKEncodedImageFormat.Jpeg
+            ? static source => source.AlphaType == SKAlphaType.Opaque ? source : source.Copy() ?? throw new UINodeFailureException("The picture could not be copied.")
+            : static source => source;
 
-    private static SKBitmap Copy(SKBitmap source)
-        => source.Copy();
+        Result = await ImageWork.TransformAsync(context, Image, transform, null, format, Quality, cancellationToken).ConfigureAwait(false);
+    }
 }

@@ -127,6 +127,7 @@ test("an amount is read as a count of one run, with its unit, and typed back the
     assert.equal(formatAmount(100, "l", String), "×100 l");
     assert.equal(formatTime(3.5, String), "3.5 s");
     assert.equal(parsePositive("×2,5", ","), 2.5);
+    assert.equal(parsePositive("1\u00A0000,5", ","), 1000.5);
     assert.equal(parsePositive("0", "."), null);
     assert.equal(parsePositive("soon", "."), null);
 });

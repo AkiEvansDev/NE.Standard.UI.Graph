@@ -11,17 +11,18 @@ namespace NE.Standard.UI.Graph;
 /// Cycle-back edges are drawn as backward edges. The value is the document of item placement and the pending draft of changes.
 /// Draws no item template: every change to an item arrives as the item replaced whole.
 /// </remarks>
+[UIComponentPropertyDefault(nameof(IGraphCanvasComponent.HighlightOnHover), nameof(DefaultHighlightOnHover))]
 public abstract partial class LayeredGraphComponentBase<T, TDocument> : GraphCanvasComponentBase<T, TDocument>, ILayeredGraphComponent, IItemValuesComponent
     where T : LayeredGraphComponentBase<T, TDocument>, IUIComponentDefinition
 {
+    // A layered graph is read by its lines: the one under the pointer stands out, whole, unless the author takes that off.
+    private const bool DefaultHighlightOnHover = true;
+
     protected LayeredGraphComponentBase(string? id = null) : base(id)
     {
         // A conflict is answered on the item, or on the edge where a recipe's edges carry it — the only menus these entries show in.
         PrependEntries(NodeMenu, Entry(UIGraphCommands.TakeServer, UIGraphWords.TakeServer, UIGlyphs.Refresh), Entry(UIGraphCommands.KeepMine, UIGraphWords.KeepMine, UIGlyphs.Check));
         PrependEntries(EdgeMenu, Entry(UIGraphCommands.TakeServer, UIGraphWords.TakeServer, UIGlyphs.Refresh), Entry(UIGraphCommands.KeepMine, UIGraphWords.KeepMine, UIGlyphs.Check));
-
-        // A layered graph is read by its lines: the one under the pointer stands out, whole, unless the author takes that off.
-        HighlightOnHover = true;
     }
 
     /// <summary>

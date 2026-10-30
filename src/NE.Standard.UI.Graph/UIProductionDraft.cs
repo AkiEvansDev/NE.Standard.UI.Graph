@@ -11,6 +11,9 @@ namespace NE.Standard.UI.Graph;
 [method: JsonConstructor]
 public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICraftDraft[]? crafts = null, string[]? removed = null)
 {
+    /// <summary>The most resources and crafts a catalogue holds once a draft is applied, unless the caller says otherwise.</summary>
+    public const int DefaultMaxEntries = 10_000;
+
     /// <summary>
     /// Gets the empty draft.
     /// </summary>
@@ -46,29 +49,66 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
         => craft + ">" + resource;
 
     /// <summary>
-    /// Applies the draft to an application's catalogue: removed entries go, changed ones take the viewer's state, added ones join.
+    /// Applies the draft to an application's catalogue, while the canvas lets it be edited: removed entries go, changed ones take the
+    /// viewer's name, colour and amounts, added ones join.
     /// </summary>
     /// <remarks>
     /// Amounts of a removed resource are dropped from crafts — a craft that loses its last ingredient to it, or is left with
-    /// nothing, goes too, as the canvas takes it off. Only differing properties are written.
+    /// nothing, goes too, as the canvas takes it off. The draft is the browser's, so it is held to what the canvas edits: refused
+    /// whole, and nothing written, while <paramref name="editStructure"/> is off, under <see cref="UIProductionMode.Plan"/> (a plan is
+    /// read off the catalogue, never written to it) or once the catalogue would pass <paramref name="maxEntries"/>; a colour that is
+    /// neither one of <paramref name="colorChoices"/> (the canvas's defaults when null) nor one an entry already wears is dropped; an
+    /// added entry keeps what else it carries only as a copy of one already there, as Duplicate makes one. Only differing properties
+    /// are written.
     /// </remarks>
-    public void ApplyTo(IList<UIProductionEntry> entries)
+    /// <returns>Whether the draft was applied.</returns>
+    public bool ApplyTo(IList<UIProductionEntry> entries, bool editStructure, UIProductionMode mode, IReadOnlyList<UIGraphColorChoice>? colorChoices = null, int maxEntries = DefaultMaxEntries)
     {
         ArgumentNullException.ThrowIfNull(entries);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxEntries);
+
+        if (!editStructure || mode == UIProductionMode.Plan || CountAfter(entries) > maxEntries)
+            return false;
+
+        HashSet<string> colors = UIGraphDraftSupport.AllowedColors(colorChoices, entries, static entry => entry.Color);
+        HashSet<UIResourceLooks> resourceLooks = [];
+        HashSet<UICraftLooks> craftLooks = [];
+
+        foreach (UIProductionEntry entry in entries)
+        {
+            if (entry is UIResource resource)
+                _ = resourceLooks.Add(UIResourceLooks.Of(resource));
+            else if (entry is UICraft craft)
+                _ = craftLooks.Add(UICraftLooks.Of(craft));
+        }
 
         HashSet<string> removed = UIGraphDraftSupport.RemoveAll(entries, Removed);
 
         // The draft is the browser's: an entry it sent with no key is no entry.
         foreach (UIResourceDraft draft in Resources)
         {
-            if (!string.IsNullOrEmpty(draft.Id) && !removed.Contains(draft.Id))
-                draft.WriteTo(Take(entries, draft.Id, static id => new UIResource(id)));
+            if (string.IsNullOrEmpty(draft.Id) || removed.Contains(draft.Id))
+                continue;
+
+            UIResource resource = Take(entries, draft.Id, static id => new UIResource(id), out var added);
+
+            if (added && resourceLooks.Contains(draft.Looks))
+                draft.Looks.WriteTo(resource);
+
+            draft.WriteTo(resource, colors);
         }
 
         foreach (UICraftDraft draft in Crafts)
         {
-            if (!string.IsNullOrEmpty(draft.Id) && !removed.Contains(draft.Id))
-                draft.WriteTo(Take(entries, draft.Id, static id => new UICraft(id)));
+            if (string.IsNullOrEmpty(draft.Id) || removed.Contains(draft.Id))
+                continue;
+
+            UICraft craft = Take(entries, draft.Id, static id => new UICraft(id), out var added);
+
+            if (added && craftLooks.Contains(draft.Looks))
+                draft.Looks.WriteTo(craft);
+
+            draft.WriteTo(craft, colors);
         }
 
         HashSet<string> resources = new(StringComparer.Ordinal);
@@ -100,19 +140,55 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
             if (products is not null)
                 craft.Products = products;
         }
+
+        return true;
     }
 
-    /// <summary>The application's entry of that key and kind, replacing one of the other kind in place, or appended if the key is new.</summary>
-    private static TEntry Take<TEntry>(IList<UIProductionEntry> entries, string id, Func<string, TEntry> create)
+    /// <summary>How many entries the catalogue would hold once the draft is applied: less those it removes, and the keys it adds.</summary>
+    private int CountAfter(IList<UIProductionEntry> entries)
+    {
+        HashSet<string> keys = new(StringComparer.Ordinal);
+
+        foreach (UIProductionEntry entry in entries)
+            _ = keys.Add(entry.Id);
+
+        foreach (UIResourceDraft draft in Resources)
+        {
+            if (!string.IsNullOrEmpty(draft.Id))
+                _ = keys.Add(draft.Id);
+        }
+
+        foreach (UICraftDraft draft in Crafts)
+        {
+            if (!string.IsNullOrEmpty(draft.Id))
+                _ = keys.Add(draft.Id);
+        }
+
+        foreach (var id in Removed)
+            _ = keys.Remove(id);
+
+        return keys.Count;
+    }
+
+    /// <summary>
+    /// The application's entry of that key and kind, replacing one of the other kind in place, or appended if the key is new;
+    /// <paramref name="added"/> says whether it was made here.
+    /// </summary>
+    private static TEntry Take<TEntry>(IList<UIProductionEntry> entries, string id, Func<string, TEntry> create, out bool added)
         where TEntry : UIProductionEntry
     {
+        added = true;
+
         for (var index = 0; index < entries.Count; index++)
         {
             if (!string.Equals(entries[index].Id, id, StringComparison.Ordinal))
                 continue;
 
             if (entries[index] is TEntry found)
+            {
+                added = false;
                 return found;
+            }
 
             TEntry replacement = create(id);
 
@@ -120,10 +196,10 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
             return replacement;
         }
 
-        TEntry added = create(id);
+        TEntry appended = create(id);
 
-        entries.Add(added);
-        return added;
+        entries.Add(appended);
+        return appended;
     }
 
     /// <summary>The amounts whose resource is still there, or nothing when every one of them is; one naming no resource is none.</summary>
@@ -181,14 +257,28 @@ public sealed class UIResourceDraft(string id, string? title = null, string? ico
     /// <summary>Gets the application's resource, as the browser read it, when the viewer first changed it; unset for one the viewer added.</summary>
     public string? Baseline { get; } = baseline;
 
-    /// <summary>Writes this state onto a resource, property by property, each setter leaving alone what already matches.</summary>
+    /// <summary>What the resource carries beside what the canvas edits.</summary>
+    internal UIResourceLooks Looks => new(Icon, Tooltip, Image, Category, Unit, Cost);
+
+    /// <summary>Writes what the canvas edits onto a resource — its name and a colour <paramref name="colors"/> holds — each setter leaving alone what already matches.</summary>
+    internal void WriteTo(UIResource resource, HashSet<string> colors)
+    {
+        resource.Title = Title;
+
+        if (Color is null || colors.Contains(Color))
+            resource.Color = Color;
+    }
+}
+
+/// <summary>What a resource carries beside what the canvas edits: what an added one keeps only as a copy of one already there.</summary>
+internal readonly record struct UIResourceLooks(string? Icon, string? Tooltip, string? Image, string? Category, string? Unit, double? Cost)
+{
+    public static UIResourceLooks Of(UIResource resource)
+        => new(resource.Icon, resource.Tooltip, resource.Image, resource.Category, resource.Unit, resource.Cost);
+
     public void WriteTo(UIResource resource)
     {
-        ArgumentNullException.ThrowIfNull(resource);
-
-        resource.Title = Title;
         resource.Icon = Icon;
-        resource.Color = Color;
         resource.Tooltip = Tooltip;
         resource.Image = Image;
         resource.Category = Category;
@@ -234,15 +324,16 @@ public sealed class UICraftDraft(string id, string? title = null, string? icon =
     /// <summary>Gets the application's craft, as the browser read it, when the viewer first changed it; unset for one the viewer added.</summary>
     public string? Baseline { get; } = baseline;
 
-    /// <summary>Writes this state onto a craft, property by property, each setter leaving alone what already matches.</summary>
-    public void WriteTo(UICraft craft)
-    {
-        ArgumentNullException.ThrowIfNull(craft);
+    /// <summary>What the craft carries beside what the canvas edits.</summary>
+    internal UICraftLooks Looks => new(Icon, Tooltip);
 
+    /// <summary>Writes what the canvas edits onto a craft — its name, a colour <paramref name="colors"/> holds, its amounts and run length — each setter leaving alone what already matches.</summary>
+    internal void WriteTo(UICraft craft, HashSet<string> colors)
+    {
         craft.Title = Title;
-        craft.Icon = Icon;
-        craft.Color = Color;
-        craft.Tooltip = Tooltip;
+
+        if (Color is null || colors.Contains(Color))
+            craft.Color = Color;
 
         if (!UIGraphDraftSupport.Same(craft.Ingredients, Ingredients))
             craft.Ingredients = Ingredients;
@@ -250,6 +341,19 @@ public sealed class UICraftDraft(string id, string? title = null, string? icon =
         if (!UIGraphDraftSupport.Same(craft.Products, Products))
             craft.Products = Products;
 
-        craft.Time = Time;
+        craft.Time = Time < TimeSpan.Zero ? TimeSpan.Zero : Time;
+    }
+}
+
+/// <summary>What a craft carries beside what the canvas edits: what an added one keeps only as a copy of one already there.</summary>
+internal readonly record struct UICraftLooks(string? Icon, string? Tooltip)
+{
+    public static UICraftLooks Of(UICraft craft)
+        => new(craft.Icon, craft.Tooltip);
+
+    public void WriteTo(UICraft craft)
+    {
+        craft.Icon = Icon;
+        craft.Tooltip = Tooltip;
     }
 }

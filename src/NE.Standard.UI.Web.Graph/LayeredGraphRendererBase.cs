@@ -35,13 +35,9 @@ public abstract class LayeredGraphRendererBase<TDocument, TItem> : GraphCanvasRe
         // The sink is the kind's own name: the client registers one per kind.
         _ = root.Attribute(WebAttributes.CollectionSink, KindName);
 
-        _ = RenderProperty<UIGraphDirection?>(context, root, ILayeredGraphComponent.DirectionProperty, static (target, value) =>
-            _ = target.Attribute(DirectionAttribute, GraphConverters.DirectionName(value ?? UIGraphDirection.LeftToRight))
-        , [WebDomOperation.Attribute(DirectionAttribute, target: "root", converter: GraphConverters.DirectionAttribute)]);
+        _ = RenderProperty<UIGraphDirection?>(context, root, ILayeredGraphComponent.DirectionProperty, static (target, value) => _ = target.Attribute(DirectionAttribute, GraphConverters.DirectionName(value ?? UIGraphDirection.LeftToRight)), [WebDomOperation.Attribute(DirectionAttribute, target: "root", converter: GraphConverters.DirectionAttribute, convertsNull: true)]);
 
-        _ = RenderProperty<UIGraphNodeShape?>(context, root, ILayeredGraphComponent.NodeShapeProperty, static (target, value) =>
-            _ = target.Attribute(NodeShapeAttribute, GraphConverters.NodeShapeName(value ?? UIGraphNodeShape.Card))
-        , [WebDomOperation.Attribute(NodeShapeAttribute, target: "root", converter: GraphConverters.NodeShapeAttribute)]);
+        _ = RenderProperty<UIGraphNodeShape?>(context, root, ILayeredGraphComponent.NodeShapeProperty, static (target, value) => _ = target.Attribute(NodeShapeAttribute, GraphConverters.NodeShapeName(value ?? UIGraphNodeShape.Card)), [WebDomOperation.Attribute(NodeShapeAttribute, target: "root", converter: GraphConverters.NodeShapeAttribute, convertsNull: true)]);
 
         RenderFlagAttribute(context, root, ILayeredGraphComponent.EditStructureProperty, EditStructureAttribute);
         RenderItems(context, root);

@@ -109,7 +109,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         foreach (UINodeType type in catalog?.Types ?? [])
         {
             foreach (UINodePin pin in type.Inputs)
-                RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty);
+                RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty);
         }
     }
 
@@ -211,7 +211,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
                     _ = toggle.Element("span", word => WebWords.Write(context, word, null, GraphStrings.Log));
 
                     // The framework's own count badge; the engine writes the count and the style of the worst line.
-                    BadgeRenderer.RenderCountBadge(toggle, UIBadgeType.Surface, configure: count =>
+                    BadgeRenderer.RenderCountBadge(toggle, UIBadgeVariant.Surface, configure: count =>
                     {
                         _ = count.Class($"{ClassName}__log-count");
                         _ = count.Attribute("data-ui-graph-log-count");
@@ -221,16 +221,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
                 // On the strip rather than over the sheet: it is a word about the canvas as a whole, and the strip is always there.
                 RenderSaveState(context, head);
-
-                _ = head.Element("button", clear =>
-                {
-                    _ = clear.Class($"{ClassName}__log-clear");
-                    _ = clear.Attribute("type", "button");
-                    WebWords.Write(context, clear, WebAttributes.Tooltip, GraphStrings.ClearLog);
-                    WebWords.Write(context, clear, "aria-label", GraphStrings.ClearLog);
-                    _ = clear.Attribute("data-ui-graph-log-clear");
-                    IconValueRenderer.RenderIcon(clear, UIGlyphs.Delete);
-                });
+                RenderBarButton(context, head, "data-ui-graph-log-clear", GraphStrings.ClearLog, UIGlyphs.Delete, $"{ClassName}__log-clear");
             });
         });
     }

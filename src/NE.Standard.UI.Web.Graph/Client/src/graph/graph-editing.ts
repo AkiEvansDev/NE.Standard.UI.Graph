@@ -23,7 +23,7 @@ export class GraphEditing {
     public addNode(): void {
         const title = this.services.context.strings.text("ui.graph.new-node");
 
-        this.nodes.add("node", id => ({ id, title, subtitle: null, icon: null, image: null, shape: null, color: null, badge: null, tooltip: null, links: [], created: true, baseline: null }));
+        this.nodes.add("node", id => ({ id, title, description: null, icon: null, image: null, shape: null, color: null, badgeTitle: null, tooltip: null, links: [], created: true, baseline: null }));
     }
 
     /**

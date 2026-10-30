@@ -3,7 +3,7 @@
 // renderer writes an icon value.
 
 import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormatting, Tooltips, Urls } from "ne-standard-ui";
-import { CollapsedAttribute, CoreNames, FoldAttribute, hoverTooltip, nodeRoot, PinToggleAttribute, resizeGrip } from "../canvas/canvas-dom.ts";
+import { CollapsedAttribute, FoldAttribute, hoverTooltip, nodeRoot, PinToggleAttribute, resizeGrip } from "../canvas/canvas-dom.ts";
 import { joinList, MoreKey, showDisplayValue } from "./display.ts";
 import type { DisplayOptions } from "./display.ts";
 import type { DocumentNode, NodeType, Pin } from "./model.ts";
@@ -80,6 +80,8 @@ export type NodeViewOptions = {
     readonly setProperty: (component: Element, propertyName: string, value: unknown) => void;
     /** Such a copy's value, read the way the framework reads it. */
     readonly readValue: (component: Element) => unknown;
+    /** Whether such a copy holds a value its own rules refuse — past its bounds, a fraction or a sign it takes none of — as the server would. */
+    readonly isRefused: (component: Element) => boolean;
 };
 
 // The names the canvas's templates are carried under: UIGraphRegions on the server.
@@ -226,11 +228,14 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
 
     const fold = document.createElement("button");
     const folded = node.collapsed === true;
+    const name = node.title ?? type?.title ?? node.type;
 
+    // Named once, with the node's own name, as every node carries one: the state is `aria-expanded`'s, and only the tooltip says
+    // what a press does.
     fold.type = "button";
     fold.className = "ui-graph__node-fold";
     fold.setAttribute(FoldAttribute, "");
-    headMark(fold, folded ? "ui.graph.expand" : "ui.graph.collapse", options);
+    headMark(fold, folded ? "ui.graph.expand" : "ui.graph.collapse", "ui.graph.node-contents", name, options);
     fold.setAttribute("aria-expanded", String(!folded));
     fold.append(glyph(options, folded ? "ne-chevron-right" : "ne-chevron-down"));
     head.append(fold);
@@ -243,7 +248,7 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
     const title = document.createElement("span");
 
     title.className = "ui-graph__node-title";
-    title.textContent = node.title ?? type?.title ?? node.type;
+    title.textContent = name;
     head.append(title);
 
     const pin = document.createElement("button");
@@ -251,7 +256,8 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
     pin.type = "button";
     pin.className = "ui-graph__node-pinned";
     pin.setAttribute(PinToggleAttribute, "");
-    headMark(pin, node.pinned === true ? "ui.graph.unpin" : "ui.graph.pin", options);
+    headMark(pin, node.pinned === true ? "ui.graph.unpin" : "ui.graph.pin", "ui.graph.pin-node", name, options);
+    pin.setAttribute("aria-pressed", String(node.pinned === true));
     pin.append(glyph(options, node.pinned === true ? "ne-pin" : "ne-pin-outlined"));
     head.append(pin);
 
@@ -259,12 +265,12 @@ function renderHead(node: DocumentNode, type: NodeType | undefined, options: Nod
 }
 
 /**
- * A head mark's word, as its name and the page's tooltip; on a read-only sheet it is still drawn, as the node's state, disabled the
- * framework's way, so it keeps its place for the keyboard.
+ * A head mark's name — one word and the node's own — and the page's tooltip, which says what a press does; on a read-only sheet it
+ * is still drawn, as the node's state, disabled the framework's way, so it keeps its place for the keyboard.
  */
-function headMark(mark: HTMLElement, key: string, options: NodeViewOptions): void {
-    options.words.write(mark, "aria-label", key);
-    options.words.write(mark, options.names.tooltip, key);
+function headMark(mark: HTMLElement, tooltipKey: string, nameKey: string, node: string, options: NodeViewOptions): void {
+    options.words.write(mark, "aria-label", nameKey, { node });
+    options.words.write(mark, options.names.tooltip, tooltipKey);
 
     if (options.readOnly)
         options.states.setDisabled(mark, true);
@@ -357,10 +363,10 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
     if (pin.hasPin !== false)
         row.append(renderPin(node, pin, pin.type, "in", options));
 
-    // A wired input shows what the wire carries, read-only as the family draws one — still readable, never inert — except a list,
-    // where wired rows come first but typed rows beside them stay open.
-    const sealed = connected && pin.editor !== "List";
-    const editor = renderEditor(node, pin, sealed, options);
+    // A wired input's field is disabled, since a run takes the wire's value rather than the field's — except a list, where wired
+    // rows come first and typed rows beside them stay open.
+    const disabled = connected && pin.editor !== "List";
+    const editor = renderEditor(node, pin, disabled, options);
     const add = editor.querySelector<HTMLElement>(`[${ListAddAttribute}]`);
 
     // A list's add button stands at the end of its caption's line, where it reads as the caption's own action.
@@ -379,9 +385,6 @@ function renderInput(node: DocumentNode, pin: Pin, options: NodeViewOptions): HT
 
     if (pin.height !== null && pin.height !== undefined && pin.height > 0)
         editor.style.setProperty("--ui-graph-editor-height", `${pin.height}rem`);
-
-    if (sealed)
-        row.classList.add("ui-graph__row--connected");
 
     row.append(editor);
 
@@ -480,7 +483,7 @@ function typeName(type: string, many: boolean, options: NodeViewOptions): string
     return many ? words.format("ui.graph.pin-many", { type: read(type) }) : read(type);
 }
 
-function renderEditor(node: DocumentNode, pin: Pin, sealed: boolean, options: NodeViewOptions): HTMLElement {
+function renderEditor(node: DocumentNode, pin: Pin, disabled: boolean, options: NodeViewOptions): HTMLElement {
     // An unheld value (a node an application wrote, a field emptied) shows the kind's default, which a run takes for it, rather than
     // standing empty — but not on a wired input, whose value the wire brings.
     const wired = options.isConnected(node.id, pin.name, "in");
@@ -488,18 +491,18 @@ function renderEditor(node: DocumentNode, pin: Pin, sealed: boolean, options: No
 
     switch (pin.editor) {
         case "Image":
-            return imageEditor(node, pin, value, sealed || options.readOnly, options);
+            return imageEditor(node, pin, value, disabled, options);
         case "List":
             return listEditor(node, pin, value, options);
         case "Display":
             return displayEditor(pin, options);
         default:
-            return fieldEditor(node, pin, value, sealed || options.readOnly, options);
+            return fieldEditor(node, pin, value, disabled, options);
     }
 }
 
 /** A pin's field: a framework component cloned from the canvas's template, shaped server-side by the pin's attributes, given the node's value and read back on change. */
-function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boolean, options: NodeViewOptions): HTMLElement {
+function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boolean, options: NodeViewOptions): HTMLElement {
     const box = editorBox(pin, pin.editor === "Boolean" ? "ui-graph__editor--check" : null);
     const field = options.cloneEditor(`${EditorPrefix}${node.type}:${pin.name}`);
 
@@ -507,7 +510,7 @@ function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boo
         return box;
 
     box.append(field);
-    bindField(field, value ?? null, readOnly, options, () => options.onValueChanged(node.id, pin.name, readPinValue(pin, options.readValue(field))));
+    bindField(field, value ?? null, disabled, options, () => options.onValueChanged(node.id, pin.name, readPinValue(pin, options.readValue(field))));
 
     return box;
 }
@@ -521,14 +524,26 @@ function editorBox(pin: Pin, modifier: string | null): HTMLElement {
     return box;
 }
 
-/** Gives a cloned field its value, and either seals it — a read-only sheet, a wired input — or reads it back on every change. */
-function bindField(field: HTMLElement, value: unknown, readOnly: boolean, options: NodeViewOptions, onChange: () => void): void {
+/** Gives a cloned field its value, and either disables it when wired, seals it on a read-only sheet, or reads it back on every change. */
+function bindField(field: HTMLElement, value: unknown, disabled: boolean, options: NodeViewOptions, onChange: () => void): void {
     options.setProperty(field, "Value", value);
 
-    if (readOnly)
+    if (disabled) {
+        options.setProperty(field, "Enabled", false);
+        return;
+    }
+
+    if (options.readOnly) {
         options.setProperty(field, "IsReadOnly", true);
-    else
-        field.addEventListener("change", onChange);
+        return;
+    }
+
+    // A value the field's own rules refuse stays the field's, marked there: the document keeps what it last took, as the server
+    // would refuse it in a run.
+    field.addEventListener("change", () => {
+        if (!options.isRefused(field))
+            onChange();
+    });
 }
 
 /**
@@ -582,7 +597,7 @@ export function displayOptions(pin: Pin | undefined, options: Pick<NodeViewOptio
 }
 
 /** A picture pin: large, the framework's picture field shows the file at once and sends it, with the server answering where it's kept; otherwise the address on one line with a send button. */
-function imageEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boolean, options: NodeViewOptions): HTMLElement {
+function imageEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boolean, options: NodeViewOptions): HTMLElement {
     const large = pin.large === true;
     const box = editorBox(pin, large ? "ui-graph__editor--picture" : null);
     const address = asText(value);
@@ -595,13 +610,13 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boo
 
     if (large) {
         // The field's selection input changes once the file has landed; its name is what the field wrote while it was on its way.
-        bindField(field, address.length === 0 ? null : address, readOnly, options, () => {
-            const selection = field.querySelector<HTMLInputElement>(`input.${CoreNames.pictureSelectionClass}`);
+        bindField(field, address.length === 0 ? null : address, disabled, options, () => {
+            const selection = field.querySelector<HTMLInputElement>(`input.${options.names.pictureSelectionClass}`);
 
             if (selection === null || selection.value.length === 0)
                 return;
 
-            const name = field.querySelector(`.${CoreNames.pictureTextClass}`)?.textContent ?? "";
+            const name = field.querySelector(`.${options.names.pictureTextClass}`)?.textContent ?? "";
 
             options.onImageUploaded(node.id, pin.name, selection.value, name);
         });
@@ -609,17 +624,17 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, readOnly: boo
         return box;
     }
 
-    bindField(field, address.length === 0 ? null : address, readOnly, options, () => {
+    bindField(field, address.length === 0 ? null : address, disabled, options, () => {
         const next = asText(options.readValue(field));
 
         options.onValueChanged(node.id, pin.name, next.length === 0 ? null : next);
     });
 
     // The file goes to the server first, which answers with where it's kept; the button is the field's own trailing action, drawn by the template.
-    const pick = field.querySelector<HTMLElement>(`.${CoreNames.textInputActionClass} > *`);
+    const pick = field.querySelector<HTMLElement>(`.${options.names.textInputActionClass} > *`);
 
     if (pick !== null) {
-        disableOnReadOnly(pick, readOnly, options);
+        disableOnReadOnly(pick, disabled || options.readOnly, options);
 
         pick.addEventListener("click", event => {
             // Inside the field's label: a press on the button is not a press on the field.
@@ -662,7 +677,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
             row.className = "ui-graph__list-row";
 
             if (field !== null) {
-                bindField(field, entry ?? null, options.readOnly, options, () => {
+                bindField(field, entry ?? null, false, options, () => {
                     values[index] = readValueAs(numbers, options.readValue(field));
                     publish();
                 });
@@ -671,6 +686,8 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
             }
 
             if (remove !== null) {
+                // Named by its row, as every row carries one.
+                options.words.write(remove, "aria-label", "ui.graph.remove-row", { index: index + 1, pin: pin.title });
                 disableOnReadOnly(remove, options.readOnly, options);
 
                 remove.addEventListener("click", () => {

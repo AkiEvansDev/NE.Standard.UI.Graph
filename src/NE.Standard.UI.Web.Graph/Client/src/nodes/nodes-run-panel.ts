@@ -21,6 +21,7 @@ export class NodesRunPanel {
     // A Run pressed and no word yet from the server; the save's answer lets it go if no run began.
     private asked = false;
     private running = false;
+    private readonly cleanups: (() => void)[] = [];
 
     public constructor(services: CanvasServices<GraphDocument>) {
         this.services = services;
@@ -28,10 +29,33 @@ export class NodesRunPanel {
         this.all = services.root.querySelector<HTMLButtonElement>("[data-ui-graph-run-all]");
         this.stop = services.root.querySelector<HTMLButtonElement>("[data-ui-graph-run-stop]");
 
-        this.once?.addEventListener("click", () => this.start(RunReason));
-        this.all?.addEventListener("click", () => this.start(RunAllReason));
-        this.stop?.addEventListener("click", () => services.root.dispatchEvent(new CustomEvent(StopEventName, { bubbles: true })));
+        this.listen();
         this.draw();
+    }
+
+    public listen(): void {
+        if (this.cleanups.length > 0)
+            return;
+
+        const onOnce = (): void => this.start(RunReason);
+        const onAll = (): void => this.start(RunAllReason);
+        const onStop = (): void => this.stopRun();
+
+        this.once?.addEventListener("click", onOnce);
+        this.all?.addEventListener("click", onAll);
+        this.stop?.addEventListener("click", onStop);
+        this.cleanups.push(
+            () => this.once?.removeEventListener("click", onOnce),
+            () => this.all?.removeEventListener("click", onAll),
+            () => this.stop?.removeEventListener("click", onStop)
+        );
+    }
+
+    public dispose(): void {
+        for (const cleanup of this.cleanups)
+            cleanup();
+
+        this.cleanups.length = 0;
     }
 
     /** The server's word that a run has begun or ended. */
@@ -55,12 +79,19 @@ export class NodesRunPanel {
 
     private start(reason: string): void {
         // The buttons refuse the press while held (the framework's disabled mark); this holds for a caller that clicks them anyway.
-        if (this.asked || this.running)
+        if (this.asked || this.running || this.services.context.states.isInert(this.services.root))
             return;
 
         this.asked = true;
         this.draw();
         this.services.documentState.requestSave(reason);
+    }
+
+    private stopRun(): void {
+        if (!this.running || this.services.context.states.isInert(this.services.root))
+            return;
+
+        this.services.root.dispatchEvent(new CustomEvent(StopEventName, { bubbles: true }));
     }
 
     /** Each button held or free the framework's way — marked, never `disabled` — so the one the keyboard pressed keeps the focus. */

@@ -57,7 +57,7 @@ export class CanvasSettings {
     }
 
     public get gridSize(): number {
-        return Number(getComputedStyle(this.root).getPropertyValue("--ui-graph-grid-size")) || 20;
+        return Number(getComputedStyle(this.root).getPropertyValue("--ui-graph-grid-size")) || 32;
     }
 
     /** Whether every node drawn carries an action bar. */

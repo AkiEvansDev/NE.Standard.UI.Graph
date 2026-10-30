@@ -14,13 +14,13 @@ public static class CalculatorNodes
     public const string Category = "Calculator";
 
     /// <summary>The colour a kind working on numbers wears: the theme's own series, so it follows the page's theme.</summary>
-    public const string NumberColor = "var(--ui-color-series-3)";
+    public const string NumberColor = UINodeKinds.NumberColor;
 
     /// <summary>The colour a kind that answers yes or no wears.</summary>
     public const string LogicColor = "var(--ui-color-series-4)";
 
     /// <summary>The colour a kind that writes its answer out wears.</summary>
-    public const string OutputColor = "var(--ui-color-series-5)";
+    public const string OutputColor = UINodeKinds.TextColor;
 
     /// <summary>Gets every kind of the calculator, for <see cref="UINodeCatalog.FromTypes"/>.</summary>
     public static IReadOnlyList<Type> Kinds { get; } =

@@ -28,9 +28,7 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
     {
         base.RenderKindSettings(context, root);
 
-        _ = RenderProperty<UIProductionMode?>(context, root, ProductionGraphComponent.ModeProperty, static (target, value) =>
-            _ = target.Attribute(ModeAttribute, GraphConverters.ProductionModeName(value ?? UIProductionMode.Constructor))
-        , [WebDomOperation.Attribute(ModeAttribute, target: "root", converter: GraphConverters.ProductionModeAttribute)]);
+        _ = RenderProperty<UIProductionMode?>(context, root, ProductionGraphComponent.ModeProperty, static (target, value) => _ = target.Attribute(ModeAttribute, GraphConverters.ProductionModeName(value ?? UIProductionMode.Constructor)), [WebDomOperation.Attribute(ModeAttribute, target: "root", converter: GraphConverters.ProductionModeAttribute, convertsNull: true)]);
     }
 
     /// <summary>

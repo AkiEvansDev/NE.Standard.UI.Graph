@@ -26,17 +26,22 @@ public static class UIGraphArguments
     public static KeyValuePair<string, UIActionArgument> Reason(string name)
         => UIAction.ArgEventKey(name, 0);
 
+    // The menu-entry event's three keys by place, which OnMenuEntry reads off the entry's menu: its own key, the menu's target, the id.
+    internal const int EntryKey = 0;
+    internal const int TargetKindKey = 1;
+    internal const int TargetKey = 2;
+
     /// <summary>The entry of the application's own that was clicked, by its id: the first key of <see cref="GraphEvents.MenuEntry"/>.</summary>
     public static KeyValuePair<string, UIActionArgument> Entry(string name)
-        => UIAction.ArgEventKey(name, 0);
+        => UIAction.ArgEventKey(name, EntryKey);
 
     /// <summary>What the menu was opened on, as one of <see cref="UIGraphMenuTargets"/>: the second key of <see cref="GraphEvents.MenuEntry"/>.</summary>
     public static KeyValuePair<string, UIActionArgument> TargetKind(string name)
-        => UIAction.ArgEventKey(name, 1);
+        => UIAction.ArgEventKey(name, TargetKindKey);
 
     /// <summary>The id of what the menu was opened on, empty for the sheet as a whole: the third key of <see cref="GraphEvents.MenuEntry"/>.</summary>
     public static KeyValuePair<string, UIActionArgument> Target(string name)
-        => UIAction.ArgEventKey(name, 2);
+        => UIAction.ArgEventKey(name, TargetKey);
 
     /// <summary>The pin the event belongs to, by its name — the property's name on the node's class.</summary>
     public static KeyValuePair<string, UIActionArgument> Pin(string name)

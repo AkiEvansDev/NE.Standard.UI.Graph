@@ -463,6 +463,19 @@ export class FakeElement {
         this.listeners.set(type, (this.listeners.get(type) ?? []).filter(other => other !== listener));
     }
 
+    /** How many event listeners currently remain registered on this element, optionally filtered by event type. */
+    public listenerCount(type?: string): number {
+        if (type !== undefined)
+            return this.listeners.get(type)?.length ?? 0;
+
+        let count = 0;
+
+        for (const entries of this.listeners.values())
+            count += entries.length;
+
+        return count;
+    }
+
     /** Runs the listeners on the element and every element above it, the target set where the event has none. */
     public dispatchEvent(domEvent: FakeEvent | Event): boolean {
         if (domEvent instanceof FakeEvent && domEvent.target === null)
@@ -530,6 +543,20 @@ export class FakeInput extends FakeElement {
     public override focus(): void {
         this.valueAtFocus = this.value;
         super.focus();
+    }
+
+    public override click(): void {
+        if (this.type === "checkbox")
+            this.checked = !this.checked;
+        else if (this.type === "radio")
+            this.checked = true;
+
+        super.click();
+
+        if (this.type === "checkbox" || this.type === "radio") {
+            this.dispatchEvent(new FakeEvent("input"));
+            this.dispatchEvent(new FakeEvent("change"));
+        }
     }
 
     public select(): void {
@@ -680,6 +707,9 @@ export const fakeWindow = {
     setTimeout: (callback: () => void): number => fakeWindow.timers.push(callback),
     addEventListener: (type: string, listener: Listener): void => {
         fakeWindow.listeners.set(type, [...fakeWindow.listeners.get(type) ?? [], listener]);
+    },
+    removeEventListener: (type: string, listener: Listener): void => {
+        fakeWindow.listeners.set(type, (fakeWindow.listeners.get(type) ?? []).filter(other => other !== listener));
     },
     /** Runs every timer set so far, and those they set. */
     runTimers: (): void => {
