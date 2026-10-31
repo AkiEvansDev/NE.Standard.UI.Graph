@@ -35,6 +35,9 @@ public static class GraphConverters
     /// <summary>A corner radius's bottom-left corner as a length in px.</summary>
     public const string BottomLeftCornerCss = "graph-corner-bottom-left";
 
+    /// <summary>A node canvas's runtime pin choices dictionary as JSON.</summary>
+    public const string PinChoicesJson = "graph-pin-choices";
+
     /// <summary>The attribute value one edge shape is written as; the client's converter writes the same names.</summary>
     public static string EdgeShapeName(UIGraphEdgeShape shape)
         => shape switch

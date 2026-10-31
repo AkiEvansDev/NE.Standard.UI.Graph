@@ -248,6 +248,14 @@ export class NodesParameters {
         this.services.context.properties.set(drawn.field, "Value", this.shownValue(drawn.found, value));
     }
 
+    /** Replaces the choice options on every drawn parameter field of one kind's pin, keeping the field's value in place. */
+    public syncFieldOptions(typeKey: string, pinName: string, options: readonly unknown[]): void {
+        for (const { field, found } of this.fields.values()) {
+            if (found.type.key === typeKey && found.pin.name === pinName)
+                this.services.context.properties.set(field, "Items", options);
+        }
+    }
+
     /**
      * The parameters that may stand on the sheet as it is, in the panel's order; one whose node is gone or whose input is wired or
      * hidden is passed over, but kept in the document for when it shows again.

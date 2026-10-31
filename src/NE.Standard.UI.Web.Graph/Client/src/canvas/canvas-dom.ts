@@ -87,10 +87,17 @@ function isNamePart(target: Element, node: Element): boolean {
     return node.matches(CircleSelector) && (target === node || target.closest(CircleFaceSelector) !== null);
 }
 
+/** The framework component inside a region's template (`RenderTemplate`), for updating before copies are cloned; null when none was written. */
+export function findTemplate(root: ParentNode, region: string): HTMLElement | null {
+    const template = root.querySelector<HTMLTemplateElement>(`template[${EditorTemplateAttribute}="${CSS.escape(region)}"]`);
+    const first = template?.content.firstElementChild;
+
+    return first instanceof HTMLElement ? first : null;
+}
+
 /** A fresh copy of the framework component the renderer wrote as a template of the region (`RenderTemplate`); null when it wrote none. */
 export function cloneTemplate(root: ParentNode, region: string): HTMLElement | null {
-    const template = root.querySelector<HTMLTemplateElement>(`template[${EditorTemplateAttribute}="${CSS.escape(region)}"]`);
-    const copy = template?.content.firstElementChild?.cloneNode(true);
+    const copy = findTemplate(root, region)?.cloneNode(true);
 
     return copy instanceof HTMLElement ? copy : null;
 }

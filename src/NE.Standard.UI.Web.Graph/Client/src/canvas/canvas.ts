@@ -10,6 +10,7 @@ import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
 import { CanvasRender } from "./canvas-render.ts";
 import { CanvasSelection, adds } from "./canvas-selection.ts";
+import { PinChoicesAttribute } from "../nodes/nodes-kind.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
 import { CanvasPinch } from "./pinch.ts";
@@ -53,6 +54,11 @@ export class GraphEngine {
                 this.canvases.get(root)?.draw();
         });
 
+        const pinChoicesObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: [PinChoicesAttribute] }, roots => {
+            for (const root of roots)
+                this.canvases.get(root)?.pinChoicesChanged();
+        });
+
         // The read-only mark is the family's class on the root, which the engine toggles classes beside: only a change of it redraws.
         const readOnlyObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: ["class"], relevant: mutation => mutation.target instanceof Element && mutation.target.matches(RootSelector) }, roots => {
             for (const root of roots)
@@ -85,6 +91,7 @@ export class GraphEngine {
         this.cleanups.push(
             () => attachObserver?.disconnect(),
             () => settingsObserver?.disconnect(),
+            () => pinChoicesObserver?.disconnect(),
             () => readOnlyObserver?.disconnect(),
             () => inertObserver?.disconnect(),
             () => {
@@ -307,6 +314,10 @@ class Canvas {
     }
 
     /** The page's words changed: the kind's own panels, the zoom's label, then the sheet are drawn again in them. */
+    public pinChoicesChanged(): void {
+        this.kind.pinChoicesChanged?.();
+    }
+
     public wordsChanged(): void {
         this.kind.wordsChanged?.();
         this.view.wordsChanged();

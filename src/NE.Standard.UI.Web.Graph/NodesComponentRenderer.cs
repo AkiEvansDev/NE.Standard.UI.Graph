@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Abstractions.Styling;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Graph;
@@ -20,6 +22,9 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 {
     /// <summary>The catalogue, as JSON, on the root.</summary>
     public const string CatalogAttribute = "data-ui-graph-catalog";
+
+    /// <summary>The runtime choice lists for <c>ChoicesKey</c> pins, as JSON, on the root.</summary>
+    public const string PinChoicesAttribute = "data-ui-graph-pin-choices";
 
     /// <summary>On the root of a canvas that draws the run's progress line.</summary>
     public const string RunProgressAttribute = "data-ui-graph-run-progress";
@@ -47,6 +52,11 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         WebDomOperation.Style(BottomLeftCornerVariable, target: "root", converter: GraphConverters.BottomLeftCornerCss)
     ];
 
+    private static readonly WebDomOperation[] PinChoicesOperations =
+    [
+        WebDomOperation.Attribute(PinChoicesAttribute, target: "root", converter: GraphConverters.PinChoicesJson)
+    ];
+
     public override string ComponentTypeKey => NodesComponent.ComponentTypeKey;
 
     protected override string KindName => "nodes";
@@ -62,6 +72,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         RenderFlagAttribute(context, root, NodesComponent.ShowRunPanelProperty, RunPanelAttribute);
         RenderNodeCorners(context, root);
         RenderCatalog(context, root);
+        RenderPinChoices(context, root);
 
         // Beside the node, group and edge menus the canvas renders for every kind: a node canvas's pins have one of their own.
         RenderContextMenuRegion(context, root, UIGraphMenus.Pin, UIGraphMenus.Pin);
@@ -92,6 +103,14 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
         _ = root.Attribute(CatalogAttribute, JsonSerializer.Serialize(catalog?.Types ?? [], WireJson));
     }
+
+    /// <summary>The runtime choice lists for <c>ChoicesKey</c> pins as JSON on the root; unset or empty, omitted.</summary>
+    private static void RenderPinChoices(WebRenderContext context, IHtmlElementBuilder root)
+        => _ = RenderProperty<IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>?>(context, root, NodesComponent.PinChoicesProperty, static (target, value) =>
+        {
+            if (value is { Count: > 0 })
+                _ = target.Attribute(PinChoicesAttribute, JsonSerializer.Serialize(value, WireJson));
+        }, PinChoicesOperations);
 
     /// <summary>Framework components as templates the engine clones: one per editable pin plus the list buttons.</summary>
     /// <remarks>Value, read-only and enabled state (a trailing button's too) are the engine's to set on each clone.</remarks>

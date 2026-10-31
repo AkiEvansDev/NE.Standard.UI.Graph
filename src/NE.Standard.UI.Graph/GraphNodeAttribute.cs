@@ -146,6 +146,12 @@ public sealed class GraphInputAttribute : Attribute
     public string? ChoicesFrom { get; set; }
 
     /// <summary>
+    /// Gets or sets the key into <c>NodesComponent.PinChoices</c> that supplies this input's choices at render time and over live
+    /// bindings; while <c>PinChoices</c> omits the key, any static <see cref="Choices"/> or <see cref="ChoicesFrom"/> stand as fallback.
+    /// </summary>
+    public string? ChoicesKey { get; set; }
+
+    /// <summary>
     /// Gets or sets whether a text input holds a picture's address: its pin is a picture's, and its editor, if it has one, shows
     /// the picture and the address under it; a display pin draws the text it is given as the picture.
     /// </summary>

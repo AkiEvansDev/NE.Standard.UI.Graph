@@ -3,14 +3,14 @@
 
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { itemsInFrame, snapBoxes } from "../canvas/canvas-drag.ts";
-import { cloneTemplate, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { cloneTemplate, findTemplate, NodeAttribute } from "../canvas/canvas-dom.ts";
 import { checkMenuEntries, enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
 import { newId, readJson } from "../canvas/canvas-model.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
-import { AnyType, canResetPin, canResetValues, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, resetPin, resetValues, resolveOutputType, slice } from "./model.ts";
+import { AnyType, canResetPin, canResetValues, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
 import { NodesParameters } from "./nodes-parameters.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
@@ -24,6 +24,8 @@ const EditorSelector = ".ui-graph__editor";
 // The panels a node canvas stands over its sheet: the log, the run line and the run panel.
 const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel";
 const CatalogAttribute = "data-ui-graph-catalog";
+export const PinChoicesAttribute = "data-ui-graph-pin-choices";
+const EditorPrefix = "graph-editor:";
 // The kind every catalogue carries (`RerouteNode` on the server), which a wire's menu puts on the wire.
 const RerouteKey = "graph.reroute";
 // Half a reroute's box at its least, so the one a menu puts down is centred on where the menu was opened.
@@ -96,6 +98,7 @@ export class NodesKind implements CanvasKind {
             cloneEditor: region => cloneTemplate(services.root, region)
         });
 
+        this.syncPinChoices();
         this.log.setLogOpen(services.context.store.read(services.root, "log") === "open");
         this.log.drawRun();
         this.listen();
@@ -175,6 +178,51 @@ export class NodesKind implements CanvasKind {
 
     public wordsChanged(): void {
         this.log.wordsChanged();
+    }
+
+    public pinChoicesChanged(): void {
+        this.syncPinChoices();
+    }
+
+    private syncPinChoices(): void {
+        const pinChoices = readPinChoices(this.services.root.getAttribute(PinChoicesAttribute));
+        const setProperty = this.services.context.properties.set;
+
+        for (const type of this.types.values()) {
+            for (const pin of type.inputs) {
+                const options = resolvePinOptions(pin, pinChoices);
+
+                if (options === null)
+                    continue;
+
+                const templateField = findTemplate(this.services.root, `${EditorPrefix}${type.key}:${pin.name}`);
+
+                if (templateField !== null)
+                    setProperty(templateField, "Items", options);
+
+                for (const node of this.document.nodes) {
+                    if (node.type !== type.key || node.collapsed === true)
+                        continue;
+
+                    const box = this.services.nodeElements.get(node.id)?.querySelector<HTMLElement>(`[${ValueAttribute}="${CSS.escape(pin.name)}"]`);
+
+                    if (box === null || box === undefined)
+                        continue;
+
+                    if (pin.editor === "List") {
+                        for (const row of box.querySelectorAll<HTMLElement>(".ui-graph__list-row")) {
+                            if (row.firstElementChild !== null)
+                                setProperty(row.firstElementChild, "Items", options);
+                        }
+                    }
+                    else if (box.firstElementChild !== null) {
+                        setProperty(box.firstElementChild, "Items", options);
+                    }
+                }
+
+                this.parameters.syncFieldOptions(type.key, pin.name, options);
+            }
+        }
     }
 
     public itemsDrawn(drawn: ReadonlySet<string>): void {

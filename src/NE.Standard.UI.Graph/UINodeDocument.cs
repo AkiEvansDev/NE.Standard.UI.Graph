@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using NE.Standard.UI.Abstractions.Recursive;
 
 namespace NE.Standard.UI.Graph;
 
@@ -169,7 +171,7 @@ public sealed class UINode(string id, string type, double x = 0, double y = 0, s
     /// <summary>
     /// Gets the values of the inputs the viewer filled in, by pin name. A pin an edge feeds carries no value here.
     /// </summary>
-    public IReadOnlyDictionary<string, object?> Values { get; } = values ?? new Dictionary<string, object?>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, object?> Values { get; } = NormalizeValues(values);
 
     /// <summary>
     /// Gets how wide the viewer dragged the node, in canvas units; unset, the kind's own least width.
@@ -186,6 +188,33 @@ public sealed class UINode(string id, string type, double x = 0, double y = 0, s
     /// own value, as though unwired. Saved, so a reloaded sheet keeps it off.
     /// </summary>
     public bool Enabled { get; } = enabled;
+
+    private static IReadOnlyDictionary<string, object?> NormalizeValues(IReadOnlyDictionary<string, object?>? values)
+    {
+        if (values is null)
+            return new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        var hasJsonElement = false;
+
+        foreach (KeyValuePair<string, object?> entry in values)
+        {
+            if (entry.Value is JsonElement)
+            {
+                hasJsonElement = true;
+                break;
+            }
+        }
+
+        if (!hasJsonElement)
+            return values;
+
+        Dictionary<string, object?> normalized = new(values.Count, StringComparer.Ordinal);
+
+        foreach (KeyValuePair<string, object?> entry in values)
+            normalized[entry.Key] = entry.Value is JsonElement element ? ObjectToInferredTypesConverter.ToInferredValue(element) : entry.Value;
+
+        return normalized;
+    }
 }
 
 /// <summary>

@@ -86,6 +86,8 @@ export type CanvasKind = {
     itemsDrawn(drawn: ReadonlySet<string>): void;
     /** The page's words changed, just before the sheet is drawn again: a panel the kind draws itself forgets what it last drew. */
     wordsChanged?(): void;
+    /** The root's runtime pin choices changed: the kind updates its templates and drawn fields in place without redrawing the sheet. */
+    pinChoicesChanged?(): void;
     /** The canvas's root left the page: a watch the kind holds lets go, or it keeps the whole canvas alive. */
     dispose?(): void;
     /** The canvas's root returned to the page after being detached: listeners and watches let go on dispose are restored. */

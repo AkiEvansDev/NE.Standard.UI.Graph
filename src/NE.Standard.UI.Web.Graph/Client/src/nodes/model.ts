@@ -6,12 +6,25 @@ import { newId, readDocumentKey, readGroup, readPoints, readSize } from "../canv
 
 type PinEditor = "None" | "Text" | "Number" | "Boolean" | "Image" | "Date" | "Time" | "DateTime" | "Choice" | "List" | "Display";
 
+export type PinChoice = {
+    readonly value: string;
+    readonly caption?: unknown;
+};
+
+export type PinOption = {
+    readonly id: string;
+    readonly title: unknown;
+    readonly isContent: true;
+};
+
 export type Pin = {
     readonly name: string;
     readonly title: string;
     readonly type: string;
     readonly editor: PinEditor;
     readonly defaultValue?: unknown;
+    readonly choices?: readonly PinChoice[];
+    readonly choicesKey?: string | null;
     readonly min?: number | null;
     readonly max?: number | null;
     readonly step?: number | null;
@@ -102,6 +115,54 @@ const ArrayType = "array";
 const ArrayPrefix = "array:";
 const TextType = "text";
 const ImageType = "image";
+
+/** Parses `data-ui-graph-pin-choices` JSON into choice arrays by key, or null when unset or invalid. */
+export function readPinChoices(raw: string | null): Readonly<Record<string, readonly PinChoice[]>> | null {
+    if (raw === null || raw.trim().length === 0)
+        return null;
+
+    try {
+        const parsed: unknown = JSON.parse(raw);
+
+        if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed))
+            return null;
+
+        const result: Record<string, readonly PinChoice[]> = {};
+
+        for (const [key, entries] of Object.entries(parsed as Record<string, unknown>)) {
+            if (!Array.isArray(entries))
+                continue;
+
+            result[key] = entries
+                .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === "object" && typeof (entry as { value?: unknown }).value === "string" && (entry as { value: string }).value.length > 0)
+                .map(entry => ({ value: entry.value as string, caption: entry.caption ?? entry.value }));
+        }
+
+        return result;
+    }
+    catch {
+        return null;
+    }
+}
+
+/**
+ * The options a `ChoicesKey` pin's select editor shows: the entry in `pinChoices` when the key is present there, else the pin's
+ * static `choices` fallback; null for a pin without `choicesKey`.
+ */
+export function resolvePinOptions(pin: Pin, pinChoices: Readonly<Record<string, readonly PinChoice[]>> | null): readonly PinOption[] | null {
+    const key = pin.choicesKey ?? "";
+
+    if (key.length === 0)
+        return null;
+
+    const choices = pinChoices !== null && Object.hasOwn(pinChoices, key) ? pinChoices[key] : (pin.choices ?? []);
+
+    return choices.map(choice => ({
+        id: choice.value,
+        title: choice.caption ?? choice.value,
+        isContent: true as const
+    }));
+}
 
 export function emptyDocument(): GraphDocument {
     return { nodes: [], edges: [], groups: [], key: null, parameters: [] };

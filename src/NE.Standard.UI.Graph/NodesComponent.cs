@@ -99,6 +99,12 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     [UIComponentProperty(DefaultValue = null)]
     public UICornerRadius? NodeCornerRadius { get; set; }
 
+    /// <summary>
+    /// Gets or sets the runtime choice lists for inputs carrying <see cref="GraphInputAttribute.ChoicesKey"/>, keyed by that key.
+    /// </summary>
+    [UIComponentProperty(DefaultValue = null)]
+    public IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>? PinChoices { get; set; }
+
     /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
     public T SetCatalog(params Type[] nodeTypes)
         => SetCatalog(UINodeCatalog.FromTypes(nodeTypes));
@@ -172,7 +178,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
             UINodePinTypes.Date => new DateInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
             UINodePinTypes.Time => new TimeInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
             UINodePinTypes.DateAndTime => new DateTimeInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
-            _ when pin.Choices.Length > 0 => Hinted(new SelectComponent().SetSize(UISize.Small).SetOptions(Options(pin)).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin, fallback: false),
+            _ when pin.Choices.Length > 0 || !string.IsNullOrWhiteSpace(pin.ChoicesKey) => Hinted(new SelectComponent().SetSize(UISize.Small).SetOptions(Options(pin)).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin, fallback: false),
             _ => Hinted(Limited(new TextInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin), pin)
         };
     }

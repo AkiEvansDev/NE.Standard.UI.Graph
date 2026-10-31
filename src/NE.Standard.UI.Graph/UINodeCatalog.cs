@@ -153,20 +153,21 @@ public sealed class UINodeCatalog
 
         var pinType = UINodePinTypes.FromClrType(property.PropertyType);
         UIChoice[] choices = ReadAuthoredChoices(property, input);
+        var choicesKey = string.IsNullOrWhiteSpace(input.ChoicesKey) ? null : input.ChoicesKey;
 
         // A text with a list of values is a combo box, and one holding a picture's address shows the picture; both stay text pins.
         // A collection with a list of values stays a list, a combo box a row.
         UINodeEditor editor = input.Display
             ? UINodeEditor.Display
             : input.PinOnly ? UINodeEditor.None
-            : choices.Length > 0 && !UINodePinTypes.IsArray(pinType) ? UINodeEditor.Choice
+            : (choices.Length > 0 || choicesKey is not null) && !UINodePinTypes.IsArray(pinType) ? UINodeEditor.Choice
             : input.Image && UINodePinTypes.IsTextLike(pinType) ? UINodeEditor.Image
             : EditorFor(property.PropertyType, pinType);
 
         if (input.Image && UINodePinTypes.IsTextLike(pinType))
             pinType = UINodePinTypes.Image;
 
-        if (choices.Length == 0)
+        if (choices.Length == 0 && choicesKey is null)
             choices = EnumChoices(property.PropertyType, editor);
 
         if (input.Large && editor != UINodeEditor.Image)
@@ -190,7 +191,7 @@ public sealed class UINodeCatalog
             ? (UINodePinTypes.IsWholeNumber(property.PropertyType) ? 1d : null)
             : input.Step;
 
-        return new UINodePin(property.Name, input.Title ?? UINaming.Humanize(property.Name), pinType, editor, editor is UINodeEditor.None or UINodeEditor.Display ? null : ReadDefault(property, defaults), choices, double.IsNaN(input.Min) ? null : input.Min, double.IsNaN(input.Max) ? null : input.Max, step, input.MaxLines > 0 ? input.MaxLines : null, input.MaxLength > 0 ? input.MaxLength : null, hasPin: !input.NoPin && !input.State, height: double.IsNaN(input.Height) ? null : input.Height, large: input.Large, required: input.Required, multiple: input.Multiple, description: input.Description, visibleWhen: input.VisibleWhen, visibleValues: input.VisibleValues, unit: input.Unit, format: input.Format, state: input.State, hidden: input.Hidden, typeTitle: TypeTitleOf(property.PropertyType), placeholder: input.Placeholder)
+        return new UINodePin(property.Name, input.Title ?? UINaming.Humanize(property.Name), pinType, editor, editor is UINodeEditor.None or UINodeEditor.Display ? null : ReadDefault(property, defaults), choices, double.IsNaN(input.Min) ? null : input.Min, double.IsNaN(input.Max) ? null : input.Max, step, input.MaxLines > 0 ? input.MaxLines : null, input.MaxLength > 0 ? input.MaxLength : null, hasPin: !input.NoPin && !input.State, height: double.IsNaN(input.Height) ? null : input.Height, large: input.Large, required: input.Required, multiple: input.Multiple, description: input.Description, visibleWhen: input.VisibleWhen, visibleValues: input.VisibleValues, unit: input.Unit, format: input.Format, state: input.State, hidden: input.Hidden, typeTitle: TypeTitleOf(property.PropertyType), placeholder: input.Placeholder, choicesKey: choicesKey)
         {
             WholeNumber = UINodePinTypes.IsWholeNumber(NumberType(property.PropertyType)),
             Unsigned = UINodePinTypes.IsUnsigned(NumberType(property.PropertyType))
@@ -295,7 +296,7 @@ public sealed class UINodeCatalog
         Type underlying = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 
         if (editor == UINodeEditor.Choice)
-            return [.. UIChoices.FromEnum(underlying)];
+            return underlying.IsEnum ? [.. UIChoices.FromEnum(underlying)] : [];
 
         if (editor != UINodeEditor.List || !UINodePinTypes.TryGetElementType(underlying, out Type element))
             return [];

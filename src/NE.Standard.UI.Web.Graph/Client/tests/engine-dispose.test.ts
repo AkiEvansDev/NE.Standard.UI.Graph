@@ -209,7 +209,7 @@ test("GraphEngine.dispose disconnects observers, unsubscribes callbacks, and rel
 
     engine.dispose();
 
-    assert.equal(disconnected, 4);
+    assert.equal(disconnected, 5);
     assert.equal(stringsUnsubscribed, 1);
     assert.equal(patchesUnsubscribed, 1);
     assert.equal(sizeUnwatched, 1);
