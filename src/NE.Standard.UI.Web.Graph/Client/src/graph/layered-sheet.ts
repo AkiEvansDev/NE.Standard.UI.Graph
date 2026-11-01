@@ -55,6 +55,7 @@ export class LayeredSheet {
     private readonly settling = new Set<string>();
     private placing = false;
     private turned = false;
+    private disposed = false;
     // Where the last layout put each node and routed each edge; a route is kept only while both ends stand where the layout left them.
     private laidAt = new Map<string, Point>();
     private routes = new Map<string, Point[]>();
@@ -168,6 +169,8 @@ export class LayeredSheet {
     }
 
     public itemsDrawn(): void {
+        this.disposed = false;
+
         // A turned direction or reshaped nodes re-lays out the whole sheet, since sizes and axes changed; Ctrl+Z restores any hand-placed positions.
         if (this.layoutFor !== this.laidFor) {
             this.laidFor = this.layoutFor;
@@ -189,6 +192,9 @@ export class LayeredSheet {
     /** Places nodes nothing has placed yet, per the layered layout; on an empty sheet that's everything, else a new node takes its layer's place and steps clear of what it would cover. */
     private placePending(): void {
         this.placing = false;
+
+        if (this.disposed)
+            return;
 
         // Drawn where nothing has a size yet — a dialog not open, a tab not shown: measured now, every node would stand at one point.
         if (this.services.root.offsetWidth === 0) {
@@ -296,15 +302,20 @@ export class LayeredSheet {
             if (this.services.root.offsetWidth === 0)
                 return;
 
-            this.dispose();
+            this.stopWaiting();
             this.placePending();
         });
     }
 
-    /** Lets go of the watch for a size, laid out or not; the canvas's root has left the page. */
-    public dispose(): void {
+    private stopWaiting(): void {
         this.waiting?.();
         this.waiting = null;
+    }
+
+    /** Lets go of the watch for a size, laid out or not; the canvas's root has left the page. */
+    public dispose(): void {
+        this.disposed = true;
+        this.stopWaiting();
     }
 
     /** Runs the layered layout, snapped to the grid; a long edge's via-points move with the end it runs level with and stand at the layer's edge facing the bend — remembered positions tell laid-out nodes from hand-placed ones. */

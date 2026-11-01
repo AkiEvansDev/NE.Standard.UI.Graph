@@ -125,6 +125,7 @@ export class NodesKind implements CanvasKind {
     public revive(): void {
         this.listen();
         this.runPanel.listen();
+        this.parameters.draw();
     }
 
     private get document(): GraphDocument {

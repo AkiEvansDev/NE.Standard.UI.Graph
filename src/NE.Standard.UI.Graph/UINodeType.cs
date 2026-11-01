@@ -41,6 +41,9 @@ public sealed class UINodeType
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
 
+        if (minWidth is double width && !double.IsFinite(width))
+            throw new ArgumentOutOfRangeException(nameof(minWidth), width, "MinWidth must be finite.");
+
         Key = key;
         Title = title;
         Inputs = inputs ?? [];
@@ -135,6 +138,18 @@ public sealed class UINodePin
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(type);
+
+        if (min is double floor && !double.IsFinite(floor))
+            throw new ArgumentOutOfRangeException(nameof(min), floor, "Min must be finite.");
+
+        if (max is double ceiling && !double.IsFinite(ceiling))
+            throw new ArgumentOutOfRangeException(nameof(max), ceiling, "Max must be finite.");
+
+        if (step is double delta && !double.IsFinite(delta))
+            throw new ArgumentOutOfRangeException(nameof(step), delta, "Step must be finite.");
+
+        if (height is double tall && !double.IsFinite(tall))
+            throw new ArgumentOutOfRangeException(nameof(height), tall, "Height must be finite.");
 
         Name = name;
         Title = title;

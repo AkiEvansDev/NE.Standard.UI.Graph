@@ -359,17 +359,20 @@ export function drawProduction(entries: readonly ProductionEntry[]): ProductionD
     const resources = new Set(entries.filter(entry => entry.kind === "resource").map(entry => entry.id));
     const crafts = entries.filter((entry): entry is Craft => entry.kind === "craft");
     const makers = new Map<string, Craft[]>();
+    const craftAmounts = new Map<Craft, { readonly ingredients: readonly CraftAmount[]; readonly products: readonly CraftAmount[] }>();
 
     for (const craft of crafts) {
-        for (const product of craft.products) {
-            if (!resources.has(product.resource))
-                continue;
+        const ingredients = countedAmounts(craft.ingredients, resources);
+        const products = countedAmounts(craft.products, resources);
 
+        craftAmounts.set(craft, { ingredients, products });
+
+        for (const product of products) {
             const list = makers.get(product.resource);
 
             if (list === undefined)
                 makers.set(product.resource, [craft]);
-            else
+            else if (!list.includes(craft))
                 list.push(craft);
         }
     }
@@ -380,8 +383,7 @@ export function drawProduction(entries: readonly ProductionEntry[]): ProductionD
     const quiet = new Set<string>();
 
     for (const craft of crafts) {
-        const ingredients = craft.ingredients.filter(amount => resources.has(amount.resource));
-        const products = craft.products.filter(amount => resources.has(amount.resource));
+        const { ingredients, products } = craftAmounts.get(craft)!;
         const only = products.length === 1 && (makers.get(products[0].resource) ?? []).length === 1;
 
         if (only) {
@@ -418,7 +420,7 @@ export function drawProduction(entries: readonly ProductionEntry[]): ProductionD
             continue;
 
         const craft = made[0];
-        const amount = craft.products.find(product => product.resource === resource)!.amount;
+        const amount = craftAmounts.get(craft)!.products.find(product => product.resource === resource)!.amount;
 
         outputs.set(resource, { craft: craft.id, amount, time: craft.time, edge: productEdge(craft.id, resource) });
 
@@ -427,6 +429,23 @@ export function drawProduction(entries: readonly ProductionEntry[]): ProductionD
     }
 
     return { edges, collapsed, outputs, quiet };
+}
+
+/** The amounts that count, summed per resource in their first order — the same rule `solvePlan` and `UIProductionPlanner` use. */
+function countedAmounts(amounts: readonly CraftAmount[], resources: ReadonlySet<string>): CraftAmount[] {
+    const totals = new Map<string, number>();
+
+    for (const entry of amounts) {
+        if (resources.has(entry.resource) && Number.isFinite(entry.amount) && entry.amount > 0)
+            totals.set(entry.resource, (totals.get(entry.resource) ?? 0) + entry.amount);
+    }
+
+    const counted: CraftAmount[] = [];
+
+    for (const [resource, amount] of totals)
+        counted.push({ resource, amount });
+
+    return counted;
 }
 
 function ingredientEdge(craft: string, resource: string): string {

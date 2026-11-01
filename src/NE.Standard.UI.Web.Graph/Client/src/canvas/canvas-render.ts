@@ -48,6 +48,7 @@ export class CanvasRender {
     // The nodes' boxes as one draw of the edges found them, for its labels to keep off.
     private labelObstacles: Rect[] | null = null;
     private edgesQueued = false;
+    private disposed = false;
     // Which item the pointer rests on, and the parts of every drawn edge by its key: what the focus marks, without drawing again.
     private focusItem: string | null = null;
     private readonly edgeParts = new Map<string, Element[]>();
@@ -71,6 +72,7 @@ export class CanvasRender {
     }
 
     public draw(): void {
+        this.disposed = false;
         this.drawGroups();
         this.drawNodes();
         this.view.drawMinimap();
@@ -81,6 +83,8 @@ export class CanvasRender {
 
     /** Stops every node's size watch; the canvas is leaving the page. */
     public dispose(): void {
+        this.disposed = true;
+
         for (const stop of this.nodeWatchers)
             stop();
 
@@ -168,6 +172,10 @@ export class CanvasRender {
         this.edgesQueued = true;
         queueMicrotask(() => {
             this.edgesQueued = false;
+
+            if (this.disposed)
+                return;
+
             this.drawEdges();
             this.view.drawMinimap();
         });

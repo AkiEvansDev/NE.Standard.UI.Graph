@@ -171,6 +171,9 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         // An array pin names its element after the prefix; a pin that takes several names the element itself.
         var element = pin.Type.StartsWith(UINodePinTypes.ArrayPrefix, StringComparison.Ordinal) ? pin.Type[UINodePinTypes.ArrayPrefix.Length..] : pin.Type;
 
+        if (pin.Choices.Length > 0 || !string.IsNullOrWhiteSpace(pin.ChoicesKey))
+            return Hinted(new SelectComponent().SetSize(UISize.Small).SetOptions(Options(pin)).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin, fallback: false);
+
         return element switch
         {
             UINodePinTypes.Number => Hinted(Ranged(new NumberInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin), pin),
@@ -178,7 +181,6 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
             UINodePinTypes.Date => new DateInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
             UINodePinTypes.Time => new TimeInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
             UINodePinTypes.DateAndTime => new DateTimeInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty),
-            _ when pin.Choices.Length > 0 || !string.IsNullOrWhiteSpace(pin.ChoicesKey) => Hinted(new SelectComponent().SetSize(UISize.Small).SetOptions(Options(pin)).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin, fallback: false),
             _ => Hinted(Limited(new TextInputComponent().SetSize(UISize.Small).SetAccessibleName(pin.Title).AsContent(IAccessibleNameComponent.AccessibleNameProperty), pin), pin)
         };
     }
@@ -223,14 +225,14 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         if (!string.IsNullOrWhiteSpace(pin.Unit))
             _ = field.SetSuffixText(pin.Unit).AsContent(IAffixTextInputComponent.SuffixTextProperty);
 
-        if (pin.Min is double min)
-            _ = field.SetMin((decimal)min);
+        if (TryToDecimal(pin.Min, out var min))
+            _ = field.SetMin(min);
 
-        if (pin.Max is double max)
-            _ = field.SetMax((decimal)max);
+        if (TryToDecimal(pin.Max, out var max))
+            _ = field.SetMax(max);
 
-        if (pin.Step is double step)
-            _ = field.SetStep((decimal)step);
+        if (TryToDecimal(pin.Step, out var step) && step > 0)
+            _ = field.SetStep(step);
 
         if (pin.WholeNumber)
             _ = field.SetAllowDecimals(false);
@@ -247,8 +249,30 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         return field;
     }
 
+    private static bool TryToDecimal(double? source, out decimal result)
+    {
+        if (source is double value && double.IsFinite(value) && value >= (double)decimal.MinValue && value <= (double)decimal.MaxValue)
+        {
+            try
+            {
+                result = (decimal)value;
+                return true;
+            }
+            catch (OverflowException)
+            {
+            }
+        }
+
+        result = 0;
+        return false;
+    }
+
     private static SelectComponent ChoiceEditor(UINodePin pin)
-        => new SelectComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetOptions(Options(pin));
+    {
+        SelectComponent select = new SelectComponent().SetSize(UISize.Small).SetTitlePlacement(UIInputTitlePlacement.Inside).SetTitle(pin.Title).AsContent(ITextBaseComponent.TitleProperty).SetOptions(Options(pin));
+
+        return !pin.Required && pin.DefaultValue is null or "" ? select.SetShowClearButton(true) : select;
+    }
 
     private static List<OptionItem> Options(UINodePin pin)
     {

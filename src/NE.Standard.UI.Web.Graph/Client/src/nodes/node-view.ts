@@ -43,6 +43,7 @@ const ArrayPrefix = "array:";
 const EnumPrefix = "enum:";
 // `GraphStrings.DisplayField` on the server: a record's field on a display's one line, its name and its value.
 const DisplayFieldKey = "ui.graph.display-field";
+const listResets = new WeakMap<HTMLElement, (value: unknown) => void>();
 
 export type NodeViewOptions = {
     /** The canvas's own words; the catalogue's text — kinds, pins — is the application's, shown as written. */
@@ -407,12 +408,19 @@ function stateReset(node: DocumentNode, pin: Pin, editor: HTMLElement, options: 
 
     disableOnReadOnly(reset, options.readOnly, options);
     reset.addEventListener("click", () => {
-        const value = pin.defaultValue ?? null;
-        const field = editor.firstElementChild;
+        const value = Array.isArray(pin.defaultValue) ? [...(pin.defaultValue as unknown[])] : (pin.defaultValue ?? null);
+        const resetList = listResets.get(editor);
 
-        // The field shows it at once: an edit redraws only the wires, since a field the viewer typed into already shows its value.
-        if (field !== null)
-            options.setProperty(field, "Value", value);
+        if (resetList !== undefined) {
+            resetList(value);
+        }
+        else {
+            const field = editor.firstElementChild;
+
+            // The field shows it at once: an edit redraws only the wires, since a field the viewer typed into already shows its value.
+            if (field !== null)
+                options.setProperty(field, "Value", value);
+        }
 
         options.onValueChanged(node.id, pin.name, value);
     });
@@ -547,11 +555,14 @@ function bindField(field: HTMLElement, value: unknown, disabled: boolean, option
 }
 
 /**
- * A field's value as the document keeps it: a number as a number, an emptied field as nothing — but an emptied text as an empty text,
- * since nothing would run as the kind's default while the field shows empty.
+ * A field's value as the document keeps it: a number as a number, an emptied field as nothing — except an emptied text or an
+ * optional empty-default choice, kept as empty text so a non-nullable string input resets to its empty default rather than null.
  */
 export function readPinValue(pin: Pin, value: unknown): unknown {
-    return pin.editor === "Text" && value === "" ? "" : readValueAs(pin.editor === "Number", value);
+    if (value === "" && (pin.editor === "Text" || (pin.editor === "Choice" && pin.defaultValue === "")))
+        return "";
+
+    return readValueAs(pin.editor === "Number" || pin.type === "number", value);
 }
 
 function readValueAs(number: boolean, value: unknown): unknown {
@@ -704,6 +715,10 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
     };
 
     draw();
+    listResets.set(box, next => {
+        values.splice(0, values.length, ...(Array.isArray(next) ? (next as unknown[]) : []));
+        draw();
+    });
 
     const add = options.cloneEditor(ListAddRegion);
 

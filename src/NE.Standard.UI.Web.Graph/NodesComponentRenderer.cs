@@ -128,7 +128,12 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         foreach (UINodeType type in catalog?.Types ?? [])
         {
             foreach (UINodePin pin in type.Inputs)
-                RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty);
+            {
+                if (string.IsNullOrWhiteSpace(pin.ChoicesKey))
+                    RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty);
+                else
+                    RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IItemsComponent.ItemsProperty);
+            }
         }
     }
 

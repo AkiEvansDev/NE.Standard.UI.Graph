@@ -149,3 +149,21 @@ test("a new entry never takes the key of one the viewer removed before the save"
 
     assert.equal(freeKey("resource", takenKeys(drawn, [], draft.removed)), "resource-3");
 });
+
+test("drawProduction ignores non-positive amounts and sums duplicate resource rows on a craft", () => {
+    const entries: ProductionEntry[] = [
+        resource("ore"),
+        resource("ingot"),
+        craft("smelt-ingot", [["ore", 2], ["ore", 4], ["ingot", 0]], [["ingot", 2], ["ingot", 2]]),
+        craft("noop-ingot", [["ore", 2]], [["ingot", 0]])
+    ];
+    const drawing = drawProduction(entries);
+
+    // `noop-ingot` produces 0 ingots, so `smelt-ingot` remains the sole maker and collapses onto a single summed edge.
+    assert.equal(drawing.collapsed.has("smelt-ingot"), true);
+    assert.deepEqual(
+        drawing.edges.filter(edge => edge.craft === "smelt-ingot").map(edge => `${edge.from}->${edge.to}:${edge.amount}`),
+        ["ore->ingot:6"]
+    );
+    assert.deepEqual(drawing.outputs.get("ingot"), { craft: "smelt-ingot", amount: 4, time: 1, edge: "smelt-ingot>ingot" });
+});

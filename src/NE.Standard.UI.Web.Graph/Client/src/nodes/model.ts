@@ -241,10 +241,14 @@ export function createNode(type: NodeType, x: number, y: number): DocumentNode {
 
     for (const pin of type.inputs) {
         if (pin.editor !== "None" && pin.defaultValue !== undefined && pin.defaultValue !== null)
-            values[pin.name] = pin.defaultValue;
+            values[pin.name] = cloneDefault(pin.defaultValue);
     }
 
     return { id: newId("n"), type: type.key, x, y, title: null, color: null, pinned: false, values };
+}
+
+function cloneDefault(value: unknown): unknown {
+    return Array.isArray(value) ? [...(value as unknown[])] : value;
 }
 
 /** Whether a kind's input can be a parameter of the sheet: one with a field of its own — not a picture, a list, a display or a hidden state. */
@@ -310,7 +314,7 @@ export function resetPin(document: GraphDocument, types: ReadonlyMap<string, Nod
 /** An input with a value of its own back on its kind's default. */
 function putBack(node: DocumentNode, pin: Pin): void {
     if (holdsValue(pin))
-        node.values[pin.name] = pin.defaultValue ?? null;
+        node.values[pin.name] = cloneDefault(pin.defaultValue) ?? null;
 }
 
 /** Whether any input of a node holds a value other than its kind's default — a state among them. */

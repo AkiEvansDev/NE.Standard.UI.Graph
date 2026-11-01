@@ -25,8 +25,9 @@ function stage(width: number, height: number, kept: string | null = null): Stage
     const viewport = FakeElement.of("ui-graph__viewport").append(FakeElement.of("ui-graph__scene"));
     const root = FakeElement.of("ui-graph").append(viewport);
     let stored = kept;
-    let resized: (() => void) | null = null;
+    const handlers = new Set<() => void>();
 
+    root.rect = { left: 0, top: 0, width, height };
     viewport.rect = { left: 0, top: 0, width, height };
 
     const store = real<ClientStore>({
@@ -39,10 +40,10 @@ function stage(width: number, height: number, kept: string | null = null): Stage
         store,
         names: { collapsed: "data-ui-collapsed" },
         observeSize: (_element: unknown, handler: () => void) => {
-            resized = handler;
+            handlers.add(handler);
 
             return () => {
-                resized = null;
+                handlers.delete(handler);
             };
         }
     });
@@ -59,11 +60,14 @@ function stage(width: number, height: number, kept: string | null = null): Stage
         view,
         viewport,
         resize(nextWidth: number, nextHeight: number): void {
+            root.rect = { left: 0, top: 0, width: nextWidth, height: nextHeight };
             viewport.rect = { left: 0, top: 0, width: nextWidth, height: nextHeight };
-            resized?.();
+
+            for (const handler of [...handlers])
+                handler();
         },
         stored: () => stored,
-        watching: () => resized !== null
+        watching: () => handlers.size > 0
     };
 }
 
@@ -240,4 +244,16 @@ test("the grid draws its minor and major lines on whole pixels and drops the min
     assert.match(major.getAttribute("d") ?? "", /^M0\.5 0V96/);
 
     view.dispose();
+});
+
+test("a hidden canvas disposed before it is shown still fits its sheet once revived and sized", () => {
+    const canvas = stage(0, 0);
+
+    canvas.view.fitSheet();
+    canvas.view.dispose();
+    canvas.view.watchSize();
+    canvas.resize(1366, 600);
+
+    assert.deepEqual(place(canvas.view), fittedAt(1366, 600));
+    canvas.view.dispose();
 });

@@ -67,6 +67,7 @@ export class CanvasView {
     // first fit leaves it standing.
     private readonly viewKept: boolean;
     private opened = false;
+    private fitPending = false;
     // Watches a canvas asked to fit while it has no size yet, to fit it once it has one.
     private stopOpenWatch: (() => void) | null = null;
 
@@ -92,6 +93,9 @@ export class CanvasView {
     /** Watches the canvas's size, from the start and again once a root that left the page is back on it. */
     public watchSize(): void {
         this.stopSizeWatch ??= this.context.observeSize(this.viewport, () => this.viewportResized());
+
+        if (this.fitPending)
+            this.fitSheet();
     }
 
     /** The canvas took another size: a fit the reader left alone is made again for it; a canvas with no size (hidden) waits. */
@@ -176,6 +180,8 @@ export class CanvasView {
 
     /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
     public dispose(): void {
+        clearTimeout(this.keepTimer);
+        this.keepTimer = undefined;
         this.stopSizeWatch?.();
         this.stopSizeWatch = null;
         this.stopOpenWatch?.();
@@ -281,14 +287,17 @@ export class CanvasView {
      */
     public fitSheet(): void {
         if (this.root.offsetWidth > 0) {
+            this.fitPending = false;
             this.fitUnlessKept();
             return;
         }
 
+        this.fitPending = true;
         this.stopOpenWatch ??= this.context.observeSize(this.root, () => {
             if (this.root.offsetWidth === 0)
                 return;
 
+            this.fitPending = false;
             this.stopOpenWatch?.();
             this.stopOpenWatch = null;
             this.fitUnlessKept();

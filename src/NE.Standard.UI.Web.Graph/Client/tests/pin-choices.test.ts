@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { FakeElement, fakeDocument, installFakeDom, real } from "./fake-dom.ts";
 import { NodesKind } from "../src/nodes/nodes-kind.ts";
+import { readPinValue } from "../src/nodes/node-view.ts";
 import { readPinChoices, resolvePinOptions } from "../src/nodes/model.ts";
 import type { CanvasServices } from "../src/canvas/canvas-kind.ts";
 import type { GraphDocument, NodeType, Pin } from "../src/nodes/model.ts";
@@ -204,6 +205,109 @@ test("NodesKind syncs PinChoices on initial construction and live changes across
 
     assert.deepEqual(propertyWrites.get(nodeModelField)?.Items, [{ id: "fallback", title: { text: "Fallback" }, isContent: true }]);
     assert.equal(document.nodes[0].values.Model, "claude");
+
+    // Disposing and reviving the canvas re-installs the parameter panel click listener.
+    kind.dispose();
+    assert.equal(parametersColumn.listenerCount("click"), 0);
+
+    kind.revive();
+    assert.equal(parametersColumn.listenerCount("click"), 1);
+
+    parametersColumn.querySelector("[data-ui-graph-parameter-remove]")!.click();
+    assert.equal(document.parameters.length, 0);
+
+    kind.dispose();
+});
+
+test("readPinValue preserves empty string on empty-default Choice pins, returns null on nullable ones, and parses numeric Choice pins as numbers", () => {
+    const emptyStringChoice: Pin = { name: "Model", title: "Model", type: "text", editor: "Choice", defaultValue: "" };
+    const nullableChoice: Pin = { name: "Thinking", title: "Thinking", type: "enum:ThinkingLevel", editor: "Choice", defaultValue: null };
+    const nonEmptyChoice: Pin = { name: "Mode", title: "Mode", type: "text", editor: "Choice", defaultValue: "Balanced" };
+    const numericChoice: Pin = { name: "Port", title: "Port", type: "number", editor: "Choice", defaultValue: 443 };
+
+    assert.equal(readPinValue(emptyStringChoice, ""), "");
+    assert.equal(readPinValue(emptyStringChoice, "claude"), "claude");
+    assert.equal(readPinValue(nullableChoice, ""), null);
+    assert.equal(readPinValue(nullableChoice, "Deep"), "Deep");
+    assert.equal(readPinValue(nonEmptyChoice, ""), null);
+    assert.equal(readPinValue(numericChoice, "8443"), 8443);
+    assert.equal(readPinValue(numericChoice, ""), null);
+});
+
+test("clicking state reset on a List state pin redraws list rows from a cloned default without writing Value onto the canvas root", () => {
+    const defaultTags = ["seed"];
+    const listStateType: NodeType = {
+        key: "stateful",
+        title: "Stateful",
+        inputs: [{ name: "Tags", title: "Tags", type: "array:text", editor: "List", state: true, defaultValue: defaultTags }],
+        outputs: []
+    };
+    const makeTemplate = (region: string, child: FakeElement): FakeElement =>
+        Object.assign(FakeElement.of("", { "data-ui-graph-editor": region }, "template"), { content: FakeElement.of("").append(child) });
+
+    const canvas = FakeElement.of("ui-graph", { "data-ui-graph-catalog": JSON.stringify([listStateType]) }).append(
+        makeTemplate("graph-editor:stateful:Tags", FakeElement.of("ui-text-input", { "data-ui-id": "30" })),
+        makeTemplate("graph-list-remove", FakeElement.of("ui-button", { "data-ui-id": "32" }, "button")),
+        makeTemplate("graph-list-add", FakeElement.of("ui-button", { "data-ui-id": "34" }, "button")),
+        makeTemplate("graph-state-reset", FakeElement.of("ui-graph__state-reset", { "data-ui-id": "36" }, "button"))
+    );
+    fakeDocument.body.replaceChildren(canvas);
+
+    const document: GraphDocument = {
+        nodes: [{ id: "n1", type: "stateful", x: 0, y: 0, values: { Tags: ["alpha", "beta"] } }],
+        edges: [],
+        groups: [],
+        key: null,
+        parameters: []
+    };
+    const propertyTargets: FakeElement[] = [];
+    const kind = new NodesKind(real<CanvasServices<GraphDocument>>({
+        root: canvas,
+        settings: { readOnly: false, snapping: false, gridSize: 20, edgeShape: "orthogonal" },
+        documentState: { document, edited: () => undefined, committed: () => undefined, settle: () => undefined, requestSave: () => undefined },
+        nodeElements: new Map(),
+        view: { fitSheet: () => undefined },
+        context: {
+            root: fakeDocument.body,
+            names: {
+                componentId: "data-ui-id",
+                tooltip: "data-ui-tooltip",
+                contextMenuUse: "data-ui-context-menu",
+                menuOpeningEvent: "ui:menu-opening",
+                pictureSelectionClass: "ui-image-input__selection",
+                pictureTextClass: "ui-image-input__text",
+                textInputActionClass: "ui-text-input__action"
+            },
+            strings: { text: (key: string) => key, format: (key: string) => key, write: () => undefined },
+            states: { isInert: () => false, setDisabled: () => undefined },
+            icons: { apply: () => undefined },
+            tooltips: { escape: (text: string) => text, show: () => undefined, hide: () => undefined },
+            temporal: { parse: () => null, toDate: () => new Date(0) },
+            urls: { isImageSource: () => false },
+            colors: { count: () => 8, color: () => "#006E64" },
+            focus: { first: () => null },
+            store: { read: () => null, write: () => undefined },
+            values: { read: () => null, isRefused: () => false },
+            properties: {
+                set: (element: FakeElement) => {
+                    propertyTargets.push(element);
+                    return true;
+                }
+            }
+        }
+    }));
+
+    const fakeNode = kind.renderItem(document.nodes[0]) as unknown as FakeElement;
+
+    assert.equal(fakeNode.querySelectorAll(".ui-graph__list-row").length, 2);
+
+    propertyTargets.length = 0;
+    fakeNode.querySelector(".ui-graph__state-reset")!.click();
+
+    assert.equal(fakeNode.querySelectorAll(".ui-graph__list-row").length, 1);
+    assert.deepEqual(document.nodes[0].values.Tags, ["seed"]);
+    assert.notEqual(document.nodes[0].values.Tags, defaultTags);
+    assert.equal(propertyTargets.includes(canvas), false);
 
     kind.dispose();
 });

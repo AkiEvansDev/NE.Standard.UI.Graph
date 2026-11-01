@@ -387,3 +387,27 @@ test("a display shows a picture by type: its own pin's, or an output of a pictur
     assert.equal(shows("number", show), false);
     assert.equal(shows("alone", show), false);
 });
+
+test("createNode and resetPin clone array defaults so mutating one node never mutates the pin default or another node", () => {
+    const defaultItems = [2, 4];
+    const listType: NodeType = {
+        key: "ListKind",
+        title: "List kind",
+        inputs: [{ name: "Items", title: "Items", type: "array:number", editor: "List", defaultValue: defaultItems }],
+        outputs: []
+    };
+    const listTypes = new Map<string, NodeType>([[listType.key, listType]]);
+    const first = createNode(listType, 0, 0);
+    const second = createNode(listType, 40, 0);
+
+    (first.values.Items as number[]).push(6);
+    assert.deepEqual(defaultItems, [2, 4]);
+    assert.deepEqual(second.values.Items, [2, 4]);
+
+    const document: GraphDocument = { nodes: [first, second], edges: [], groups: [], key: null, parameters: [] };
+
+    resetPin(document, listTypes, first.id, "Items", "in");
+    (first.values.Items as number[]).push(8);
+    assert.deepEqual(defaultItems, [2, 4]);
+    assert.deepEqual(second.values.Items, [2, 4]);
+});
