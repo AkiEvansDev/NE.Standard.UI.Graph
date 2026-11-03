@@ -1547,19 +1547,24 @@
     }
 }
 
+// A control behind a rule at a field's end (a stepper, a file or picture pick, a date toggle, a select's chevron): a 20 px glyph box
+// with 2 px of room either side, flush with the field's end so the glyph stands centred between the rule and the border. A step from
+// the box's outer edge, its border inside the step, so each arrow's half is even and its glyph centres on whole pixels: a step
+// inside the border left both glyphs half a pixel off, rounded the same way, and the pair stood a pixel off the field's middle.
+// An underlined field has no top edge (`--ui-field-top-edge`), so its step starts from the box's top itself.
+.ui-field-divided-end() {
+    align-self: stretch;
+    margin: calc(@ui-space-1 - var(--ui-field-top-edge, var(--ui-border-width, 1px))) -@ui-space-3 calc(@ui-space-1 - var(--ui-border-width, 1px)) 0.125rem;
+    border-left: 1px solid var(--ui-color-border);
+    padding: 0 0.125rem;
+}
+
 // The up/down pair at a field's end (number input, time input): one column behind a rule, two chevrons from the shared glyph.
 .ui-field-stepper() {
     display: flex;
     flex: 0 0 auto;
     flex-direction: column;
-    align-self: stretch;
-    // Gives back most of the field's right padding: the stepper's ruled edge doesn't need the breathing room text does. A step from
-    // the box's outer edge, its border inside the step, so each arrow's half is even and its glyph centres on whole pixels: a step
-    // inside the border left both glyphs half a pixel off, rounded the same way, and the pair stood a pixel off the field's middle.
-    // An underlined field has no top edge (`--ui-field-top-edge`), so its step starts from the box's top itself.
-    margin: calc(@ui-space-1 - var(--ui-field-top-edge, var(--ui-border-width, 1px))) -0.5em calc(@ui-space-1 - var(--ui-border-width, 1px)) 0;
-    border-left: 1px solid var(--ui-color-border);
-    padding-left: 0.4em;
+    .ui-field-divided-end();
 }
 
 // One of a stepper's two arrows. Half a field's height, it takes a target's press past its box (`::after`; its chevron is its
@@ -1622,14 +1627,11 @@
     position: relative;
     display: inline-flex;
     flex: 0 0 auto;
-    align-self: stretch;
     align-items: center;
     justify-content: center;
     box-sizing: content-box;
     width: 1.25rem;
-    margin: calc(@ui-space-1 - var(--ui-field-top-edge, var(--ui-border-width, 1px))) -0.5em calc(@ui-space-1 - var(--ui-border-width, 1px)) 0;
-    padding: 0 0 0 0.4em;
-    border-left: 1px solid var(--ui-color-border);
+    .ui-field-divided-end();
     color: var(--ui-text-muted);
     .ui-hit-area(after);
 }
@@ -1664,6 +1666,7 @@
 // the invalid/focus border but not this sizing, which would distort them.
 @ui-input-field: ~".ui-text-input__row, .ui-number-input__row, .ui-temporal-input__row, .ui-file-input__row, .ui-color-input__row, .ui-select__trigger";
 @ui-input-field-state: ~"@{ui-input-field}, .ui-field-box, .ui-image-input__surface";
+@ui-field-divided-end: ~".ui-number-input__stepper, .ui-temporal-input__stepper, .ui-temporal-input__toggle, .ui-file-input__pick, .ui-select__chevron:last-child";
 
 // A field standing where a value's text stood (a key-value row's editor, a grid cell's) is set back by `--ui-field-inset`, its own
 // border and start padding, so its first glyph lands on the value's: a fixed or capped set-back moved the text by the difference.
