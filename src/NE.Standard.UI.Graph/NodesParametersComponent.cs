@@ -1,3 +1,4 @@
+using System;
 using NE.Standard.UI.Authoring.Components;
 using NE.Standard.UI.Components.Foundation;
 using NE.Standard.UI.Primitives.Annotations;
@@ -22,6 +23,14 @@ public abstract partial class NodesParametersComponent<T>(string? id = null) : V
     /// <remarks>Render-time only: the canvas is looked up in the same view as the page is drawn.</remarks>
     [UIComponentProperty(IsBindable = false, DefaultValue = null)]
     public string? Canvas { get; set; }
+
+    /// <summary>Names the <see cref="NodesComponent"/> on the page whose parameters this column draws.</summary>
+    public T SetCanvas(NodesComponent canvas)
+    {
+        ArgumentNullException.ThrowIfNull(canvas);
+
+        return SetCanvas(canvas.Id);
+    }
 }
 
 /// <summary>

@@ -7,17 +7,17 @@ public abstract class UIGraphDocumentBase(UIGraphPlacement[]? nodes, UIGraphRout
     /// <summary>
     /// Gets where each placed node stands, by the node's key.
     /// </summary>
-    public UIGraphPlacement[] Nodes { get; } = nodes ?? [];
+    public UIGraphPlacement[] Nodes { get; } = UIGraphDraftSupport.Present(nodes);
 
     /// <summary>
     /// Gets the reroute points of each bent edge, by the edge's key.
     /// </summary>
-    public UIGraphRoute[] Edges { get; } = edges ?? [];
+    public UIGraphRoute[] Edges { get; } = UIGraphDraftSupport.Present(edges);
 
     /// <summary>
     /// Gets the groups, each a frame that carries the nodes inside it.
     /// </summary>
-    public UIGraphGroup[] Groups { get; } = groups ?? [];
+    public UIGraphGroup[] Groups { get; } = UIGraphDraftSupport.Present(groups);
 
     /// <summary>
     /// Gets what the application calls this document — a build's id, a file's name — sent back by the canvas as it was given.

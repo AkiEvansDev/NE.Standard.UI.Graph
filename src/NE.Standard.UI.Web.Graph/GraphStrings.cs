@@ -102,7 +102,7 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string PlanResources = "ui.graph.plan-resources";
     public const string PlanCrafts = "ui.graph.plan-crafts";
     public const string PlanResource = "ui.graph.plan-resource";
-    public const string PlanAmount = "ui.graph.plan-amount";
+    public const string PlanAmount = UIGraphWords.PlanAmount;
     public const string PlanMade = "ui.graph.plan-made";
     public const string PlanTaken = "ui.graph.plan-taken";
     public const string PlanLeft = "ui.graph.plan-left";

@@ -55,7 +55,7 @@ public sealed class UIProductionPlanRequest(UIProductionTarget[]? targets = null
     /// <summary>
     /// Gets the amounts to reach.
     /// </summary>
-    public UIProductionTarget[] Targets { get; } = targets ?? [];
+    public UIProductionTarget[] Targets { get; } = UIGraphDraftSupport.Present(targets);
 
     /// <summary>
     /// Gets what the amounts are counted over.
@@ -71,7 +71,7 @@ public sealed class UIProductionPlanRequest(UIProductionTarget[]? targets = null
     /// Gets the made resources the plan brings in rather than makes: what makes them is left out of the plan, and they are counted
     /// with the sources.
     /// </summary>
-    public string[] Bought { get; } = bought ?? [];
+    public string[] Bought { get; } = UIGraphDraftSupport.Present(bought);
 
     /// <summary>
     /// Gets how long the period lasts, or nothing for a plan made once.

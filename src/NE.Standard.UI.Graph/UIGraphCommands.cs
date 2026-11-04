@@ -384,6 +384,9 @@ public static class UIGraphWords
     /// <summary>The word a target of the plan is named by.</summary>
     public const string Target = "ui.graph.target";
 
+    /// <summary>A target's amount field in the plan panel.</summary>
+    public const string PlanAmount = "ui.graph.plan-amount";
+
     /// <summary>The plan's period select.</summary>
     public const string Period = "ui.graph.plan-period";
 
