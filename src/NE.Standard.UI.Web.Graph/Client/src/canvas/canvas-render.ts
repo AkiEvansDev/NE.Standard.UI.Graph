@@ -41,9 +41,9 @@ export class CanvasRender {
     private readonly kind: () => CanvasKind;
 
     // An item's box can change on its own (an image arrives, text wraps); each drawn item is watched, and its last box kept, to
-    // tell a real change from the watcher's first report.
+    // tell a real change from the watcher's first report and to answer `nodeRect` during drags without forcing a layout per node.
     private readonly nodeWatchers: (() => void)[] = [];
-    private readonly nodeBoxes = new Map<string, string>();
+    private readonly nodeBoxes = new Map<string, { readonly width: number; readonly height: number }>();
     private readonly drawnItems = new Map<string, CanvasItem>();
     // The nodes' boxes as one draw of the edges found them, for its labels to keep off.
     private labelObstacles: Rect[] | null = null;
@@ -151,19 +151,20 @@ export class CanvasRender {
     private watchSizes(): void {
         // Every box first, then every watch: the first report a watch makes is of the box it was given, and that is not a change.
         for (const [id, element] of this.nodeElements)
-            this.nodeBoxes.set(id, boxOf(element));
+            this.nodeBoxes.set(id, sizeOf(element));
 
         for (const [id, element] of this.nodeElements)
             this.nodeWatchers.push(this.context.observeSize(element, () => this.nodeResized(id, element)));
     }
 
     private nodeResized(id: string, element: HTMLElement): void {
-        const box = boxOf(element);
+        const size = sizeOf(element);
+        const previous = this.nodeBoxes.get(id);
 
-        if (this.nodeBoxes.get(id) === box)
+        if (previous !== undefined && previous.width === size.width && previous.height === size.height)
             return;
 
-        this.nodeBoxes.set(id, box);
+        this.nodeBoxes.set(id, size);
 
         // Every item has a watch of its own, and one layout pass may grow several: the edges are drawn once after all of them.
         if (this.edgesQueued)
@@ -495,7 +496,14 @@ export class CanvasRender {
         if (node === undefined || element === undefined)
             return null;
 
-        return { x: node.x, y: node.y, width: element.offsetWidth, height: element.offsetHeight };
+        let cached = this.nodeBoxes.get(id);
+
+        if (cached === undefined || (cached.width === 0 && cached.height === 0)) {
+            cached = sizeOf(element);
+            this.nodeBoxes.set(id, cached);
+        }
+
+        return { x: node.x, y: node.y, width: cached.width, height: cached.height };
     }
 
     /** A node's box plus what it wears outside it, in canvas units — read off the page, so call only where a layout is worth paying for, not every drag frame. */
@@ -618,6 +626,6 @@ function coordinate(value: number): string {
     return String(Math.round(value * 100) / 100);
 }
 
-function boxOf(element: HTMLElement): string {
-    return `${element.offsetWidth}x${element.offsetHeight}`;
+function sizeOf(element: HTMLElement): { readonly width: number; readonly height: number } {
+    return { width: element.offsetWidth, height: element.offsetHeight };
 }
