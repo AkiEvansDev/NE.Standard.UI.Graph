@@ -951,6 +951,13 @@
     &.ui-scroll-y--always {
         overflow-y: scroll;
     }
+
+    // With both scrollbars off the host is no scroller: `overflow: clip` keeps its children inside while leaving hover pills and
+    // focus frames their reach past the edge (`overflow: hidden` ignores `overflow-clip-margin`).
+    &.ui-scroll-x--disabled.ui-scroll-y--disabled {
+        overflow: clip;
+        overflow-clip-margin: @ui-keyboard-frame-reach;
+    }
 }
 
 // --- mixins/popup.less ---
