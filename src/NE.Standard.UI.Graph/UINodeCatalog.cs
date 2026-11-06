@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Primitives.Localization;
 using NE.Standard.UI.Primitives.Text;
@@ -19,6 +20,15 @@ namespace NE.Standard.UI.Graph;
 public sealed class UINodeCatalog
 {
     private readonly Dictionary<string, Type> _clrTypes;
+
+    /// <summary>
+    /// Creates a catalogue from its serialized node kinds.
+    /// </summary>
+    [JsonConstructor]
+    public UINodeCatalog(IReadOnlyList<UINodeType> types)
+        : this(types is null ? [] : [.. types], new Dictionary<string, Type>(StringComparer.Ordinal))
+    {
+    }
 
     private UINodeCatalog(UINodeType[] types, Dictionary<string, Type> clrTypes)
     {
