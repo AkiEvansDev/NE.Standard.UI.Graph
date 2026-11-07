@@ -678,6 +678,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
 
     const draw = (): void => {
         rows.replaceChildren();
+        box.hidden = values.length === 0;
         rows.hidden = values.length === 0;
 
         values.forEach((entry, index) => {

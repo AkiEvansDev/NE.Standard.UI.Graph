@@ -1371,6 +1371,10 @@
         margin-inline-start: auto;
         text-align: start;
         field-sizing: content;
+
+        &:placeholder-shown {
+            text-align: end;
+        }
     }
 }
 
@@ -1541,11 +1545,15 @@
 }
 
 // When a clear shows, one rule for every clearable field (IClearableInputComponent): hidden under a root without
-// `data-ui-clearable`, under a disabled or read-only one, and while @empty — the field's own sign it holds nothing — matches. @clear
-// is the path from @root to the button; @empty a whole selector, since only the field knows how it says empty.
+// `data-ui-clearable`, under a disabled or read-only one, and while @empty — the field's own sign it holds nothing — matches. While
+// empty, a start-aligned field keeps the button's slot (`visibility: hidden`) so a shrink-to-fit host does not jump when a value is
+// entered; under `.ui-input--title-inside`, where the value and placeholder stand against the trailing edge, an empty slot would push
+// the placeholder away from the divider or edge, so the button drops out (`display: none`). @clear is the path from @root to the
+// button; @empty a whole selector, since only the field knows how it says empty.
 .ui-field-clear-host(@root; @clear; @empty) {
     @{root}:not([data-ui-clearable]) @{clear},
-    @{root}:is(.ui-disabled, .ui-readonly) @{clear} {
+    @{root}:is(.ui-disabled, .ui-readonly) @{clear},
+    @{root}.ui-input--title-inside @{clear}:is(@{empty}) {
         display: none;
     }
 

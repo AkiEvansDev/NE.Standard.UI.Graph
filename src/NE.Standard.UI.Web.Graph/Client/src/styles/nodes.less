@@ -654,6 +654,7 @@
 }
 
 // An empty list draws no rows: `hidden` alone loses to the display above.
+.ui-graph__editor--list[hidden],
 .ui-graph__list-rows[hidden] {
     display: none;
 }
@@ -1012,6 +1013,7 @@ dialog.ui-graph__picker {
 }
 
     // With none set out, the line that says how to set one out stands in the list's place.
+    .ui-graph__parameters-list:empty,
     .ui-graph__parameters-list:not(:empty) + .ui-graph__parameters-empty {
         display: none;
     }
@@ -1137,6 +1139,11 @@ dialog.ui-graph__picker {
 .ui-graph__run-share {
     position: relative;
     color: var(--ui-color-on-surface);
+}
+
+.ui-graph__run-label:empty,
+.ui-graph__run-share:empty {
+    display: none;
 }
 
 .ui-graph__run-label {
