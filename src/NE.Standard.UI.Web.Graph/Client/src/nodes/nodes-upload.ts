@@ -35,6 +35,7 @@ export class NodesImageUpload {
         const input = document.createElement("input");
 
         input.type = "file";
+        input.name = "ui-graph-image-file";
         input.accept = PictureAccept;
         input.addEventListener("change", () => {
             const file = input.files?.[0];
