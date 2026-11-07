@@ -21,7 +21,6 @@ const NameClass = "ui-graph__parameter-name";
 const NodeNameClass = "ui-graph__parameter-node";
 const PinNameClass = "ui-graph__parameter-pin";
 const FieldClass = "ui-graph__parameter-field";
-// What the keyboard can stand on inside a field the panel clones: the field itself, or its own control.
 
 /** What the column asks of the node canvas it shows the parameters of. */
 export type NodesParametersHost = {

@@ -69,7 +69,9 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
             return ValueTask.FromResult<UINodeImageFile?>(null);
 
         // The key is the address's last segment, since that is what the resolver made of it.
-        var key = Uri.UnescapeDataString(address[(address.LastIndexOf('/') + 1)..]);
+        var suffix = address.IndexOfAny(['?', '#']);
+        var path = suffix < 0 ? address : address[..suffix];
+        var key = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
 
         return ValueTask.FromResult(Find(key));
     }

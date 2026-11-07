@@ -21,7 +21,7 @@ public enum UINodeEditor
     DateTime,
     /// <summary>A list of the pin's choices.</summary>
     Choice,
-    /// <summary>A list of simple values, edited in a dialog.</summary>
+    /// <summary>A list of simple values, edited inline on the node.</summary>
     List,
     /// <summary>Not a value at all: whatever the last run fed the pin, drawn by its shape.</summary>
     Display

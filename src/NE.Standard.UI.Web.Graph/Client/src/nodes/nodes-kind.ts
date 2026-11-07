@@ -10,7 +10,7 @@ import { newId, readJson } from "../canvas/canvas-model.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
-import { AnyType, canResetPin, canResetValues, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice } from "./model.ts";
+import { AnyType, canResetPin, canResetValues, cloneDefault, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
 import { NodesParameters } from "./nodes-parameters.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
@@ -360,14 +360,16 @@ export class NodesKind implements CanvasKind {
 
         node.values[pinName] = value;
 
+        const affectsVisibility = this.types.get(node.type)?.inputs.some(pin => pin.visibleWhen === pinName) === true;
+
         if (fromPanel) {
-            this.services.documentState.edited(!this.showCommitted(nodeId, pinName, value));
+            this.services.documentState.edited(affectsVisibility || (!node.collapsed && !this.showCommitted(nodeId, pinName, value)));
             return;
         }
 
         this.parameters.showValue(nodeId, pinName, value);
         // The nodes redraw only when a pin shown beside this one depends on it.
-        this.services.documentState.edited(this.types.get(node.type)?.inputs.some(pin => pin.visibleWhen === pinName) === true);
+        this.services.documentState.edited(affectsVisibility);
     }
 
     /**
@@ -792,7 +794,7 @@ export class NodesKind implements CanvasKind {
             return;
 
         for (const pin of pins)
-            node.values[pin.name] = pin.defaultValue ?? null;
+            node.values[pin.name] = cloneDefault(pin.defaultValue) ?? null;
 
         this.services.documentState.edited();
     }

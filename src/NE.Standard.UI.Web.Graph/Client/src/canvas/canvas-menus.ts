@@ -25,7 +25,7 @@ const DefaultColorCommand = "graph:color:default";
 const CommandPrefix = "graph:";
 // The corner menu panel's fold among the canvas's stored state, beside the plan's.
 const CornerFoldSlot = "menu";
-// An empty frame's size: two nodes side by side under its band. A frame is never resized, so it starts with room to fill.
+// An empty frame's initial size: two nodes side by side under its band.
 const NewGroupWidth = 480;
 const NewGroupHeight = 280;
 

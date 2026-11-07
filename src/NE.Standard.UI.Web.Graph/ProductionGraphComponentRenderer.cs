@@ -139,7 +139,7 @@ public sealed class ProductionGraphComponentRenderer : LayeredGraphRendererBase<
         });
     }
 
-    /// <summary>The edge menu every layered graph has, the menu a dropped link asks its question in, and the parts of a target's row the engine clones.</summary>
+    /// <summary>The menu a dropped link asks its question in, and the parts of a target's row the engine clones.</summary>
     protected override void RenderKindTemplates(WebRenderContext context, IHtmlElementBuilder root)
     {
         base.RenderKindTemplates(context, root);

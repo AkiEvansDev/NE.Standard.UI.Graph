@@ -34,4 +34,12 @@
     </ItemGroup>
   </Target>
 
+  <!-- SkiaSharp.NativeAssets.Win32 ships ~274 MB of native libSkiaSharp.pdb files across win-x86, win-x64 and win-arm64;
+       drop them from the copy-local set so each referencing output folder does not carry a quarter-gigabyte of C++ symbols. -->
+  <Target Name="RemoveSkiaSharpNativePdbs" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)" Condition="'%(Filename)%(Extension)' == 'libSkiaSharp.pdb'" />
+    </ItemGroup>
+  </Target>
+
 </Project>

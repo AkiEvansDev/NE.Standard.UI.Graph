@@ -969,6 +969,7 @@
     background: @ui-popup-ground;
     // A field inside mixes its fill into the popup's colour, not the page's.
     --ui-surface-fill: @ui-popup-ground;
+    --ui-field-ground-share: 12%;
     // Muted text inside fades the popup's own ink, not a filled ground the popup's anchor stands on.
     --ui-faint-base: initial;
     --ui-ground: @ui-popup-ground;
@@ -1195,11 +1196,12 @@
 // --- mixins/lift.less ---
 
 // A popup opened on a surface ground — a surface panel, a dialog, a node — stands one step off it: 8 % more of the text, and a
-// border and a control's mark step off that ground too so they keep their contrast over it.
+// field, a border and a control's mark step off that ground too so they keep their contrast over it.
 .ui-popup-ground-lifted(@ground) {
     --ui-popup-ground: color-mix(in srgb, @ground 92%, var(--ui-color-on-surface) 8%);
-    --ui-color-border: color-mix(in srgb, var(--ui-surface-fill, @ground) 88%, var(--ui-color-on-surface) 12%);
-    --ui-color-mark: color-mix(in srgb, var(--ui-surface-fill, @ground) 82%, var(--ui-color-on-surface) 18%);
+    --ui-field-ground-share: 12%;
+    --ui-color-border: color-mix(in srgb, var(--ui-surface-fill, @ground) 82%, var(--ui-color-on-surface) 18%);
+    --ui-color-mark: color-mix(in srgb, var(--ui-surface-fill, @ground) 76%, var(--ui-color-on-surface) 24%);
 }
 
 // --- mixins/dialog.less ---
@@ -1323,7 +1325,7 @@
 .ui-field-ground() {
     // One step off whatever it stands on, falling back to the page background; mixed from on-surface, so it steps up dark and down light.
     --ui-field-ground: var(--ui-surface-fill, var(--ui-color-background));
-    --ui-field-rest: color-mix(in srgb, var(--ui-color-on-surface) 10%, var(--ui-field-ground));
+    --ui-field-rest: color-mix(in srgb, var(--ui-color-on-surface) var(--ui-field-ground-share, var(--ui-field-rest-share, 8%)), var(--ui-field-ground));
     .ui-authored-border(~"var(--ui-border-width, 1px)"; var(--ui-radius-input); var(--ui-field-rest));
     background: var(--ui-field-rest);
     transition: border-color @ui-motion-fast @ui-motion-ease, box-shadow @ui-motion-fast @ui-motion-ease, background-color @ui-motion-fast @ui-motion-ease;

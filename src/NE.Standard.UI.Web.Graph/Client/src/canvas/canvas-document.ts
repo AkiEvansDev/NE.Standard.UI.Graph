@@ -39,6 +39,7 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
     // Every save is numbered, so an answer is matched to the save it answers: one settled early — a run began on it — answers late.
     private saves = 0;
     private sentId = 0;
+    private holdingValue = false;
 
     public constructor(root: HTMLElement, valueElement: HTMLElement, settings: CanvasSettings, read: (value: unknown) => TDocument, callbacks: DocumentStateCallbacks, values: ValueReading) {
         this.root = root;
@@ -200,10 +201,10 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.sentId = 0;
         this.root.classList.remove("ui-graph--saving");
 
-        if (success && sent !== null) {
+        if (success && sent !== null)
             this.history.markSaved(sent);
-            this.showDirty();
-        }
+
+        this.showDirty();
 
         const queued = this.queuedSave;
 
@@ -216,19 +217,29 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
     /** Marks the canvas dirty and holds/releases the value against a framework push accordingly; held while a save is in flight. */
     private showDirty(): void {
         const dirty = this.history.dirty;
-        const wasDirty = this.root.classList.contains("ui-graph--dirty");
 
         this.root.classList.toggle("ui-graph--dirty", dirty);
 
-        if (dirty)
-            this.values.hold(this.valueElement);
-        else if (wasDirty && this.sent === null)
+        if (dirty || this.sent !== null) {
+            if (!this.holdingValue) {
+                this.holdingValue = true;
+                this.values.hold(this.valueElement);
+            }
+        }
+        else if (this.holdingValue) {
+            this.holdingValue = false;
             this.values.release(this.valueElement);
+        }
     }
 
     private markClean(): void {
         this.sent = null;
         this.root.classList.remove("ui-graph--dirty", "ui-graph--saving");
+
+        if (this.holdingValue) {
+            this.holdingValue = false;
+            this.values.release(this.valueElement);
+        }
     }
 
     /** The step before, or nothing on a read-only canvas: a step taken back is an edit, which a read-only sheet takes none of. */
@@ -248,7 +259,7 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.callbacks.redraw();
 
         // A step taken back is an edit like any other to a canvas that saves each one: the server must not keep what the viewer undid.
-        if (this.settings.autoSave && this.history.dirty)
+        if (this.settings.autoSave && (this.history.dirty || this.sent !== null))
             queueMicrotask(() => this.save(AutoSaveReason));
     }
 }

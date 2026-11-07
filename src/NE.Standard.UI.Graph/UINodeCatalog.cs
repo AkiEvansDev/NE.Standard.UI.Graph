@@ -282,7 +282,7 @@ public sealed class UINodeCatalog
 
         if (UINodePinTypes.IsArray(pinType))
         {
-            // A list of models is not something a dialog of simple fields can edit: it comes over a connection.
+            // A list of models is not something an inline list of simple fields can edit: it comes over a connection.
             _ = UINodePinTypes.TryGetElementType(underlying, out Type element);
 
             return EditorFor(element, UINodePinTypes.FromClrType(element)) == UINodeEditor.None ? UINodeEditor.None : UINodeEditor.List;

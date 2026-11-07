@@ -215,7 +215,7 @@ internal sealed class NodeValueEquality : IEqualityComparer<object?>
             return 0;
 
         if (obj is string text)
-            return _texts.GetHashCode(text);
+            return NodeDates.TryRead(text, out DateTime parsedDate) ? parsedDate.GetHashCode() : _texts.GetHashCode(text);
 
         if (obj is IEnumerable items)
         {

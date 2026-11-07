@@ -247,7 +247,7 @@ export function createNode(type: NodeType, x: number, y: number): DocumentNode {
     return { id: newId("n"), type: type.key, x, y, title: null, color: null, pinned: false, values };
 }
 
-function cloneDefault(value: unknown): unknown {
+export function cloneDefault(value: unknown): unknown {
     return Array.isArray(value) ? [...(value as unknown[])] : value;
 }
 
