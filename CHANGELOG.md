@@ -1,9 +1,7 @@
-# Changelog
+# Changelog — Graph
 
-This slice's changelog. It holds only what is not released yet, under `## X.Y.Z` (the tag is `graph/vX.Y.Z`): the release
-workflow cuts that section out as the body of the GitHub release (a tag with no section fails the release), and the notes of every
-released version live there — https://github.com/AkiEvansDev/NE.Standard.UI.Graph/releases.
+Each section below becomes the GitHub release body for that tag (`v<version>` in `NE.Standard.UI.Graph`) and is removed from this file after the release is cut.
 
-## 2.6.1
+## 2.6.2
 
-- Built on the framework's 2.6.1 release.
+- Built on the framework's 2.6.2 release.
