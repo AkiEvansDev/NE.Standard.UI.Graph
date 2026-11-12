@@ -23,6 +23,7 @@
         left: @ui-space-1;
         width: 3px;
         border-radius: 2px;
+        corner-shape: @ui-corner-shape;
         background: var(--ui-graph-node-ink);
     }
 
@@ -56,6 +57,7 @@
     --ui-graph-bubble-size: 3.5rem;
     --ui-graph-node-border: 2px;
     --ui-graph-node-radius: 50%;
+    --ui-graph-node-corner-shape: round;
 
     align-items: center;
     justify-content: center;
@@ -270,6 +272,7 @@
     padding: 0 @ui-space-2;
     border: var(--ui-border-width) solid;
     border-radius: var(--ui-radius-button);
+    corner-shape: @ui-corner-shape;
     background: var(--ui-color-surface);
     .ui-field-edge-active();
     transform: translate(-50%, -50%);

@@ -73,6 +73,12 @@
 @ui-part-radius: ~"calc(var(--ui-radius-button) * 2 / 3)";
 @ui-part-radius-sm: ~"calc(var(--ui-radius-button) / 2)";
 
+// Every rounded corner's curve — continuous curvature so a 1 px border keeps its peak brightness round the bend instead of dimming on
+// 1 dppx screens as a circular arc does; true circles (50 %) and semicircular pills (999 px) are shapes, not corners, and stay round.
+@ui-corner-shape: squircle;
+// An inner curve nested across a narrow gap inside a squircle shell (a button group's segment, a colour swatch), softer so the channel stays even.
+@ui-nested-corner-shape: ~"superellipse(1.5)";
+
 // The page's stacking ladder, low to high, in one place: a new layer takes its step here, never a number of its own.
 // An action bar stands under the page's bands, so a sticky header covers one scrolled under it.
 @ui-z-action-bar: 29;
@@ -693,6 +699,7 @@
     .ui-responsive-property(border-width, --ui-border-thickness, @width);
     border-color: @color;
     .ui-responsive-property(border-radius, --ui-border-radius, @radius);
+    corner-shape: @ui-corner-shape;
 }
 
 // Resets a property's five tiers on a component root that re-declares them, and fences each into its band there.
@@ -966,6 +973,7 @@
 .ui-popup-look() {
     border: var(--ui-border-width, 1px) solid var(--ui-color-border);
     border-radius: @ui-popup-radius;
+    corner-shape: @ui-corner-shape;
     background: @ui-popup-ground;
     // A field inside mixes its fill into the popup's colour, not the page's.
     --ui-surface-fill: @ui-popup-ground;
@@ -1215,6 +1223,7 @@
 // popup opened in it lifted once more — for the framework's dialog and a package's own <dialog> alike, so the two are one ground.
 .ui-dialog-look() {
     border-radius: var(--ui-radius-card);
+    corner-shape: @ui-corner-shape;
     background: var(--ui-color-surface);
     color: var(--ui-color-on-surface);
     --ui-faint-base: initial;
@@ -1247,6 +1256,7 @@
 // alike.
 .ui-sheet-edge() {
     border-radius: var(--ui-radius-card) var(--ui-radius-card) 0 0;
+    corner-shape: @ui-corner-shape;
 }
 
 // A sheet a swipe puts away follows the finger (`--ui-sheet-drag`, sheet-swipe.ts), at once while dragged; its own transitions take
@@ -1598,6 +1608,7 @@
     padding: 0;
     border: none;
     border-radius: @ui-part-radius;
+    corner-shape: @ui-corner-shape;
     background: transparent;
     color: var(--ui-text-muted);
     cursor: pointer;
@@ -1846,6 +1857,7 @@
     padding: @ui-space-1 @ui-space-2;
     border: 0;
     border-radius: @ui-list-entry-radius;
+    corner-shape: @ui-corner-shape;
     background: none;
     color: @ui-text-muted;
     font: inherit;
@@ -1904,6 +1916,7 @@
 .ui-list-row-corners(@host; @row) {
     @{host} > [data-ui-items-host] > @{row} {
         border-radius: @ui-list-entry-radius;
+        corner-shape: @ui-corner-shape;
     }
 
     @{host}[style*="--ui-selected-mark: inset 2px"] > [data-ui-items-host] > @{row}[data-ui-selected] {

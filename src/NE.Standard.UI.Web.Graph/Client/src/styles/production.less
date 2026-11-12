@@ -5,6 +5,7 @@
 
 .ui-graph__craft {
     --ui-graph-node-radius: 999px;
+    --ui-graph-node-corner-shape: round;
 
     flex-direction: row;
     align-items: center;
@@ -163,6 +164,7 @@
         margin-inline-start: -@ui-space-1;
         padding: @ui-space-1;
         border-radius: var(--ui-radius-button);
+        corner-shape: @ui-corner-shape;
         .ui-reveal-hover();
 
         &@{ui-keyboard-focus} {

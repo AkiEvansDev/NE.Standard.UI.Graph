@@ -48,6 +48,7 @@
     height: var(--ui-graph-height);
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
+    corner-shape: @ui-corner-shape;
     background: var(--ui-color-background);
     // An opaque ground of its own: what stands on the sheet reads the page's inks, not those of a filled card the canvas is in.
     --ui-faint-base: initial;
@@ -258,6 +259,7 @@
     padding: 0.125rem 0.25rem;
     border: 1px solid var(--ui-color-border);
     border-radius: 0.25rem;
+    corner-shape: @ui-corner-shape;
     background: var(--ui-color-surface);
     color: var(--ui-text-muted);
     font-size: var(--ui-text-caption-font-size);
@@ -289,6 +291,7 @@
     border: var(--ui-border-width) solid var(--ui-graph-group-color);
     // A node canvas's NodeCornerRadius, a corner each as its nodes take it, else the card's: a square sheet's frames are square too.
     border-radius: var(--ui-graph-node-corner-tl, var(--ui-radius-card)) var(--ui-graph-node-corner-tr, var(--ui-radius-card)) var(--ui-graph-node-corner-br, var(--ui-radius-card)) var(--ui-graph-node-corner-bl, var(--ui-radius-card));
+    corner-shape: @ui-corner-shape;
     background: color-mix(in srgb, var(--ui-graph-group-color) 8%, transparent);
 }
 
@@ -431,6 +434,7 @@
     padding: @ui-space-1;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-button);
+    corner-shape: @ui-corner-shape;
     background: @ui-graph-glass;
     overflow: hidden;
     cursor: pointer;
@@ -542,6 +546,7 @@
     padding: @ui-space-1;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-button);
+    corner-shape: @ui-corner-shape;
     .ui-graph-surface-ground();
 }
 
@@ -610,6 +615,7 @@
     gap: 0;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
+    corner-shape: @ui-corner-shape;
     .ui-graph-surface-ground();
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);

@@ -62,6 +62,7 @@
     min-height: calc(var(--ui-graph-node-h, 0) * 1px);
     border: var(--ui-graph-node-border) solid var(--ui-color-border);
     border-radius: var(--ui-graph-node-radius-tl) var(--ui-graph-node-radius-tr) var(--ui-graph-node-radius-br) var(--ui-graph-node-radius-bl);
+    corner-shape: var(--ui-graph-node-corner-shape, @ui-corner-shape);
     --ui-surface-fill: var(--ui-color-surface);
     .ui-popup-ground-lifted(var(--ui-color-surface));
     background: var(--ui-color-surface);
@@ -88,6 +89,7 @@
         z-index: -1;
         border: 1px solid var(--ui-mark-selected);
         border-radius: .ui-graph-ring-corner(tl)[@value] .ui-graph-ring-corner(tr)[@value] .ui-graph-ring-corner(br)[@value] .ui-graph-ring-corner(bl)[@value];
+        corner-shape: var(--ui-graph-node-corner-shape, @ui-corner-shape);
         box-shadow: 0 0 10px 0 color-mix(in srgb, var(--ui-mark-selected) 55%, transparent);
         pointer-events: none;
     }
@@ -120,6 +122,7 @@
     padding: 0.375rem @ui-space-3;
     border-bottom: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: .ui-graph-inner-corner(tl)[@value] .ui-graph-inner-corner(tr)[@value] 0 0;
+    corner-shape: var(--ui-graph-node-corner-shape, @ui-corner-shape);
     background: @ui-graph-node-tint;
     font-weight: var(--ui-text-title-font-weight);
     cursor: move;
@@ -134,6 +137,7 @@
     width: 1rem;
     height: 1rem;
     border-radius: var(--ui-radius-button);
+    corner-shape: @ui-corner-shape;
     transition: opacity @ui-motion-fast @ui-motion-ease;
 
     // On a read-only sheet: still drawn, as the node's state, and disabled the framework's way (`aria-disabled`, focusable).
@@ -229,6 +233,7 @@
 .ui-graph__node-pinned {
     .ui-graph-head-mark();
     border-radius: 50%;
+    corner-shape: round;
     opacity: @ui-offer-opacity;
 }
 
@@ -419,6 +424,7 @@
     .ui-graph__pin--filled::before {
         inset: -2px;
         border-radius: inherit;
+        corner-shape: inherit;
     }
 
     // An optional pin (and every output) wears a centre dot: the pin's colour on the empty ring, dark on the fill, so optional
@@ -439,10 +445,12 @@
     // A pin that takes several connections is a square, not a dot: the shape says it before anything is tried on it.
     .ui-graph__pin[data-ui-graph-pin-many] {
         border-radius: 0.1875rem;
+        corner-shape: @ui-corner-shape;
     }
 
     .ui-graph__pin[data-ui-graph-pin-many]::before {
         border-radius: 0.0625rem;
+        corner-shape: @ui-corner-shape;
     }
 
     @{ui-graph-pin-live} {
@@ -478,6 +486,7 @@
     .ui-graph--connecting .ui-graph__pin--aimed::before {
         inset: -2px;
         border-radius: inherit;
+        corner-shape: inherit;
         background: var(--ui-graph-pin-color);
         transform: scale(1);
     }
@@ -537,6 +546,7 @@
         align-items: center;
         justify-content: center;
         border-radius: var(--ui-radius-input);
+        corner-shape: @ui-corner-shape;
         background: @ui-graph-glass;
         color: var(--ui-text-muted);
     }
@@ -552,6 +562,7 @@
     padding: @ui-space-1 0.375rem;
     border: var(--ui-border-width) dashed var(--ui-color-border);
     border-radius: var(--ui-radius-input);
+    corner-shape: @ui-corner-shape;
     background: var(--ui-color-background);
     overflow: auto;
 }
@@ -840,6 +851,7 @@ dialog.ui-graph__picker {
     padding-inline-start: calc(0.25rem + var(--ui-graph-picker-depth, 0) * 0.875rem);
     // An entry's corners, as the framework's own list entries have: a list of square slabs in a rounded dialog reads as a table.
     border-radius: @ui-list-entry-radius;
+    corner-shape: @ui-corner-shape;
     .ui-entry-hover();
     .ui-entry-keyboard();
 }
@@ -889,6 +901,7 @@ dialog.ui-graph__picker {
     gap: @ui-space-3;
     padding: @ui-space-2 0.625rem;
     border-radius: @ui-list-entry-radius;
+    corner-shape: @ui-corner-shape;
     transition: background-color @ui-motion-fast @ui-motion-ease;
 }
 
@@ -968,6 +981,7 @@ dialog.ui-graph__picker {
     padding: @ui-space-1;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-button);
+    corner-shape: @ui-corner-shape;
     .ui-graph-surface-ground();
 }
 
@@ -999,6 +1013,7 @@ dialog.ui-graph__picker {
     overflow: hidden auto;
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
+    corner-shape: @ui-corner-shape;
     .ui-graph-surface-ground();
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
@@ -1056,6 +1071,7 @@ dialog.ui-graph__picker {
     margin-inline-start: -@ui-space-1;
     padding: @ui-space-1;
     border-radius: var(--ui-radius-button);
+    corner-shape: @ui-corner-shape;
     line-height: 1.25;
     .ui-reveal-hover();
 
