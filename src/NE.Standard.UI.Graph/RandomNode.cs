@@ -65,12 +65,15 @@ public sealed class RandomNode : IGraphNode
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5394:Do not use insecure randomness", Justification = "A sheet's random numbers are seeded to be drawn again; nothing secret rests on them.")]
     public void Execute(UINodeRunContext context)
     {
+        if (!double.IsFinite(From) || !double.IsFinite(To))
+            throw new UINodeFailureException("From and To must be finite numbers.");
+
         var low = Math.Min(From, To);
         var high = Math.Max(From, To);
         var draw = Draw(Seed);
 
         Used = Seed;
-        Value = Whole ? DrawWhole(low, high, draw) : low + (draw * (high - low));
+        Value = Whole ? DrawWhole(low, high, draw) : DrawContinuous(low, high, draw);
         Seed = Mode switch
         {
             UIRandomMode.Randomize => Random.Shared.Next(),
@@ -101,8 +104,22 @@ public sealed class RandomNode : IGraphNode
         var first = Math.Ceiling(low);
         var last = Math.Floor(high);
 
-        return first <= last
-            ? Math.Min(first + Math.Floor(draw * (last - first + 1)), last)
-            : throw new UINodeFailureException("No whole number lies between From and To.");
+        if (first > last)
+            throw new UINodeFailureException("No whole number lies between From and To.");
+
+        var span = last - first + 1;
+
+        return double.IsFinite(span)
+            ? Math.Min(first + Math.Floor(draw * span), last)
+            : Math.Clamp(Math.Truncate(((1.0 - draw) * first) + (draw * last)), first, last);
+    }
+
+    private static double DrawContinuous(double low, double high, double draw)
+    {
+        var span = high - low;
+
+        return double.IsFinite(span)
+            ? low + (draw * span)
+            : Math.Clamp(((1.0 - draw) * low) + (draw * high), low, high);
     }
 }

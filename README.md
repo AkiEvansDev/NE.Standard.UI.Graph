@@ -57,7 +57,7 @@ public sealed class OperationNode : IGraphNode
     [GraphInput(Title = "Right")]
     public double Right { get; set; }
 
-    [GraphInput(NoPin = true, Choices = ["Add", "Subtract", "Multiply", "Divide"])]
+    [GraphInput(Choices = ["Add", "Subtract", "Multiply", "Divide"])]
     public string Operation { get; set; } = "Add";
 
     [GraphOutput]

@@ -291,7 +291,7 @@ internal abstract partial class NodesSheetController : UIControllerBase
     {
         ArgumentNullException.ThrowIfNull(values);
 
-        Dictionary<string, object?> map = new(StringComparer.Ordinal);
+        Dictionary<string, object?> map = [with(StringComparer.Ordinal)];
 
         foreach ((var name, var value) in values)
             map[name] = value;

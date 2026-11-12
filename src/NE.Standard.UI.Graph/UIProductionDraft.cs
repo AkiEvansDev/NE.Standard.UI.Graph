@@ -111,7 +111,7 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
             draft.WriteTo(craft, colors);
         }
 
-        HashSet<string> resources = new(StringComparer.Ordinal);
+        HashSet<string> resources = [with(StringComparer.Ordinal)];
 
         foreach (UIProductionEntry entry in entries)
         {
@@ -147,7 +147,7 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
     /// <summary>How many entries the catalogue would hold once the draft is applied: less those it removes, and the keys it adds.</summary>
     private int CountAfter(IList<UIProductionEntry> entries)
     {
-        HashSet<string> keys = new(StringComparer.Ordinal);
+        HashSet<string> keys = [with(StringComparer.Ordinal)];
 
         foreach (UIProductionEntry entry in entries)
             _ = keys.Add(entry.Id);

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -9,12 +9,6 @@
     <Description>Graphs for the NE.Standard UI framework, three components on one canvas (pan, zoom, groups, a document the viewer edits and saves): NodesComponent, a node editor whose kinds are the application's own attributed classes, with a runner; LayeredGraphComponent, a layered graph over the application's nodes and links; ProductionGraphComponent, resources and recipes with a planner. Platform-independent; the web rendering is NE.Standard.UI.Web.Graph.</Description>
     <PackageTags>NE.Standard,UI,Graph,Nodes,Canvas,Editor</PackageTags>
   </PropertyGroup>
-
-  <!-- AddGraphFiles is how an application opens folders to the file kinds; a node's unforeseen failure goes to the application's log. -->
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
-  </ItemGroup>
 
   <!-- The framework is a sibling in the monorepo and a package in this slice's mirror. Either way the
        produced nupkg depends on the framework at $(CoreVersion). The generator is what turns a declared

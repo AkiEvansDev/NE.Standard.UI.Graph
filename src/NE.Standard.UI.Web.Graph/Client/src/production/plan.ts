@@ -102,8 +102,15 @@ export function solvePlan(entries: readonly ProductionEntry[], request: PlanRequ
     const targets = new Map<string, number>();
 
     for (const target of request.targets) {
-        if (resources.has(target.resource) && target.amount > Eps)
-            targets.set(target.resource, (targets.get(target.resource) ?? 0) + target.amount);
+        if (!resources.has(target.resource) || !Number.isFinite(target.amount) || target.amount <= Eps)
+            continue;
+
+        const next = (targets.get(target.resource) ?? 0) + target.amount;
+
+        if (!Number.isFinite(next))
+            return unsettledPlan();
+
+        targets.set(target.resource, next);
     }
 
     if (targets.size === 0)
@@ -134,22 +141,36 @@ export function solvePlan(entries: readonly ProductionEntry[], request: PlanRequ
     const columns = crafts.filter(craft => helping.has(craft));
     const made = [...resources.keys()].filter(id => needed.has(id) && makers.has(id));
     const rows = made.map(id => columns.map(craft => amountOf(craft.products, id) - amountOf(craft.ingredients, id)));
+
+    for (const row of rows) {
+        if (!row.every(Number.isFinite))
+            return unsettledPlan();
+    }
+
     const atLeast = made.map(id => targets.get(id) ?? 0);
     const weigh = request.objective === "LeastCost";
     const raw = columns.map(craft => rawOf(craft, resources, makers, false));
     const priced = weigh ? columns.map(craft => rawOf(craft, resources, makers, true)) : raw;
-    const time = columns.map(craft => Math.max(0, craft.time));
+    const time = columns.map(craft => (Number.isFinite(craft.time) ? Math.max(0, craft.time) : Number.NaN));
+
+    if (!raw.every(Number.isFinite) || !priced.every(Number.isFinite) || !time.every(Number.isFinite))
+        return unsettledPlan();
+
     const runs = request.objective === "LeastTime"
         ? minimise({ rows, atLeast, cost: time, tieCost: raw })
         : minimise({ rows, atLeast, cost: priced, tieCost: time });
 
-    if (!Array.isArray(runs))
+    if (!Array.isArray(runs) || !runs.every(Number.isFinite))
         return { status: runs === "infeasible" ? "Infeasible" : "Unsettled", crafts: [], resources: [], time: 0, raw: 0, cost: 0 };
 
     // Made once, a craft runs a whole number of times; counted over a period, a run and a half a minute is a rate like any other.
     const whole = request.period === "Once" ? wholeRuns(rows, atLeast, runs) : null;
 
     return readPlan(resources, makers, targets, columns, whole ?? runs, periodSeconds(request.period));
+}
+
+function unsettledPlan(): Plan {
+    return { status: "Unsettled", crafts: [], resources: [], time: 0, raw: 0, cost: 0 };
 }
 
 /**
@@ -168,6 +189,9 @@ function wholeRuns(rows: readonly (readonly number[])[], atLeast: readonly numbe
             for (let column = 0; column < whole.length; column++)
                 have += rows[row][column] * whole[column];
 
+            if (!Number.isFinite(have))
+                return null;
+
             if (have >= atLeast[row] - 1e-6)
                 continue;
 
@@ -182,6 +206,10 @@ function wholeRuns(rows: readonly (readonly number[])[], atLeast: readonly numbe
                 return null;
 
             whole[maker] += Math.ceil((atLeast[row] - have) / rows[row][maker] - 1e-9);
+
+            if (!Number.isFinite(whole[maker]))
+                return null;
+
             short = true;
         }
 
@@ -193,6 +221,9 @@ function wholeRuns(rows: readonly (readonly number[])[], atLeast: readonly numbe
 }
 
 function readPlan(resources: ReadonlyMap<string, Resource>, makers: ReadonlyMap<string, Craft[]>, targets: ReadonlyMap<string, number>, columns: readonly Craft[], runs: readonly number[], period: number | null): Plan {
+    if (period !== null && (!Number.isFinite(period) || period <= 0))
+        return unsettledPlan();
+
     const planned: PlanCraft[] = [];
     const produced = new Map<string, number>();
     const consumed = new Map<string, number>();
@@ -202,19 +233,48 @@ function readPlan(resources: ReadonlyMap<string, Resource>, makers: ReadonlyMap<
         const craft = columns[index];
         const count = runs[index];
 
+        if (!Number.isFinite(count))
+            return unsettledPlan();
+
         if (count <= Eps)
             continue;
 
         const time = count * Math.max(0, craft.time);
-
-        planned.push({ craft: craft.id, runs: count, time: Math.min(time, LongestTime), workers: period === null ? null : Math.min(Math.ceil(time / period - Eps), MostWorkers) });
         total += time;
 
-        for (const product of amountsOf(craft.products, resources))
-            produced.set(product.resource, (produced.get(product.resource) ?? 0) + count * product.amount);
+        if (!Number.isFinite(time) || !Number.isFinite(total))
+            return unsettledPlan();
 
-        for (const ingredient of amountsOf(craft.ingredients, resources))
-            consumed.set(ingredient.resource, (consumed.get(ingredient.resource) ?? 0) + count * ingredient.amount);
+        let workers: number | null = null;
+
+        if (period !== null) {
+            const neededWorkers = time / period - Eps;
+
+            if (!Number.isFinite(neededWorkers))
+                return unsettledPlan();
+
+            workers = Math.max(0, Math.min(Math.ceil(neededWorkers), MostWorkers));
+        }
+
+        planned.push({ craft: craft.id, runs: count, time: Math.min(time, LongestTime), workers });
+
+        for (const product of amountsOf(craft.products, resources)) {
+            const next = (produced.get(product.resource) ?? 0) + count * product.amount;
+
+            if (!Number.isFinite(next))
+                return unsettledPlan();
+
+            produced.set(product.resource, next);
+        }
+
+        for (const ingredient of amountsOf(craft.ingredients, resources)) {
+            const next = (consumed.get(ingredient.resource) ?? 0) + count * ingredient.amount;
+
+            if (!Number.isFinite(next))
+                return unsettledPlan();
+
+            consumed.set(ingredient.resource, next);
+        }
     }
 
     const read: PlanResource[] = [];
@@ -231,11 +291,21 @@ function readPlan(resources: ReadonlyMap<string, Resource>, makers: ReadonlyMap<
         const takes = consumed.get(entry.id) ?? 0;
 
         if (source) {
-            raw += takes + target;
-            cost += (takes + target) * costOf(entry);
+            const brought = takes + target;
+
+            raw += brought;
+            cost += brought * costOf(entry);
+
+            if (!Number.isFinite(raw) || !Number.isFinite(cost))
+                return unsettledPlan();
         }
 
-        read.push({ resource: entry.id, source, target, produced: gives, consumed: takes, surplus: source ? 0 : settle(gives - takes - target) });
+        const surplus = source ? 0 : settle(gives - takes - target);
+
+        if (!Number.isFinite(surplus))
+            return unsettledPlan();
+
+        read.push({ resource: entry.id, source, target, produced: gives, consumed: takes, surplus });
     }
 
     return { status: "Solved", crafts: planned, resources: read, time: Math.min(total, LongestTime), raw, cost };
@@ -260,14 +330,14 @@ function costOf(resource: Resource): number {
 
 /** The amounts that count: of a resource the catalogue has, and above zero. */
 function amountsOf(amounts: readonly CraftAmount[], resources: ReadonlyMap<string, Resource>): CraftAmount[] {
-    return amounts.filter(amount => resources.has(amount.resource) && amount.amount > 0);
+    return amounts.filter(amount => resources.has(amount.resource) && Number.isFinite(amount.amount) && amount.amount > 0);
 }
 
 function amountOf(amounts: readonly CraftAmount[], resource: string): number {
     let sum = 0;
 
     for (const amount of amounts) {
-        if (amount.resource === resource && amount.amount > 0)
+        if (amount.resource === resource && Number.isFinite(amount.amount) && amount.amount > 0)
             sum += amount.amount;
     }
 

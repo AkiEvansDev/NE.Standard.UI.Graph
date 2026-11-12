@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <!-- A demo's footprint over throughput under load: see docs/PROJECT.md on the GC mode. -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>

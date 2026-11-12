@@ -129,6 +129,18 @@ public sealed class GraphInputAttribute : Attribute
     public bool NoPin { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the input carries a pin on the node; unset, every non-state input carries one except choice and enum
+    /// inputs, which carry no pin unless opted in here.
+    /// </summary>
+    public bool HasPin
+    {
+        get => ExplicitHasPin == true;
+        set => ExplicitHasPin = value;
+    }
+
+    internal bool? ExplicitHasPin { get; private set; }
+
+    /// <summary>
     /// Gets or sets how tall the editor stands, in rem — a picture worth looking at, a text of several lines.
     /// </summary>
     public double Height { get; set; } = double.NaN;

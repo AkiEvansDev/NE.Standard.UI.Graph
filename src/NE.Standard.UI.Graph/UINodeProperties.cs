@@ -29,7 +29,7 @@ internal static class UINodeProperties
     /// <summary>The public instance properties, one per name: a property a class hides is the class's own, not its base's.</summary>
     public static PropertyInfo[] Own(Type type)
     {
-        Dictionary<string, int> places = new(StringComparer.Ordinal);
+        Dictionary<string, int> places = [with(StringComparer.Ordinal)];
         List<PropertyInfo> own = [];
 
         foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))

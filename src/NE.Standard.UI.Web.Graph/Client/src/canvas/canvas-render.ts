@@ -52,9 +52,8 @@ export class CanvasRender {
     // Which item the pointer rests on, and the parts of every drawn edge by its key: what the focus marks, without drawing again.
     private focusItem: string | null = null;
     private readonly edgeParts = new Map<string, Element[]>();
-    // The last draw's painted pieces by edge key and source, reused while shape, colour and dashes stand: a drag redraws every edge
-    // each frame, and rebuilding an edge's lines is the cost.
-    private paintedEdges = new Map<string, PaintedEdge>();
+    // The last draw's elements by edge key, reused across drag frames so neither SVG paths nor label chips are torn down and rebuilt.
+    private drawnEdges = new Map<string, DrawnEdge>();
 
     public constructor(context: PluginEngineContext, scene: HTMLElement, nodeLayer: HTMLElement, groupLayer: HTMLElement, edgeLayer: SVGSVGElement, labelLayer: HTMLElement, nodeElements: Map<string, HTMLElement>, documentState: CanvasDocumentState<CanvasDocument>, selection: CanvasSelection, settings: CanvasSettings, view: CanvasView, kind: () => CanvasKind) {
         this.context = context;
@@ -165,6 +164,7 @@ export class CanvasRender {
             return;
 
         this.nodeBoxes.set(id, size);
+        this.kind().nodeResized?.(id);
 
         // Every item has a watch of its own, and one layout pass may grow several: the edges are drawn once after all of them.
         if (this.edgesQueued)
@@ -266,9 +266,9 @@ export class CanvasRender {
     public drawEdges(): void {
         const kind = this.kind();
         const edgeMenu = kind.hasEdgeMenu();
+        const contextMenuUse = this.context.names.contextMenuUse;
 
-        this.edgeLayer.replaceChildren();
-        this.labelLayer.replaceChildren();
+        this.clearPending();
         this.edgeParts.clear();
         this.labelObstacles = null;
 
@@ -277,7 +277,9 @@ export class CanvasRender {
         const focused = this.focusItem === null ? null : new Set(kind.related(this.focusItem).edges);
         const labels: DrawnLabel[] = [];
         const segments: AxisSegment[] = [];
-        const painted = new Map<string, PaintedEdge>();
+        const nextEdges = new Map<string, DrawnEdge>();
+        const edgeChildren: Element[] = [];
+        const labelChildren: HTMLElement[] = [];
 
         for (const edge of kind.edges()) {
             const ends = kind.edgeEnds(edge);
@@ -287,98 +289,175 @@ export class CanvasRender {
 
             const parts: Element[] = [];
             const related = focused !== null && focused.has(edge.id);
+            const selected = this.selection.hasEdge(edge.id);
 
             this.edgeParts.set(edge.id, parts);
 
             const color = kind.edgeColor(edge);
             const points = edge.points.length === 0 && ends.via !== undefined ? ends.via : edge.points;
             const drawing = drawEdge(this.settings.edgeShape, ends.from, ends.to, points, { axis: ends.axis, back: ends.back, loop: ends.loop, arrow: ends.arrow, reversed: ends.reversed, turns: edge.points.length === 0 ? ends.turns : undefined });
-            const path = document.createElementNS(SvgNamespace, "path");
+            const lineClass = ends.back === true ? "ui-graph__edge-line ui-graph__edge-line--back" : "ui-graph__edge-line";
+            const paintedFrom = `${drawing.path}|${color}|${lineClass}`;
+            const hitFrom = `${drawing.path}|${color}|${ends.back === true}|${ends.conflict === true}|${edgeMenu}`;
 
             if (drawing.pieces === null)
                 addAxisSegments(drawing.path, segments);
 
-            path.setAttribute("d", drawing.path);
-            path.setAttribute("class", ends.back === true ? "ui-graph__edge ui-graph__edge--back" : "ui-graph__edge");
-            path.setAttribute(EdgeAttribute, edge.id);
-            path.style.setProperty("--ui-graph-pin-color", color);
+            let entry = this.drawnEdges.get(edge.id);
 
-            if (this.selection.hasEdge(edge.id))
-                path.setAttribute(SelectedAttribute, "");
+            if (entry === undefined) {
+                entry = {
+                    hit: document.createElementNS(SvgNamespace, "path"),
+                    hitFrom: "",
+                    paintedFrom,
+                    line: paintedEdge(drawing, color, lineClass),
+                    arrow: null,
+                    arrowFrom: "",
+                    reroutes: [],
+                    label: null,
+                    labelText: "",
+                    labelMenu: false
+                };
+            }
+            else if (entry.paintedFrom !== paintedFrom) {
+                entry.paintedFrom = paintedFrom;
+                entry.line = paintedEdge(drawing, color, lineClass);
+            }
 
-            if (ends.conflict === true)
-                path.setAttribute("data-ui-graph-conflict", "changed");
+            nextEdges.set(edge.id, entry);
 
-            if (edgeMenu)
-                path.setAttribute(this.context.names.contextMenuUse, EdgeMenuName);
+            const path = entry.hit;
 
+            if (entry.hitFrom !== hitFrom) {
+                entry.hitFrom = hitFrom;
+                path.setAttribute("d", drawing.path);
+                path.setAttribute("class", ends.back === true ? "ui-graph__edge ui-graph__edge--back" : "ui-graph__edge");
+                path.setAttribute(EdgeAttribute, edge.id);
+                path.style.setProperty("--ui-graph-pin-color", color);
+
+                if (ends.conflict === true)
+                    path.setAttribute("data-ui-graph-conflict", "changed");
+                else
+                    path.removeAttribute("data-ui-graph-conflict");
+
+                if (edgeMenu)
+                    path.setAttribute(contextMenuUse, EdgeMenuName);
+                else
+                    path.removeAttribute(contextMenuUse);
+            }
+
+            path.toggleAttribute(SelectedAttribute, selected);
             path.toggleAttribute(RelatedAttribute, related);
-            this.edgeLayer.append(path);
+            edgeChildren.push(path);
             parts.push(path);
 
-            const lineClass = ends.back === true ? "ui-graph__edge-line ui-graph__edge-line--back" : "ui-graph__edge-line";
-            const paintedFrom = `${drawing.path}|${color}|${lineClass}`;
-            const kept = this.paintedEdges.get(edge.id);
-            const line = kept !== undefined && kept.from === paintedFrom ? kept.group : paintedEdge(drawing, color, lineClass);
+            const line = entry.line;
 
-            painted.set(edge.id, { from: paintedFrom, group: line });
-            line.toggleAttribute(SelectedAttribute, this.selection.hasEdge(edge.id));
+            line.toggleAttribute(SelectedAttribute, selected);
             line.toggleAttribute(RelatedAttribute, related);
-            this.edgeLayer.append(line);
+            edgeChildren.push(line);
             parts.push(line);
 
             if (drawing.arrow !== null) {
-                const arrow = document.createElementNS(SvgNamespace, "path");
+                const arrowFrom = `${drawing.arrow}|${color}`;
+                let arrow = entry.arrow;
 
-                arrow.setAttribute("d", drawing.arrow);
-                arrow.setAttribute("class", "ui-graph__edge-arrow");
-                arrow.style.setProperty("--ui-graph-pin-color", color);
+                if (arrow === null) {
+                    arrow = document.createElementNS(SvgNamespace, "path");
+                    arrow.setAttribute("class", "ui-graph__edge-arrow");
+                    entry.arrow = arrow;
+                    entry.arrowFrom = "";
+                }
+
+                if (entry.arrowFrom !== arrowFrom) {
+                    entry.arrowFrom = arrowFrom;
+                    arrow.setAttribute("d", drawing.arrow);
+                    arrow.style.setProperty("--ui-graph-pin-color", color);
+                }
+
                 arrow.toggleAttribute(RelatedAttribute, related);
-                this.edgeLayer.append(arrow);
+                edgeChildren.push(arrow);
                 parts.push(arrow);
             }
+            else {
+                entry.arrow = null;
+                entry.arrowFrom = "";
+            }
 
-            if (ends.label !== null && ends.label !== undefined && ends.label.length > 0)
-                parts.push(this.drawLabel(path, ends.label, edge.id, edgeMenu, related, labels));
+            if (ends.label !== null && ends.label !== undefined && ends.label.length > 0) {
+                const chip = this.syncLabel(entry, edge.id, ends.label, edgeMenu, related);
+
+                labelChildren.push(chip);
+                labels.push({ chip, path });
+                parts.push(chip);
+            }
+            else {
+                entry.label = null;
+                entry.labelText = "";
+                entry.labelMenu = false;
+            }
+
+            entry.reroutes.length = Math.min(entry.reroutes.length, edge.points.length);
 
             edge.points.forEach((point, index) => {
-                const mark = document.createElementNS(SvgNamespace, "circle");
+                let mark = entry.reroutes[index];
 
-                mark.setAttribute("class", "ui-graph__reroute");
-                mark.setAttribute(ReroutAttribute, edge.id);
+                if (mark === undefined) {
+                    mark = document.createElementNS(SvgNamespace, "circle");
+                    mark.setAttribute("class", "ui-graph__reroute");
+                    mark.setAttribute(ReroutAttribute, edge.id);
+                    mark.setAttribute("r", "4");
+                    entry.reroutes.push(mark);
+                }
+
                 mark.setAttribute("data-ui-graph-reroute-index", String(index));
                 mark.setAttribute("cx", String(point.x));
                 mark.setAttribute("cy", String(point.y));
-                mark.setAttribute("r", "4");
                 mark.style.setProperty("--ui-graph-pin-color", color);
                 mark.toggleAttribute(RelatedAttribute, related);
 
-                this.edgeLayer.append(mark);
+                edgeChildren.push(mark);
                 parts.push(mark);
             });
         }
 
-        this.paintedEdges = painted;
+        this.drawnEdges = nextEdges;
+        reconcileChildren(this.edgeLayer, edgeChildren);
+        reconcileChildren(this.labelLayer, labelChildren);
         this.placeLabels(labels, segments);
 
         // The pointer may already rest on an item: what was marked before this draw is marked again on the parts it made.
         this.markFocus();
     }
 
-    /** Draws an edge's label, words in a chip of their own; it is placed with the rest once every edge is drawn. */
-    private drawLabel(path: SVGPathElement, label: string, edgeId: string, edgeMenu: boolean, related: boolean, labels: DrawnLabel[]): HTMLElement {
-        const chip = document.createElement("span");
+    /** Reuses or creates an edge's label chip; it is placed with the rest once every edge is drawn. */
+    private syncLabel(entry: DrawnEdge, edgeId: string, label: string, edgeMenu: boolean, related: boolean): HTMLElement {
+        let chip = entry.label;
 
-        chip.className = "ui-graph__edge-label";
-        chip.setAttribute(EdgeAttribute, edgeId);
+        if (chip === null) {
+            chip = document.createElement("span");
+            chip.className = "ui-graph__edge-label";
+            chip.setAttribute(EdgeAttribute, edgeId);
+            entry.label = chip;
+            entry.labelText = "";
+            entry.labelMenu = false;
+        }
 
-        if (edgeMenu)
-            chip.setAttribute(this.context.names.contextMenuUse, EdgeMenuName);
+        if (entry.labelMenu !== edgeMenu) {
+            entry.labelMenu = edgeMenu;
 
-        chip.textContent = label;
+            if (edgeMenu)
+                chip.setAttribute(this.context.names.contextMenuUse, EdgeMenuName);
+            else
+                chip.removeAttribute(this.context.names.contextMenuUse);
+        }
+
+        if (entry.labelText !== label) {
+            entry.labelText = label;
+            chip.textContent = label;
+        }
+
         chip.toggleAttribute(RelatedAttribute, related);
-        this.labelLayer.append(chip);
-        labels.push({ chip, path });
 
         return chip;
     }
@@ -543,8 +622,36 @@ type DrawnLabel = { readonly chip: HTMLElement; readonly path: SVGPathElement };
 /** One straight axis-aligned segment of a stepped edge, for labels to keep clear of when it would run through them off-centre. */
 type AxisSegment = { readonly x1: number; readonly y1: number; readonly x2: number; readonly y2: number };
 
-/** An edge's painted pieces, and what they were painted from: its path, its colour and its class. */
-type PaintedEdge = { readonly from: string; readonly group: SVGGElement };
+/** An edge's reusable DOM and SVG parts across redraws. */
+type DrawnEdge = {
+    readonly hit: SVGPathElement;
+    hitFrom: string;
+    paintedFrom: string;
+    line: SVGGElement;
+    arrow: SVGPathElement | null;
+    arrowFrom: string;
+    readonly reroutes: SVGCircleElement[];
+    label: HTMLElement | null;
+    labelText: string;
+    labelMenu: boolean;
+};
+
+function reconcileChildren(parent: Element, wanted: readonly Element[]): void {
+    let cursor: Element | null = parent.firstElementChild;
+
+    for (const child of wanted) {
+        if (child === cursor)
+            cursor = cursor.nextElementSibling;
+        else
+            parent.insertBefore(child, cursor);
+    }
+
+    while (cursor !== null) {
+        const stale = cursor;
+        cursor = cursor.nextElementSibling;
+        stale.remove();
+    }
+}
 
 function addAxisSegments(path: string, into: AxisSegment[]): void {
     let prevX: number | null = null;

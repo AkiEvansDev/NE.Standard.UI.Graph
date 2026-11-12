@@ -84,7 +84,7 @@ public static class PlannerCatalogue
         ArgumentNullException.ThrowIfNull(resources);
         ArgumentNullException.ThrowIfNull(pictures);
 
-        List<UIProductionEntry> entries = new(resources.Count * 2);
+        List<UIProductionEntry> entries = [with(resources.Count * 2)];
 
         foreach (ResourceRecord resource in resources)
             entries.Add(new UIResource(resource.Id) { Title = resource.Name, Icon = resource.Icon, Image = pictures.AddressOf(resource), Color = resource.Color });
@@ -166,7 +166,7 @@ public static class PlannerCatalogue
         foreach (ResourceRecord resource in resources)
             byId[resource.Id] = resource;
 
-        HashSet<string> reached = new(StringComparer.Ordinal);
+        HashSet<string> reached = [with(StringComparer.Ordinal)];
         Stack<string> pending = new();
         pending.Push(resourceId);
 
@@ -185,7 +185,7 @@ public static class PlannerCatalogue
         }
 
         // In the catalogue's own order, so the layout is the same whichever resource is opened first.
-        List<ResourceRecord> result = new(reached.Count);
+        List<ResourceRecord> result = [with(reached.Count)];
 
         foreach (ResourceRecord resource in resources)
         {
@@ -198,7 +198,7 @@ public static class PlannerCatalogue
 
     private static UICraft? Craft(ResourceRecord resource)
     {
-        List<UICraftAmount> ingredients = new(resource.Ingredients.Count);
+        List<UICraftAmount> ingredients = [with(resource.Ingredients.Count)];
 
         foreach (AmountRecord ingredient in resource.Ingredients)
         {

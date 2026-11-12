@@ -82,7 +82,7 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
             draft.WriteTo(node, colors);
         }
 
-        HashSet<string> present = new(StringComparer.Ordinal);
+        HashSet<string> present = [with(StringComparer.Ordinal)];
 
         foreach (UIGraphNode node in nodes)
             _ = present.Add(node.Id);
@@ -107,7 +107,7 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
     /// <summary>How many nodes the list would hold once the draft is applied: less those it removes, and the keys it adds.</summary>
     private int CountAfter(IList<UIGraphNode> nodes)
     {
-        HashSet<string> keys = new(StringComparer.Ordinal);
+        HashSet<string> keys = [with(StringComparer.Ordinal)];
 
         foreach (UIGraphNode node in nodes)
             _ = keys.Add(node.Id);

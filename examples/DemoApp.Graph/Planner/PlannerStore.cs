@@ -61,7 +61,7 @@ public sealed class PlannerStore(PlannerDatabase database)
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = query;
 
-        Dictionary<string, List<AmountRecord>> result = new(StringComparer.Ordinal);
+        Dictionary<string, List<AmountRecord>> result = [with(StringComparer.Ordinal)];
 
         using SqliteDataReader reader = command.ExecuteReader();
 
@@ -165,7 +165,7 @@ public sealed class PlannerStore(PlannerDatabase database)
         using SqliteCommand command = connection.CreateCommand();
         command.CommandText = "SELECT id, image, image_type FROM resources WHERE image IS NOT NULL";
 
-        Dictionary<string, PictureRecord> pictures = new(StringComparer.Ordinal);
+        Dictionary<string, PictureRecord> pictures = [with(StringComparer.Ordinal)];
 
         using SqliteDataReader reader = command.ExecuteReader();
 

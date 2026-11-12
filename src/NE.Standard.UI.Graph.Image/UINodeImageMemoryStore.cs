@@ -24,8 +24,9 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
     public const long DefaultMaxBytes = 256L * 1024 * 1024;
 
     private readonly Lock _sync = new();
+    private readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
     // Every picture by its key, each holding its place in the order of use: the least recently used goes first under a cap.
-    private readonly Dictionary<string, LinkedListNode<Kept>> _files = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, LinkedListNode<Kept>> _files = [with(StringComparer.Ordinal)];
     private readonly LinkedList<Kept> _used = new();
     private readonly IUIContentAddressResolver _addresses;
     private long _bytes;
@@ -71,7 +72,7 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
         // The key is the address's last segment, since that is what the resolver made of it.
         var suffix = address.IndexOfAny(['?', '#']);
         var path = suffix < 0 ? address : address[..suffix];
-        var key = Uri.UnescapeDataString(path[(path.LastIndexOf('/') + 1)..]);
+        var key = Uri.UnescapeDataString(path[(path.LastIndexOf('/', StringComparison.Ordinal) + 1)..]);
 
         return ValueTask.FromResult(Find(key));
     }
@@ -108,7 +109,7 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
             {
                 Touch(known);
             }
-            else
+            else if (MaxBytes is not long most || file.Bytes.Length <= most)
             {
                 _files[key] = _used.AddFirst(new Kept(key, file));
                 _bytes += file.Bytes.Length;
@@ -119,14 +120,14 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
         return ValueTask.FromResult(_addresses.AddressOf(key));
     }
 
-    /// <summary>The key a picture is kept under: the hash of its bytes, its type and its name.</summary>
+    /// <summary>The key a picture is kept under: the keyed hash of its bytes, its type and its name.</summary>
     /// <remarks>
     /// The name counts because a save takes the name the picture came with, so two files alike but for their names are two
-    /// pictures.
+    /// pictures; the store's own random secret keeps addresses unguessable off known file contents.
     /// </remarks>
-    private static string KeyOf(UINodeImageFile file)
+    private string KeyOf(UINodeImageFile file)
     {
-        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using IncrementalHash hash = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA256, _key);
 
         hash.AppendData(Encoding.UTF8.GetBytes(file.ContentType));
         hash.AppendData([0]);
@@ -137,13 +138,13 @@ public sealed class UINodeImageMemoryStore : IUINodeImageStore, IUIContentProvid
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
-    /// <summary>Lets go of the pictures used longest ago while the store holds more than its cap; the one just written stays.</summary>
+    /// <summary>Lets go of the pictures used longest ago while the store holds more than its cap.</summary>
     private void Evict()
     {
         if (MaxBytes is not long most)
             return;
 
-        while (_bytes > most && _used.Count > 1 && _used.Last is { } oldest)
+        while (_bytes > most && _used.Count > 0 && _used.Last is { } oldest)
         {
             _used.RemoveLast();
             _ = _files.Remove(oldest.Value.Key);

@@ -43,6 +43,10 @@ export class NodesPickerBinding {
         this.picker?.close();
     }
 
+    public wordsChanged(): void {
+        this.picker?.wordsChanged();
+    }
+
     private addNode(type: NodeType): void {
         const settings = this.services.settings;
         const wire = this.loose;

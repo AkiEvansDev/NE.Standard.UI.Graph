@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
 using NE.Standard.UI.Primitives.Localization;
@@ -49,6 +50,23 @@ public sealed class AddNodeLogEffect : TargetedClientEffect
         Message = message;
     }
 
+    [JsonConstructor]
+    internal AddNodeLogEffect(UIComponentAddress? resolvedTarget, string nodeId, UINodeLogLevel level, UIPhrase message)
+        : base(resolvedTarget)
+    {
+        NodeId = nodeId;
+        Level = level;
+        Message = message;
+    }
+
+    private AddNodeLogEffect(UIComponentAddress resolvedTarget, UIComponentReference target, string nodeId, UINodeLogLevel level, UIPhrase message)
+        : base(resolvedTarget, target)
+    {
+        NodeId = nodeId;
+        Level = level;
+        Message = message;
+    }
+
     /// <inheritdoc/>
     public override string Kind => EffectKind;
 
@@ -72,17 +90,6 @@ public sealed class AddNodeLogEffect : TargetedClientEffect
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
-        return new CompiledAddNodeLogEffect(resolver.ResolveComponent(Target), NodeId, Level, Message);
+        return ResolvedTarget is not null ? this : new AddNodeLogEffect(resolver.ResolveComponent(Target), Target, NodeId, Level, Message);
     }
-}
-
-internal sealed class CompiledAddNodeLogEffect(UIComponentAddress target, string nodeId, UINodeLogLevel level, UIPhrase message) : CompiledTargetedClientEffect(target)
-{
-    public override string Kind => AddNodeLogEffect.EffectKind;
-
-    public string NodeId { get; } = nodeId;
-
-    public UINodeLogLevel Level { get; } = level;
-
-    public UIPhrase Message { get; } = message;
 }

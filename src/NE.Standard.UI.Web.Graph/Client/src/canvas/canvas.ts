@@ -184,11 +184,11 @@ export function findCanvas(context: EffectContext, effect: { target?: { id?: unk
 
 export type Drag =
     | { kind: "pan"; startX: number; startY: number; panX: number; panY: number }
-    | { kind: "nodes"; nodeId: string; startX: number; startY: number; moving: Map<string, Point> }
-    | { kind: "group"; startX: number; startY: number; groupId: string; origin: Point; moving: Map<string, Point> }
+    | { kind: "nodes"; nodeId: string; startX: number; startY: number; moved: boolean; moving: Map<string, Point> }
+    | { kind: "group"; startX: number; startY: number; moved: boolean; groupId: string; origin: Point; moving: Map<string, Point> }
     | { kind: "marquee"; startX: number; startY: number }
-    | { kind: "reroute"; edge: string; index: number }
-    | { kind: "resize"; of: "node" | "group"; id: string; grip: HTMLElement; startX: number; startY: number; width: number; height: number; least: { readonly width: number; readonly height: number } }
+    | { kind: "reroute"; startX: number; startY: number; moved: boolean; edge: string; index: number }
+    | { kind: "resize"; of: "node" | "group"; id: string; grip: HTMLElement; startX: number; startY: number; moved: boolean; width: number; height: number; least: { readonly width: number; readonly height: number } }
     | { kind: "map" }
     | KindDrag;
 
@@ -213,6 +213,8 @@ class Canvas {
     public readonly kind: CanvasKind;
 
     private drag: Drag | null = null;
+    private pendingMove: PointerEvent | null = null;
+    private moveFrame: number | null = null;
     private readonly pinch = new CanvasPinch();
     private pointerX = 0;
     private pointerY = 0;
@@ -370,6 +372,8 @@ class Canvas {
 
     /** Lets go of what would outlive the root: its listeners, the watch on every node's size and on the canvas's own. */
     public dispose(): void {
+        this.cancelPendingMove();
+
         for (const cleanup of this.cleanups)
             cleanup();
 
@@ -630,7 +634,7 @@ class Canvas {
         const reroute = event.target.closest<SVGElement>(`[${ReroutAttribute}]`);
 
         if (reroute !== null && !this.settings.readOnly) {
-            this.drag = { kind: "reroute", edge: reroute.getAttribute(ReroutAttribute)!, index: Number(reroute.getAttribute("data-ui-graph-reroute-index")) };
+            this.drag = { kind: "reroute", startX: scene.x, startY: scene.y, moved: false, edge: reroute.getAttribute(ReroutAttribute)!, index: Number(reroute.getAttribute("data-ui-graph-reroute-index")) };
             this.viewport.setPointerCapture(event.pointerId);
             return;
         }
@@ -742,6 +746,32 @@ class Canvas {
             return;
         }
 
+        if (typeof requestAnimationFrame !== "function") {
+            this.applyDragMove(event);
+            return;
+        }
+
+        this.pendingMove = event;
+
+        if (this.moveFrame !== null)
+            return;
+
+        this.moveFrame = requestAnimationFrame(() => {
+            this.moveFrame = null;
+            const pending = this.pendingMove;
+            this.pendingMove = null;
+
+            if (pending !== null)
+                this.applyDragMove(pending);
+        });
+    }
+
+    private applyDragMove(event: PointerEvent): void {
+        const drag = this.drag;
+
+        if (drag === null)
+            return;
+
         const at = this.view.toViewport(event);
         const scene = this.view.toScene(at.x, at.y);
 
@@ -757,30 +787,54 @@ class Canvas {
                 this.view.dragPan({ x: drag.panX, y: drag.panY }, at.x - drag.startX, at.y - drag.startY);
                 break;
 
-            // Nothing snaps to the grid while the pointer is down (it would read as a stutter); `settleDrag` grids it once the drag ends.
+            // Nothing snaps to the grid while the pointer is down (it would read as a stutter), and a press within click slop
+            // leaves the item untouched so selecting an off-grid Sugiyama node never shifts or records it; `settleDrag` grids once moved.
             case "nodes":
-                this.dragging.moveNodes(drag.moving, scene.x - drag.startX, scene.y - drag.startY);
-                break;
-
             case "group":
-                this.dragging.moveGroup(drag, scene);
+            case "resize":
+            case "reroute":
+                if (!drag.moved && pressedInPlace({ x: drag.startX, y: drag.startY }, scene, this.view.zoom))
+                    break;
+
+                drag.moved = true;
+
+                if (drag.kind === "nodes")
+                    this.dragging.moveNodes(drag.moving, scene.x - drag.startX, scene.y - drag.startY);
+                else if (drag.kind === "group")
+                    this.dragging.moveGroup(drag, scene);
+                else if (drag.kind === "resize")
+                    this.dragging.resize(drag, scene);
+                else
+                    this.updateReroute(drag, scene);
                 break;
 
             case "marquee":
                 this.selection.drawMarquee(drag.startX, drag.startY, scene.x, scene.y);
                 break;
 
-            case "resize":
-                this.dragging.resize(drag, scene);
-                break;
-
-            case "reroute":
-                this.updateReroute(drag, scene);
-                break;
-
             case "kind":
                 drag.move(scene, event);
                 break;
+        }
+    }
+
+    private flushPendingMove(): void {
+        const pending = this.pendingMove;
+
+        this.cancelPendingMove();
+
+        if (pending !== null)
+            this.applyDragMove(pending);
+    }
+
+    private cancelPendingMove(): void {
+        this.pendingMove = null;
+
+        if (this.moveFrame !== null) {
+            if (typeof cancelAnimationFrame === "function")
+                cancelAnimationFrame(this.moveFrame);
+
+            this.moveFrame = null;
         }
     }
 
@@ -794,6 +848,8 @@ class Canvas {
     private pointerUp(event: PointerEvent): void {
         if (this.liftFinger(event))
             return;
+
+        this.flushPendingMove();
 
         const drag = this.drag;
 
@@ -813,12 +869,8 @@ class Canvas {
 
         // A node let go where the mouse pressed it is clicked: the press captured the pointer, so the browser's click names the
         // viewport. A finger's tap is clicked on what it tapped, and `click` hears it.
-        if (drag.kind === "nodes" && event.pointerType !== "touch") {
-            const at = this.view.toViewport(event);
-
-            if (pressedInPlace({ x: drag.startX, y: drag.startY }, this.view.toScene(at.x, at.y), this.view.zoom))
-                this.raiseNodeClick(drag.nodeId);
-        }
+        if (drag.kind === "nodes" && !drag.moved && event.pointerType !== "touch")
+            this.raiseNodeClick(drag.nodeId);
     }
 
     private fingerTaken(event: PointerEvent): void {
@@ -847,6 +899,8 @@ class Canvas {
      * drop, and a kind's own drag puts back what it took out.
      */
     private pointerCancel(): void {
+        this.flushPendingMove();
+
         const drag = this.drag;
 
         if (drag === null)
@@ -859,9 +913,9 @@ class Canvas {
         this.recordMoved(drag);
     }
 
-    /** A move, a group's move, a reroute or a resize, settled on the grid and made a step to undo. */
+    /** A move, a group's move, a reroute or a resize that left its press, settled on the grid and made a step to undo. */
     private recordMoved(drag: Drag): void {
-        if (drag.kind === "nodes" || drag.kind === "group" || drag.kind === "reroute" || drag.kind === "resize") {
+        if ((drag.kind === "nodes" || drag.kind === "group" || drag.kind === "reroute" || drag.kind === "resize") && drag.moved) {
             this.settleDrag(drag);
             this.documentState.edited(false);
         }
@@ -898,6 +952,8 @@ class Canvas {
     }
 
     private endDrag(): void {
+        this.cancelPendingMove();
+
         const drag = this.drag;
 
         this.drag = null;

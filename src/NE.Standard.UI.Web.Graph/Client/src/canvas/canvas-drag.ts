@@ -64,7 +64,7 @@ export class CanvasDrag {
                 moving.set(id, { x: node.x, y: node.y });
         }
 
-        return { kind: "nodes", nodeId, startX: scene.x, startY: scene.y, moving };
+        return { kind: "nodes", nodeId, startX: scene.x, startY: scene.y, moved: false, moving };
     }
 
     /** The items by id, read afresh: a document the server sends mid-drag replaces the objects, and the drag goes on over the new ones. */
@@ -88,6 +88,7 @@ export class CanvasDrag {
             grip,
             startX: scene.x,
             startY: scene.y,
+            moved: false,
             width: element.offsetWidth,
             height: element.offsetHeight,
             least: groupId === null ? NodeLeast : this.groupLeast(element)
@@ -122,7 +123,7 @@ export class CanvasDrag {
                 moving.set(node.id, { x: node.x, y: node.y });
         }
 
-        return { kind: "group", startX: scene.x, startY: scene.y, groupId, origin: { x: group.x, y: group.y }, moving };
+        return { kind: "group", startX: scene.x, startY: scene.y, moved: false, groupId, origin: { x: group.x, y: group.y }, moving };
     }
 
     // By its id at every step, as the nodes are: a document the server sends mid-drag replaces the objects, and the drag goes on
@@ -193,6 +194,7 @@ export class CanvasDrag {
         node.width = element.offsetWidth;
         node.height = element.offsetHeight;
 
+        this.host.kind?.().nodeResized?.(node.id);
         this.host.drawEdges();
         this.host.drawMinimap();
     }

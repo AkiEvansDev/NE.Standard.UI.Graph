@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
 
@@ -35,6 +36,25 @@ public sealed class SetNodeValueEffect : TargetedClientEffect
         Value = UINodeDisplayValue.Wire(value);
     }
 
+    [JsonConstructor]
+    internal SetNodeValueEffect(UIComponentAddress? resolvedTarget, string nodeId, string pinName, object? value, bool committed = false)
+        : base(resolvedTarget)
+    {
+        NodeId = nodeId;
+        PinName = pinName;
+        Value = value;
+        Committed = committed;
+    }
+
+    private SetNodeValueEffect(UIComponentAddress resolvedTarget, UIComponentReference target, string nodeId, string pinName, object? value, bool committed)
+        : base(resolvedTarget, target)
+    {
+        NodeId = nodeId;
+        PinName = pinName;
+        Value = value;
+        Committed = committed;
+    }
+
     /// <inheritdoc/>
     public override string Kind => EffectKind;
 
@@ -65,19 +85,6 @@ public sealed class SetNodeValueEffect : TargetedClientEffect
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
-        return new CompiledSetNodeValueEffect(resolver.ResolveComponent(Target), NodeId, PinName, Value, Committed);
+        return ResolvedTarget is not null ? this : new SetNodeValueEffect(resolver.ResolveComponent(Target), Target, NodeId, PinName, Value, Committed);
     }
-}
-
-internal sealed class CompiledSetNodeValueEffect(UIComponentAddress target, string nodeId, string pinName, object? value, bool committed) : CompiledTargetedClientEffect(target)
-{
-    public override string Kind => SetNodeValueEffect.EffectKind;
-
-    public string NodeId { get; } = nodeId;
-
-    public string PinName { get; } = pinName;
-
-    public object? Value { get; } = value;
-
-    public bool Committed { get; } = committed;
 }

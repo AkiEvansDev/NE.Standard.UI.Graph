@@ -21,14 +21,19 @@
     .ui-user-select(none);
 }
 
-// A resource's self-said badge is centred over its circle, not on the rim like the graph's plain count badge — a longer
-// line of words (`×120 · 4 at once`) hung off one corner reads as belonging to whatever's beside the circle.
+// A resource's self-said badge stands clear above its circle's outer rim rather than straddling the bright border, and lifts the
+// hover action bar above itself when the circle is editable.
 .ui-graph[data-ui-graph-kind="production"] .ui-graph__bubble-badge {
-    top: -0.5rem;
+    top: auto;
     right: auto;
+    bottom: calc(100% + var(--ui-graph-node-border) + @ui-space-1);
     left: 50%;
     transform: translateX(-50%);
     white-space: nowrap;
+}
+
+.ui-graph[data-ui-graph-kind="production"] .ui-graph__bubble[data-ui-graph-badged] {
+    --ui-action-bar-gap: 28px;
 }
 
 .ui-graph__craft-name {

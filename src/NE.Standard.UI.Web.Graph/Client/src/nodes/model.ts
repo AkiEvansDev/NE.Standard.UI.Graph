@@ -133,9 +133,11 @@ export function readPinChoices(raw: string | null): Readonly<Record<string, read
             if (!Array.isArray(entries))
                 continue;
 
-            result[key] = entries
+            const parsedEntries = entries
                 .filter((entry): entry is Record<string, unknown> => entry !== null && typeof entry === "object" && typeof (entry as { value?: unknown }).value === "string" && (entry as { value: string }).value.length > 0)
                 .map(entry => ({ value: entry.value as string, caption: entry.caption ?? entry.value }));
+
+            Object.defineProperty(result, key, { value: parsedEntries, enumerable: true, configurable: true, writable: true });
         }
 
         return result;

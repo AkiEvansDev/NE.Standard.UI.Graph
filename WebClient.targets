@@ -13,7 +13,7 @@
        eng/ its tests read, and this file. A build after none of them changed - a change to the C# alone - runs neither again. -->
   <ItemGroup Condition="'$(BuildsWebClient)' == 'true'">
     <WebClientInput Include="Client\**\*" Exclude="Client\node_modules\**;Client\dist\**" />
-    <WebClientInput Include="$(MSBuildThisFileDirectory)eng\Tests\Shared\**\*" Condition="'$(InMonorepo)' == 'true'" />
+    <WebClientInput Include="$(MSBuildThisFileDirectory)eng\Tests\Shared\*.json" Condition="'$(InMonorepo)' == 'true' and '$(WebClientTests)' != 'false'" />
     <WebClientInput Include="$(MSBuildThisFileFullPath)" />
   </ItemGroup>
 

@@ -238,7 +238,7 @@ public sealed class DistinctNode : IGraphNode
     /// <inheritdoc/>
     public void Execute(UINodeRunContext context)
     {
-        HashSet<object?> seen = new(NodeValueEquality.Of(IgnoreCase));
+        HashSet<object?> seen = [with(NodeValueEquality.Of(IgnoreCase))];
         List<object?> kept = [];
 
         foreach (var item in List)

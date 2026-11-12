@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
 using NE.Standard.UI.Primitives.Localization;
@@ -31,6 +32,21 @@ public sealed class SetNodeStatusEffect : TargetedClientEffect
         State = state;
     }
 
+    [JsonConstructor]
+    internal SetNodeStatusEffect(UIComponentAddress? resolvedTarget, string nodeId, UINodeState state)
+        : base(resolvedTarget)
+    {
+        NodeId = nodeId;
+        State = state;
+    }
+
+    private SetNodeStatusEffect(UIComponentAddress resolvedTarget, UIComponentReference target, string nodeId, UINodeState state)
+        : base(resolvedTarget, target)
+    {
+        NodeId = nodeId;
+        State = state;
+    }
+
     /// <inheritdoc/>
     public override string Kind => EffectKind;
 
@@ -59,23 +75,12 @@ public sealed class SetNodeStatusEffect : TargetedClientEffect
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
-        return new CompiledSetNodeStatusEffect(resolver.ResolveComponent(Target), NodeId, State)
-        {
-            Progress = Progress,
-            Message = Message
-        };
+        return ResolvedTarget is not null
+            ? this
+            : new SetNodeStatusEffect(resolver.ResolveComponent(Target), Target, NodeId, State)
+            {
+                Progress = Progress,
+                Message = Message
+            };
     }
-}
-
-internal sealed class CompiledSetNodeStatusEffect(UIComponentAddress target, string nodeId, UINodeState state) : CompiledTargetedClientEffect(target)
-{
-    public override string Kind => SetNodeStatusEffect.EffectKind;
-
-    public string NodeId { get; } = nodeId;
-
-    public UINodeState State { get; } = state;
-
-    public double? Progress { get; set; }
-
-    public UIPhrase? Message { get; set; }
 }

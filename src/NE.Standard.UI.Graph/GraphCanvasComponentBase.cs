@@ -414,6 +414,9 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// </summary>
     public T SetGridSize(double gridSize)
     {
+        if (!double.IsFinite(gridSize))
+            throw new ArgumentOutOfRangeException(nameof(gridSize), gridSize, "Grid size must be finite.");
+
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(gridSize);
 
         GridSize = gridSize;
@@ -425,6 +428,12 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// </summary>
     public T SetZoomRange(double minZoom, double maxZoom)
     {
+        if (!double.IsFinite(minZoom))
+            throw new ArgumentOutOfRangeException(nameof(minZoom), minZoom, "Minimum zoom must be finite.");
+
+        if (!double.IsFinite(maxZoom))
+            throw new ArgumentOutOfRangeException(nameof(maxZoom), maxZoom, "Maximum zoom must be finite.");
+
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(minZoom);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxZoom, minZoom);
 
@@ -439,6 +448,9 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
     /// </summary>
     public T SetCanvasHeight(double canvasHeight)
     {
+        if (!double.IsFinite(canvasHeight))
+            throw new ArgumentOutOfRangeException(nameof(canvasHeight), canvasHeight, "Canvas height must be finite.");
+
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(canvasHeight);
 
         CanvasHeight = canvasHeight;

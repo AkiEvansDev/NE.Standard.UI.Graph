@@ -32,7 +32,7 @@ public static class UIProductionPlanner
         ArgumentOutOfRangeException.ThrowIfNegative(maxCells);
 
         List<UIResource> catalogue = [];
-        Dictionary<string, UIResource> resources = new(StringComparer.Ordinal);
+        Dictionary<string, UIResource> resources = [with(StringComparer.Ordinal)];
         List<UICraft> crafts = [];
 
         foreach (UIProductionEntry entry in entries)
@@ -44,7 +44,7 @@ public static class UIProductionPlanner
         }
 
         HashSet<string> bought = new(request.Bought, StringComparer.Ordinal);
-        Dictionary<string, List<UICraft>> makers = new(StringComparer.Ordinal);
+        Dictionary<string, List<UICraft>> makers = [with(StringComparer.Ordinal)];
 
         foreach (UICraft craft in crafts)
         {
@@ -62,13 +62,20 @@ public static class UIProductionPlanner
             }
         }
 
-        Dictionary<string, double> targets = new(StringComparer.Ordinal);
+        Dictionary<string, double> targets = [with(StringComparer.Ordinal)];
 
         // The request may be the browser's own document: a target sent as nothing, or naming nothing, asks for nothing.
         foreach (UIProductionTarget? target in request.Targets)
         {
-            if (target?.Resource is not null && resources.ContainsKey(target.Resource) && target.Amount > Eps)
-                targets[target.Resource] = targets.GetValueOrDefault(target.Resource) + target.Amount;
+            if (target?.Resource is null || !resources.ContainsKey(target.Resource) || !double.IsFinite(target.Amount) || target.Amount <= Eps)
+                continue;
+
+            var next = targets.GetValueOrDefault(target.Resource) + target.Amount;
+
+            if (!double.IsFinite(next))
+                return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+            targets[target.Resource] = next;
         }
 
         if (targets.Count == 0)
@@ -96,7 +103,14 @@ public static class UIProductionPlanner
             atLeast[row] = targets.GetValueOrDefault(made[row]);
 
             for (var column = 0; column < columns.Count; column++)
-                rows[row][column] = AmountOf(columns[column].Products, made[row]) - AmountOf(columns[column].Ingredients, made[row]);
+            {
+                var net = AmountOf(columns[column].Products, made[row]) - AmountOf(columns[column].Ingredients, made[row]);
+
+                if (!double.IsFinite(net))
+                    return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+                rows[row][column] = net;
+            }
         }
 
         var raw = new double[columns.Count];
@@ -108,13 +122,16 @@ public static class UIProductionPlanner
             raw[column] = RawOf(columns[column], resources, makers, priced: false);
             priced[column] = request.Objective == UIProductionObjective.LeastCost ? RawOf(columns[column], resources, makers, priced: true) : raw[column];
             time[column] = Math.Max(0, columns[column].Time.TotalSeconds);
+
+            if (!double.IsFinite(raw[column]) || !double.IsFinite(priced[column]) || !double.IsFinite(time[column]))
+                return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
         }
 
         (var least, var tie) = request.Objective == UIProductionObjective.LeastTime ? (time, raw) : (priced, time);
         var runs = ProductionSimplex.Minimise(rows, atLeast, least, tie, out var unsettled);
 
-        if (runs is null)
-            return new UIProductionPlan(unsettled ? UIProductionPlanStatus.Unsettled : UIProductionPlanStatus.Infeasible);
+        if (runs is null || !AllFinite(runs))
+            return new UIProductionPlan((runs is not null || unsettled) ? UIProductionPlanStatus.Unsettled : UIProductionPlanStatus.Infeasible);
 
         // Made once, a craft runs a whole number of times; counted over a period, a run and a half a minute is a rate like any other.
         var whole = request.Period == UIProductionPeriod.Once ? WholeRuns(rows, atLeast, runs) : null;
@@ -124,7 +141,7 @@ public static class UIProductionPlanner
 
     /// <summary>Whether an amount counts: of a resource the catalogue has, and above zero; one a draft carried in as nothing does not.</summary>
     private static bool Counts(UICraftAmount? amount, Dictionary<string, UIResource> resources)
-        => amount?.Resource is not null && amount.Amount > 0 && resources.ContainsKey(amount.Resource);
+        => amount?.Resource is not null && double.IsFinite(amount.Amount) && amount.Amount > 0 && resources.ContainsKey(amount.Resource);
 
     /// <summary>Everything that can help, in the catalogue's order: the crafts that make something needed, and what those take in their turn.</summary>
     private static List<UICraft> Helping(List<UICraft> crafts, Dictionary<string, UIResource> resources, Dictionary<string, List<UICraft>> makers, Dictionary<string, double> targets, out HashSet<string> needed)
@@ -169,7 +186,7 @@ public static class UIProductionPlanner
 
         foreach (UICraftAmount? amount in amounts)
         {
-            if (amount is not null && amount.Amount > 0 && string.Equals(amount.Resource, resource, StringComparison.Ordinal))
+            if (amount is not null && double.IsFinite(amount.Amount) && amount.Amount > 0 && string.Equals(amount.Resource, resource, StringComparison.Ordinal))
                 sum += amount.Amount;
         }
 
@@ -197,6 +214,17 @@ public static class UIProductionPlanner
     private static double CostOf(UIResource resource)
         => resource.Cost is double cost && double.IsFinite(cost) && cost >= 0 ? cost : 1;
 
+    private static bool AllFinite(double[] values)
+    {
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (!double.IsFinite(values[i]))
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// Rounds runs up to whole numbers, then tops up any shortfall with whole runs of the biggest maker until nothing is short;
     /// null if that never settles.
@@ -219,6 +247,9 @@ public static class UIProductionPlanner
                 for (var column = 0; column < whole.Length; column++)
                     have += rows[row][column] * whole[column];
 
+                if (!double.IsFinite(have))
+                    return null;
+
                 if (have >= atLeast[row] - 1e-6)
                     continue;
 
@@ -234,6 +265,10 @@ public static class UIProductionPlanner
                     return null;
 
                 whole[maker] += Math.Ceiling(((atLeast[row] - have) / rows[row][maker]) - 1e-9);
+
+                if (!double.IsFinite(whole[maker]))
+                    return null;
+
                 isShort = true;
             }
 
@@ -246,9 +281,12 @@ public static class UIProductionPlanner
 
     private static UIProductionPlan Read(List<UIResource> catalogue, Dictionary<string, UIResource> resources, Dictionary<string, List<UICraft>> makers, Dictionary<string, double> targets, List<UICraft> columns, double[] runs, TimeSpan? period)
     {
+        if (period is TimeSpan span && (!double.IsFinite(span.TotalSeconds) || span.TotalSeconds <= 0))
+            return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
         List<UIPlannedCraft> planned = [];
-        Dictionary<string, double> produced = new(StringComparer.Ordinal);
-        Dictionary<string, double> consumed = new(StringComparer.Ordinal);
+        Dictionary<string, double> produced = [with(StringComparer.Ordinal)];
+        Dictionary<string, double> consumed = [with(StringComparer.Ordinal)];
         double total = 0;
 
         for (var index = 0; index < columns.Count; index++)
@@ -256,25 +294,56 @@ public static class UIProductionPlanner
             UICraft craft = columns[index];
             var count = runs[index];
 
+            if (!double.IsFinite(count))
+                return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
             if (count <= Eps)
                 continue;
 
             var time = count * Math.Max(0, craft.Time.TotalSeconds);
-            int? workers = period is TimeSpan length ? (int)Math.Min(Math.Ceiling((time / length.TotalSeconds) - Eps), int.MaxValue) : null;
+            total += time;
+
+            if (!double.IsFinite(time) || !double.IsFinite(total))
+                return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+            int? workers = null;
+
+            if (period is TimeSpan length)
+            {
+                var neededWorkers = (time / length.TotalSeconds) - Eps;
+
+                if (!double.IsFinite(neededWorkers))
+                    return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+                workers = (int)Math.Clamp(Math.Ceiling(neededWorkers), 0, int.MaxValue);
+            }
 
             planned.Add(new UIPlannedCraft(craft.Id, count, Duration(time), workers));
-            total += time;
 
             foreach (UICraftAmount product in craft.Products)
             {
-                if (Counts(product, resources))
-                    produced[product.Resource] = produced.GetValueOrDefault(product.Resource) + (count * product.Amount);
+                if (!Counts(product, resources))
+                    continue;
+
+                var next = produced.GetValueOrDefault(product.Resource) + (count * product.Amount);
+
+                if (!double.IsFinite(next))
+                    return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+                produced[product.Resource] = next;
             }
 
             foreach (UICraftAmount ingredient in craft.Ingredients)
             {
-                if (Counts(ingredient, resources))
-                    consumed[ingredient.Resource] = consumed.GetValueOrDefault(ingredient.Resource) + (count * ingredient.Amount);
+                if (!Counts(ingredient, resources))
+                    continue;
+
+                var next = consumed.GetValueOrDefault(ingredient.Resource) + (count * ingredient.Amount);
+
+                if (!double.IsFinite(next))
+                    return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+                consumed[ingredient.Resource] = next;
             }
         }
 
@@ -294,11 +363,21 @@ public static class UIProductionPlanner
 
             if (source)
             {
-                raw += takes + target;
-                cost += (takes + target) * CostOf(resource);
+                var brought = takes + target;
+
+                raw += brought;
+                cost += brought * CostOf(resource);
+
+                if (!double.IsFinite(raw) || !double.IsFinite(cost))
+                    return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
             }
 
-            read.Add(new UIPlannedResource(resource.Id, source, target, gives, takes, source ? 0 : Settle(gives - takes - target)));
+            var surplus = source ? 0 : Settle(gives - takes - target);
+
+            if (!double.IsFinite(surplus))
+                return new UIProductionPlan(UIProductionPlanStatus.Unsettled);
+
+            read.Add(new UIPlannedResource(resource.Id, source, target, gives, takes, surplus));
         }
 
         return new UIProductionPlan(UIProductionPlanStatus.Solved, planned, read, Duration(total), raw, cost);

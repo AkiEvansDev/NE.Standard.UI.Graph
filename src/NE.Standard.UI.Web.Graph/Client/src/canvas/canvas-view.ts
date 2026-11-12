@@ -446,11 +446,11 @@ export class CanvasView {
         }
 
         this.minimapContent = this.contentBounds();
-        this.minimapNodes.replaceChildren();
         // Shown before it is measured: a box the canvas is still hiding measures as nothing, and the map would hide itself for ever.
         this.minimap.hidden = this.minimapContent === null;
 
         if (this.minimapContent === null) {
+            this.minimapNodes.replaceChildren();
             this.minimapPlace = null;
             return;
         }
@@ -461,9 +461,12 @@ export class CanvasView {
 
         // Nowhere to draw it: a canvas on a tab nobody is looking at has no box of its own to scale against.
         if (!(map.scale > 0)) {
+            this.minimapNodes.replaceChildren();
             this.minimap.hidden = true;
             return;
         }
+
+        let cursor = this.minimapNodes.firstElementChild as HTMLElement | null;
 
         for (const node of this.host.items()) {
             const rect = this.host.nodeRect(node.id);
@@ -471,20 +474,32 @@ export class CanvasView {
             if (rect === null)
                 continue;
 
-            const box = document.createElement("i");
+            let box = cursor;
+
+            if (box !== null) {
+                cursor = box.nextElementSibling as HTMLElement | null;
+            }
+            else {
+                box = document.createElement("i");
+                box.className = "ui-graph__minimap-node";
+                this.minimapNodes.append(box);
+            }
+
             const color = this.host.itemColor(node);
 
-            box.className = "ui-graph__minimap-node";
             box.style.left = `${map.offsetX + (rect.x - this.minimapContent.x) * map.scale}px`;
             box.style.top = `${map.offsetY + (rect.y - this.minimapContent.y) * map.scale}px`;
             box.style.width = `${Math.max(2, rect.width * map.scale)}px`;
             box.style.height = `${Math.max(2, rect.height * map.scale)}px`;
 
             // The sheet's own colours, so the map reads as the sheet rather than as a field of identical marks.
-            if (color.length > 0)
-                box.style.background = color;
+            box.style.background = color;
+        }
 
-            this.minimapNodes.append(box);
+        while (cursor !== null) {
+            const stale = cursor;
+            cursor = cursor.nextElementSibling as HTMLElement | null;
+            stale.remove();
         }
 
         this.placeMinimapView();

@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
 
@@ -30,6 +31,23 @@ public sealed class SetNodeDisplayEffect : TargetedClientEffect
         Value = UINodeDisplayValue.Shorten(value);
     }
 
+    [JsonConstructor]
+    internal SetNodeDisplayEffect(UIComponentAddress? resolvedTarget, string nodeId, string pinName, object? value)
+        : base(resolvedTarget)
+    {
+        NodeId = nodeId;
+        PinName = pinName;
+        Value = value;
+    }
+
+    private SetNodeDisplayEffect(UIComponentAddress resolvedTarget, UIComponentReference target, string nodeId, string pinName, object? value)
+        : base(resolvedTarget, target)
+    {
+        NodeId = nodeId;
+        PinName = pinName;
+        Value = value;
+    }
+
     /// <inheritdoc/>
     public override string Kind => EffectKind;
 
@@ -55,17 +73,6 @@ public sealed class SetNodeDisplayEffect : TargetedClientEffect
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
-        return new CompiledSetNodeDisplayEffect(resolver.ResolveComponent(Target), NodeId, PinName, Value);
+        return ResolvedTarget is not null ? this : new SetNodeDisplayEffect(resolver.ResolveComponent(Target), Target, NodeId, PinName, Value);
     }
-}
-
-internal sealed class CompiledSetNodeDisplayEffect(UIComponentAddress target, string nodeId, string pinName, object? value) : CompiledTargetedClientEffect(target)
-{
-    public override string Kind => SetNodeDisplayEffect.EffectKind;
-
-    public string NodeId { get; } = nodeId;
-
-    public string PinName { get; } = pinName;
-
-    public object? Value { get; } = value;
 }

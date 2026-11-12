@@ -39,8 +39,10 @@ export function renderCard(placement: CanvasItem, node: GraphNode, options: Card
     else
         root.append(renderText(node, title));
 
-    if (node.badgeTitle !== null)
+    if (node.badgeTitle !== null) {
+        root.setAttribute("data-ui-graph-badged", "");
         root.append(renderBadge(node.badgeTitle, options.names, round ? "ui-graph__bubble-badge" : "ui-graph__card-badge"));
+    }
 
     if (options.connectable)
         appendLinkHandles(root);

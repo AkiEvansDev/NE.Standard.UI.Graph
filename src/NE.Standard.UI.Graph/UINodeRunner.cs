@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Primitives.Localization;
 
 namespace NE.Standard.UI.Graph;
@@ -91,6 +92,9 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
     /// </summary>
     public int MaxTextLength { get; set; } = DefaultMaxTextLength;
 
+    /// <summary>Gets or sets the runtime choices for <see cref="GraphInputAttribute.ChoicesKey"/> inputs enforced when materializing.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>? PinChoices { get; set; }
+
     /// <summary>
     /// Runs the document again and again, each run from the state the last one left, until its sequence node
     /// (<see cref="IGraphNodeSequence"/>) runs out or <paramref name="maxRuns"/> is reached.
@@ -136,13 +140,13 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
         if (document.Nodes.Length > MaxNodes)
             return UINodeRunResult.Refused(UIPhrase.Of(UIGraphWords.RunTooManyNodes, ("max", MaxNodes)));
 
-        UINodeNetwork network = WithoutPassive(_catalog.Materialize(document));
+        UINodeNetwork network = WithoutPassive(_catalog.Materialize(document, PinChoices));
 
         Cache?.Retain(network.Nodes.Select(static node => node.Id));
 
         Order(network, out UINodeInstance[] ordered, out UINodeInstance[] cyclic, out UINodeInstance[] beneath);
 
-        Dictionary<string, List<UINodeConnection>> incoming = new(StringComparer.Ordinal);
+        Dictionary<string, List<UINodeConnection>> incoming = [with(StringComparer.Ordinal)];
 
         foreach (UINodeConnection connection in network.Connections)
         {
@@ -152,12 +156,12 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
             edges.Add(connection);
         }
 
-        Dictionary<string, IReadOnlyDictionary<string, object?>> outputs = new(StringComparer.Ordinal);
+        Dictionary<string, IReadOnlyDictionary<string, object?>> outputs = [with(StringComparer.Ordinal)];
         List<UINodeFailure> failures = [];
         List<string> skipped = [];
         // Both failed and skipped nodes stop their branch; the topological order lets this be one pass rather than a graph walk.
-        HashSet<string> stopped = new(StringComparer.Ordinal);
-        Dictionary<string, IReadOnlyDictionary<string, object?>> state = new(StringComparer.Ordinal);
+        HashSet<string> stopped = [with(StringComparer.Ordinal)];
+        Dictionary<string, IReadOnlyDictionary<string, object?>> state = [with(StringComparer.Ordinal)];
         // Whether each sequence node that ran has more to hand out.
         List<bool> sequences = [];
         var total = ordered.Length + cyclic.Length + beneath.Length;
@@ -184,7 +188,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
 
             try
             {
-                failure = await RunNodeAsync(node, edges, context, outputs, state, sequences, cancellationToken).ConfigureAwait(false);
+                failure = await RunNodeAsync(node, edges, network.PinChoices ?? PinChoices, context, outputs, state, sequences, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -253,9 +257,13 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
     /// Everything here may call the node's own code — a setter, a getter, <see cref="IGraphNodeSequence.HasMore"/> — so all of it
     /// stands under the caller's catch: a getter that throws fails the node as its execution would, rather than the run.
     /// </remarks>
-    private async ValueTask<UIPhrase?> RunNodeAsync(UINodeInstance node, List<UINodeConnection>? edges, UINodeRunContext context, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs, Dictionary<string, IReadOnlyDictionary<string, object?>> state, List<bool> sequences, CancellationToken cancellationToken)
+    private async ValueTask<UIPhrase?> RunNodeAsync(UINodeInstance node, List<UINodeConnection>? edges, IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>? pinChoices, UINodeRunContext context, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs, Dictionary<string, IReadOnlyDictionary<string, object?>> state, List<bool> sequences, CancellationToken cancellationToken)
     {
-        HashSet<string>? fed = edges is null ? null : Feed(node, edges, outputs);
+        UIPhrase? refusedChoice = null;
+        HashSet<string>? fed = edges is null ? null : Feed(node, edges, outputs, pinChoices, out refusedChoice);
+
+        if (refusedChoice is not null)
+            return refusedChoice;
 
         // A value of the document's own held outside its pin's bounds, refused in words as a missing one is — unless an edge replaced
         // it, since the node reads the edge's.
@@ -356,7 +364,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
     private UINodeNetwork WithoutPassive(UINodeNetwork network)
     {
         List<UINodeInstance> nodes = [];
-        HashSet<string> kept = new(StringComparer.Ordinal);
+        HashSet<string> kept = [with(StringComparer.Ordinal)];
 
         foreach (UINodeInstance node in network.Nodes)
         {
@@ -378,7 +386,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
                 connections.Add(connection);
         }
 
-        return new UINodeNetwork([.. nodes], [.. connections]);
+        return new UINodeNetwork([.. nodes], [.. connections]) { PinChoices = network.PinChoices };
     }
 
     private bool IsPassive(UINodeInstance node)
@@ -401,8 +409,8 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
     /// </summary>
     private static void Order(UINodeNetwork network, out UINodeInstance[] ordered, out UINodeInstance[] cyclic, out UINodeInstance[] beneath)
     {
-        Dictionary<string, int> waitingFor = new(StringComparer.Ordinal);
-        Dictionary<string, List<UINodeInstance>> feeds = new(StringComparer.Ordinal);
+        Dictionary<string, int> waitingFor = [with(StringComparer.Ordinal)];
+        Dictionary<string, List<UINodeInstance>> feeds = [with(StringComparer.Ordinal)];
 
         foreach (UINodeInstance node in network.Nodes)
             waitingFor[node.Id] = 0;
@@ -446,7 +454,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
         ordered = [.. order];
 
         // What no order reaches is still waiting: on a cycle if a path among the waiting leads back to it, below one otherwise.
-        HashSet<string> waiting = new(StringComparer.Ordinal);
+        HashSet<string> waiting = [with(StringComparer.Ordinal)];
         List<UINodeInstance> onCycle = [];
         List<UINodeInstance> under = [];
 
@@ -468,7 +476,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
 
     private static bool ReachesItself(UINodeInstance node, Dictionary<string, List<UINodeInstance>> feeds, HashSet<string> waiting)
     {
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
         Stack<UINodeInstance> pending = new();
 
         pending.Push(node);
@@ -522,12 +530,14 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
     /// Puts what feeds a node's input pins onto its properties, coerced into the types the class declares, and answers the pins an edge
     /// replaced the node's own value of; a pin that takes several keeps its typed values beside the connected ones, so it is none of them.
     /// </summary>
-    private HashSet<string> Feed(UINodeInstance node, List<UINodeConnection> edges, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs)
+    private HashSet<string> Feed(UINodeInstance node, List<UINodeConnection> edges, Dictionary<string, IReadOnlyDictionary<string, object?>> outputs, IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>? pinChoices, out UIPhrase? refusedChoice)
     {
+        refusedChoice = null;
+
         UINodeType? type = _catalog.TryGetType(node.Type, out UINodeType found) ? found : null;
         // A pin that takes several gathers them and is written once, in the edges' own order; every other takes the one edge.
-        Dictionary<string, List<object?>> gathered = new(StringComparer.Ordinal);
-        HashSet<string> replaced = new(StringComparer.Ordinal);
+        Dictionary<string, List<object?>> gathered = [with(StringComparer.Ordinal)];
+        HashSet<string> replaced = [with(StringComparer.Ordinal)];
 
         foreach (UINodeConnection edge in edges)
         {
@@ -543,6 +553,13 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
 
             if (!pin!.Multiple)
             {
+                if (!UINodeCatalog.WithinChoices(target.PropertyType, UINodeCatalog.AllowedChoices(pin, pinChoices), value))
+                {
+                    refusedChoice ??= UIPhrase.Of(UIGraphWords.RunOutOfBounds, ("pin", pin.Title));
+                    _ = replaced.Add(edge.ToPin);
+                    continue;
+                }
+
                 UINodeProperties.Set(target, node.Node, value);
                 _ = replaced.Add(edge.ToPin);
                 continue;
@@ -560,6 +577,16 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
 
             if (target is null)
                 continue;
+
+            UINodePin? definition = FindInput(type, pin.Key);
+
+            if (!UINodeCatalog.WithinChoices(target.PropertyType, UINodeCatalog.AllowedChoices(definition, pinChoices), pin.Value))
+            {
+                if (definition is not null)
+                    refusedChoice ??= UIPhrase.Of(UIGraphWords.RunOutOfBounds, ("pin", definition.Title));
+
+                continue;
+            }
 
             // Connected values first, then any typed on the node itself — a Multiple pin's typed row is one more element, not a replacement.
             if (target.CanRead && target.GetValue(node.Node) is IEnumerable typed and not string)
@@ -675,7 +702,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
             if (!pin.State || UINodeProperties.Find(node.Node.GetType(), pin.Name) is not { CanRead: true } property)
                 continue;
 
-            kept ??= new Dictionary<string, object?>(StringComparer.Ordinal);
+            kept ??= [with(StringComparer.Ordinal)];
             kept[pin.Name] = Held(property.GetValue(node.Node));
         }
 
@@ -738,7 +765,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
         if (Cache is null)
             return;
 
-        HashSet<string> seen = new(StringComparer.Ordinal) { node.Id };
+        HashSet<string> seen = [with(StringComparer.Ordinal), node.Id];
         Stack<string> pending = new();
 
         pending.Push(node.Id);
@@ -762,7 +789,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
 
     private static Dictionary<string, object?> ReadOutputs(UINodeInstance node)
     {
-        Dictionary<string, object?> values = new(StringComparer.Ordinal);
+        Dictionary<string, object?> values = [with(StringComparer.Ordinal)];
 
         foreach (PropertyInfo property in UINodeProperties.Own(node.Node.GetType()))
         {
@@ -785,7 +812,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
             if (UINodeRunCache.SameValue(before, after))
                 continue;
 
-            changed ??= new Dictionary<string, object?>(StringComparer.Ordinal);
+            changed ??= [with(StringComparer.Ordinal)];
             changed[name] = after;
         }
 

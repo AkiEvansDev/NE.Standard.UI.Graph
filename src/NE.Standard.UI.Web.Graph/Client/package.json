@@ -12,12 +12,12 @@
     "build": "npm run typecheck && npm run lint && vite build --clearScreen false --logLevel error"
   },
   "devDependencies": {
-    "@types/node": "26.6.5",
-    "knip": "6.41.0",
+    "@types/node": "26.6.6",
+    "knip": "6.45.1",
     "less": "4.9.1",
-    "oxlint": "1.88.0",
-    "oxlint-tsgolint": "7.0.2004",
+    "oxlint": "1.93.0",
+    "oxlint-tsgolint": "7.0.2006",
     "typescript": "7.0.2",
-    "vite": "8.3.4"
+    "vite": "8.3.8"
   }
 }

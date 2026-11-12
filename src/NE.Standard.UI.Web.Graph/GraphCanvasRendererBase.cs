@@ -281,6 +281,7 @@ public abstract class GraphCanvasRendererBase<TDocument> : TextContentRendererBa
                     {
                         _ = list.Class($"{ClassName}__picker-list");
                         _ = list.Attribute("role", "listbox");
+                        WebWords.Write(context, list, "aria-label", titleKey);
                         _ = list.Attribute("data-ui-graph-picker-list");
                     });
                 });

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NE.Standard.UI.Abstractions.Effects;
+using NE.Standard.UI.Abstractions.Items;
 
 namespace NE.Standard.UI.Graph;
 
@@ -82,6 +83,9 @@ public sealed class UINodeRuns
 
     /// <summary>Gets the most characters a node's text output may hold (<see cref="UINodeRunner.MaxTextLength"/>).</summary>
     public int MaxTextLength { get; init; } = UINodeRunner.DefaultMaxTextLength;
+
+    /// <summary>Gets or sets the runtime choices for <see cref="GraphInputAttribute.ChoicesKey"/> inputs (<see cref="UINodeRunner.PinChoices"/>).</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>? PinChoices { get; set; }
 
     /// <summary>
     /// Gets the longest one asked-for run lasts — a run of all as a whole; past it, the run ends as a Stop ends it, and the outcome
@@ -165,6 +169,7 @@ public sealed class UINodeRuns
             IncludeExceptionDetail = IncludeExceptionDetail,
             MaxNodes = MaxNodes,
             MaxTextLength = MaxTextLength,
+            PinChoices = PinChoices,
             OnStatus = (nodeId, state, progress, message) => Push(new SetNodeStatusEffect(_canvasId, nodeId, state) { Progress = progress, Message = message }),
             OnDisplay = (nodeId, pinName, value) => Push(new SetNodeDisplayEffect(_canvasId, nodeId, pinName, value)),
             OnLog = (nodeId, level, message) => Push(new AddNodeLogEffect(_canvasId, nodeId, level, message)),

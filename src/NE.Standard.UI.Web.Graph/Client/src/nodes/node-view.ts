@@ -158,8 +158,10 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
 
     root.append(body);
 
-    if (!options.readOnly && type?.resizable !== false)
+    if (!options.readOnly && type?.resizable !== false) {
+        body.classList.add("ui-graph__node-body--resizable");
         root.append(resizeGrip());
+    }
 
     return root;
 }

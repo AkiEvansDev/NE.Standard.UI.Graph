@@ -342,8 +342,8 @@ internal sealed partial class BuildsController : UIControllerBase
             return;
 
         UIProductionPlanRequest request = Plan.Plan;
-        List<AmountRecord> rows = new(request.Targets.Length);
-        List<UIProductionTarget> kept = new(request.Targets.Length);
+        List<AmountRecord> rows = [with(request.Targets.Length)];
+        List<UIProductionTarget> kept = [with(request.Targets.Length)];
 
         foreach (UIProductionTarget? target in request.Targets)
         {

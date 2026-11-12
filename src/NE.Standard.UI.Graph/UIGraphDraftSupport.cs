@@ -66,7 +66,7 @@ internal static class UIGraphDraftSupport
     /// </summary>
     public static HashSet<string> AllowedColors<TEntry>(IReadOnlyList<UIGraphColorChoice>? choices, IEnumerable<TEntry> entries, Func<TEntry, string?> color)
     {
-        HashSet<string> colors = new(StringComparer.Ordinal);
+        HashSet<string> colors = [with(StringComparer.Ordinal)];
 
         foreach (UIGraphColorChoice choice in choices ?? UIGraphColorChoice.Defaults)
             _ = colors.Add(choice.Color);

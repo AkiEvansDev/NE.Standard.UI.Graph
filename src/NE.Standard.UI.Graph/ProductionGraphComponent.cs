@@ -57,7 +57,7 @@ public abstract partial class ProductionGraphComponent<T> : LayeredGraphComponen
 
     private static SelectComponent PlanSelect(string title, params (string Id, string Title)[] options)
     {
-        List<OptionItem> items = new(options.Length);
+        List<OptionItem> items = [with(options.Length)];
 
         foreach ((var id, var word) in options)
             items.Add(new OptionItem { Id = id, Title = word });

@@ -309,7 +309,7 @@ internal sealed partial class ResourcesController : UIControllerBase
         if (SelectedKey is not { } id)
             return;
 
-        List<AmountRecord> rows = new(Ingredients.Count);
+        List<AmountRecord> rows = [with(Ingredients.Count)];
 
         foreach (AmountRow row in Ingredients)
         {
@@ -489,7 +489,7 @@ internal sealed partial class ResourcesController : UIControllerBase
     {
         // Kept in step rather than filled anew: every ingredient's search redraws its list on each change to it, and a fresh fill on
         // each open was seventy removals and seventy inserts for the one resource that left the list and the one that came back.
-        List<ResourceRecord> wanted = new(_resources.Count);
+        List<ResourceRecord> wanted = [with(_resources.Count)];
 
         foreach (ResourceRecord resource in _resources)
         {

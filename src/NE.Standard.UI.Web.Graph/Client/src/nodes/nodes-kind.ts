@@ -54,6 +54,8 @@ export class NodesKind implements CanvasKind {
     private readonly wiring: NodesWiring;
     // Where every wire ends and turns, by its id; read with the first wire of a draw and let go with the next draw.
     private wires: Map<string, EdgeEnds> | null = null;
+    private readonly pinOffsets = new Map<string, Map<string, Point>>();
+    private nodesById: Map<string, DocumentNode> | null = null;
     private readonly log: NodesLog;
     private readonly pickerBinding: NodesPickerBinding;
     private readonly upload: NodesImageUpload;
@@ -141,6 +143,7 @@ export class NodesKind implements CanvasKind {
     public edges(): readonly CanvasEdge[] {
         // The wires are about to be drawn again, over nodes that may have moved: where they end and turn is read afresh.
         this.wires = null;
+        this.nodesById = null;
 
         return this.document.edges;
     }
@@ -179,6 +182,7 @@ export class NodesKind implements CanvasKind {
 
     public wordsChanged(): void {
         this.log.wordsChanged();
+        this.pickerBinding.wordsChanged();
     }
 
     public pinChoicesChanged(): void {
@@ -234,8 +238,14 @@ export class NodesKind implements CanvasKind {
         if (this.services.settings.snapping)
             snapBoxes(this.services.nodeElements.values(), this.services.settings.gridSize);
 
+        this.pinOffsets.clear();
+        this.nodesById = null;
         this.parameters.draw();
         this.fitFirstDraw();
+    }
+
+    public nodeResized(id: string): void {
+        this.pinOffsets.delete(id);
     }
 
     /** A parameters column aimed at this canvas arrived on the page — drawn after the canvas, or drawn again: its rows are written. */
@@ -312,11 +322,53 @@ export class NodesKind implements CanvasKind {
         return this.pinColor(resolveOutputType(this.document, this.types, wire.fromNode, wire.fromPin));
     }
 
-    /** Where a pin sits in canvas coordinates: measured off the page, since a node's height is what its editors make it. */
+    /** Where a pin sits in canvas coordinates: measured off the page once per node layout and offset from the node's corner while it moves. */
     private pinPoint(nodeId: string, pinName: string, direction: "in" | "out"): Point | null {
-        const pin = this.services.nodeElements.get(nodeId)?.querySelector<HTMLElement>(`[${PinAttribute}="${CSS.escape(pinName)}"][${PinDirectionAttribute}="${direction}"]`);
+        const element = this.services.nodeElements.get(nodeId);
 
-        return pin === null || pin === undefined ? null : this.services.centerOf(pin);
+        if (element === undefined)
+            return null;
+
+        const node = this.nodeById(nodeId);
+        const key = `${direction}:${pinName}`;
+
+        if (node !== undefined) {
+            const cached = this.pinOffsets.get(nodeId)?.get(key);
+
+            if (cached !== undefined)
+                return { x: node.x + cached.x, y: node.y + cached.y };
+        }
+
+        const pin = element.querySelector<HTMLElement>(`[${PinAttribute}="${CSS.escape(pinName)}"][${PinDirectionAttribute}="${direction}"]`);
+
+        if (pin === null)
+            return null;
+
+        const center = this.services.centerOf(pin);
+
+        if (node !== undefined && element.offsetWidth > 0 && element.offsetHeight > 0) {
+            let offsets = this.pinOffsets.get(nodeId);
+
+            if (offsets === undefined) {
+                offsets = new Map<string, Point>();
+                this.pinOffsets.set(nodeId, offsets);
+            }
+
+            offsets.set(key, { x: center.x - node.x, y: center.y - node.y });
+        }
+
+        return center;
+    }
+
+    private nodeById(nodeId: string): DocumentNode | undefined {
+        if (this.nodesById === null) {
+            this.nodesById = new Map<string, DocumentNode>();
+
+            for (const node of this.document.nodes)
+                this.nodesById.set(node.id, node);
+        }
+
+        return this.nodesById.get(nodeId);
     }
 
     /** The caption of the output that feeds an input, looking through reroutes to the output the wire first left. */
@@ -598,6 +650,11 @@ export class NodesKind implements CanvasKind {
 
     /** How far below its node's top a pin's middle stands, in canvas units, off the page as the node is drawn now — folded, its pins sit on its head. */
     private pinOffset(nodeId: string, pinName: string, direction: "in" | "out"): number | null {
+        const cached = this.pinOffsets.get(nodeId)?.get(`${direction}:${pinName}`);
+
+        if (cached !== undefined)
+            return Math.round(cached.y);
+
         const element = this.services.nodeElements.get(nodeId);
         const pin = this.pinPoint(nodeId, pinName, direction);
 

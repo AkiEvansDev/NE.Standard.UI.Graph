@@ -851,7 +851,7 @@ function matchesComplex(element: FakeElement, compounds: readonly string[], comb
     return false;
 }
 
-const Token = /^(?:([a-z]+)|\.([\w-]+)|\[([\w-]+)(?:([\^*]?)=(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|([^'"\]]*)))?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope|active|focus-visible|modal|popover-open))/;
+const Token = /^(?:([a-z]+)|\.([\w-]+)|\[([\w-]+)(?:([\^*~]?)=(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|([^'"\]]*)))?\]|:not\(((?:[^()]|\([^()]*\))*)\)|:is\(((?:[^()]|\([^()]*\))*)\)|:(disabled|scope|active|focus-visible|modal|popover-open))/;
 
 function matchesCompound(element: FakeElement, compound: string, scope: FakeElement | null): boolean {
     let rest = compound.trim();
@@ -915,6 +915,9 @@ function matchesCompound(element: FakeElement, compound: string, scope: FakeElem
 function matchesValue(actual: string, operator: string | undefined, value: string): boolean {
     if (operator === "^")
         return actual.startsWith(value);
+
+    if (operator === "~")
+        return actual.split(/\s+/).includes(value);
 
     return operator === "*" ? actual.includes(value) : actual === value;
 }

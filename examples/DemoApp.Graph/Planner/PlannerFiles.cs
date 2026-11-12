@@ -94,7 +94,7 @@ public static class PlannerFiles
     /// <summary>Only the rows that name a resource: a row left unpicked is the page's, not the file's.</summary>
     private static AmountEntry[] Amounts(IReadOnlyList<AmountRecord> rows)
     {
-        List<AmountEntry> amounts = new(rows.Count);
+        List<AmountEntry> amounts = [with(rows.Count)];
 
         foreach (AmountRecord row in rows)
         {
@@ -113,7 +113,7 @@ public static class PlannerFiles
     {
         ArgumentNullException.ThrowIfNull(content);
 
-        Dictionary<string, PictureRecord> pictures = new(StringComparer.Ordinal);
+        Dictionary<string, PictureRecord> pictures = [with(StringComparer.Ordinal)];
 
         try
         {
@@ -130,9 +130,9 @@ public static class PlannerFiles
             if (file.Resources.Length > MaxResources)
                 return (null, pictures, "planner.file.bad-resource");
 
-            List<ResourceRecord> resources = new(file.Resources.Length);
-            HashSet<string> ids = new(StringComparer.Ordinal);
-            Dictionary<string, PictureRecord?> picturesByPath = new(StringComparer.Ordinal);
+            List<ResourceRecord> resources = [with(file.Resources.Length)];
+            HashSet<string> ids = [with(StringComparer.Ordinal)];
+            Dictionary<string, PictureRecord?> picturesByPath = [with(StringComparer.Ordinal)];
             var remainingPictureBytes = MaxArchivePictureBytes;
 
             foreach (ResourceEntry? entry in file.Resources)
@@ -255,7 +255,7 @@ public static class PlannerFiles
         if (entries is null)
             return [];
 
-        List<AmountRecord> rows = new(Math.Min(entries.Length, MaxRows));
+        List<AmountRecord> rows = [with(Math.Min(entries.Length, MaxRows))];
 
         foreach (AmountEntry? entry in entries)
         {
@@ -283,8 +283,8 @@ public static class PlannerFiles
         if (file.Builds.Length > MaxBuilds)
             return (null, "planner.file.bad-build");
 
-        List<BuildRecord> builds = new(file.Builds.Length);
-        HashSet<string> ids = new(StringComparer.Ordinal);
+        List<BuildRecord> builds = [with(file.Builds.Length)];
+        HashSet<string> ids = [with(StringComparer.Ordinal)];
 
         foreach (BuildEntry? entry in file.Builds)
         {

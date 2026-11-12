@@ -227,6 +227,7 @@ export class ProductionKind extends DraftedLayeredKind<ProductionDocument, Produ
 
     public wordsChanged(): void {
         this.panel.wordsChanged();
+        this.picker?.wordsChanged();
     }
 
     /** An edge labelled with its amount past where edges leaving one resource have parted (two amounts would overlap beside it); the arrow tells a craft's inputs from its outputs. */

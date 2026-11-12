@@ -16,7 +16,7 @@ namespace NE.Standard.UI.Graph;
 public sealed class UINodeRunCache
 {
     private readonly Lock _sync = new();
-    private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Entry> _entries = [with(StringComparer.Ordinal)];
 
     /// <summary>
     /// Forgets every node's last run, so the next run runs them all.

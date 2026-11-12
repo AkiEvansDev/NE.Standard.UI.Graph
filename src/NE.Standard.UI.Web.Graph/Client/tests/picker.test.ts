@@ -319,3 +319,58 @@ test("Escape closes the picker, and where what opened it is gone the canvas take
     assert.equal(page.dialog.open, false);
     assert.equal(fakeDocument.activeElement, page.viewport);
 });
+
+test("Escape clears a non-empty search first and closes the picker on the second press", () => {
+    const page = opened();
+
+    page.search.value = "join";
+    page.search.dispatchEvent(new FakeEvent("input"));
+    assert.deepEqual(entries(page), ["join"]);
+
+    key("Escape", page.search);
+    assert.equal(page.dialog.open, true);
+    assert.equal(page.search.value, "");
+    assert.deepEqual(entries(page), ["sum", "round", "join"]);
+
+    key("Escape", page.search);
+    assert.equal(page.dialog.open, false);
+});
+
+test("wordsChanged redraws the rail's translated category captions while the picker is open", () => {
+    let language = "en";
+    const viewport = FakeElement.of("ui-graph__viewport", { tabindex: "0" });
+    const dialog = new FakeDialog();
+    const search = new FakeInput();
+    const rail = FakeElement.of("ui-graph__picker-rail", { "data-ui-graph-picker-rail": "", role: "tree" });
+    const list = FakeElement.of("ui-graph__picker-list", { "data-ui-graph-picker-list": "", role: "listbox" });
+    const railToggle = FakeElement.of("ui-graph__picker-rail-toggle", { "data-ui-graph-picker-rail-toggle": "", "aria-expanded": "false" }, "button").append(FakeElement.of("ui-graph__picker-rail-caption"));
+    let ids = 0;
+
+    dialog.setAttribute("data-ui-graph-picker", "");
+    dialog.append(
+        FakeElement.of("ui-graph__picker-search", { "data-ui-graph-picker-search": "" }).append(search),
+        FakeElement.of("ui-graph__picker-main").append(railToggle, rail, list, FakeElement.of("", { "data-ui-graph-picker-empty": "" }))
+    );
+    fakeDocument.body.replaceChildren(FakeElement.of("ui-graph").append(viewport, dialog));
+
+    const picker = Picker.create(
+        real(fakeDocument.body.children[0]),
+        () => Kinds,
+        { text: key => `${language}:${key}` },
+        { ensureId: (el, prefix) => (el.id ||= `${prefix}-${++ids}`) },
+        icons,
+        roving,
+        focus,
+        { words: () => null, aria: () => null, matches: () => false, isComposing: () => false, isFieldKey: () => false, isPlainKey: () => true, isEscapeClaimed: () => false },
+        () => undefined
+    )!;
+
+    picker.open();
+    assert.equal(railToggle.children[0].textContent, "en:ui.graph.all-kinds");
+    assert.equal(rail.children[0].children[1].textContent, "en:ui.graph.all-kinds");
+
+    language = "ru";
+    picker.wordsChanged();
+    assert.equal(railToggle.children[0].textContent, "ru:ui.graph.all-kinds");
+    assert.equal(rail.children[0].children[1].textContent, "ru:ui.graph.all-kinds");
+});

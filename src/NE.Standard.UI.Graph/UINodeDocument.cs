@@ -127,6 +127,9 @@ public sealed class UINodeParameter(string node, string pin)
 [method: JsonConstructor]
 public sealed class UINode(string id, string type, double x = 0, double y = 0, string? title = null, string? color = null, bool pinned = false, bool collapsed = false, IReadOnlyDictionary<string, object?>? values = null, double? width = null, double? height = null, bool enabled = true)
 {
+    internal const int MaxValueElements = 1024;
+    internal const int MaxValueDepth = 16;
+
     /// <summary>
     /// Gets the node's own id, unique in the document; an edge names it.
     /// </summary>
@@ -205,13 +208,28 @@ public sealed class UINode(string id, string type, double x = 0, double y = 0, s
             }
         }
 
-        if (!hasJsonElement)
+        if (!hasJsonElement && RecursiveValueCoercion.IsWithinLimits(values, MaxValueElements, MaxValueDepth + 1))
             return values;
 
-        Dictionary<string, object?> normalized = new(values.Count, StringComparer.Ordinal);
+        var budget = MaxValueElements;
+        Dictionary<string, object?> normalized = new(Math.Min(values.Count, MaxValueElements), StringComparer.Ordinal);
 
         foreach (KeyValuePair<string, object?> entry in values)
-            normalized[entry.Key] = entry.Value is JsonElement element ? ObjectToInferredTypesConverter.ToInferredValue(element) : entry.Value;
+        {
+            if (--budget < 0)
+            {
+                if (normalized.Count < MaxValueElements * 2)
+                    normalized[entry.Key] = RecursiveValuePastLimits.Instance;
+
+                continue;
+            }
+
+            normalized[entry.Key] = entry.Value is JsonElement element
+                ? ObjectToInferredTypesConverter.ToInferredValue(element, ref budget, MaxValueDepth)
+                : RecursiveValueCoercion.IsWithinBudget(entry.Value, ref budget, MaxValueDepth)
+                    ? entry.Value
+                    : RecursiveValuePastLimits.Instance;
+        }
 
         return normalized;
     }

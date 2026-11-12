@@ -84,6 +84,8 @@ export type CanvasKind = {
     renderItem(item: CanvasItem): HTMLElement;
     /** Every item has just been drawn afresh: what the kind paints over a drawn item — a state, a display — goes on again. */
     itemsDrawn(drawn: ReadonlySet<string>): void;
+    /** One item's box changed size in place; what the kind caches off its geometry is invalidated for it. */
+    nodeResized?(id: string): void;
     /** The page's words changed, just before the sheet is drawn again: a panel the kind draws itself forgets what it last drew. */
     wordsChanged?(): void;
     /** The root's runtime pin choices changed: the kind updates its templates and drawn fields in place without redrawing the sheet. */

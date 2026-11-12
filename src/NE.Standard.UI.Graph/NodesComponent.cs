@@ -121,6 +121,26 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         return Self;
     }
 
+    /// <inheritdoc/>
+    protected override Action? SnapshotAuthoredState()
+    {
+        Action? restoreBase = base.SnapshotAuthoredState();
+        UINodeCatalog? ownCatalog = Catalog;
+
+        if (ownCatalog is null)
+            return restoreBase;
+
+        Catalog = null;
+        RemoveCanvasRegions(UIGraphRegions.EditorPrefix);
+
+        return () =>
+        {
+            restoreBase?.Invoke();
+            Catalog = ownCatalog;
+            SetEditors(ownCatalog);
+        };
+    }
+
     /// <summary>Builds one field template per editable pin, shaped by the pin's attributes, for the engine to clone into every node.</summary>
     private void SetEditors(UINodeCatalog catalog)
     {
@@ -276,7 +296,7 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
 
     private static List<OptionItem> Options(UINodePin pin)
     {
-        List<OptionItem> options = new(pin.Choices.Length);
+        List<OptionItem> options = [with(pin.Choices.Length)];
 
         foreach (UIChoice choice in pin.Choices)
             options.Add(new OptionItem { Id = choice.Value, Title = choice.Caption, IsContent = true });

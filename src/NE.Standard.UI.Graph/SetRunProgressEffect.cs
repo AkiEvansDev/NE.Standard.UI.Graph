@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Binding.Addresses;
 using NE.Standard.UI.Abstractions.Effects;
 using NE.Standard.UI.Primitives.Localization;
@@ -36,6 +37,21 @@ public sealed class SetRunProgressEffect : TargetedClientEffect
         Total = total;
     }
 
+    [JsonConstructor]
+    internal SetRunProgressEffect(UIComponentAddress? resolvedTarget, int completed, int total)
+        : base(resolvedTarget)
+    {
+        Completed = completed;
+        Total = total;
+    }
+
+    private SetRunProgressEffect(UIComponentAddress resolvedTarget, UIComponentReference target, int completed, int total)
+        : base(resolvedTarget, target)
+    {
+        Completed = completed;
+        Total = total;
+    }
+
     /// <inheritdoc/>
     public override string Kind => EffectKind;
 
@@ -60,17 +76,8 @@ public sealed class SetRunProgressEffect : TargetedClientEffect
     {
         ArgumentNullException.ThrowIfNull(resolver);
 
-        return new CompiledSetRunProgressEffect(resolver.ResolveComponent(Target), Completed, Total) { Refusal = Refusal };
+        return ResolvedTarget is not null
+            ? this
+            : new SetRunProgressEffect(resolver.ResolveComponent(Target), Target, Completed, Total) { Refusal = Refusal };
     }
-}
-
-internal sealed class CompiledSetRunProgressEffect(UIComponentAddress target, int completed, int total) : CompiledTargetedClientEffect(target)
-{
-    public override string Kind => SetRunProgressEffect.EffectKind;
-
-    public int Completed { get; } = completed;
-
-    public int Total { get; } = total;
-
-    public UIPhrase? Refusal { get; set; }
 }

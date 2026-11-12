@@ -176,7 +176,7 @@ public sealed class UINodeFiles
             AttributesToSkip = FileAttributes.Hidden | FileAttributes.System | FileAttributes.ReparsePoint
         };
 
-        SortedSet<string> found = new(StringComparer.Ordinal);
+        SortedSet<string> found = [with(StringComparer.Ordinal)];
 
         foreach (var one in (string.IsNullOrWhiteSpace(pattern) ? "*" : pattern).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

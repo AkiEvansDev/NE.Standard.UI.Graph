@@ -281,4 +281,20 @@ test("the picker's current entry and the plan's target names and rows wash with 
     assert.match(rules(".ui-graph__plan-table tbody tr:hover"), /background-color: var\(--ui-wash-hover\);/);
     assert.match(rules(".ui-graph__plan-table tbody tr[data-ui-focus-within='keyboard']"), /background-color: var\(--ui-wash-hover\);/);
     assert.match(rules(".ui-graph__plan-table tbody tr:active"), /background-color: var\(--ui-wash-active\);/);
+    assert.match(rules(".ui-graph__node-body--resizable"), /padding-bottom: 1rem;/);
+    assert.doesNotMatch(css, /:has\(/);
+});
+
+test("a bubble badge has an opaque surface ground and in a production graph stands clear above the circle rim and lifts the action bar", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const bubbleBadge = rules(".ui-graph__bubble-badge");
+    const productionBadge = rules('.ui-graph[data-ui-graph-kind="production"] .ui-graph__bubble-badge');
+    const badgedBubble = rules('.ui-graph[data-ui-graph-kind="production"] .ui-graph__bubble[data-ui-graph-badged]');
+
+    assert.match(bubbleBadge, /background: var\(--ui-color-surface\);/);
+    assert.match(bubbleBadge, /box-shadow: inset 0 0 0 1px var\(--ui-color-border\);/);
+    assert.match(bubbleBadge, /pointer-events: none;/);
+    assert.match(productionBadge, /top: auto;/);
+    assert.match(productionBadge, /bottom: calc\(100% \+ var\(--ui-graph-node-border\) \+ 0\.25rem\);/);
+    assert.match(badgedBubble, /--ui-action-bar-gap: 28px;/);
 });

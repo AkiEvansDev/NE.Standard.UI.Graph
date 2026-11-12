@@ -180,6 +180,14 @@ export class Picker<TEntry extends PickerEntry> {
             this.panel.close();
     }
 
+    public wordsChanged(): void {
+        if (!this.isOpen)
+            return;
+
+        this.drawRail();
+        this.draw(false);
+    }
+
     /** On a phone, unfolds or folds the rail's tree above the list under the row naming the chosen category; beside the list it stands always. */
     private showRail(shown: boolean): void {
         this.railToggle?.setAttribute("aria-expanded", String(shown));
@@ -194,6 +202,13 @@ export class Picker<TEntry extends PickerEntry> {
             return;
 
         event.preventDefault();
+
+        if (this.search.value.length > 0) {
+            this.search.value = "";
+            this.draw(true);
+            return;
+        }
+
         this.close();
     }
 

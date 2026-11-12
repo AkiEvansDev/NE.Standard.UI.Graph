@@ -311,3 +311,107 @@ test("clicking state reset on a List state pin redraws list rows from a cloned d
 
     kind.dispose();
 });
+
+test("readPinChoices defines __proto__ and constructor keys as own properties without mutating prototype", () => {
+    const raw = '{"__proto__":[{"value":"safe","caption":"Safe"}],"constructor":[{"value":"ctor","caption":"Ctor"}]}';
+    const parsed = readPinChoices(raw);
+
+    assert.notEqual(parsed, null);
+    assert.equal(Object.getPrototypeOf(parsed), Object.prototype);
+    assert.equal(({} as Record<string, unknown>).safe, undefined);
+    assert.equal(Object.hasOwn(parsed!, "__proto__"), true);
+    assert.equal(Object.hasOwn(parsed!, "constructor"), true);
+    assert.deepEqual(parsed!["__proto__"], [{ value: "safe", caption: "Safe" }]);
+    assert.deepEqual(parsed!["constructor"], [{ value: "ctor", caption: "Ctor" }]);
+});
+
+test("NodesKind caches pin offsets across node moves and invalidates on nodeResized", () => {
+    const wireType: NodeType = {
+        key: "box",
+        title: "Box",
+        inputs: [{ name: "In", title: "In", type: "number", editor: "Number" }],
+        outputs: [{ name: "Out", title: "Out", type: "number", editor: "None" }]
+    };
+    const canvas = FakeElement.of("ui-graph", { "data-ui-graph-catalog": JSON.stringify([wireType]) });
+    fakeDocument.body.replaceChildren(canvas);
+
+    const document: GraphDocument = {
+        nodes: [
+            { id: "n1", type: "box", x: 20, y: 40, values: {} },
+            { id: "n2", type: "box", x: 220, y: 80, values: {} }
+        ],
+        edges: [{ id: "e1", fromNode: "n1", fromPin: "Out", toNode: "n2", toPin: "In", points: [] }],
+        groups: [],
+        key: null,
+        parameters: []
+    };
+    const nodeElements = new Map<string, HTMLElement>();
+    let centerCalls = 0;
+
+    const kind = new NodesKind(real<CanvasServices<GraphDocument>>({
+        root: canvas,
+        settings: { readOnly: false, snapping: false, gridSize: 20, edgeShape: "bezier" },
+        documentState: { document, edited: () => undefined, committed: () => undefined, settle: () => undefined, requestSave: () => undefined },
+        nodeElements,
+        view: { fitSheet: () => undefined },
+        centerOf: (pin: Element) => {
+            centerCalls++;
+            const nodeId = (pin as unknown as FakeElement).closest("[data-ui-graph-node]")!.getAttribute("data-ui-graph-node")!;
+            const node = document.nodes.find(candidate => candidate.id === nodeId)!;
+            const isOut = pin.getAttribute("data-ui-graph-pin-dir") === "out";
+            return { x: node.x + (isOut ? 140 : 0), y: node.y + 32 };
+        },
+        context: {
+            root: fakeDocument.body,
+            names: {
+                componentId: "data-ui-id",
+                tooltip: "data-ui-tooltip",
+                contextMenuUse: "data-ui-context-menu",
+                menuOpeningEvent: "ui:menu-opening",
+                pictureSelectionClass: "ui-image-input__selection",
+                pictureTextClass: "ui-image-input__text",
+                textInputActionClass: "ui-text-input__action"
+            },
+            strings: { text: (key: string) => key, format: (key: string) => key, write: () => undefined },
+            states: { isInert: () => false, setDisabled: () => undefined },
+            icons: { apply: () => undefined },
+            tooltips: { escape: (text: string) => text, show: () => undefined, hide: () => undefined },
+            temporal: { parse: () => null, toDate: () => new Date(0) },
+            urls: { isImageSource: () => false },
+            colors: { count: () => 8, color: () => "#006E64" },
+            focus: { first: () => null },
+            store: { read: () => null, write: () => undefined },
+            values: { read: () => null, isRefused: () => false },
+            properties: { set: () => true }
+        }
+    }));
+
+    for (const node of document.nodes) {
+        const el = kind.renderItem(node);
+        (el as unknown as FakeElement).rect = { left: node.x, top: node.y, width: 140, height: 64 };
+        nodeElements.set(node.id, el);
+    }
+
+    kind.itemsDrawn(new Set(["n1", "n2"]));
+    kind.edges();
+    const firstEnds = kind.edgeEnds(document.edges[0])!;
+    assert.equal(centerCalls, 2);
+    assert.deepEqual(firstEnds.from, { x: 160, y: 72 });
+    assert.deepEqual(firstEnds.to, { x: 220, y: 112 });
+
+    // Moving n1 by (+40, +20) updates edgeEnds from cached offsets with zero centerOf / getBoundingClientRect calls.
+    document.nodes[0].x = 60;
+    document.nodes[0].y = 60;
+    kind.edges();
+    const movedEnds = kind.edgeEnds(document.edges[0])!;
+    assert.equal(centerCalls, 2);
+    assert.deepEqual(movedEnds.from, { x: 200, y: 92 });
+
+    // Resizing n1 invalidates only n1's cached pin offsets.
+    kind.nodeResized("n1");
+    kind.edges();
+    void kind.edgeEnds(document.edges[0]);
+    assert.equal(centerCalls, 3);
+
+    kind.dispose();
+});

@@ -152,5 +152,14 @@ public sealed class WriteTextNode : IGraphNodeAsync
 
     /// <inheritdoc/>
     public async ValueTask ExecuteAsync(UINodeRunContext context, CancellationToken cancellationToken = default)
-        => Path = await UINodeFiles.Of(context).WriteAsync(Folder, Name, Encoding.UTF8.GetBytes(Text ?? string.Empty), Overwrite, cancellationToken).ConfigureAwait(false);
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var text = Text ?? string.Empty;
+
+        if (text.Length > context.MaxTextLength)
+            throw new UINodeFailureException($"Text exceeds the maximum length of {context.MaxTextLength} characters.");
+
+        Path = await UINodeFiles.Of(context).WriteAsync(Folder, Name, Encoding.UTF8.GetBytes(text), Overwrite, cancellationToken).ConfigureAwait(false);
+    }
 }

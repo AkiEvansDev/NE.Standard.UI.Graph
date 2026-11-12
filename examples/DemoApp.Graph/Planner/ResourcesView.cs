@@ -20,6 +20,9 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
     // The air between the panes: before a pane beside the one before it, above one under it.
     private static readonly UIResponsive<UIThickness> PaneGap = UIResponsive<UIThickness>.Create(UIThickness.All(0, 24, 0, 0), xl: UIThickness.All(24, 0, 0, 0));
 
+    // Eight pixels of horizontal bleed inside the form's scroller so its overflow-x: hidden leaves the fields' 2 px focus halo whole.
+    private static readonly UIResponsive<UIThickness> FormScrollerMargin = UIResponsive<UIThickness>.Create(UIThickness.All(-8, 24, -8, 0), xl: UIThickness.All(16, 0, 0, 0));
+
     public static string ViewKey => "graph.planner.resources";
 
     protected override string Route => ResourcesRoute;
@@ -42,9 +45,10 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
             .AddChild(new ScrollContainerComponent()
                 .VerticalScrollOnly()
                 .SetHeight(Filled(UILayoutLength.Auto()))
+                .SetPadding(UIThickness.All(8, 0, 8, 0))
                 .BindVisibility<ResourcesController>(static c => c.EditorVisibility)
                 .AddChild(CreateForm())
-                .SetMargin(PaneGap)
+                .SetMargin(FormScrollerMargin)
                 .SetPlacement(1, 2, 24, 1, xl: UIGridPlacement.At(6, 1, 9, 1))
             )
             .AddChild(CreateRecipe().SetMargin(PaneGap).SetPlacement(1, 3, 24, 1, xl: UIGridPlacement.At(15, 1, 10, 1)))
@@ -178,6 +182,7 @@ internal sealed class ResourcesView : GraphDemoView, IUIViewDefinition
                 UILayout.Stack(8,
                     UIText.Caption("planner.recipe.takes").Muted(),
                     new ItemsViewComponent()
+                        .DisableScroll()
                         .BindItems<ResourcesController>(static c => c.Ingredients)
                         .SetSpacing(8)
                         .SetTemplate(CreateIngredient())

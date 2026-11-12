@@ -61,3 +61,37 @@ for (const entry of corpus.cases) {
         close(plan.cost, entry.expected.cost, "cost");
     });
 }
+
+test("overflowed targets or priced costs return Unsettled without NaN runs or negative workers", () => {
+    const entries = [
+        { kind: "resource", id: "ore", cost: 1e308 },
+        { kind: "resource", id: "plate" },
+        { kind: "craft", id: "smelt", ingredients: [{ resource: "ore", amount: 10 }], products: [{ resource: "plate", amount: 1 }], time: 10 }
+    ].map(readEntry).filter((read): read is ProductionEntry => read !== null);
+
+    const ignoredNonFinite = solvePlan(entries, {
+        targets: [{ resource: "plate", amount: Number.NaN }, { resource: "plate", amount: Number.POSITIVE_INFINITY }],
+        period: "Once",
+        objective: "LeastRaw",
+        bought: []
+    });
+    assert.equal(ignoredNonFinite.status, "Empty");
+
+    const overflowedTargets = solvePlan(entries, {
+        targets: [{ resource: "plate", amount: 1e308 }, { resource: "plate", amount: 1e308 }],
+        period: "Minute",
+        objective: "LeastRaw",
+        bought: []
+    });
+    assert.equal(overflowedTargets.status, "Unsettled");
+    assert.equal(overflowedTargets.crafts.length, 0);
+
+    const overflowedCost = solvePlan(entries, {
+        targets: [{ resource: "plate", amount: 2 }],
+        period: "Minute",
+        objective: "LeastCost",
+        bought: []
+    });
+    assert.equal(overflowedCost.status, "Unsettled");
+    assert.equal(overflowedCost.crafts.length, 0);
+});

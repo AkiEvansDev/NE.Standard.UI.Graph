@@ -227,6 +227,8 @@ declare module "ne-standard-ui" {
         readonly attributeFilter?: readonly string[];
         /** Which records the engine answers at all; the rest are skipped before their components are looked for. Default: every one. */
         readonly relevant?: (mutation: MutationRecord) => boolean;
+        /** Whether nodes put in name only the component they landed in, else the components they are or hold — never the rest of the host they joined. Default: false. */
+        readonly addedOnly?: boolean;
         /** Called once for a batch that took nodes out of the tree, so an engine can drop state for elements gone from the page. */
         readonly removed?: () => void;
     };
@@ -868,8 +870,9 @@ declare module "ne-standard-ui" {
         readonly tableResizerClass: "ui-table__resizer";
         /** On a table's root: the indices of the columns hidden now. */
         readonly tableHidden: "data-ui-table-hidden";
-        /** On an items host: how it holds its rows (all of them, virtualized, windowed). */
+        /** On an items host: how it holds its rows (all of them, virtualized, windowed) and the version of its virtualized items. */
         readonly hostMode: "data-ui-host-mode";
+        readonly itemsVersion: "data-ui-items-version";
         /** A windowed host's window: where it starts, the source's total, its size, whether more follow, and the totals as JSON. */
         readonly windowOffset: "data-ui-window-offset";
         readonly windowTotal: "data-ui-window-total";
