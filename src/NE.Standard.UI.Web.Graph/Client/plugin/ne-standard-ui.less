@@ -913,7 +913,7 @@
 // Keeps the room down the box's right side, where an upright bar stands.
 .ui-scroll-room-y() {
     --ui-scroll-room-y: var(--ui-scrollbar-room);
-    --ui-scroll-room-right: var(--ui-scroll-room-y);
+    --ui-scroll-room-right: max(0px, calc(var(--ui-scroll-room-y) - var(--ui-scroll-room-bleed)));
 }
 
 // Keeps the room down the inline end only while the box holds more than it shows, read off its own scroll timeline: none while it fits,
