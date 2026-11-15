@@ -23,6 +23,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
     public const int DefaultMaxTextLength = 1_000_000;
 
     private static readonly ConcurrentDictionary<Type, bool> AlwaysRunsByType = new();
+    private static readonly object UnresolvedNodeMarker = new();
 
     private readonly UINodeCatalog _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
     private readonly IServiceProvider? _services = services;
@@ -140,7 +141,7 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
         if (document.Nodes.Length > MaxNodes)
             return UINodeRunResult.Refused(UIPhrase.Of(UIGraphWords.RunTooManyNodes, ("max", MaxNodes)));
 
-        UINodeNetwork network = WithoutPassive(_catalog.Materialize(document, PinChoices));
+        UINodeNetwork network = WithoutPassive(WithUnresolved(document, _catalog.Materialize(document, PinChoices)));
 
         Cache?.Retain(network.Nodes.Select(static node => node.Id));
 
@@ -179,6 +180,14 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
             if (edges is not null && IsFedByStopped(edges, stopped))
             {
                 await SkipAsync(node, stopped, skipped).ConfigureAwait(false);
+                await ReportRunAsync(++completed, total).ConfigureAwait(false);
+                continue;
+            }
+
+            if (ReferenceEquals(node.Node, UnresolvedNodeMarker))
+            {
+                ForgetAbove(node, incoming);
+                await FailAsync(node, UIPhrase.Of(UIGraphWords.RunMissingKind, ("type", node.Type)), stopped, failures).ConfigureAwait(false);
                 await ReportRunAsync(++completed, total).ConfigureAwait(false);
                 continue;
             }
@@ -358,6 +367,68 @@ public sealed partial class UINodeRunner(UINodeCatalog catalog, IServiceProvider
             Log.NodeFailed(_logger, exception, node.Type, node.Id);
 
         return (IncludeExceptionDetail ? UINodeRunContext.Said(exception.Message) : null) ?? UIPhrase.Text(exception.GetType().Name);
+    }
+
+    /// <summary>Adds enabled nodes whose kind is missing from the catalogue so reaching one fails its branch cleanly.</summary>
+    private UINodeNetwork WithUnresolved(UINodeDocument document, UINodeNetwork materialized)
+    {
+        var hasUnresolved = false;
+
+        foreach (UINode? node in document.Nodes)
+        {
+            if (node is not null && node.Enabled && !string.IsNullOrEmpty(node.Id) && !string.IsNullOrEmpty(node.Type) && !_catalog.TryGetType(node.Type, out _))
+            {
+                hasUnresolved = true;
+                break;
+            }
+        }
+
+        if (!hasUnresolved)
+            return materialized;
+
+        Dictionary<string, UINodeInstance> materializedById = [with(StringComparer.Ordinal)];
+
+        foreach (UINodeInstance instance in materialized.Nodes)
+            materializedById[instance.Id] = instance;
+
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
+        List<UINodeInstance> nodes = [];
+        Dictionary<string, UINodeInstance> byId = [with(StringComparer.Ordinal)];
+
+        foreach (UINode? node in document.Nodes)
+        {
+            if (node is null || !node.Enabled || string.IsNullOrEmpty(node.Id) || string.IsNullOrEmpty(node.Type) || !seen.Add(node.Id))
+                continue;
+
+            if (_catalog.TryGetType(node.Type, out _))
+            {
+                if (materializedById.TryGetValue(node.Id, out UINodeInstance? known))
+                {
+                    nodes.Add(known);
+                    byId[node.Id] = known;
+                }
+
+                continue;
+            }
+
+            UINodeInstance unresolved = new(node.Id, node.Type, UnresolvedNodeMarker);
+
+            nodes.Add(unresolved);
+            byId[node.Id] = unresolved;
+        }
+
+        List<UINodeConnection> connections = [];
+
+        foreach (UINodeEdge? edge in document.Edges)
+        {
+            if (edge is null || edge.FromNode is null || edge.ToNode is null || string.IsNullOrEmpty(edge.FromPin) || string.IsNullOrEmpty(edge.ToPin))
+                continue;
+
+            if (byId.TryGetValue(edge.FromNode, out UINodeInstance? from) && byId.TryGetValue(edge.ToNode, out UINodeInstance? to))
+                connections.Add(new UINodeConnection(from, edge.FromPin, to, edge.ToPin));
+        }
+
+        return new UINodeNetwork([.. nodes], [.. connections]) { PinChoices = materialized.PinChoices };
     }
 
     /// <summary>The network without the nodes a run passes over: no work to do, and no pin to feed or be read.</summary>

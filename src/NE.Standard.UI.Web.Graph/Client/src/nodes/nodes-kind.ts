@@ -3,14 +3,14 @@
 
 import type { CanvasKind, CanvasKindDefinition, CanvasServices, EdgeEnds, KindDrag, MenuTarget } from "../canvas/canvas-kind.ts";
 import { itemsInFrame, snapBoxes } from "../canvas/canvas-drag.ts";
-import { cloneTemplate, findTemplate, NodeAttribute } from "../canvas/canvas-dom.ts";
+import { cloneTemplate, NodeAttribute } from "../canvas/canvas-dom.ts";
 import { checkMenuEntries, enableMenuEntries, showMenuEntries } from "../canvas/canvas-menus.ts";
 import type { CanvasEdge, CanvasItem, Point } from "../canvas/canvas-model.ts";
 import { newId, readJson } from "../canvas/canvas-model.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
-import { AnyType, canResetPin, canResetValues, cloneDefault, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice } from "./model.ts";
+import { AnyType, canResetPin, canResetValues, cloneDefault, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice, synthesizeMissingPins } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
 import { NodesParameters } from "./nodes-parameters.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
@@ -23,9 +23,8 @@ import { HeadAttribute, PinAttribute, PinDirectionAttribute, PinMenuAttribute, P
 const EditorSelector = ".ui-graph__editor";
 // The panels a node canvas stands over its sheet: the log, the run line and the run panel.
 const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel";
-const CatalogAttribute = "data-ui-graph-catalog";
+export const CatalogAttribute = "data-ui-graph-catalog";
 export const PinChoicesAttribute = "data-ui-graph-pin-choices";
-const EditorPrefix = "graph-editor:";
 // The kind every catalogue carries (`RerouteNode` on the server), which a wire's menu puts on the wire.
 const RerouteKey = "graph.reroute";
 // Half a reroute's box at its least, so the one a menu puts down is centred on where the menu was opened.
@@ -73,15 +72,7 @@ export class NodesKind implements CanvasKind {
         const catalog = readCatalog(services.root.getAttribute(CatalogAttribute));
 
         this.services = services;
-
-        for (const type of catalog) {
-            this.types.set(type.key, type);
-
-            for (const pin of [...type.inputs, ...type.outputs]) {
-                if (pin.typeTitle !== null && pin.typeTitle !== undefined)
-                    this.typeTitles.set(elementType(pin.type), pin.typeTitle);
-            }
-        }
+        this.applyCatalog(catalog);
 
         this.pickerBinding = new NodesPickerBinding(services, catalog);
         this.wiring = new NodesWiring(services, {
@@ -97,13 +88,28 @@ export class NodesKind implements CanvasKind {
             setValue: (nodeId, pinName, value) => this.setValue(nodeId, pinName, value, true),
             readValue: (pin, field) => readPinValue(pin, services.context.values.read(field)),
             show: nodeId => this.log.goToNode(nodeId),
-            cloneEditor: region => cloneTemplate(services.root, region)
+            cloneEditor: region => cloneTemplate(services.root, region),
+            pinChoices: () => readPinChoices(services.root.getAttribute(PinChoicesAttribute))
         });
 
         this.syncPinChoices();
         this.log.setLogOpen(services.context.store.read(services.root, "log") === "open");
         this.log.drawRun();
         this.listen();
+    }
+
+    private applyCatalog(catalog: readonly NodeType[]): void {
+        this.types.clear();
+        this.typeTitles.clear();
+
+        for (const type of catalog) {
+            this.types.set(type.key, type);
+
+            for (const pin of [...type.inputs, ...type.outputs]) {
+                if (pin.typeTitle !== null && pin.typeTitle !== undefined)
+                    this.typeTitles.set(elementType(pin.type), pin.typeTitle);
+            }
+        }
     }
 
     private listen(): void {
@@ -176,13 +182,23 @@ export class NodesKind implements CanvasKind {
             cloneEditor: region => cloneTemplate(this.services.root, region),
             setProperty: (component, propertyName, value) => context.properties.set(component, propertyName, value),
             readValue: component => context.values.read(component),
-            isRefused: component => context.values.isRefused(component)
+            isRefused: component => context.values.isRefused(component),
+            pinChoices: readPinChoices(this.services.root.getAttribute(PinChoicesAttribute)),
+            missingPins: nodeId => synthesizeMissingPins(this.document, nodeId)
         });
     }
 
     public wordsChanged(): void {
         this.log.wordsChanged();
         this.pickerBinding.wordsChanged();
+    }
+
+    public catalogChanged(): void {
+        const catalog = readCatalog(this.services.root.getAttribute(CatalogAttribute));
+
+        this.applyCatalog(catalog);
+        this.pickerBinding.setCatalog(catalog);
+        this.services.draw();
     }
 
     public pinChoicesChanged(): void {
@@ -199,11 +215,6 @@ export class NodesKind implements CanvasKind {
 
                 if (options === null)
                     continue;
-
-                const templateField = findTemplate(this.services.root, `${EditorPrefix}${type.key}:${pin.name}`);
-
-                if (templateField !== null)
-                    setProperty(templateField, "Items", options);
 
                 for (const node of this.document.nodes) {
                     if (node.type !== type.key || node.collapsed === true)

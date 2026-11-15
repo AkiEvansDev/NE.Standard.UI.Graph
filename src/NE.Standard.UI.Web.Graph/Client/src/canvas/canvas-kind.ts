@@ -88,6 +88,8 @@ export type CanvasKind = {
     nodeResized?(id: string): void;
     /** The page's words changed, just before the sheet is drawn again: a panel the kind draws itself forgets what it last drew. */
     wordsChanged?(): void;
+    /** The root's bound catalogue changed: the kind updates its picker, types and drawn nodes without resetting viewport or values. */
+    catalogChanged?(): void;
     /** The root's runtime pin choices changed: the kind updates its templates and drawn fields in place without redrawing the sheet. */
     pinChoicesChanged?(): void;
     /** The canvas's root left the page: a watch the kind holds lets go, or it keeps the whole canvas alive. */

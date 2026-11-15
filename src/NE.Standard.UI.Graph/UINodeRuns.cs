@@ -37,10 +37,12 @@ public sealed class UINodeRuns
     public static readonly TimeSpan DefaultMaxRunTime = TimeSpan.FromMinutes(10);
 
     private readonly string _canvasId;
-    private readonly UINodeCatalog _catalog;
+    private readonly Func<UINodeCatalog>? _catalogSource;
     private readonly Func<UINodeDocument> _sheet;
     private readonly Action<UINodeDocument> _keep;
     private readonly Lock _sync = new();
+
+    private UINodeCatalog? _catalog;
 
     // The run under way, for Stop to end; a save command in the background runs it, so Stop comes in beside it. Taken and let go
     // under the lock, so a Stop never meets one already disposed.
@@ -61,6 +63,48 @@ public sealed class UINodeRuns
         _catalog = catalog;
         _sheet = sheet;
         _keep = keep;
+    }
+
+    /// <summary>
+    /// Runs the sheet the controller holds for <paramref name="canvasId"/> against the live catalogue <paramref name="catalog"/>
+    /// returns when each run begins.
+    /// </summary>
+    public UINodeRuns(string canvasId, Func<UINodeCatalog> catalog, Func<UINodeDocument> sheet, Action<UINodeDocument> keep)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(canvasId);
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(sheet);
+        ArgumentNullException.ThrowIfNull(keep);
+
+        _canvasId = canvasId;
+        _catalogSource = catalog;
+        _sheet = sheet;
+        _keep = keep;
+    }
+
+    /// <summary>Gets or sets the node catalogue a run materializes the sheet against.</summary>
+    public UINodeCatalog Catalog
+    {
+        get
+        {
+            lock (_sync)
+            {
+                if (_catalog is not null)
+                    return _catalog;
+            }
+
+            UINodeCatalog resolved = _catalogSource!();
+
+            ArgumentNullException.ThrowIfNull(resolved);
+            return resolved;
+        }
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+
+            lock (_sync)
+                _catalog = value;
+        }
     }
 
     /// <summary>
@@ -154,6 +198,7 @@ public sealed class UINodeRuns
 
         // Read before the first wait, as the save left it: afterwards a value the viewer sends may be landing on it.
         UINodeDocument sheet = _sheet();
+        UINodeCatalog catalog = Catalog;
         var first = true;
         var runs = 1;
 
@@ -163,7 +208,7 @@ public sealed class UINodeRuns
             return new(send([effect], cancellationToken));
         }
 
-        UINodeRunner runner = new(_catalog, services)
+        UINodeRunner runner = new(catalog, services)
         {
             Cache = Cache,
             IncludeExceptionDetail = IncludeExceptionDetail,

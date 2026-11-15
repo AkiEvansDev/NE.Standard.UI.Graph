@@ -277,6 +277,11 @@ export class Picker<TEntry extends PickerEntry> {
         this.listRail(roots, 0, lines);
         const chosen = nodes.get(this.category);
 
+        if (chosen === undefined && this.category !== AllCategories) {
+            this.category = AllCategories;
+            this.railStop = AllCategories;
+        }
+
         this.showChosen(chosen === undefined ? lines[0].caption : chosen.path.length === 0 ? this.words.text("ui.graph.uncategorized") : chosen.name);
 
         const drawn = new Map<string, HTMLElement>();

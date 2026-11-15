@@ -10,7 +10,7 @@ import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
 import { CanvasRender } from "./canvas-render.ts";
 import { CanvasSelection, adds } from "./canvas-selection.ts";
-import { PinChoicesAttribute } from "../nodes/nodes-kind.ts";
+import { CatalogAttribute, PinChoicesAttribute } from "../nodes/nodes-kind.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
 import { CanvasPinch } from "./pinch.ts";
@@ -54,6 +54,11 @@ export class GraphEngine {
                 this.canvases.get(root)?.draw();
         });
 
+        const catalogObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: [CatalogAttribute] }, roots => {
+            for (const root of roots)
+                this.canvases.get(root)?.catalogChanged();
+        });
+
         const pinChoicesObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: [PinChoicesAttribute] }, roots => {
             for (const root of roots)
                 this.canvases.get(root)?.pinChoicesChanged();
@@ -91,6 +96,7 @@ export class GraphEngine {
         this.cleanups.push(
             () => attachObserver?.disconnect(),
             () => settingsObserver?.disconnect(),
+            () => catalogObserver?.disconnect(),
             () => pinChoicesObserver?.disconnect(),
             () => readOnlyObserver?.disconnect(),
             () => inertObserver?.disconnect(),
@@ -315,7 +321,10 @@ class Canvas {
             this.draw();
     }
 
-    /** The page's words changed: the kind's own panels, the zoom's label, then the sheet are drawn again in them. */
+    public catalogChanged(): void {
+        this.kind.catalogChanged?.();
+    }
+
     public pinChoicesChanged(): void {
         this.kind.pinChoicesChanged?.();
     }

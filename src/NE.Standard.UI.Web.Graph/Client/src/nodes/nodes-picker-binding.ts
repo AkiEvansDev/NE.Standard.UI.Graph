@@ -14,6 +14,7 @@ export type LooseWire = { readonly fromNode: string; readonly fromPin: string; r
 export class NodesPickerBinding {
     private readonly services: CanvasServices<GraphDocument>;
     private readonly picker: Picker<NodeType> | null;
+    private offered: NodeType[] = [];
 
     // The wire the picker was opened for; the next plain opening forgets it.
     private loose: LooseWire | null = null;
@@ -23,9 +24,14 @@ export class NodesPickerBinding {
 
         this.services = services;
         // The picker offers what the picker may offer: a hidden kind is still drawn and run, it is just no longer added by hand.
-        const offered = catalog.filter(type => type.hidden !== true);
+        this.offered = catalog.filter(type => type.hidden !== true);
 
-        this.picker = Picker.create(services.root, () => offered, context.strings, context.dom, context.icons, context.roving, context.focus, context.shortcuts, type => this.addNode(type));
+        this.picker = Picker.create(services.root, () => this.offered, context.strings, context.dom, context.icons, context.roving, context.focus, context.shortcuts, type => this.addNode(type));
+    }
+
+    public setCatalog(catalog: readonly NodeType[]): void {
+        this.offered = catalog.filter(type => type.hidden !== true);
+        this.picker?.wordsChanged();
     }
 
     public open(): void {

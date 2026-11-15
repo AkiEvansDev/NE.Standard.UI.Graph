@@ -10,8 +10,10 @@
 
   <Folder Name="/examples/">
     <Project Path="examples/DemoApp.Graph/DemoApp.Graph.csproj" />
+    <Project Path="examples/DemoApp.Graph.Desktop/DemoApp.Graph.Desktop.csproj" />
     <Project Path="examples/DemoApp.Graph.Web/DemoApp.Graph.Web.csproj" />
     <Project Path="examples/DemoApp.Nodes/DemoApp.Nodes.csproj" />
+    <Project Path="examples/DemoApp.Nodes.Desktop/DemoApp.Nodes.Desktop.csproj" />
     <Project Path="examples/DemoApp.Nodes.Web/DemoApp.Nodes.Web.csproj" />
   </Folder>
 

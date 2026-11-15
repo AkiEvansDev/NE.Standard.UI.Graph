@@ -56,6 +56,8 @@ public sealed partial class GraphStrings
             [RunOutOfBounds] = "Значение «{pin}» выходит за допустимые границы.",
             [RunTooLong] = "«{pin}» получился длиннее, чем запуск разрешает тексту.",
             [RunTooManyNodes] = "На листе больше узлов, чем принимает запуск ({max}).",
+            [MissingKind] = "Неизвестный тип узла ({type})",
+            [RunMissingKind] = "Тип узла «{type}» не установлен.",
             [FileProgress] = "{index} из {total}: {name}.",
             [Collapse] = "Свернуть",
             [Expand] = "Развернуть",
@@ -197,6 +199,8 @@ public sealed partial class GraphStrings
             [RunOutOfBounds] = "“{pin}”的值超出了允许的范围。",
             [RunTooLong] = "“{pin}”的结果超出了运行允许的文本长度。",
             [RunTooManyNodes] = "工作表中的节点多于一次运行可接受的数量（{max}）。",
+            [MissingKind] = "缺少节点类型（{type}）",
+            [RunMissingKind] = "未安装节点类型“{type}”。",
 
             [FileProgress] = "第 {index} 个，共 {total} 个：{name}。",
             [Collapse] = "折叠",

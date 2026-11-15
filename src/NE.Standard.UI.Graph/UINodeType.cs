@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 using NE.Standard.UI.Abstractions.Items;
 
@@ -317,9 +318,10 @@ public sealed class UINodePin
     public string? ChoicesKey { get; }
 
     /// <summary>Gets whether the value, or a list's element, is a whole number: its editor takes no fraction.</summary>
-    internal bool WholeNumber { get; init; }
+    public bool WholeNumber { get; init; }
 
     /// <summary>Gets whether the value, or a list's element, holds nothing below zero: its editor takes no sign.</summary>
-    internal bool Unsigned { get; init; }
+    [SuppressMessage("Naming", "CA1720:Identifier contains type name", Justification = "Names the non-negative numeric pin constraint rather than a language integer type.")]
+    public bool Unsigned { get; init; }
 }
 

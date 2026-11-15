@@ -4,9 +4,9 @@
 
 import type { CanvasServices } from "../canvas/canvas-kind.ts";
 import { focusablePart } from "../canvas/side-panel.ts";
-import type { DocumentNode, DocumentParameter, GraphDocument, NodeType, Pin } from "./model.ts";
+import type { DocumentNode, DocumentParameter, GraphDocument, NodeType, Pin, PinChoice } from "./model.ts";
 import { dropParameter, findPin, isParameterAllowed } from "./model.ts";
-import { captionInField } from "./node-view.ts";
+import { captionInField, cloneConfiguredEditor } from "./node-view.ts";
 
 /** On a parameters column (`NodesParametersComponentRenderer.TargetAttribute`): the id of the canvas whose parameters it shows. */
 export const ParametersTargetAttribute = "data-ui-graph-parameters-for";
@@ -14,7 +14,6 @@ const ListSelector = "[data-ui-graph-parameters-list]";
 const NodeAttribute = "data-ui-graph-parameter-node";
 const PinAttribute = "data-ui-graph-parameter-pin";
 const RemoveAttribute = "data-ui-graph-parameter-remove";
-const EditorPrefix = "graph-editor:";
 const RemoveRegion = "graph-list-remove";
 const RowClass = "ui-graph__parameter";
 const NameClass = "ui-graph__parameter-name";
@@ -33,6 +32,8 @@ export type NodesParametersHost = {
     show(nodeId: string): void;
     /** A fresh copy of a framework component the canvas carries a template of: a field, as the node's own is drawn from. */
     cloneEditor(region: string): HTMLElement | null;
+    /** Runtime choice lists for `ChoicesKey` inputs on the canvas, or null when unset. */
+    pinChoices?(): Readonly<Record<string, readonly PinChoice[]>> | null;
 };
 
 /** One parameter as the panel draws it: the input it names, found on the sheet. */
@@ -173,7 +174,7 @@ export class NodesParameters {
 
         const found = this.find();
         const readOnly = this.services.settings.readOnly;
-        const key = JSON.stringify([readOnly, found.map(entry => [entry.parameter.node, entry.parameter.pin, entry.node.title ?? null])]);
+        const key = JSON.stringify([readOnly, found.map(entry => [entry.parameter.node, entry.parameter.pin, entry.node.title ?? null, entry.type.title, entry.pin])]);
 
         if (key === this.drawnKey && list === this.drawnList) {
             for (const entry of found)
@@ -294,7 +295,7 @@ export class NodesParameters {
         const name = document.createElement("button");
         const node = document.createElement("span");
         const pin = document.createElement("span");
-        const field = this.host.cloneEditor(`${EditorPrefix}${entry.node.type}:${entry.pin.name}`);
+        const field = cloneConfiguredEditor(entry.pin, region => this.host.cloneEditor(region), (component, propertyName, value) => context.properties.set(component, propertyName, value), this.host.pinChoices?.() ?? null);
         const remove = this.host.cloneEditor(RemoveRegion);
 
         row.className = RowClass;

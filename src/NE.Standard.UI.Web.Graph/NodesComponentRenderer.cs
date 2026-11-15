@@ -4,6 +4,7 @@ using System.Text.Json;
 using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Abstractions.Styling;
 using NE.Standard.UI.Authoring.Components;
+using NE.Standard.UI.Components.BuiltIns.Inputs;
 using NE.Standard.UI.Graph;
 using NE.Standard.UI.Primitives.Constants;
 using NE.Standard.UI.Primitives.Styling;
@@ -52,6 +53,11 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         WebDomOperation.Style(BottomLeftCornerVariable, target: "root", converter: GraphConverters.BottomLeftCornerCss)
     ];
 
+    private static readonly WebDomOperation[] CatalogOperations =
+    [
+        WebDomOperation.Attribute(CatalogAttribute, target: "root", converter: GraphConverters.CatalogJson)
+    ];
+
     private static readonly WebDomOperation[] PinChoicesOperations =
     [
         WebDomOperation.Attribute(PinChoicesAttribute, target: "root", converter: GraphConverters.PinChoicesJson)
@@ -96,13 +102,11 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             _ = target.Style(BottomLeftCornerVariable, WebCssValues.Pixels(radius.BottomLeft));
         }, NodeCornerOperations);
 
-    /// <summary>The node kinds as one JSON attribute: the engine reads it once and builds the picker and every node from it.</summary>
+    /// <summary>The node kinds as one JSON attribute: the engine reads it and updates the picker and every node when a bound catalogue changes.</summary>
     private static void RenderCatalog(WebRenderContext context, IHtmlElementBuilder root)
-    {
-        UINodeCatalog? catalog = ReadRenderValue<UINodeCatalog?>(context, NodesComponent.CatalogProperty, null);
-
-        _ = root.Attribute(CatalogAttribute, JsonSerializer.Serialize(catalog?.Types ?? [], WireJson));
-    }
+        => _ = RenderProperty<UINodeCatalog?>(context, root, NodesComponent.CatalogProperty, static (target, value) =>
+            _ = target.Attribute(CatalogAttribute, JsonSerializer.Serialize(value?.Types ?? [], WireJson)),
+        CatalogOperations);
 
     /// <summary>The runtime choice lists for <c>ChoicesKey</c> pins as JSON on the root; unset or empty, omitted.</summary>
     private static void RenderPinChoices(WebRenderContext context, IHtmlElementBuilder root)
@@ -112,29 +116,33 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
                 _ = target.Attribute(PinChoicesAttribute, JsonSerializer.Serialize(value, WireJson));
         }, PinChoicesOperations);
 
-    /// <summary>Framework components as templates the engine clones: one per editable pin plus the list buttons.</summary>
-    /// <remarks>Value, read-only and enabled state (a trailing button's too) are the engine's to set on each clone.</remarks>
+    /// <summary>Framework components as canonical templates the engine clones and parameterizes from each pin's metadata.</summary>
+    /// <remarks>Value, read-only, enabled state (a trailing button's too) and per-pin metadata are the engine's to set on each clone.</remarks>
     protected override void RenderKindTemplates(WebRenderContext context, IHtmlElementBuilder root)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(root);
 
-        UINodeCatalog? catalog = ReadRenderValue<UINodeCatalog?>(context, NodesComponent.CatalogProperty, null);
-
         RenderTemplate(context, root, UIGraphRegions.ListRemove, IVisualComponent.EnabledProperty);
         RenderTemplate(context, root, UIGraphRegions.ListAdd, IVisualComponent.EnabledProperty);
         RenderTemplate(context, root, UIGraphRegions.StateReset, IVisualComponent.EnabledProperty);
 
-        foreach (UINodeType type in catalog?.Types ?? [])
-        {
-            foreach (UINodePin pin in type.Inputs)
-            {
-                if (string.IsNullOrWhiteSpace(pin.ChoicesKey))
-                    RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty);
-                else
-                    RenderTemplate(context, root, UIGraphRegions.Editor(type.Key, pin.Name), IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IItemsComponent.ItemsProperty);
-            }
-        }
+        RenderTemplate(context, root, UIGraphRegions.EditorText, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty, IPlaceholderInputComponent.PlaceholderProperty, IAffixTextInputComponent.SuffixTextProperty, ITextLengthComponent.MaxLengthProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorTextArea, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty, IPlaceholderInputComponent.PlaceholderProperty, TextAreaComponent.RowsProperty, ITextLengthComponent.MaxLengthProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorNumber, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty, IPlaceholderInputComponent.PlaceholderProperty, IAffixTextInputComponent.SuffixTextProperty, NumberInputComponent.MinProperty, NumberInputComponent.MaxProperty, NumberInputComponent.StepProperty, NumberInputComponent.AllowDecimalsProperty, NumberInputComponent.AllowNegativeProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorBoolean, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorChoice, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty, IPlaceholderInputComponent.PlaceholderProperty, IItemsComponent.ItemsProperty, IClearableInputComponent.ShowClearButtonProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorDate, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorTime, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorDateTime, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorImage, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, ITextBaseComponent.TitleProperty, IPlaceholderInputComponent.PlaceholderProperty, ITextLengthComponent.MaxLengthProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorImageLarge, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorListText, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty, IPlaceholderInputComponent.PlaceholderProperty, ITextLengthComponent.MaxLengthProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorListNumber, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty, IPlaceholderInputComponent.PlaceholderProperty, IAffixTextInputComponent.SuffixTextProperty, NumberInputComponent.MinProperty, NumberInputComponent.MaxProperty, NumberInputComponent.StepProperty, NumberInputComponent.AllowDecimalsProperty, NumberInputComponent.AllowNegativeProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorListChoice, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty, IPlaceholderInputComponent.PlaceholderProperty, IItemsComponent.ItemsProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorListDate, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorListTime, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty);
+        RenderTemplate(context, root, UIGraphRegions.EditorListDateTime, IInputComponent.ValueProperty, IInputComponent.IsReadOnlyProperty, IVisualComponent.EnabledProperty, IAccessibleNameComponent.AccessibleNameProperty);
     }
 
     protected override void RenderAfterViewport(WebRenderContext context, IHtmlElementBuilder root)

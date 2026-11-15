@@ -88,6 +88,14 @@ api.registerConverter("graph-corner-top-left", value => cornerCss(value, "topLef
 api.registerConverter("graph-corner-top-right", value => cornerCss(value, "topRight"));
 api.registerConverter("graph-corner-bottom-right", value => cornerCss(value, "bottomRight"));
 api.registerConverter("graph-corner-bottom-left", value => cornerCss(value, "bottomLeft"));
+api.registerConverter("graph-catalog", value => {
+    if (Array.isArray(value))
+        return JSON.stringify(value);
+
+    const types = value !== null && typeof value === "object" ? (value as { types?: unknown }).types : null;
+
+    return JSON.stringify(Array.isArray(types) ? types : []);
+});
 api.registerConverter("graph-pin-choices", value => {
     if (value === null || value === undefined || typeof value !== "object")
         return null;

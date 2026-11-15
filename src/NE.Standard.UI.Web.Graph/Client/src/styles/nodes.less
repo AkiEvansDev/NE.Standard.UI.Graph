@@ -98,6 +98,12 @@
         border-color: var(--ui-color-primary);
     }
 
+    // A node whose kind is missing from the current catalogue wears a dashed warning edge; a run failure still overrides its colour.
+    .ui-graph__node[data-ui-graph-missing] {
+        border-style: dashed;
+        border-color: var(--ui-color-warning);
+    }
+
     .ui-graph__node[data-ui-graph-state="error"] {
         border-color: var(--ui-color-danger);
     }
@@ -306,9 +312,10 @@
 }
 
 .ui-graph__node-unknown {
-    padding: @ui-space-2;
+    padding: @ui-space-2 @ui-space-3;
     color: var(--ui-color-danger-ink);
     text-align: center;
+    overflow-wrap: anywhere;
 }
 
 // --- pins and rows --------------------------------------------------------------------------------------------------------

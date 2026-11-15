@@ -6,8 +6,8 @@ import type { ClientStrings, ComponentStates, DomNames, Icons, TemporalFormattin
 import { CollapsedAttribute, FoldAttribute, hoverTooltip, nodeRoot, PinToggleAttribute, resizeGrip } from "../canvas/canvas-dom.ts";
 import { joinList, MoreKey, showDisplayValue } from "./display.ts";
 import type { DisplayOptions } from "./display.ts";
-import type { DocumentNode, NodeType, Pin } from "./model.ts";
-import { asText, isPinVisible } from "./model.ts";
+import type { DocumentNode, NodeType, Pin, PinChoice } from "./model.ts";
+import { asText, isPinVisible, resolvePinOptions, staticPinOptions } from "./model.ts";
 
 export const PinAttribute = "data-ui-graph-pin";
 export const PinDirectionAttribute = "data-ui-graph-pin-dir";
@@ -17,6 +17,8 @@ export const HeadAttribute = "data-ui-graph-head";
 export const ValueAttribute = "data-ui-graph-value";
 export const DisplayAttribute = "data-ui-graph-display";
 export const UploadAttribute = "data-ui-graph-uploading";
+/** On a node whose kind is missing from the current catalogue. */
+export const MissingAttribute = "data-ui-graph-missing";
 /** On a node the viewer turned off for a run: drawn dimmed. */
 const OffAttribute = "data-ui-graph-off";
 /** The menu the right button opens on a pin's row — `UIGraphMenus.Pin` on the server — over the node's own. */
@@ -83,15 +85,155 @@ export type NodeViewOptions = {
     readonly readValue: (component: Element) => unknown;
     /** Whether such a copy holds a value its own rules refuse — past its bounds, a fraction or a sign it takes none of — as the server would. */
     readonly isRefused: (component: Element) => boolean;
+    /** Runtime choice lists for `ChoicesKey` inputs on the canvas, or null when unset. */
+    readonly pinChoices?: Readonly<Record<string, readonly PinChoice[]>> | null;
+    /** Synthesized read-only input/output pins from connected edges when a node's kind is missing from the catalogue. */
+    readonly missingPins?: (nodeId: string) => { readonly inputs: readonly Pin[]; readonly outputs: readonly Pin[] };
 };
 
-// The names the canvas's templates are carried under: UIGraphRegions on the server.
-const EditorPrefix = "graph-editor:";
+// The names the canvas's canonical templates are carried under: UIGraphRegions on the server.
+const EditorTextRegion = "graph-editor:text";
+const EditorTextAreaRegion = "graph-editor:textarea";
+const EditorNumberRegion = "graph-editor:number";
+const EditorBooleanRegion = "graph-editor:boolean";
+const EditorChoiceRegion = "graph-editor:choice";
+const EditorDateRegion = "graph-editor:date";
+const EditorTimeRegion = "graph-editor:time";
+const EditorDateTimeRegion = "graph-editor:datetime";
+const EditorImageRegion = "graph-editor:image";
+const EditorImageLargeRegion = "graph-editor:image-large";
+const EditorListTextRegion = "graph-editor:list-text";
+const EditorListNumberRegion = "graph-editor:list-number";
+const EditorListChoiceRegion = "graph-editor:list-choice";
+const EditorListDateRegion = "graph-editor:list-date";
+const EditorListTimeRegion = "graph-editor:list-time";
+const EditorListDateTimeRegion = "graph-editor:list-datetime";
 const ListRemoveRegion = "graph-list-remove";
 const ListAddRegion = "graph-list-add";
 const StateResetRegion = "graph-state-reset";
 // On a list's add button, for the row to stand it beside the list's caption.
 const ListAddAttribute = "data-ui-graph-list-add";
+
+/** Clones the canonical editor template for `pin` and applies the pin's metadata (`Title`, `Placeholder`, bounds, choices). */
+export function cloneConfiguredEditor(pin: Pin, cloneEditor: (region: string) => HTMLElement | null, setProperty: (component: Element, propertyName: string, value: unknown) => void, pinChoices: Readonly<Record<string, readonly PinChoice[]>> | null = null): HTMLElement | null {
+    const region = editorRegionForPin(pin);
+
+    if (region === null)
+        return null;
+
+    const field = cloneEditor(region);
+
+    if (field === null)
+        return null;
+
+    configureClonedEditor(field, pin, region, setProperty, pinChoices);
+    return field;
+}
+
+function editorRegionForPin(pin: Pin): string | null {
+    if (pin.editor === "List") {
+        if ((pin.choices?.length ?? 0) > 0 || (pin.choicesKey !== null && pin.choicesKey !== undefined && pin.choicesKey.trim().length > 0))
+            return EditorListChoiceRegion;
+
+        const element = pin.type.startsWith(ArrayPrefix) ? pin.type.slice(ArrayPrefix.length) : pin.type;
+
+        switch (element) {
+            case "number":
+                return EditorListNumberRegion;
+            case "boolean":
+                return EditorBooleanRegion;
+            case "date":
+                return EditorListDateRegion;
+            case "time":
+                return EditorListTimeRegion;
+            case "datetime":
+                return EditorListDateTimeRegion;
+            default:
+                return EditorListTextRegion;
+        }
+    }
+
+    switch (pin.editor) {
+        case "Text":
+            return (pin.maxLines ?? 1) > 1 ? EditorTextAreaRegion : EditorTextRegion;
+        case "Number":
+            return EditorNumberRegion;
+        case "Boolean":
+            return EditorBooleanRegion;
+        case "Choice":
+            return EditorChoiceRegion;
+        case "Date":
+            return EditorDateRegion;
+        case "Time":
+            return EditorTimeRegion;
+        case "DateTime":
+            return EditorDateTimeRegion;
+        case "Image":
+            return pin.large === true ? EditorImageLargeRegion : EditorImageRegion;
+        default:
+            return null;
+    }
+}
+
+function configureClonedEditor(field: HTMLElement, pin: Pin, region: string, setProperty: (component: Element, propertyName: string, value: unknown) => void, pinChoices: Readonly<Record<string, readonly PinChoice[]>> | null): void {
+    const usesAccessibleName = region === EditorTextAreaRegion
+        || region === EditorBooleanRegion
+        || region === EditorImageLargeRegion
+        || region === EditorListTextRegion
+        || region === EditorListNumberRegion
+        || region === EditorListChoiceRegion
+        || region === EditorListDateRegion
+        || region === EditorListTimeRegion
+        || region === EditorListDateTimeRegion;
+
+    setProperty(field, usesAccessibleName ? "AccessibleName" : "Title", pin.title);
+
+    const hasPlaceholder = pin.placeholder !== null && pin.placeholder !== undefined && pin.placeholder.trim().length > 0;
+
+    if (region === EditorChoiceRegion || region === EditorListChoiceRegion) {
+        setProperty(field, "Placeholder", hasPlaceholder ? pin.placeholder : null);
+        setProperty(field, "Items", resolvePinOptions(pin, pinChoices) ?? staticPinOptions(pin));
+
+        if (region === EditorChoiceRegion && pin.required !== true && (pin.defaultValue === null || pin.defaultValue === undefined || pin.defaultValue === ""))
+            setProperty(field, "ShowClearButton", true);
+    }
+    else if (region === EditorTextRegion || region === EditorTextAreaRegion || region === EditorNumberRegion || region === EditorImageRegion || region === EditorListTextRegion || region === EditorListNumberRegion) {
+        setProperty(field, "Placeholder", hasPlaceholder ? pin.placeholder : "—");
+    }
+
+    if (region === EditorTextRegion || region === EditorNumberRegion || region === EditorListNumberRegion) {
+        const hasUnit = pin.unit !== null && pin.unit !== undefined && pin.unit.trim().length > 0;
+
+        setProperty(field, "SuffixText", hasUnit ? pin.unit : null);
+    }
+
+    if ((region === EditorTextRegion || region === EditorTextAreaRegion || region === EditorImageRegion || region === EditorListTextRegion) && typeof pin.maxLength === "number" && pin.maxLength > 0)
+        setProperty(field, "MaxLength", pin.maxLength);
+
+    if (region === EditorTextAreaRegion && typeof pin.maxLines === "number" && pin.maxLines > 1)
+        setProperty(field, "Rows", pin.maxLines);
+
+    if (region === EditorNumberRegion || region === EditorListNumberRegion) {
+        const explicitMin = typeof pin.min === "number" && Number.isFinite(pin.min) ? pin.min : null;
+        const min = pin.unsigned === true ? (explicitMin !== null && explicitMin >= 0 ? explicitMin : 0) : explicitMin;
+        const max = typeof pin.max === "number" && Number.isFinite(pin.max) ? pin.max : null;
+
+        if (min !== null)
+            setProperty(field, "Min", min);
+
+        if (max !== null)
+            setProperty(field, "Max", max);
+
+        if (typeof pin.step === "number" && Number.isFinite(pin.step) && pin.step > 0)
+            setProperty(field, "Step", pin.step);
+
+        if (pin.wholeNumber === true)
+            setProperty(field, "AllowDecimals", false);
+
+        if (pin.unsigned === true)
+            setProperty(field, "AllowNegative", false);
+    }
+}
 
 /** Draws one node. The element carries everything the engine needs to find it again: the node's id, and a mark per pin. */
 export function renderNode(node: DocumentNode, type: NodeType | undefined, options: NodeViewOptions): HTMLElement {
@@ -110,6 +252,9 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
 
     if (node.enabled === false)
         root.setAttribute(OffAttribute, "");
+
+    if (type === undefined)
+        root.setAttribute(MissingAttribute, "");
 
     if (type?.compact === true)
         return renderCompact(root, node, type, options);
@@ -139,8 +284,15 @@ export function renderNode(node: DocumentNode, type: NodeType | undefined, optio
         const unknown = document.createElement("div");
 
         unknown.className = "ui-graph__node-unknown";
-        unknown.textContent = node.type;
+        options.words.write(unknown, null, "ui.graph.missing-kind", { type: node.type });
         body.append(unknown);
+
+        const synthesized = options.missingPins?.(node.id);
+
+        if (synthesized !== undefined) {
+            for (let index = 0; index < Math.max(synthesized.inputs.length, synthesized.outputs.length); index++)
+                body.append(renderPortRow(node, synthesized.inputs[index], synthesized.outputs[index], options));
+        }
     }
     else {
         // A pin with no editor is just a name and a dot, so it can share a line with an output without the node widening for it.
@@ -209,8 +361,19 @@ function renderPorts(node: DocumentNode, type: NodeType | undefined, options: No
 
     ports.className = "ui-graph__node-ports";
 
-    if (type === undefined)
+    if (type === undefined) {
+        const synthesized = options.missingPins?.(node.id);
+
+        if (synthesized !== undefined) {
+            for (const pin of synthesized.inputs)
+                ports.append(opensPinMenu(renderPin(node, pin, pin.type, "in", options), pin, "in", options));
+
+            for (const pin of synthesized.outputs)
+                ports.append(opensPinMenu(renderPin(node, pin, pin.type, "out", options), pin, "out", options));
+        }
+
         return ports;
+    }
 
     for (const pin of type.inputs) {
         if (pin.hasPin !== false && isPinVisible(pin, node, type))
@@ -511,10 +674,10 @@ function renderEditor(node: DocumentNode, pin: Pin, disabled: boolean, options: 
     }
 }
 
-/** A pin's field: a framework component cloned from the canvas's template, shaped server-side by the pin's attributes, given the node's value and read back on change. */
+/** A pin's field: a framework component cloned from the canvas's canonical template, shaped by the pin's metadata, given the node's value and read back on change. */
 function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boolean, options: NodeViewOptions): HTMLElement {
     const box = editorBox(pin, pin.editor === "Boolean" ? "ui-graph__editor--check" : null);
-    const field = options.cloneEditor(`${EditorPrefix}${node.type}:${pin.name}`);
+    const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, options.pinChoices ?? null);
 
     if (field === null)
         return box;
@@ -614,7 +777,7 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boo
     const large = pin.large === true;
     const box = editorBox(pin, large ? "ui-graph__editor--picture" : null);
     const address = asText(value);
-    const field = options.cloneEditor(`${EditorPrefix}${node.type}:${pin.name}`);
+    const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, options.pinChoices ?? null);
 
     if (field === null)
         return box;
@@ -685,7 +848,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
 
         values.forEach((entry, index) => {
             const row = document.createElement("div");
-            const field = options.cloneEditor(`${EditorPrefix}${node.type}:${pin.name}`);
+            const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, options.pinChoices ?? null);
             const remove = options.cloneEditor(ListRemoveRegion);
 
             row.className = "ui-graph__list-row";

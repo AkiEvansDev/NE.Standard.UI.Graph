@@ -42,4 +42,10 @@
     </ItemGroup>
   </Target>
 
+  <!-- In the monorepo a desktop example references NE.Standard.UI.Desktop as a project rather than a package, so its buildTransitive
+       icon rule does not run on its own. -->
+  <PropertyGroup Condition="'$(InMonorepo)' == 'true' and '$(OutputType)' == 'WinExe' and '$(ApplicationIcon)' == ''">
+    <ApplicationIcon>$(MSBuildThisFileDirectory)src/Platforms/Desktop/NE.Standard.UI.Desktop/buildTransitive/icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
 </Project>

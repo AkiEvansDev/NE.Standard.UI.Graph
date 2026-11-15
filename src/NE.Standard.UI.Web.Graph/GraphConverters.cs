@@ -35,6 +35,9 @@ public static class GraphConverters
     /// <summary>A corner radius's bottom-left corner as a length in px.</summary>
     public const string BottomLeftCornerCss = "graph-corner-bottom-left";
 
+    /// <summary>A node canvas's catalogue of node kinds as JSON.</summary>
+    public const string CatalogJson = "graph-catalog";
+
     /// <summary>A node canvas's runtime pin choices dictionary as JSON.</summary>
     public const string PinChoicesJson = "graph-pin-choices";
 

@@ -110,10 +110,10 @@ test("a list row's cross is named by its row", () => {
 
 test("a value its field refuses stays the field's, and one it takes reaches the document", () => {
     const changed: Changed[] = [];
-    const root = render(new Set(["graph-editor:sum:Count"]), changed);
+    const root = render(new Set(["graph-editor:number"]), changed);
 
-    change(root, "graph-editor:sum:Count", 2.5);
-    change(root, "graph-editor:sum:Name", "Kept");
+    change(root, "graph-editor:number", 2.5);
+    change(root, "graph-editor:text", "Kept");
 
     assert.deepEqual(changed, [{ pin: "Name", value: "Kept" }]);
 });
@@ -127,8 +127,8 @@ test("a wired input's field is disabled, while an unwired one on a read-only she
             { ...base, readOnly: true, isConnected: (_nodeId, pin, direction) => direction === "in" && pin === "Name" }
         )
     );
-    const name = root.querySelectorAll("[data-region]").find(candidate => candidate.getAttribute("data-region") === "graph-editor:sum:Name")!;
-    const count = root.querySelectorAll("[data-region]").find(candidate => candidate.getAttribute("data-region") === "graph-editor:sum:Count")!;
+    const name = root.querySelectorAll("[data-region]").find(candidate => candidate.getAttribute("data-region") === "graph-editor:text")!;
+    const count = root.querySelectorAll("[data-region]").find(candidate => candidate.getAttribute("data-region") === "graph-editor:number")!;
 
     assert.equal(name.getAttribute("data-enabled"), "false");
     assert.equal(name.getAttribute("data-readonly"), null);

@@ -8,7 +8,7 @@ import { newId } from "../canvas/canvas-model.ts";
 import type { Point } from "../canvas/canvas-model.ts";
 import { AnyType, canConnect, dropParameter, edgesInto, findPin, resolveOutputType } from "./model.ts";
 import type { DocumentEdge, GraphDocument, NodeType, Pin } from "./model.ts";
-import { PinAttribute, PinDirectionAttribute, PinTypeAttribute } from "./node-view.ts";
+import { MissingAttribute, PinAttribute, PinDirectionAttribute, PinTypeAttribute } from "./node-view.ts";
 import type { LooseWire } from "./nodes-picker-binding.ts";
 
 const RowSelector = ".ui-graph__row";
@@ -62,7 +62,8 @@ export class NodesWiring {
     }
 
     private connectionFrom(pin: HTMLElement): Connection | null {
-        const nodeId = pin.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute);
+        const nodeElement = pin.closest<HTMLElement>(`[${NodeAttribute}]`);
+        const nodeId = nodeElement?.getAttribute(NodeAttribute);
 
         if (nodeId === null || nodeId === undefined)
             return null;
@@ -70,8 +71,12 @@ export class NodesWiring {
         const name = pin.getAttribute(PinAttribute)!;
         const direction = pin.getAttribute(PinDirectionAttribute);
 
-        if (direction === "out")
+        if (direction === "out") {
+            if (nodeElement?.hasAttribute(MissingAttribute))
+                return null;
+
             return { fromNode: nodeId, fromPin: name, fromType: pin.getAttribute(PinTypeAttribute) ?? "any", detached: null };
+        }
 
         // Pulling a connected input detaches its edge and carries the far end, like a patch cable; a multi-input pin gives up the
         // last edge that reached it (the one drawn on top).
@@ -99,8 +104,10 @@ export class NodesWiring {
         beginConnecting(this.services.root);
 
         for (const pin of this.services.nodeLayer.querySelectorAll<HTMLElement>(`[${PinAttribute}]`)) {
+            const nodeElement = pin.closest<HTMLElement>(`[${NodeAttribute}]`);
             const takes = pin.getAttribute(PinDirectionAttribute) === "in"
-                && pin.closest<HTMLElement>(`[${NodeAttribute}]`)?.getAttribute(NodeAttribute) !== fromNode
+                && !nodeElement?.hasAttribute(MissingAttribute)
+                && nodeElement?.getAttribute(NodeAttribute) !== fromNode
                 && canConnect(fromType, pin.getAttribute(PinTypeAttribute) ?? AnyType);
 
             pin.setAttribute(DropAttribute, takes ? "yes" : "no");
@@ -173,7 +180,7 @@ export class NodesWiring {
             return;
         }
 
-        if (toNode === connection.fromNode || !canConnect(connection.fromType, toType)) {
+        if (toNode === connection.fromNode || target?.closest(`[${MissingAttribute}]`) !== null || !canConnect(connection.fromType, toType)) {
             if (connection.detached !== null) {
                 this.document.edges.push(connection.detached);
                 this.services.draw();

@@ -20,6 +20,7 @@
 # The demo's photographs. Content detection already treats them as binary; saying so outright means it can
 # never guess wrong on one.
 *.jpg binary
+*.ico binary
 .github/public/*/manifest text eol=lf
 
 # Git hooks run under bash.

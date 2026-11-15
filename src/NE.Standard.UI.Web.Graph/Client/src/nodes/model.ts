@@ -51,12 +51,18 @@ export type Pin = {
     readonly visibleValues?: readonly string[];
     /** What the value is measured in, written after the editor inside its box. */
     readonly unit?: string | null;
+    /** Stand-in text shown inside the editor while it holds no value. */
+    readonly placeholder?: string | null;
     /** How a number the canvas writes itself is formatted — a display pin's answer, by the page's culture. */
     readonly format?: string | null;
     /** The node itself changes the value as it runs; the node offers to put it back to its default. */
     readonly state?: boolean;
     /** A state drawn nowhere on the node, which the node's menu resets. */
     readonly hidden?: boolean;
+    /** Whether the value, or a list's element, is a whole number. */
+    readonly wholeNumber?: boolean;
+    /** Whether the value, or a list's element, holds nothing below zero. */
+    readonly unsigned?: boolean;
 };
 
 export type NodeType = {
@@ -147,6 +153,10 @@ export function readPinChoices(raw: string | null): Readonly<Record<string, read
     }
 }
 
+export function staticPinOptions(pin: Pin): readonly PinOption[] {
+    return toPinOptions(pin.choices ?? []);
+}
+
 /**
  * The options a `ChoicesKey` pin's select editor shows: the entry in `pinChoices` when the key is present there, else the pin's
  * static `choices` fallback; null for a pin without `choicesKey`.
@@ -159,11 +169,43 @@ export function resolvePinOptions(pin: Pin, pinChoices: Readonly<Record<string, 
 
     const choices = pinChoices !== null && Object.hasOwn(pinChoices, key) ? pinChoices[key] : (pin.choices ?? []);
 
+    return toPinOptions(choices);
+}
+
+function toPinOptions(choices: readonly PinChoice[]): readonly PinOption[] {
     return choices.map(choice => ({
         id: choice.value,
         title: choice.caption ?? choice.value,
         isContent: true as const
     }));
+}
+
+/**
+ * Read-only universal pins synthesized from connected edges when a node's kind is missing from the catalogue, so existing wires
+ * stay anchored, inspectable and detachable until the plugin returns.
+ */
+export function synthesizeMissingPins(document: GraphDocument, nodeId: string): { readonly inputs: readonly Pin[]; readonly outputs: readonly Pin[] } {
+    const inputCounts = new Map<string, number>();
+    const outputNames = new Set<string>();
+
+    for (const edge of document.edges) {
+        if (edge.toNode === nodeId && edge.toPin.length > 0)
+            inputCounts.set(edge.toPin, (inputCounts.get(edge.toPin) ?? 0) + 1);
+
+        if (edge.fromNode === nodeId && edge.fromPin.length > 0)
+            outputNames.add(edge.fromPin);
+    }
+
+    const inputs: Pin[] = [];
+    const outputs: Pin[] = [];
+
+    for (const [name, count] of inputCounts)
+        inputs.push({ name, title: name, type: AnyType, editor: "None", multiple: count > 1 });
+
+    for (const name of outputNames)
+        outputs.push({ name, title: name, type: AnyType, editor: "None" });
+
+    return { inputs, outputs };
 }
 
 export function emptyDocument(): GraphDocument {
@@ -283,9 +325,18 @@ export function dropParameter(document: GraphDocument, nodeId: string, pinName: 
 /** Whether a pin has anything to reset: an edge on it, or — an input with a value of its own — a value other than its kind's default. */
 export function canResetPin(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pinName: string, direction: "in" | "out"): boolean {
     const node = document.nodes.find(candidate => candidate.id === nodeId);
-    const pin = findPin(node === undefined ? undefined : types.get(node.type), pinName, direction === "out");
 
-    if (node === undefined || pin === undefined)
+    if (node === undefined)
+        return false;
+
+    const type = types.get(node.type);
+
+    if (type === undefined)
+        return document.edges.some(edge => isEdgeOn(edge, nodeId, pinName, direction));
+
+    const pin = findPin(type, pinName, direction === "out");
+
+    if (pin === undefined)
         return false;
 
     if (document.edges.some(edge => isEdgeOn(edge, nodeId, pinName, direction)))
@@ -302,9 +353,20 @@ function isOffDefault(node: DocumentNode, pin: Pin): boolean {
 /** A pin back to where a new node's stands: every edge on it let go and, for an input with a value of its own, the kind's default. */
 export function resetPin(document: GraphDocument, types: ReadonlyMap<string, NodeType>, nodeId: string, pinName: string, direction: "in" | "out"): void {
     const node = document.nodes.find(candidate => candidate.id === nodeId);
-    const pin = findPin(node === undefined ? undefined : types.get(node.type), pinName, direction === "out");
 
-    if (node === undefined || pin === undefined)
+    if (node === undefined)
+        return;
+
+    const type = types.get(node.type);
+
+    if (type === undefined) {
+        document.edges = document.edges.filter(edge => !isEdgeOn(edge, nodeId, pinName, direction));
+        return;
+    }
+
+    const pin = findPin(type, pinName, direction === "out");
+
+    if (pin === undefined)
         return;
 
     document.edges = document.edges.filter(edge => !isEdgeOn(edge, nodeId, pinName, direction));

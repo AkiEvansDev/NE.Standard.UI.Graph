@@ -43,6 +43,8 @@ public sealed partial class GraphStrings : IUIStringsSource
     public const string RunOutOfBounds = UIGraphWords.RunOutOfBounds;
     public const string RunTooLong = UIGraphWords.RunTooLong;
     public const string RunTooManyNodes = UIGraphWords.RunTooManyNodes;
+    public const string MissingKind = UIGraphWords.MissingKind;
+    public const string RunMissingKind = UIGraphWords.RunMissingKind;
     public const string FileProgress = UIGraphWords.FileProgress;
     public const string PinMany = "ui.graph.pin-many";
     public const string PinType = "ui.graph.pin-type";
@@ -199,6 +201,8 @@ public sealed partial class GraphStrings : IUIStringsSource
         [RunOutOfBounds] = "'{pin}' holds a value outside its bounds.",
         [RunTooLong] = "'{pin}' came out longer than a run lets a text be.",
         [RunTooManyNodes] = "The sheet holds more nodes than a run takes ({max}).",
+        [MissingKind] = "Missing node kind ({type})",
+        [RunMissingKind] = "Node kind '{type}' is not installed.",
 
         [FileProgress] = "{index} of {total}: {name}.",
         [Collapse] = "Fold",

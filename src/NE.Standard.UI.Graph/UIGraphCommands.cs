@@ -193,6 +193,54 @@ public static class UIGraphRegions
     /// <summary>What every pin editor's name starts with.</summary>
     public const string EditorPrefix = "graph-editor:";
 
+    /// <summary>The canonical single-line text editor template.</summary>
+    public const string EditorText = EditorPrefix + "text";
+
+    /// <summary>The canonical multi-line text area editor template.</summary>
+    public const string EditorTextArea = EditorPrefix + "textarea";
+
+    /// <summary>The canonical number editor template.</summary>
+    public const string EditorNumber = EditorPrefix + "number";
+
+    /// <summary>The canonical boolean checkbox editor template, shared with boolean list rows.</summary>
+    public const string EditorBoolean = EditorPrefix + "boolean";
+
+    /// <summary>The canonical choice select editor template.</summary>
+    public const string EditorChoice = EditorPrefix + "choice";
+
+    /// <summary>The canonical date editor template.</summary>
+    public const string EditorDate = EditorPrefix + "date";
+
+    /// <summary>The canonical time editor template.</summary>
+    public const string EditorTime = EditorPrefix + "time";
+
+    /// <summary>The canonical date-and-time editor template.</summary>
+    public const string EditorDateTime = EditorPrefix + "datetime";
+
+    /// <summary>The canonical compact picture address editor template with its file-choose button.</summary>
+    public const string EditorImage = EditorPrefix + "image";
+
+    /// <summary>The canonical large picture preview editor template.</summary>
+    public const string EditorImageLarge = EditorPrefix + "image-large";
+
+    /// <summary>The canonical text list-row editor template.</summary>
+    public const string EditorListText = EditorPrefix + "list-text";
+
+    /// <summary>The canonical number list-row editor template.</summary>
+    public const string EditorListNumber = EditorPrefix + "list-number";
+
+    /// <summary>The canonical choice list-row editor template.</summary>
+    public const string EditorListChoice = EditorPrefix + "list-choice";
+
+    /// <summary>The canonical date list-row editor template.</summary>
+    public const string EditorListDate = EditorPrefix + "list-date";
+
+    /// <summary>The canonical time list-row editor template.</summary>
+    public const string EditorListTime = EditorPrefix + "list-time";
+
+    /// <summary>The canonical date-and-time list-row editor template.</summary>
+    public const string EditorListDateTime = EditorPrefix + "list-datetime";
+
     /// <summary>The button that takes a row out of a list pin.</summary>
     public const string ListRemove = "graph-list-remove";
 
@@ -431,6 +479,12 @@ public static class UIGraphWords
 
     /// <summary>The run's refusal of a sheet with more nodes than it takes, with the <c>max</c> it takes.</summary>
     public const string RunTooManyNodes = "ui.graph.run-too-many-nodes";
+
+    /// <summary>The badge on a node whose kind the current catalogue does not know, with its <c>type</c> key.</summary>
+    public const string MissingKind = "ui.graph.missing-kind";
+
+    /// <summary>The run's failure of an enabled node whose kind is not in the catalogue, with its <c>type</c> key.</summary>
+    public const string RunMissingKind = "ui.graph.run-missing-kind";
 
     /// <summary>A folder's line on the file a run takes: its <c>index</c> of the <c>total</c>, and the file's <c>name</c>.</summary>
     public const string FileProgress = "ui.graph.file-progress";
