@@ -15,14 +15,13 @@ namespace NE.Standard.UI.Graph;
 
 /// <summary>The base for a canvas component whose value is the whole document, committed by a save.</summary>
 /// <remarks>Provides the view settings, menus and colour choices every kind of canvas shares; item drawing is the kind's own.</remarks>
-public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IRegionContainerComponent, IFormSubmittingComponent, IShortcutOwnerComponent
+public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComponentBase<T, TDocument>, IGraphCanvasComponent, IFormSubmittingComponent, IShortcutOwnerComponent
     where T : GraphCanvasComponentBase<T, TDocument>, IUIComponentDefinition
 {
     private static readonly UIGraphColorChoice[] DefaultColorChoices = [.. UIGraphColorChoice.Defaults];
 
     // Every entry the package put in any of its menus, so SetCommandIcon replaces a command's glyph wherever it stands.
     private readonly List<MenuItem> _builtIn = [];
-    private readonly Dictionary<string, IVisualComponent> _regions;
 
     protected GraphCanvasComponentBase(string? id = null) : base(id)
     {
@@ -62,13 +61,10 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         // Delete is every edge's; what else an edge's menu offers is the kind's, put ahead of it.
         EdgeMenu = new MenuComponent().AddItems([Entry(UIGraphCommands.DeleteEdge, UIGraphWords.DeleteEdge, UIGlyphs.Delete)]);
 
-        _regions = new Dictionary<string, IVisualComponent>(StringComparer.Ordinal)
-        {
-            [UIGraphMenus.Main] = Menu,
-            [UIGraphMenus.Node] = NodeMenu,
-            [UIGraphMenus.Group] = GroupMenu,
-            [UIGraphMenus.Edge] = EdgeMenu
-        };
+        SetDefaultRegion(UIGraphMenus.Main, Menu);
+        SetDefaultRegion(UIGraphMenus.Node, NodeMenu);
+        SetDefaultRegion(UIGraphMenus.Group, GroupMenu);
+        SetDefaultRegion(UIGraphMenus.Edge, EdgeMenu);
 
         // The canvas's own menu, so an application appends to it rather than replacing it; SetContextMenu still overrides it whole.
         _ = SetContextMenu(CanvasMenu);
@@ -173,15 +169,6 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
             }
         }
     }
-
-    /// <summary>
-    /// Gets the menus and the kind's own parts the canvas carries as regions, by the names <see cref="UIGraphMenus"/> and the kind
-    /// give them.
-    /// </summary>
-    public IReadOnlyDictionary<string, IVisualComponent> Regions => _regions;
-
-    /// <inheritdoc/>
-    public bool HasRegions => true;
 
     /// <summary>
     /// Gets or sets the shape every edge is drawn in: stepped unless told otherwise, on every kind of canvas.
@@ -492,7 +479,7 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(component);
 
-        _regions[name] = component;
+        RegionEntries[name] = component;
     }
 
     /// <summary>Takes out every region whose name starts with the prefix — a kind's templates about to be built again.</summary>
@@ -502,14 +489,14 @@ public abstract partial class GraphCanvasComponentBase<T, TDocument> : InputComp
 
         List<string> previous = [];
 
-        foreach (var name in _regions.Keys)
+        foreach (var name in RegionEntries.Keys)
         {
             if (name.StartsWith(prefix, StringComparison.Ordinal))
                 previous.Add(name);
         }
 
         foreach (var name in previous)
-            _ = _regions.Remove(name);
+            _ = RegionEntries.Remove(name);
     }
 
     /// <summary>One of the canvas's own menu entries, in one of the framework's glyphs; remembered so SetCommandIcon can replace it.</summary>
