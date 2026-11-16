@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(InMonorepo)' != 'true'">
-    <PackageReference Include="NE.Standard.UI.Desktop" Version="$(DesktopVersion)" />
+    <PackageReference Include="NE.Standard.UI.Desktop" Version="$(CoreVersion)" />
     <PackageReference Include="NE.Standard.UI.Web.Renderers" Version="$(CoreVersion)" />
     <PackageReference Include="NE.Standard.UI.Web.Icons.Material" Version="$(IconsVersion)" />
     <PackageReference Include="NE.Standard.UI.Web.CodeInput" Version="$(CodeInputVersion)" />

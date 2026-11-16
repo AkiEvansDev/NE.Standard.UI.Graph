@@ -298,3 +298,14 @@ test("a bubble badge has an opaque surface ground and in a production graph stan
     assert.match(productionBadge, /bottom: calc\(100% \+ var\(--ui-graph-node-border\) \+ 0\.25rem\);/);
     assert.match(badgedBubble, /--ui-action-bar-gap: 28px;/);
 });
+
+test("a multiline text area in a node editor stretches to fill the growing row without leaving dead space above following pins", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const tallRow = rules(".ui-graph__row--tall");
+    const area = rules(".ui-graph__editor > .ui-text-area");
+    const field = rules(".ui-graph__editor > .ui-text-area > .ui-text-area__field");
+
+    assert.match(tallRow, /flex-direction: column;\s*align-items: stretch;\s*gap: 2px;/);
+    assert.match(area, /align-self: stretch;\s*height: auto;\s*min-height: var\(--ui-graph-editor-height, 0\);/);
+    assert.match(field, /flex: 1 1 auto;\s*min-height: 1\.5rem;\s*padding: 0\.25rem 0\.375rem;\s*padding-inline-end: max\(0\.375rem, var\(--ui-scroll-room-y\)\);/);
+});

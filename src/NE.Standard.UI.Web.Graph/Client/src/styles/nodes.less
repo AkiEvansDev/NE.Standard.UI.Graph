@@ -339,6 +339,7 @@
     .ui-graph__row--tall {
         flex-direction: column;
         align-items: stretch;
+        gap: @ui-list-entry-gap;
     }
 
     .ui-graph__row--tall > .ui-graph__editor {
@@ -536,9 +537,18 @@
 
 // A multi-line text takes the height its row is given, so the node's corner is the one handle that sizes it: the field's own is off
 // (the server's template), since a field grown past the node's stored size is gone at the next redraw, and off the grid.
-.ui-graph__editor > .ui-text-area > .ui-text-area__field {
-    flex: 1 1 auto;
+.ui-graph__editor > .ui-text-area {
+    align-self: stretch;
+    height: auto;
+    min-height: var(--ui-graph-editor-height, 0);
 }
+
+    .ui-graph__editor > .ui-text-area > .ui-text-area__field {
+        flex: 1 1 auto;
+        min-height: @ui-control-height-sm;
+        padding: @ui-space-1 @ui-field-padding-sm;
+        padding-inline-end: max(@ui-field-padding-sm, var(--ui-scroll-room-y));
+    }
 
 // While a file is on its way, and after one failed to arrive: the editor says so over the picture it does not yet have.
 .ui-graph__editor[data-ui-graph-uploading] {
