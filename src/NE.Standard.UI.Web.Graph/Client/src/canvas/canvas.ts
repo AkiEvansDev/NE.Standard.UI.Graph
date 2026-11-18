@@ -289,6 +289,7 @@ class Canvas {
             view: this.view,
             nodeElements: this.nodeElements,
             draw: () => this.render.draw(),
+            syncMenus: () => this.menus.syncMenus(),
             drawEdges: () => this.render.drawEdges(),
             drawPending: (from, to, color) => this.render.drawPending(from, to, color),
             clearPending: () => this.render.clearPending(),

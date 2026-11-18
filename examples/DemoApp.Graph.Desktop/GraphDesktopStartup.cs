@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using DemoApp.Graph.Planner;
+using DemoApp.Graph.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -21,12 +22,7 @@ internal sealed class GraphDesktopStartup : DesktopStartupBase<GraphAppStartup>
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        _ = services.AddStandardRenderers();
-        _ = services.AddCodeInput();
-        _ = services.AddGraph();
-        _ = services.AddMaterialWebIcons(DemoNodeIcons.All);
-        _ = services.AddMaterialWebIcons(PlannerIcons.Filled());
-        _ = services.AddMaterialWebIcons(MaterialIconStyle.Outlined, [GraphDemoView.LightIcon, GraphDemoView.DarkIcon, GraphDemoView.CodeIcon, GraphDemoView.CopyIcon, .. PlannerIcons.Outlined, .. GraphDemoView.PageIcons]);
+        GraphWebServices.Register(services);
         _ = services.AddHostedService<PlannerDatabaseStartupTask>();
     }
 

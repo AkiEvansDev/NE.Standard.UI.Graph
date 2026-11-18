@@ -204,6 +204,13 @@ test("NodesKind syncs PinChoices on initial draw and live changes across canonic
     for (const rowField of listRowFields)
         assert.deepEqual(propertyWrites.get(rowField)?.Items, expectedTags);
 
+    // Clicking `+` on a `ChoicesKey` list pin clones the new row with the live PinChoices rather than the initial snapshot.
+    fakeNode.querySelector("[data-ui-graph-list-add]")!.click();
+    const afterAddRowFields = fakeNode.querySelectorAll(".ui-graph__list-row").map(row => row.firstElementChild!);
+    assert.equal(afterAddRowFields.length, 3);
+    for (const rowField of afterAddRowFields)
+        assert.deepEqual(propertyWrites.get(rowField)?.Items, expectedTags);
+
     // Removing `models` from PinChoices falls back to static `choices` ("fallback") while keeping document values untouched.
     canvas.removeAttribute("data-ui-graph-pin-choices");
     kind.pinChoicesChanged();
@@ -653,6 +660,114 @@ test("NodesKind preserves unresolved plugin nodes, synthesizes wire pins, and up
     assert.equal(document.edges.length, 1);
     assert.equal(document.edges[0].id, "e2");
     assert.deepEqual(document.nodes[1].values, { Prompt: "kept-secret", Extra: 42 });
+
+    kind.dispose();
+});
+
+test("NodesKind.catalogChanged syncs menus immediately and defers redrawing while an inline editor inside the scene holds focus", async () => {
+    const pluginType: NodeType = {
+        key: "plugin.echo",
+        title: "Plugin Echo",
+        inputs: [{ name: "Prompt", title: "Prompt", type: "text", editor: "Text", defaultValue: "seed" }],
+        outputs: []
+    };
+    const makeTemplate = (region: string, child: FakeElement): FakeElement =>
+        Object.assign(FakeElement.of("", { "data-ui-graph-editor": region }, "template"), { content: FakeElement.of("").append(child) });
+
+    const scene = FakeElement.of("ui-graph__scene");
+    const canvas = FakeElement.of("ui-graph", {
+        "data-ui-id": "60",
+        "data-ui-graph-catalog": JSON.stringify([pluginType])
+    }).append(
+        scene,
+        makeTemplate("graph-editor:text", FakeElement.of("ui-text-input", { "data-ui-id": "62" }, "input")),
+        FakeElement.of("ui-graph__picker", { "data-ui-graph-picker": "" }).append(
+            FakeElement.of("ui-graph__picker-list", { "data-ui-graph-picker-list": "" }),
+            FakeElement.of("ui-graph__picker-empty", { "data-ui-graph-picker-empty": "" })
+        ),
+        FakeElement.of("ui-graph__run", { "data-ui-graph-run": "" }),
+        FakeElement.of("ui-graph__log", { "data-ui-graph-log": "" }).append(
+            FakeElement.of("ui-graph__log-entries", { "data-ui-graph-log-entries": "" }),
+            FakeElement.of("ui-graph__log-count", { "data-ui-graph-log-count": "" }),
+            FakeElement.of("ui-graph__log-toggle", { "data-ui-graph-log-toggle": "" }, "button")
+        )
+    );
+    fakeDocument.body.replaceChildren(canvas);
+
+    const document: GraphDocument = {
+        nodes: [{ id: "n1", type: "plugin.echo", x: 0, y: 0, values: { Prompt: "hello" } }],
+        edges: [],
+        groups: [],
+        key: null,
+        parameters: []
+    };
+    const nodeElements = new Map<string, HTMLElement>();
+    let drawCalls = 0;
+    let syncMenuCalls = 0;
+    const kindHolder: { current: NodesKind | null } = { current: null };
+
+    const redraw = (): void => {
+        drawCalls++;
+        const active = kindHolder.current!;
+        const rendered = active.renderItem(document.nodes[0]);
+        nodeElements.set("n1", rendered);
+        scene.replaceChildren(rendered as unknown as FakeElement);
+        active.itemsDrawn(new Set(["n1"]));
+    };
+
+    const kind = new NodesKind(real<CanvasServices<GraphDocument>>({
+        root: canvas,
+        scene: real<HTMLElement>(scene),
+        settings: { readOnly: false, snapping: false, gridSize: 20, edgeShape: "orthogonal" },
+        documentState: { document, edited: () => undefined, committed: () => undefined, settle: () => undefined, requestSave: () => undefined },
+        nodeElements,
+        view: { fitSheet: () => undefined },
+        draw: redraw,
+        syncMenus: () => { syncMenuCalls++; },
+        context: {
+            root: fakeDocument.body,
+            names: {
+                componentId: "data-ui-id",
+                tooltip: "data-ui-tooltip",
+                contextMenuUse: "data-ui-context-menu",
+                menuOpeningEvent: "ui:menu-opening",
+                pictureSelectionClass: "ui-image-input__selection",
+                pictureTextClass: "ui-image-input__text",
+                textInputActionClass: "ui-text-input__action"
+            },
+            strings: { text: (key: string) => key, format: (key: string) => key, write: () => undefined },
+            states: { isInert: () => false, setDisabled: () => undefined },
+            icons: { apply: () => undefined },
+            tooltips: { escape: (text: string) => text, show: () => undefined, hide: () => undefined },
+            temporal: { parse: () => null, toDate: () => new Date(0) },
+            urls: { isImageSource: () => false },
+            colors: { count: () => 8, color: () => "#006E64" },
+            focus: { first: () => null },
+            store: { read: () => null, write: () => undefined },
+            values: { read: () => null, isRefused: () => false },
+            properties: { set: () => true }
+        }
+    }));
+    kindHolder.current = kind;
+    redraw();
+    assert.equal(drawCalls, 1);
+
+    const focusedEditor = scene.querySelector(".ui-text-input")!;
+    focusedEditor.focus();
+    assert.equal(fakeDocument.activeElement, focusedEditor);
+
+    canvas.setAttribute("data-ui-graph-catalog", JSON.stringify([{ ...pluginType, title: "Plugin Echo v2" }]));
+    kind.catalogChanged();
+
+    // Menus sync immediately, while node redraw waits until the focused inline editor blurs.
+    assert.equal(syncMenuCalls, 1);
+    assert.equal(drawCalls, 1);
+
+    focusedEditor.blur();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    assert.equal(drawCalls, 2);
+    assert.equal(syncMenuCalls, 2);
 
     kind.dispose();
 });

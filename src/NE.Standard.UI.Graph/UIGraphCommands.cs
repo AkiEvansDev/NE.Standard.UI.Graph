@@ -265,10 +265,7 @@ public static class UIGraphRegions
     /// <summary>The button that opens the picker of resources to plan for.</summary>
     public const string PlanAdd = "graph-plan-add";
 
-    /// <summary>
-    /// The template a pin's editor is drawn from, keyed by node kind and pin name — a list pin's row field, or a picture's field
-    /// with its choose-file button.
-    /// </summary>
+    /// <summary>Builds a legacy per-pin editor region key; inline pin editors now share the <c>Editor*</c> template slots.</summary>
     public static string Editor(string typeKey, string pinName)
         => EditorPrefix + typeKey + ":" + pinName;
 }

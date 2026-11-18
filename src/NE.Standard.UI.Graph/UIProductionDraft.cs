@@ -61,7 +61,6 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
     /// added entry keeps what else it carries only as a copy of one already there, as Duplicate makes one. Only differing properties
     /// are written.
     /// </remarks>
-    /// <returns>Whether the draft was applied.</returns>
     public bool ApplyTo(IList<UIProductionEntry> entries, bool editStructure, UIProductionMode mode, IReadOnlyList<UIGraphColorChoice>? colorChoices = null, int maxEntries = DefaultMaxEntries)
     {
         ArgumentNullException.ThrowIfNull(entries);

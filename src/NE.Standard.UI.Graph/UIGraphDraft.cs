@@ -45,7 +45,6 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
     /// of <paramref name="colorChoices"/> (the canvas's defaults when null) nor one a node already wears is dropped; an added node
     /// keeps what else it carries only as a copy of a node already there, as Duplicate makes one. Only differing properties are written.
     /// </remarks>
-    /// <returns>Whether the draft was applied.</returns>
     public bool ApplyTo(IList<UIGraphNode> nodes, bool editStructure, IReadOnlyList<UIGraphColorChoice>? colorChoices = null, int maxNodes = DefaultMaxNodes)
     {
         ArgumentNullException.ThrowIfNull(nodes);

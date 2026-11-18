@@ -60,6 +60,7 @@ export type CanvasServices<TDocument extends CanvasDocument> = {
     readonly view: CanvasView;
     readonly nodeElements: ReadonlyMap<string, HTMLElement>;
     draw(): void;
+    syncMenus?(): void;
     drawEdges(): void;
     drawPending(from: Point, to: Point, color: string): void;
     clearPending(): void;

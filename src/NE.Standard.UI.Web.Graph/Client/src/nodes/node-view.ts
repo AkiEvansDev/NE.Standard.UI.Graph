@@ -86,7 +86,7 @@ export type NodeViewOptions = {
     /** Whether such a copy holds a value its own rules refuse — past its bounds, a fraction or a sign it takes none of — as the server would. */
     readonly isRefused: (component: Element) => boolean;
     /** Runtime choice lists for `ChoicesKey` inputs on the canvas, or null when unset. */
-    readonly pinChoices?: Readonly<Record<string, readonly PinChoice[]>> | null;
+    readonly pinChoices?: Readonly<Record<string, readonly PinChoice[]>> | (() => Readonly<Record<string, readonly PinChoice[]>> | null) | null;
     /** Synthesized read-only input/output pins from connected edges when a node's kind is missing from the catalogue. */
     readonly missingPins?: (nodeId: string) => { readonly inputs: readonly Pin[]; readonly outputs: readonly Pin[] };
 };
@@ -677,7 +677,7 @@ function renderEditor(node: DocumentNode, pin: Pin, disabled: boolean, options: 
 /** A pin's field: a framework component cloned from the canvas's canonical template, shaped by the pin's metadata, given the node's value and read back on change. */
 function fieldEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boolean, options: NodeViewOptions): HTMLElement {
     const box = editorBox(pin, pin.editor === "Boolean" ? "ui-graph__editor--check" : null);
-    const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, options.pinChoices ?? null);
+    const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, resolveLivePinChoices(options.pinChoices));
 
     if (field === null)
         return box;
@@ -695,6 +695,10 @@ function editorBox(pin: Pin, modifier: string | null): HTMLElement {
     box.setAttribute(ValueAttribute, pin.name);
 
     return box;
+}
+
+function resolveLivePinChoices(pinChoices: NodeViewOptions["pinChoices"]): Readonly<Record<string, readonly PinChoice[]>> | null {
+    return typeof pinChoices === "function" ? pinChoices() : (pinChoices ?? null);
 }
 
 /** Gives a cloned field its value, and either disables it when wired, seals it on a read-only sheet, or reads it back on every change. */
@@ -777,7 +781,7 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boo
     const large = pin.large === true;
     const box = editorBox(pin, large ? "ui-graph__editor--picture" : null);
     const address = asText(value);
-    const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, options.pinChoices ?? null);
+    const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, resolveLivePinChoices(options.pinChoices));
 
     if (field === null)
         return box;
@@ -848,7 +852,7 @@ function listEditor(node: DocumentNode, pin: Pin, value: unknown, options: NodeV
 
         values.forEach((entry, index) => {
             const row = document.createElement("div");
-            const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, options.pinChoices ?? null);
+            const field = cloneConfiguredEditor(pin, options.cloneEditor, options.setProperty, resolveLivePinChoices(options.pinChoices));
             const remove = options.cloneEditor(ListRemoveRegion);
 
             row.className = "ui-graph__list-row";

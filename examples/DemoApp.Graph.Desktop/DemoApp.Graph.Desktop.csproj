@@ -12,6 +12,10 @@
     <ProjectReference Include="..\..\src\NE.Standard.UI.Web.Graph\NE.Standard.UI.Web.Graph.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\DemoApp.Graph.Web\GraphWebServices.cs" Link="GraphWebServices.cs" />
+  </ItemGroup>
+
   <!-- See DemoApp.Graph.csproj: sources in the monorepo, packages in a mirror. -->
   <ItemGroup Condition="'$(InMonorepo)' == 'true'">
     <ProjectReference Include="..\..\..\..\src\Platforms\Desktop\NE.Standard.UI.Desktop\NE.Standard.UI.Desktop.csproj" />

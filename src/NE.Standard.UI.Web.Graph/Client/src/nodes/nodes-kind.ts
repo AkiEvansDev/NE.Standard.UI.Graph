@@ -67,6 +67,7 @@ export class NodesKind implements CanvasKind {
     // What the pin menu was last opened on; its entries act on it.
     private pinTarget: PinTarget | null = null;
     private stopMenuListener: (() => void) | null = null;
+    private catalogWaitingOn: Element | null = null;
 
     public constructor(services: CanvasServices<GraphDocument>) {
         const catalog = readCatalog(services.root.getAttribute(CatalogAttribute));
@@ -126,6 +127,7 @@ export class NodesKind implements CanvasKind {
     public dispose(): void {
         this.stopMenuListener?.();
         this.stopMenuListener = null;
+        this.catalogWaitingOn = null;
         this.runPanel.dispose();
         this.parameters.dispose();
     }
@@ -183,7 +185,7 @@ export class NodesKind implements CanvasKind {
             setProperty: (component, propertyName, value) => context.properties.set(component, propertyName, value),
             readValue: component => context.values.read(component),
             isRefused: component => context.values.isRefused(component),
-            pinChoices: readPinChoices(this.services.root.getAttribute(PinChoicesAttribute)),
+            pinChoices: () => readPinChoices(this.services.root.getAttribute(PinChoicesAttribute)),
             missingPins: nodeId => synthesizeMissingPins(this.document, nodeId)
         });
     }
@@ -198,7 +200,33 @@ export class NodesKind implements CanvasKind {
 
         this.applyCatalog(catalog);
         this.pickerBinding.setCatalog(catalog);
-        this.services.draw();
+        this.drawCatalog();
+    }
+
+    /** Redraws every node against the new catalogue once no inline editor holds the focus — a redraw would take the caret. */
+    private drawCatalog(): void {
+        const active = document.activeElement;
+
+        if (active === null || this.services.scene?.contains(active) !== true || !this.isEditor(active)) {
+            this.catalogWaitingOn = null;
+            this.services.draw();
+            this.services.syncMenus?.();
+            return;
+        }
+
+        this.services.syncMenus?.();
+
+        if (this.catalogWaitingOn === active)
+            return;
+
+        this.catalogWaitingOn = active;
+        active.addEventListener("focusout", () => setTimeout(() => {
+            if (this.catalogWaitingOn !== active)
+                return;
+
+            this.catalogWaitingOn = null;
+            this.drawCatalog();
+        }), { once: true });
     }
 
     public pinChoicesChanged(): void {

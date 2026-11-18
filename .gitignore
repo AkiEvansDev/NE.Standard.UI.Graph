@@ -205,6 +205,7 @@ _attic/
 
 # The graph demo's planner database, created at its first start; no prefix, so the rule holds in the slice's mirror too.
 **/DemoApp.Graph.Web/data/
+**/DemoApp.Graph.Desktop/data/
 
 # Playwright MCP session files (screenshots, snapshots) written at the repository root
 .playwright-mcp/

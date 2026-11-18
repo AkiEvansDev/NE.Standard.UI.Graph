@@ -8,29 +8,6 @@ using NE.Standard.UI.Abstractions.Items;
 namespace NE.Standard.UI.Graph;
 
 /// <summary>Runs a node canvas's sheet from a controller: the run panel's Run, Run all and Stop.</summary>
-/// <example>
-/// <code>
-/// private readonly UINodeRuns _runs;
-///
-/// public MyController()
-/// {
-///     _runs = new(CanvasId, Catalog, () =&gt; Sheet, sheet =&gt; Sheet = sheet) { ShowRunPanel = true };
-/// }
-///
-/// [UICommand(ConcurrencyMode = UICommandConcurrencyMode.Background, MaxConcurrent = 4)]
-/// public async Task&lt;UICommandResult&gt; SaveAsync(string reason, CancellationToken cancellationToken)
-/// {
-///     _ = await _runs.SavedAsync(Context.SendEffectsAsync, Context.Runtime.InvokeAsync, Context.Services, reason, cancellationToken);
-///     return UICommandResult.Ok();
-/// }
-///
-/// [UICommand]
-/// public void Stop() =&gt; _runs.Stop();
-/// </code>
-/// The save command is a background one: an ordinary command holds the tab until it answers, and the panel's Stop could not reach
-/// the server while a run of all goes on. Running beside the tab, it writes the sheet only through the runtime's own turn. It allows
-/// more than one run at a time, since an edit saved while a run of all goes on is a second run of the same command.
-/// </example>
 public sealed class UINodeRuns
 {
     /// <summary>The longest one asked-for run lasts unless the application says otherwise: ten minutes.</summary>
