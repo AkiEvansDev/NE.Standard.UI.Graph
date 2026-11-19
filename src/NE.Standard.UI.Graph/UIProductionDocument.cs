@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 
 namespace NE.Standard.UI.Graph;
@@ -12,7 +13,7 @@ namespace NE.Standard.UI.Graph;
 /// </remarks>
 [method: JsonConstructor]
 public sealed class UIProductionDocument(UIGraphPlacement[]? nodes = null, UIGraphRoute[]? edges = null, UIGraphGroup[]? groups = null, UIProductionDraft? draft = null, UIProductionPlanRequest? plan = null, string? key = null)
-    : UIGraphDocumentBase(nodes, edges, groups, key)
+    : UIGraphDocumentBase(nodes, edges, groups, key), IEquatable<UIProductionDocument>
 {
     /// <summary>
     /// Gets the empty document.
@@ -47,4 +48,16 @@ public sealed class UIProductionDocument(UIGraphPlacement[]? nodes = null, UIGra
     /// </summary>
     public UIProductionDocument WithKey(string? key)
         => new(Nodes, Edges, Groups, Draft, Plan, key);
+
+    /// <inheritdoc />
+    public bool Equals(UIProductionDocument? other)
+        => ReferenceEquals(this, other) || (other is not null && BaseEquals(other) && Draft.Equals(other.Draft) && Plan.Equals(other.Plan));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIProductionDocument other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(BaseHashCode(), Draft, Plan);
 }

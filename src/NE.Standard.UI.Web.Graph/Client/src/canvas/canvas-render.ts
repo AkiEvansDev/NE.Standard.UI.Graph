@@ -51,6 +51,7 @@ export class CanvasRender {
     private disposed = false;
     // Which item the pointer rests on, and the parts of every drawn edge by its key: what the focus marks, without drawing again.
     private focusItem: string | null = null;
+    private focusMarked = false;
     private readonly edgeParts = new Map<string, Element[]>();
     // The last draw's elements by edge key, reused across drag frames so neither SVG paths nor label chips are torn down and rebuilt.
     private drawnEdges = new Map<string, DrawnEdge>();
@@ -249,9 +250,14 @@ export class CanvasRender {
 
     private markFocus(): void {
         const related = this.focusItem === null ? null : this.kind().related(this.focusItem);
+
+        if (related === null && !this.focusMarked)
+            return;
+
         const edges = related === null ? null : new Set(related.edges);
         const items = related === null ? null : new Set(related.items);
 
+        this.focusMarked = related !== null;
         this.root.classList.toggle(FocusClass, edges !== null && edges.size > 0);
 
         for (const [id, parts] of this.edgeParts) {
@@ -306,11 +312,14 @@ export class CanvasRender {
             let entry = this.drawnEdges.get(edge.id);
 
             if (entry === undefined) {
+                const painted = createPaintedEdge(drawing, color, lineClass);
+
                 entry = {
                     hit: document.createElementNS(SvgNamespace, "path"),
                     hitFrom: "",
                     paintedFrom,
-                    line: paintedEdge(drawing, color, lineClass),
+                    line: painted.group,
+                    singlePath: painted.singlePath,
                     arrow: null,
                     arrowFrom: "",
                     reroutes: [],
@@ -321,7 +330,18 @@ export class CanvasRender {
             }
             else if (entry.paintedFrom !== paintedFrom) {
                 entry.paintedFrom = paintedFrom;
-                entry.line = paintedEdge(drawing, color, lineClass);
+
+                if (drawing.pieces === null && entry.singlePath !== null) {
+                    entry.line.setAttribute("class", lineClass);
+                    entry.line.style.setProperty("--ui-graph-pin-color", color);
+                    entry.singlePath.setAttribute("d", drawing.path);
+                }
+                else {
+                    const painted = createPaintedEdge(drawing, color, lineClass);
+
+                    entry.line = painted.group;
+                    entry.singlePath = painted.singlePath;
+                }
             }
 
             nextEdges.set(edge.id, entry);
@@ -628,6 +648,7 @@ type DrawnEdge = {
     hitFrom: string;
     paintedFrom: string;
     line: SVGGElement;
+    singlePath: SVGPathElement | null;
     arrow: SVGPathElement | null;
     arrowFrom: string;
     readonly reroutes: SVGCircleElement[];
@@ -697,6 +718,10 @@ function coversOffCenterSegment(box: Rect, center: Point, segments: readonly Axi
  * step runs along an axis. Each piece's dash offset continues the one before, or every piece would start on a dash.
  */
 function paintedEdge(drawing: EdgeDrawing, color: string, className: string): SVGGElement {
+    return createPaintedEdge(drawing, color, className).group;
+}
+
+function createPaintedEdge(drawing: EdgeDrawing, color: string, className: string): { readonly group: SVGGElement; readonly singlePath: SVGPathElement | null } {
     const group = document.createElementNS(SvgNamespace, "g");
 
     group.setAttribute("class", className);
@@ -708,7 +733,7 @@ function paintedEdge(drawing: EdgeDrawing, color: string, className: string): SV
         path.setAttribute("d", drawing.path);
         group.append(path);
 
-        return group;
+        return { group, singlePath: path };
     }
 
     for (const piece of drawing.pieces) {
@@ -725,7 +750,7 @@ function paintedEdge(drawing: EdgeDrawing, color: string, className: string): SV
         group.append(line);
     }
 
-    return group;
+    return { group, singlePath: null };
 }
 
 /** A coordinate as the markup carries it: two decimals at most, as the edge's path writes its own. */

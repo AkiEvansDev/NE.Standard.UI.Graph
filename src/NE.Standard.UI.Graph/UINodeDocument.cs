@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,7 +12,7 @@ namespace NE.Standard.UI.Graph;
 /// object, committed whole by a save.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges = null, UIGraphGroup[]? groups = null, string? key = null, UINodeParameter[]? parameters = null)
+public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges = null, UIGraphGroup[]? groups = null, string? key = null, UINodeParameter[]? parameters = null) : IEquatable<UINodeDocument>
 {
     /// <summary>
     /// Gets the empty document.
@@ -102,13 +103,31 @@ public sealed class UINodeDocument(UINode[]? nodes = null, UINodeEdge[]? edges =
 
         return new UINodeDocument(nodes, Edges, Groups, Key, Parameters);
     }
+
+    /// <inheritdoc />
+    public bool Equals(UINodeDocument? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Key, other.Key, StringComparison.Ordinal)
+                && UIGraphDraftSupport.Same(Nodes, other.Nodes)
+                && UIGraphDraftSupport.Same(Edges, other.Edges)
+                && UIGraphDraftSupport.Same(Groups, other.Groups)
+                && UIGraphDraftSupport.Same(Parameters, other.Parameters));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UINodeDocument other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Nodes.Length, Edges.Length, Groups.Length, Key, Parameters.Length);
 }
 
 /// <summary>
 /// One input set out as a parameter of the sheet: the node's id and the name of its input pin.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINodeParameter(string node, string pin)
+public sealed class UINodeParameter(string node, string pin) : IEquatable<UINodeParameter>
 {
     /// <summary>
     /// Gets the id of the node the input is on.
@@ -119,13 +138,28 @@ public sealed class UINodeParameter(string node, string pin)
     /// Gets the name of the input pin.
     /// </summary>
     public string Pin { get; } = pin;
+
+    /// <inheritdoc />
+    public bool Equals(UINodeParameter? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Node, other.Node, StringComparison.Ordinal)
+                && string.Equals(Pin, other.Pin, StringComparison.Ordinal));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UINodeParameter other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Node, Pin);
 }
 
 /// <summary>
 /// One node on the canvas: which kind it is, where it stands, and what its inputs were set to.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINode(string id, string type, double x = 0, double y = 0, string? title = null, string? color = null, bool pinned = false, bool collapsed = false, IReadOnlyDictionary<string, object?>? values = null, double? width = null, double? height = null, bool enabled = true)
+public sealed class UINode(string id, string type, double x = 0, double y = 0, string? title = null, string? color = null, bool pinned = false, bool collapsed = false, IReadOnlyDictionary<string, object?>? values = null, double? width = null, double? height = null, bool enabled = true) : IEquatable<UINode>
 {
     internal const int MaxValueElements = 1024;
     internal const int MaxValueDepth = 16;
@@ -233,13 +267,205 @@ public sealed class UINode(string id, string type, double x = 0, double y = 0, s
 
         return normalized;
     }
+
+    /// <inheritdoc />
+    public bool Equals(UINode? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && string.Equals(Type, other.Type, StringComparison.Ordinal)
+                && X.Equals(other.X)
+                && Y.Equals(other.Y)
+                && string.Equals(Title, other.Title, StringComparison.Ordinal)
+                && string.Equals(Color, other.Color, StringComparison.Ordinal)
+                && Pinned == other.Pinned
+                && Collapsed == other.Collapsed
+                && Nullable.Equals(Width, other.Width)
+                && Nullable.Equals(Height, other.Height)
+                && Enabled == other.Enabled
+                && AreValueMapsEqual(Values, other.Values, 0));
+
+    private static bool AreValueMapsEqual(IReadOnlyDictionary<string, object?> left, IReadOnlyDictionary<string, object?> right, int depth)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left.Count != right.Count || depth > MaxValueDepth)
+            return false;
+
+        foreach (KeyValuePair<string, object?> entry in left)
+        {
+            if (!right.TryGetValue(entry.Key, out var otherValue) || !ArePinValuesEqual(entry.Value, otherValue, depth + 1))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool ArePinValuesEqual(object? left, object? right, int depth)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+
+        if (left is null || right is null || depth > MaxValueDepth + 1)
+            return false;
+
+        if (left is string leftText && right is string rightText)
+            return string.Equals(leftText, rightText, StringComparison.Ordinal);
+
+        if (left is bool leftFlag && right is bool rightFlag)
+            return leftFlag == rightFlag;
+
+        if (TryCompareNumbers(left, right, out var numbersEqual))
+            return numbersEqual;
+
+        if (left is IReadOnlyDictionary<string, object?> leftMap && right is IReadOnlyDictionary<string, object?> rightMap)
+            return AreValueMapsEqual(leftMap, rightMap, depth);
+
+        if (left is IList leftList && right is IList rightList)
+            return AreValueListsEqual(leftList, rightList, depth);
+
+        return left.Equals(right);
+    }
+
+    private static bool TryCompareNumbers(object left, object right, out bool equal)
+    {
+        if (TryReadDecimal(left, out var leftDecimal))
+        {
+            if (TryReadDecimal(right, out var rightDecimal))
+            {
+                equal = leftDecimal == rightDecimal;
+                return true;
+            }
+
+            if (TryReadDouble(right, out var rightDouble))
+            {
+                equal = AreDecimalAndDoubleEqual(leftDecimal, rightDouble);
+                return true;
+            }
+
+            equal = false;
+            return true;
+        }
+
+        if (TryReadDouble(left, out var leftDouble))
+        {
+            if (TryReadDouble(right, out var rightDouble))
+            {
+                equal = leftDouble.Equals(rightDouble);
+                return true;
+            }
+
+            if (TryReadDecimal(right, out var rightDecimal))
+            {
+                equal = AreDecimalAndDoubleEqual(rightDecimal, leftDouble);
+                return true;
+            }
+
+            equal = false;
+            return true;
+        }
+
+        equal = false;
+        return false;
+    }
+
+    private static bool TryReadDecimal(object value, out decimal number)
+    {
+        switch (value)
+        {
+            case sbyte v:
+                number = v;
+                return true;
+            case byte v:
+                number = v;
+                return true;
+            case short v:
+                number = v;
+                return true;
+            case ushort v:
+                number = v;
+                return true;
+            case int v:
+                number = v;
+                return true;
+            case uint v:
+                number = v;
+                return true;
+            case long v:
+                number = v;
+                return true;
+            case ulong v:
+                number = v;
+                return true;
+            case decimal v:
+                number = v;
+                return true;
+            default:
+                number = default;
+                return false;
+        }
+    }
+
+    private static bool TryReadDouble(object value, out double number)
+    {
+        switch (value)
+        {
+            case float v:
+                number = v;
+                return true;
+            case double v:
+                number = v;
+                return true;
+            default:
+                number = default;
+                return false;
+        }
+    }
+
+    private static bool AreDecimalAndDoubleEqual(decimal exact, double floating)
+    {
+        if (!double.IsFinite(floating))
+            return false;
+
+        try
+        {
+            return (decimal)floating == exact && (double)exact == floating;
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
+    }
+
+    private static bool AreValueListsEqual(IList left, IList right, int depth)
+    {
+        if (left.Count != right.Count)
+            return false;
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!ArePinValuesEqual(left[i], right[i], depth + 1))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UINode other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, Type, X, Y, Pinned, Collapsed, Enabled, Values.Count);
 }
 
 /// <summary>
 /// One connection: an output pin of one node feeding an input pin of another, through the points the viewer dragged.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UINodeEdge(string id, string fromNode, string fromPin, string toNode, string toPin, UIGraphPoint[]? points = null)
+public sealed class UINodeEdge(string id, string fromNode, string fromPin, string toNode, string toPin, UIGraphPoint[]? points = null) : IEquatable<UINodeEdge>
 {
     /// <summary>
     /// Gets the edge's own id.
@@ -270,4 +496,23 @@ public sealed class UINodeEdge(string id, string fromNode, string fromPin, strin
     /// Gets the reroute points the viewer added, in order along the edge.
     /// </summary>
     public UIGraphPoint[] Points { get; } = points ?? [];
+
+    /// <inheritdoc />
+    public bool Equals(UINodeEdge? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && string.Equals(FromNode, other.FromNode, StringComparison.Ordinal)
+                && string.Equals(FromPin, other.FromPin, StringComparison.Ordinal)
+                && string.Equals(ToNode, other.ToNode, StringComparison.Ordinal)
+                && string.Equals(ToPin, other.ToPin, StringComparison.Ordinal)
+                && UIGraphDraftSupport.Same(Points, other.Points));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UINodeEdge other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, FromNode, FromPin, ToNode, ToPin, Points.Length);
 }

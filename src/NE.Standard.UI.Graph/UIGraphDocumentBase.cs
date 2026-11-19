@@ -1,3 +1,5 @@
+using System;
+
 namespace NE.Standard.UI.Graph;
 
 /// <summary>What every layered graph's document holds: node placement, edge bend points, and groups.</summary>
@@ -24,4 +26,13 @@ public abstract class UIGraphDocumentBase(UIGraphPlacement[]? nodes, UIGraphRout
     /// </summary>
     /// <remarks>So a save names the document it was made from, even when another has taken its place on the canvas since.</remarks>
     public string? Key { get; } = key;
+
+    private protected bool BaseEquals(UIGraphDocumentBase other)
+        => string.Equals(Key, other.Key, StringComparison.Ordinal)
+            && UIGraphDraftSupport.Same(Nodes, other.Nodes)
+            && UIGraphDraftSupport.Same(Edges, other.Edges)
+            && UIGraphDraftSupport.Same(Groups, other.Groups);
+
+    private protected int BaseHashCode()
+        => HashCode.Combine(Nodes.Length, Edges.Length, Groups.Length, Key);
 }

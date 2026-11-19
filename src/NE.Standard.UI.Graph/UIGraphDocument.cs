@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 
 namespace NE.Standard.UI.Graph;
@@ -6,7 +7,7 @@ namespace NE.Standard.UI.Graph;
 /// <remarks>Nodes and links are the bound collection's, not the document's; an unplaced node is placed by the layout.</remarks>
 [method: JsonConstructor]
 public sealed class UIGraphDocument(UIGraphPlacement[]? nodes = null, UIGraphRoute[]? edges = null, UIGraphGroup[]? groups = null, UIGraphDraft? draft = null, string? key = null)
-    : UIGraphDocumentBase(nodes, edges, groups, key)
+    : UIGraphDocumentBase(nodes, edges, groups, key), IEquatable<UIGraphDocument>
 {
     /// <summary>
     /// Gets the empty document.
@@ -29,13 +30,25 @@ public sealed class UIGraphDocument(UIGraphPlacement[]? nodes = null, UIGraphRou
     /// </summary>
     public UIGraphDocument WithKey(string? key)
         => new(Nodes, Edges, Groups, Draft, key);
+
+    /// <inheritdoc />
+    public bool Equals(UIGraphDocument? other)
+        => ReferenceEquals(this, other) || (other is not null && BaseEquals(other) && Draft.Equals(other.Draft));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIGraphDocument other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(BaseHashCode(), Draft);
 }
 
 /// <summary>
 /// Where one node stands, and what the viewer made of it on the canvas.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphPlacement(string id, double x = 0, double y = 0, bool pinned = false)
+public sealed class UIGraphPlacement(string id, double x = 0, double y = 0, bool pinned = false) : IEquatable<UIGraphPlacement>
 {
     /// <summary>
     /// Gets the key of the node placed.
@@ -56,13 +69,30 @@ public sealed class UIGraphPlacement(string id, double x = 0, double y = 0, bool
     /// Gets whether the node is pinned: it does not move, and neither Arrange nor its group carries it.
     /// </summary>
     public bool Pinned { get; } = pinned;
+
+    /// <inheritdoc />
+    public bool Equals(UIGraphPlacement? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && X.Equals(other.X)
+                && Y.Equals(other.Y)
+                && Pinned == other.Pinned);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIGraphPlacement other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, X, Y, Pinned);
 }
 
 /// <summary>
 /// The points one edge is bent through, in order along it.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphRoute(string id, UIGraphPoint[]? points = null)
+public sealed class UIGraphRoute(string id, UIGraphPoint[]? points = null) : IEquatable<UIGraphRoute>
 {
     /// <summary>
     /// Gets the key of the link the edge draws.
@@ -73,4 +103,19 @@ public sealed class UIGraphRoute(string id, UIGraphPoint[]? points = null)
     /// Gets the reroute points, in order along the edge.
     /// </summary>
     public UIGraphPoint[] Points { get; } = points ?? [];
+
+    /// <inheritdoc />
+    public bool Equals(UIGraphRoute? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && UIGraphDraftSupport.Same(Points, other.Points));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIGraphRoute other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, Points.Length);
 }

@@ -9,7 +9,7 @@ namespace NE.Standard.UI.Graph;
 /// refuse, then the layout returns without it.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICraftDraft[]? crafts = null, string[]? removed = null)
+public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICraftDraft[]? crafts = null, string[]? removed = null) : IEquatable<UIProductionDraft>
 {
     /// <summary>The most resources and crafts a catalogue holds once a draft is applied, unless the caller says otherwise.</summary>
     public const int DefaultMaxEntries = 10_000;
@@ -214,6 +214,22 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
 
         return kept.Count == amounts.Count ? null : kept;
     }
+
+    /// <inheritdoc />
+    public bool Equals(UIProductionDraft? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && UIGraphDraftSupport.Same(Resources, other.Resources)
+                && UIGraphDraftSupport.Same(Crafts, other.Crafts)
+                && Removed.AsSpan().SequenceEqual(other.Removed));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIProductionDraft other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Resources.Length, Crafts.Length, Removed.Length);
 }
 
 /// <summary>
@@ -221,7 +237,7 @@ public sealed class UIProductionDraft(UIResourceDraft[]? resources = null, UICra
 /// change (for conflict detection).
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIResourceDraft(string id, string? title = null, string? icon = null, string? color = null, string? tooltip = null, string? image = null, string? category = null, string? unit = null, double? cost = null, bool created = false, string? baseline = null)
+public sealed class UIResourceDraft(string id, string? title = null, string? icon = null, string? color = null, string? tooltip = null, string? image = null, string? category = null, string? unit = null, double? cost = null, bool created = false, string? baseline = null) : IEquatable<UIResourceDraft>
 {
     /// <summary>Gets the resource's key.</summary>
     public string Id { get; } = id;
@@ -267,6 +283,25 @@ public sealed class UIResourceDraft(string id, string? title = null, string? ico
         if (Color is null || colors.Contains(Color))
             resource.Color = Color;
     }
+
+    /// <inheritdoc />
+    public bool Equals(UIResourceDraft? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && string.Equals(Title, other.Title, StringComparison.Ordinal)
+                && string.Equals(Color, other.Color, StringComparison.Ordinal)
+                && Looks.Equals(other.Looks)
+                && Created == other.Created
+                && string.Equals(Baseline, other.Baseline, StringComparison.Ordinal));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIResourceDraft other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, Title, Color, Looks, Created, Baseline);
 }
 
 /// <summary>What a resource carries beside what the canvas edits: what an added one keeps only as a copy of one already there.</summary>
@@ -291,7 +326,7 @@ internal readonly record struct UIResourceLooks(string? Icon, string? Tooltip, s
 /// viewer first changed it.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UICraftDraft(string id, string? title = null, string? icon = null, string? color = null, string? tooltip = null, UICraftAmount[]? ingredients = null, UICraftAmount[]? products = null, TimeSpan time = default, bool created = false, string? baseline = null)
+public sealed class UICraftDraft(string id, string? title = null, string? icon = null, string? color = null, string? tooltip = null, UICraftAmount[]? ingredients = null, UICraftAmount[]? products = null, TimeSpan time = default, bool created = false, string? baseline = null) : IEquatable<UICraftDraft>
 {
     /// <summary>Gets the craft's key.</summary>
     public string Id { get; } = id;
@@ -342,6 +377,28 @@ public sealed class UICraftDraft(string id, string? title = null, string? icon =
 
         craft.Time = Time < TimeSpan.Zero ? TimeSpan.Zero : Time;
     }
+
+    /// <inheritdoc />
+    public bool Equals(UICraftDraft? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && string.Equals(Title, other.Title, StringComparison.Ordinal)
+                && string.Equals(Color, other.Color, StringComparison.Ordinal)
+                && Looks.Equals(other.Looks)
+                && Time.Equals(other.Time)
+                && Created == other.Created
+                && string.Equals(Baseline, other.Baseline, StringComparison.Ordinal)
+                && UIGraphDraftSupport.Same(Ingredients, other.Ingredients)
+                && UIGraphDraftSupport.Same(Products, other.Products));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UICraftDraft other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, Title, Color, Looks, Time, Created, Baseline);
 }
 
 /// <summary>What a craft carries beside what the canvas edits: what an added one keeps only as a copy of one already there.</summary>

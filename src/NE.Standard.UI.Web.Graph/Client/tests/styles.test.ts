@@ -315,3 +315,19 @@ test("a multiline text area in a node editor stretches to fill the growing row w
     assert.match(area, /align-self: stretch;\s*height: auto;\s*min-height: var\(--ui-graph-editor-height, 0\);/);
     assert.match(field, /flex: 1 1 auto;\s*min-height: 1\.5rem;\s*padding: 0\.25rem 0\.375rem;\s*padding-inline-end: max\(0\.375rem, var\(--ui-scroll-room-y\)\);/);
 });
+
+test("scene and grid layers composite on transforms, nodes isolate layout/style without paint clipping, and panning avoids wildcard restyling (#309)", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const node = rules(".ui-graph__node");
+    const group = rules(".ui-graph__group");
+
+    assert.match(rules(".ui-graph__scene"), /will-change: transform;/);
+    assert.match(rules(".ui-graph__grid-lines"), /overflow: visible;\s*will-change: transform;/);
+    assert.match(node, /contain: layout style;/);
+    assert.doesNotMatch(node, /contain:[^;]*paint/);
+    assert.match(node, /translate: calc\(var\(--ui-graph-node-x\) \* 1px\) calc\(var\(--ui-graph-node-y\) \* 1px\);/);
+    assert.match(group, /translate: calc\(var\(--ui-graph-group-x\) \* 1px\) calc\(var\(--ui-graph-group-y\) \* 1px\);/);
+    assert.match(rules(".ui-graph--panning .ui-graph__viewport"), /cursor: grabbing;/);
+    assert.match(rules(".ui-graph--panning .ui-graph__scene"), /pointer-events: none;/);
+    assert.doesNotMatch(css, /\.ui-graph--panning\s+\.ui-graph__viewport\s+\*/);
+});

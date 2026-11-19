@@ -71,10 +71,14 @@
         cursor: crosshair;
     }
 
-    // While the sheet is panned the hand holds it, over whatever the pointer crosses.
-    .ui-graph--panning .ui-graph__viewport,
-    .ui-graph--panning .ui-graph__viewport * {
+    // While the sheet is panned the hand holds it, over whatever the pointer crosses; the scene steps out of hit-testing so toggling
+    // a pan never restyles every descendant of the viewport.
+    .ui-graph--panning .ui-graph__viewport {
         cursor: grabbing;
+    }
+
+    .ui-graph--panning .ui-graph__scene {
+        pointer-events: none;
     }
 
     // Opt-in only, inset rather than the theme's ring, and the keyboard's alone: the canvas takes the focus on every press.
@@ -114,6 +118,8 @@
         display: block;
         width: 100%;
         height: 100%;
+        overflow: visible;
+        will-change: transform;
     }
 
     .ui-graph__grid-minor,
@@ -141,6 +147,7 @@
     position: absolute;
     inset: 0;
     transform-origin: 0 0;
+    will-change: transform;
 }
 
 .ui-graph__edges {
@@ -284,8 +291,9 @@
     --ui-graph-group-color: var(--ui-color-primary-ink);
 
     position: absolute;
-    left: calc(var(--ui-graph-group-x) * 1px);
-    top: calc(var(--ui-graph-group-y) * 1px);
+    left: 0;
+    top: 0;
+    translate: calc(var(--ui-graph-group-x) * 1px) calc(var(--ui-graph-group-y) * 1px);
     width: calc(var(--ui-graph-group-width) * 1px);
     height: calc(var(--ui-graph-group-height) * 1px);
     border: var(--ui-border-width) solid var(--ui-graph-group-color);

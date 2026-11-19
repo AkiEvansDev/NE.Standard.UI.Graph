@@ -55,6 +55,7 @@ export class NodesKind implements CanvasKind {
     private wires: Map<string, EdgeEnds> | null = null;
     private readonly pinOffsets = new Map<string, Map<string, Point>>();
     private nodesById: Map<string, DocumentNode> | null = null;
+    private seriesCount: number | null = null;
     private readonly log: NodesLog;
     private readonly pickerBinding: NodesPickerBinding;
     private readonly upload: NodesImageUpload;
@@ -145,6 +146,8 @@ export class NodesKind implements CanvasKind {
     // --- the sheet -------------------------------------------------------------------------------------------------------------
 
     public items(): readonly CanvasItem[] {
+        this.seriesCount = null;
+
         return this.document.nodes;
     }
 
@@ -152,6 +155,7 @@ export class NodesKind implements CanvasKind {
         // The wires are about to be drawn again, over nodes that may have moved: where they end and turn is read afresh.
         this.wires = null;
         this.nodesById = null;
+        this.seriesCount = null;
 
         return this.document.edges;
     }
@@ -435,7 +439,7 @@ export class NodesKind implements CanvasKind {
             return "var(--ui-text-muted)";
 
         const known: Record<string, number> = { image: 1, text: 3, boolean: 4, array: 5, number: 6, date: 7, time: 7, datetime: 7 };
-        const count = this.services.context.colors.count(this.services.root);
+        const count = (this.seriesCount ??= this.services.context.colors.count(this.services.root));
 
         return this.services.context.colors.color((known[type] ?? hash(type) + 1) - 1, count);
     }

@@ -257,3 +257,50 @@ test("a hidden canvas disposed before it is shown still fits its sheet once revi
     assert.deepEqual(place(canvas.view), fittedAt(1366, 600));
     canvas.view.dispose();
 });
+
+test("dragPan translates an overscanned SVG grid layer on whole pixels without rebuilding path geometry until overscan runs out (#309)", () => {
+    const minor = FakeElement.of("ui-graph__grid-minor", {}, "path");
+    const major = FakeElement.of("ui-graph__grid-major", {}, "path");
+    const lines = FakeElement.of("ui-graph__grid-lines", {}, "svg").append(minor, major);
+    const grid = FakeElement.of("ui-graph__grid").append(lines);
+    const viewport = FakeElement.of("ui-graph__viewport").append(grid, FakeElement.of("ui-graph__scene"));
+    const root = FakeElement.of("ui-graph").append(viewport);
+
+    viewport.rect = { left: 0, top: 0, width: 160, height: 96 };
+
+    const store = real<ClientStore>({ readJson: () => null, write: () => {} });
+    const context = real<PluginEngineContext>({ store, observeSize: () => () => {} });
+    const host: CanvasViewHost = { items: () => [], groups: () => [], itemColor: () => "", nodeRect: () => null, nodeExtent: () => null };
+    const view = new CanvasView(real(root), real<CanvasSettings>({ gridSize: 32, minZoom: 0.1, maxZoom: 2.5 }), context, host);
+
+    view.applyView();
+
+    let dWrites = 0;
+    const baseSetAttribute = major.setAttribute.bind(major);
+    major.setAttribute = (name: string, value: string): void => {
+        if (name === "d")
+            dWrites++;
+
+        baseSetAttribute(name, value);
+    };
+
+    // First pan frame anchors the overscanned grid once (`dWrites === 1`), and subsequent moves within 256px only translate `<svg>`.
+    view.dragPan({ x: 0, y: 0 }, 24, -12);
+    assert.equal(dWrites, 1);
+    assert.equal(lines.style.transform, "translate3d(0px, 0px, 0)");
+
+    view.dragPan({ x: 0, y: 0 }, 64, -40);
+    assert.equal(dWrites, 1);
+    assert.equal(lines.style.transform, "translate3d(40px, -28px, 0)");
+
+    // Crossing the 256px overscan margin re-anchors the SVG paths once and resets the layer translation to 0.
+    view.dragPan({ x: 0, y: 0 }, 320, -40);
+    assert.equal(dWrites, 2);
+    assert.equal(lines.style.transform, "translate3d(0px, 0px, 0)");
+
+    // Zooming resets the overscan translation back to exact viewport bounds.
+    view.zoomBy(1.2, 80, 48);
+    assert.equal(lines.style.transform, "");
+
+    view.dispose();
+});

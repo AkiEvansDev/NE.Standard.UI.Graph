@@ -9,7 +9,7 @@ namespace NE.Standard.UI.Graph;
 /// the layout returns without it.
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? removed = null)
+public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? removed = null) : IEquatable<UIGraphDraft>
 {
     /// <summary>The most nodes a graph holds once a draft is applied, unless the caller says otherwise.</summary>
     public const int DefaultMaxNodes = 10_000;
@@ -122,6 +122,21 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 
         return keys.Count;
     }
+
+    /// <inheritdoc />
+    public bool Equals(UIGraphDraft? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && UIGraphDraftSupport.Same(Nodes, other.Nodes)
+                && Removed.AsSpan().SequenceEqual(other.Removed));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIGraphDraft other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Nodes.Length, Removed.Length);
 }
 
 /// <summary>
@@ -129,7 +144,7 @@ public sealed class UIGraphDraft(UIGraphNodeDraft[]? nodes = null, string[]? rem
 /// (for conflict detection).
 /// </summary>
 [method: JsonConstructor]
-public sealed class UIGraphNodeDraft(string id, string? title = null, string? description = null, string? icon = null, string? image = null, UIGraphNodeShape? shape = null, string? color = null, string? badgeTitle = null, string? tooltip = null, UIGraphLink[]? links = null, bool created = false, string? baseline = null)
+public sealed class UIGraphNodeDraft(string id, string? title = null, string? description = null, string? icon = null, string? image = null, UIGraphNodeShape? shape = null, string? color = null, string? badgeTitle = null, string? tooltip = null, UIGraphLink[]? links = null, bool created = false, string? baseline = null) : IEquatable<UIGraphNodeDraft>
 {
     /// <summary>Gets the node's key.</summary>
     public string Id { get; } = id;
@@ -182,6 +197,29 @@ public sealed class UIGraphNodeDraft(string id, string? title = null, string? de
         if (!UIGraphDraftSupport.Same(node.Links, Links))
             node.Links = Links;
     }
+
+    /// <inheritdoc />
+    public bool Equals(UIGraphNodeDraft? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && string.Equals(Id, other.Id, StringComparison.Ordinal)
+                && string.Equals(Title, other.Title, StringComparison.Ordinal)
+                && ColorsEqual(Color, other.Color)
+                && Looks.Equals(other.Looks)
+                && Created == other.Created
+                && string.Equals(Baseline, other.Baseline, StringComparison.Ordinal)
+                && UIGraphDraftSupport.Same(Links, other.Links));
+
+    private static bool ColorsEqual(string? left, string? right)
+        => string.Equals(left, right, StringComparison.Ordinal);
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIGraphNodeDraft other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Id, Title, Color, Looks, Created, Baseline, Links.Length);
 }
 
 /// <summary>What a node carries beside what the canvas edits: what an added node keeps only as a copy of a node already there.</summary>

@@ -392,3 +392,145 @@ test("clicking an off-grid node selects and raises node-click without snapping o
         engine.dispose();
     }
 });
+
+test("two-finger touch pinch coalesces pointermove bursts onto requestAnimationFrame and flushes on finger lift (#309)", () => {
+    const viewport = FakeElement.of("ui-graph__viewport");
+    const groups = FakeElement.of("ui-graph__groups");
+    const nodes = FakeElement.of("ui-graph__nodes");
+    const edges = FakeElement.of("ui-graph__edges", {}, "svg");
+    const labels = FakeElement.of("ui-graph__labels");
+    const marquee = FakeElement.of("ui-graph__marquee");
+    const scene = FakeElement.of("ui-graph__scene").append(groups, edges, labels, nodes);
+    const value = FakeElement.of("ui-graph__value", {}, "input");
+    const root = FakeElement.of("ui-graph", {
+        "data-ui-id": "3",
+        "data-ui-graph-kind": "stub"
+    }).append(viewport.append(scene, marquee), value);
+
+    viewport.rect = { left: 0, top: 0, width: 800, height: 600 };
+    (viewport as unknown as { setPointerCapture: () => void }).setPointerCapture = () => undefined;
+    fakeDocument.body.children.length = 0;
+    fakeDocument.body.append(root);
+
+    const stubKind: CanvasKindDefinition<CanvasDocument> = {
+        name: "stub",
+        readDocument: () => ({ groups: [], key: null }),
+        create: (): CanvasKind => ({
+            items: () => [],
+            edges: () => [],
+            renderItem: () => real(FakeElement.of("ui-graph__node")),
+            itemsDrawn: () => undefined,
+            itemColor: () => "#006E64",
+            edgeEnds: () => null,
+            related: () => ({ edges: [], items: [] }),
+            edgeColor: () => "#006E64",
+            isEditor: () => false,
+            isPanel: () => false,
+            pointerDown: () => false,
+            chrome: () => false,
+            backgroundDoubleClick: () => undefined,
+            escape: () => undefined,
+            copy: () => undefined,
+            paste: () => null,
+            duplicate: () => null,
+            canDuplicate: () => false,
+            disconnect: () => false,
+            canDisconnect: () => false,
+            remove: () => false,
+            arrange: () => new Map(),
+            runCommand: () => false,
+            canEditItems: () => true,
+            renameItem: () => false,
+            paintItem: () => false,
+            hasEdgeMenu: () => false,
+            syncMenus: () => undefined
+        })
+    };
+
+    const context = {
+        root: fakeDocument.body,
+        names: {
+            componentId: "data-ui-id",
+            readOnlyClass: "ui-input--readonly",
+            ownsKeys: "data-ui-owns-keys",
+            tooltip: "data-ui-tooltip"
+        },
+        states: { isInert: () => false, setDisabled: () => undefined },
+        values: { read: () => null, write: () => undefined, isRefused: () => false, hold: () => undefined, release: () => undefined },
+        store: { read: () => null, write: () => undefined, readJson: () => null, writeJson: () => undefined, remove: () => undefined },
+        wheel: { pixels: () => ({ x: 0, y: 0 }) },
+        strings: { get: (key: string) => key, format: (key: string) => key, write: () => undefined, onChange: () => () => undefined },
+        propertyPatchEngine: { addValueChangeHandler: () => () => undefined },
+        properties: { set: () => undefined },
+        popups: { open: () => () => undefined },
+        focus: { first: () => null },
+        colors: { count: () => 8, at: () => "#006E64" },
+        tooltips: { escape: (text: string) => text, hide: () => undefined },
+        observeSize: () => () => undefined,
+        observeComponents: () => ({ disconnect: () => undefined })
+    };
+
+    const frames: FrameRequestCallback[] = [];
+    const globalWithRaf = globalThis as unknown as {
+        requestAnimationFrame?: (callback: FrameRequestCallback) => number;
+        cancelAnimationFrame?: (handle: number) => void;
+    };
+    const previousRaf = globalWithRaf.requestAnimationFrame;
+    const previousCancel = globalWithRaf.cancelAnimationFrame;
+
+    globalWithRaf.requestAnimationFrame = callback => {
+        frames.push(callback);
+        return frames.length;
+    };
+    globalWithRaf.cancelAnimationFrame = () => {
+        frames.length = 0;
+    };
+
+    let scrollEvents = 0;
+    viewport.addEventListener("scroll", () => {
+        scrollEvents++;
+    });
+
+    const engine = new GraphEngine(real<PluginEngineContext>(context), [stubKind]);
+    scrollEvents = 0;
+
+    try {
+        const touch = (type: string, pointerId: number, x: number, y: number): FakeEvent => Object.assign(new FakeEvent(type), {
+            button: 0,
+            pointerId,
+            pointerType: "touch",
+            clientX: x,
+            clientY: y
+        });
+
+        viewport.dispatchEvent(touch("pointerdown", 1, 100, 100));
+        viewport.dispatchEvent(touch("pointerdown", 2, 200, 100));
+
+        // Four touch move events across both fingers before the frame fires must queue only one rAF and zero intermediate view writes.
+        viewport.dispatchEvent(touch("pointermove", 1, 80, 100));
+        viewport.dispatchEvent(touch("pointermove", 2, 220, 100));
+        viewport.dispatchEvent(touch("pointermove", 1, 50, 100));
+        viewport.dispatchEvent(touch("pointermove", 2, 250, 100));
+
+        assert.equal(frames.length, 1);
+        assert.equal(scrollEvents, 0);
+
+        const queued = frames.shift()!;
+        queued(16);
+
+        assert.equal(scrollEvents, 1);
+        assert.equal(scene.style.transform, "translate(-150px, -100px) scale(2)");
+
+        // Another un-flushed pinch move followed immediately by lifting finger 2 flushes the pending pinch before handing back to pan.
+        viewport.dispatchEvent(touch("pointermove", 2, 300, 100));
+        assert.equal(frames.length, 1);
+        viewport.dispatchEvent(touch("pointerup", 2, 300, 100));
+        assert.equal(frames.length, 0);
+        assert.equal(scene.style.transform, "translate(-200px, -150px) scale(2.5)");
+    }
+    finally {
+        engine.dispose();
+        globalWithRaf.requestAnimationFrame = previousRaf;
+        globalWithRaf.cancelAnimationFrame = previousCancel;
+    }
+});

@@ -55,8 +55,9 @@
     display: flex;
     flex-direction: column;
     position: absolute;
-    left: calc(var(--ui-graph-node-x) * 1px);
-    top: calc(var(--ui-graph-node-y) * 1px);
+    left: 0;
+    top: 0;
+    translate: calc(var(--ui-graph-node-x) * 1px) calc(var(--ui-graph-node-y) * 1px);
     // A dragged size is a floor, never a cage: the kind's least width and the contents' own height still have the last word.
     width: max(var(--ui-graph-node-min-width), calc(var(--ui-graph-node-w, 0) * 1px));
     min-height: calc(var(--ui-graph-node-h, 0) * 1px);
@@ -68,6 +69,8 @@
     background: var(--ui-color-surface);
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
+    // Isolates each node's internal layout and style without paint containment, which would clip protruding pins and the chosen ring.
+    contain: layout style;
     // Its own stack, so the chosen ring (below) paints under its pins.
     isolation: isolate;
     .ui-elevation-1();

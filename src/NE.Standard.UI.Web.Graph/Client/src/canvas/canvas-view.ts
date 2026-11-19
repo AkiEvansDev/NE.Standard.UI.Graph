@@ -23,6 +23,8 @@ const GridDrawnAttribute = "data-ui-graph-grid-drawn";
 /** Every fourth grid line is a major line; minor lines fade out down to `MinorFadeFloor` as the sheet is zoomed out. */
 const MajorCells = 4;
 const MinorFadeFloor = 0.16;
+/** Extra pixels drawn around the viewport while panning so the SVG grid layer translates on the compositor between redraws. */
+const GridOverscan = 256;
 /** How long the view rests before it is kept: a pan or a zoom writes it once it stops, not on every frame of it. */
 const KeepDelay = 250;
 
@@ -39,6 +41,7 @@ export class CanvasView {
     private readonly viewport: HTMLElement;
     private readonly scene: HTMLElement;
     private readonly grid: HTMLElement | null;
+    private readonly gridLines: SVGSVGElement | null;
     private readonly gridMinor: SVGPathElement | null;
     private readonly gridMajor: SVGPathElement | null;
     private readonly zoomLabel: HTMLElement | null;
@@ -49,12 +52,20 @@ export class CanvasView {
     // frame would force a layout.
     private minimapContent: Rect | null = null;
     private minimapPlace: MinimapPlacement | null = null;
+    private minimapBox: { readonly left: number; readonly top: number; readonly width: number; readonly height: number } | null = null;
 
     private zoomValue = 1;
     // The share the zoom's label last said: a pan writes nothing, and a language switch forgets it so the label is written again.
     private zoomShare = Number.NaN;
     private panXValue = 0;
     private panYValue = 0;
+    private gridBasePanX: number | null = null;
+    private gridBasePanY: number | null = null;
+    private gridStyleZoom = Number.NaN;
+    private gestureViewportRect: DOMRect | null = null;
+    private gestureViewportWidth = 0;
+    private gestureViewportHeight = 0;
+    private gestureVisibleWidth = 0;
     private keepTimer: ReturnType<typeof setTimeout> | undefined;
     // A fit the reader has not panned, zoomed or centred since: fitted again for every new size of the canvas, where a view they
     // moved stays as they left it. The size is the one it was fitted for; a fitted view kept from a visit before stands where it
@@ -80,6 +91,7 @@ export class CanvasView {
         this.viewport = root.querySelector<HTMLElement>(".ui-graph__viewport")!;
         this.scene = root.querySelector<HTMLElement>(".ui-graph__scene")!;
         this.grid = root.querySelector<HTMLElement>(GridSelector);
+        this.gridLines = this.grid?.querySelector<SVGSVGElement>(".ui-graph__grid-lines") ?? null;
         this.gridMinor = this.grid?.querySelector<SVGPathElement>(".ui-graph__grid-minor") ?? null;
         this.gridMajor = this.grid?.querySelector<SVGPathElement>(".ui-graph__grid-major") ?? null;
         this.zoomLabel = root.querySelector<HTMLElement>("[data-ui-graph-zoom]");
@@ -100,6 +112,9 @@ export class CanvasView {
 
     /** The canvas took another size: a fit the reader left alone is made again for it; a canvas with no size (hidden) waits. */
     private viewportResized(): void {
+        this.endGesture();
+        this.minimapBox = null;
+
         const width = this.viewport.clientWidth;
         const height = this.viewport.clientHeight;
 
@@ -107,6 +122,7 @@ export class CanvasView {
             return;
 
         if (!this.fitted || (width === this.fittedWidth && height === this.fittedHeight)) {
+            this.resetGridTransform();
             this.drawGrid();
             return;
         }
@@ -115,6 +131,7 @@ export class CanvasView {
         if (this.fittedWidth === 0) {
             this.fittedWidth = width;
             this.fittedHeight = height;
+            this.resetGridTransform();
             this.drawGrid();
             return;
         }
@@ -126,21 +143,25 @@ export class CanvasView {
      * Draws the sheet's minor and major grid lines on whole pixels of the viewport, so a fractional zoom never splits one line across
      * two pixels while landing its neighbour on one.
      */
-    private drawGrid(): void {
+    private drawGrid(overscan = 0, panX = this.panXValue, panY = this.panYValue): void {
         if (this.grid === null || this.gridMinor === null || this.gridMajor === null)
             return;
 
-        const width = this.viewport.clientWidth;
-        const height = this.viewport.clientHeight;
+        const width = this.gestureViewportWidth > 0 ? this.gestureViewportWidth : this.viewport.clientWidth;
+        const height = this.gestureViewportHeight > 0 ? this.gestureViewportHeight : this.viewport.clientHeight;
         const step = this.settings.gridSize * this.zoomValue;
 
         if (width <= 0 || height <= 0 || !(step > 0))
             return;
 
-        const startColumn = Math.floor(-this.panXValue / step);
-        const endColumn = Math.ceil((width - this.panXValue) / step);
-        const startRow = Math.floor(-this.panYValue / step);
-        const endRow = Math.ceil((height - this.panYValue) / step);
+        const minX = -overscan;
+        const maxX = width + overscan;
+        const minY = -overscan;
+        const maxY = height + overscan;
+        const startColumn = Math.floor((minX - panX) / step);
+        const endColumn = Math.ceil((maxX - panX) / step);
+        const startRow = Math.floor((minY - panY) / step);
+        const endRow = Math.ceil((maxY - panY) / step);
         const drawMinor = this.zoomValue > MinorFadeFloor;
         let minor = "";
         let major = "";
@@ -151,12 +172,12 @@ export class CanvasView {
             if (!isMajor && !drawMinor)
                 continue;
 
-            const x = Math.round(this.panXValue + column * step) + 0.5;
+            const x = Math.round(panX + column * step) + 0.5;
 
             if (isMajor)
-                major += `M${x} 0V${height}`;
+                major += `M${x} ${minY}V${maxY}`;
             else
-                minor += `M${x} 0V${height}`;
+                minor += `M${x} ${minY}V${maxY}`;
         }
 
         for (let row = startRow; row <= endRow; row++) {
@@ -165,12 +186,12 @@ export class CanvasView {
             if (!isMajor && !drawMinor)
                 continue;
 
-            const y = Math.round(this.panYValue + row * step) + 0.5;
+            const y = Math.round(panY + row * step) + 0.5;
 
             if (isMajor)
-                major += `M0 ${y}H${width}`;
+                major += `M${minX} ${y}H${maxX}`;
             else
-                minor += `M0 ${y}H${width}`;
+                minor += `M${minX} ${y}H${maxX}`;
         }
 
         this.gridMinor.setAttribute("d", minor);
@@ -178,8 +199,38 @@ export class CanvasView {
         this.grid.setAttribute(GridDrawnAttribute, "");
     }
 
+    private resetGridTransform(): void {
+        this.gridBasePanX = null;
+        this.gridBasePanY = null;
+
+        if (this.gridLines !== null && Boolean(this.gridLines.style.transform))
+            this.gridLines.style.transform = "";
+    }
+
+    /** Caches the viewport's box at the start of a pointer gesture so move frames read coordinates without forcing layout. */
+    public beginGesture(): void {
+        const width = this.viewport.clientWidth;
+        const height = this.viewport.clientHeight;
+
+        if (width <= 0 || height <= 0)
+            return;
+
+        this.gestureViewportRect = this.viewport.getBoundingClientRect();
+        this.gestureViewportWidth = width;
+        this.gestureViewportHeight = height;
+        this.gestureVisibleWidth = this.visibleRect().width;
+    }
+
+    public endGesture(): void {
+        this.gestureViewportRect = null;
+        this.gestureViewportWidth = 0;
+        this.gestureViewportHeight = 0;
+        this.gestureVisibleWidth = 0;
+    }
+
     /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
     public dispose(): void {
+        this.endGesture();
         clearTimeout(this.keepTimer);
         this.keepTimer = undefined;
         this.stopSizeWatch?.();
@@ -224,17 +275,27 @@ export class CanvasView {
         this.scene.style.transform = `translate(${this.panXValue}px, ${this.panYValue}px) scale(${this.zoomValue})`;
 
         // On the grid, the one element that reads them: set on the root, they would restyle every node of the sheet each frame.
-        this.grid?.style.setProperty("--ui-graph-zoom", String(this.zoomValue));
-        this.grid?.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`);
-        this.grid?.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`);
+        if (this.grid !== null && this.gridStyleZoom !== this.zoomValue) {
+            this.gridStyleZoom = this.zoomValue;
+            this.grid.style.setProperty("--ui-graph-zoom", String(this.zoomValue));
+        }
 
+        if (this.grid !== null && !this.grid.hasAttribute(GridDrawnAttribute)) {
+            this.grid.style.setProperty("--ui-graph-pan-x", `${this.panXValue}px`);
+            this.grid.style.setProperty("--ui-graph-pan-y", `${this.panYValue}px`);
+        }
+
+        this.resetGridTransform();
         this.drawGrid();
         this.drawZoom();
         this.placeMinimapView();
         // The sheet moved under what floats over it — a node's action bar, a tooltip — with no scroll of its own: told as one, which
         // the page's anchored popups follow and close by as they do a scrolling box's.
         this.viewport.dispatchEvent(new Event("scroll"));
+        this.scheduleKeepView();
+    }
 
+    private scheduleKeepView(): void {
         clearTimeout(this.keepTimer);
         this.keepTimer = setTimeout(() => this.keepView(), KeepDelay);
     }
@@ -376,7 +437,7 @@ export class CanvasView {
     }
 
     public toViewport(event: PointerEvent | MouseEvent): Point {
-        const rect = this.viewport.getBoundingClientRect();
+        const rect = this.gestureViewportRect ?? this.viewport.getBoundingClientRect();
 
         return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     }
@@ -402,7 +463,41 @@ export class CanvasView {
         this.panXValue = base.x + dx;
         this.panYValue = base.y + dy;
         this.fitted = false;
-        this.applyView();
+        this.applyPan();
+    }
+
+    private applyPan(): void {
+        this.scene.style.transform = `translate(${this.panXValue}px, ${this.panYValue}px) scale(${this.zoomValue})`;
+        this.panGrid();
+        this.placeMinimapView();
+        this.viewport.dispatchEvent(new Event("scroll"));
+        this.scheduleKeepView();
+    }
+
+    private panGrid(): void {
+        if (this.grid === null || this.gridMinor === null || this.gridMajor === null)
+            return;
+
+        if (this.gridStyleZoom !== this.zoomValue) {
+            this.gridStyleZoom = this.zoomValue;
+            this.grid.style.setProperty("--ui-graph-zoom", String(this.zoomValue));
+        }
+
+        if (this.gridLines === null) {
+            this.drawGrid();
+            return;
+        }
+
+        const roundedX = Math.round(this.panXValue);
+        const roundedY = Math.round(this.panYValue);
+
+        if (this.gridBasePanX === null || this.gridBasePanY === null || Math.abs(roundedX - this.gridBasePanX) > GridOverscan || Math.abs(roundedY - this.gridBasePanY) > GridOverscan) {
+            this.gridBasePanX = roundedX;
+            this.gridBasePanY = roundedY;
+            this.drawGrid(GridOverscan, roundedX, roundedY);
+        }
+
+        this.gridLines.style.transform = `translate3d(${roundedX - this.gridBasePanX}px, ${roundedY - this.gridBasePanY}px, 0)`;
     }
 
     /**
@@ -442,6 +537,7 @@ export class CanvasView {
         if (!this.root.hasAttribute(MinimapAttribute)) {
             this.minimapContent = null;
             this.minimapPlace = null;
+            this.minimapBox = null;
             return;
         }
 
@@ -452,6 +548,7 @@ export class CanvasView {
         if (this.minimapContent === null) {
             this.minimapNodes.replaceChildren();
             this.minimapPlace = null;
+            this.minimapBox = null;
             return;
         }
 
@@ -515,14 +612,31 @@ export class CanvasView {
         if (minimap === null)
             return { scale: 0, offsetX: 0, offsetY: 0 };
 
-        const style = getComputedStyle(minimap);
-        const left = Number.parseFloat(style.paddingLeft) || 0;
-        const top = Number.parseFloat(style.paddingTop) || 0;
-        const width = minimap.clientWidth - left - (Number.parseFloat(style.paddingRight) || 0);
-        const height = minimap.clientHeight - top - (Number.parseFloat(style.paddingBottom) || 0);
-        const scale = Math.min(width / Math.max(1, content.width), height / Math.max(1, content.height));
+        let box = this.minimapBox;
 
-        return { scale, offsetX: left + (width - content.width * scale) / 2, offsetY: top + (height - content.height * scale) / 2 };
+        if (box === null) {
+            const clientWidth = minimap.clientWidth;
+            const clientHeight = minimap.clientHeight;
+
+            if (clientWidth <= 0 || clientHeight <= 0)
+                return { scale: 0, offsetX: 0, offsetY: 0 };
+
+            const style = getComputedStyle(minimap);
+            const left = Number.parseFloat(style.paddingLeft) || 0;
+            const top = Number.parseFloat(style.paddingTop) || 0;
+
+            box = {
+                left,
+                top,
+                width: clientWidth - left - (Number.parseFloat(style.paddingRight) || 0),
+                height: clientHeight - top - (Number.parseFloat(style.paddingBottom) || 0)
+            };
+            this.minimapBox = box;
+        }
+
+        const scale = Math.min(box.width / Math.max(1, content.width), box.height / Math.max(1, content.height));
+
+        return { scale, offsetX: box.left + (box.width - content.width * scale) / 2, offsetY: box.top + (box.height - content.height * scale) / 2 };
     }
 
     /** The part of the sheet now on screen, over the map. Follows every pan and zoom, which is all a pan has to redraw. */
@@ -532,11 +646,13 @@ export class CanvasView {
         if (this.minimapView === null || this.minimapContent === null || map === null)
             return;
 
+        const visibleWidth = this.gestureVisibleWidth > 0 ? this.gestureVisibleWidth : this.visibleRect().width;
+        const viewportHeight = this.gestureViewportHeight > 0 ? this.gestureViewportHeight : this.viewport.clientHeight;
         const view: Rect = {
             x: -this.panXValue / this.zoomValue,
             y: -this.panYValue / this.zoomValue,
-            width: this.visibleRect().width / this.zoomValue,
-            height: this.viewport.clientHeight / this.zoomValue
+            width: visibleWidth / this.zoomValue,
+            height: viewportHeight / this.zoomValue
         };
 
         this.minimapView.style.left = `${map.offsetX + (view.x - this.minimapContent.x) * map.scale}px`;

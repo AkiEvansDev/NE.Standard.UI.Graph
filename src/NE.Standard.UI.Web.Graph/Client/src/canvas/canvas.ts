@@ -14,6 +14,7 @@ import { CatalogAttribute, PinChoicesAttribute } from "../nodes/nodes-kind.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
 import { CanvasPinch } from "./pinch.ts";
+import type { View } from "./geometry.ts";
 import { distanceToSegment, pressedInPlace, snap, WheelPagePixels, wheelZoom } from "./geometry.ts";
 
 /** On the root while the sheet is panned: the hand holds it. */
@@ -219,6 +220,7 @@ class Canvas {
     public readonly kind: CanvasKind;
 
     private drag: Drag | null = null;
+    private pendingPinch: View | null = null;
     private pendingMove: PointerEvent | null = null;
     private moveFrame: number | null = null;
     private readonly pinch = new CanvasPinch();
@@ -572,11 +574,16 @@ class Canvas {
             return;
 
         // A second finger: what the first began is let go as the browser taking the pointer lets it go, and the two pinch the sheet.
-        if (event.pointerType === "touch" && this.pinch.down(event.pointerId, this.view.toViewport(event), { zoom: this.view.zoom, panX: this.view.panX, panY: this.view.panY })) {
-            event.preventDefault();
-            this.pointerCancel();
-            this.viewport.setPointerCapture(event.pointerId);
-            return;
+        if (event.pointerType === "touch") {
+            this.flushPendingMove();
+
+            if (this.pinch.down(event.pointerId, this.view.toViewport(event), { zoom: this.view.zoom, panX: this.view.panX, panY: this.view.panY })) {
+                event.preventDefault();
+                this.pointerCancel();
+                this.view.beginGesture();
+                this.viewport.setPointerCapture(event.pointerId);
+                return;
+            }
         }
 
         if (event.button === 2) {
@@ -604,6 +611,7 @@ class Canvas {
         // The map before anything else: it stands over the canvas, and a press on it is a press on the sheet somewhere else.
         if (event.target.closest("[data-ui-graph-map]") !== null) {
             this.drag = { kind: "map" };
+            this.view.beginGesture();
             this.viewport.setPointerCapture(event.pointerId);
             this.view.minimapPan(event);
 
@@ -633,10 +641,8 @@ class Canvas {
         const own = this.kind.pointerDown(event, event.target);
 
         if (own !== false) {
-            if (own !== true) {
-                this.drag = own;
-                this.viewport.setPointerCapture(event.pointerId);
-            }
+            if (own !== true)
+                this.beginDrag(own, event.pointerId);
 
             return;
         }
@@ -644,8 +650,7 @@ class Canvas {
         const reroute = event.target.closest<SVGElement>(`[${ReroutAttribute}]`);
 
         if (reroute !== null && !this.settings.readOnly) {
-            this.drag = { kind: "reroute", startX: scene.x, startY: scene.y, moved: false, edge: reroute.getAttribute(ReroutAttribute)!, index: Number(reroute.getAttribute("data-ui-graph-reroute-index")) };
-            this.viewport.setPointerCapture(event.pointerId);
+            this.beginDrag({ kind: "reroute", startX: scene.x, startY: scene.y, moved: false, edge: reroute.getAttribute(ReroutAttribute)!, index: Number(reroute.getAttribute("data-ui-graph-reroute-index")) }, event.pointerId);
             return;
         }
 
@@ -654,14 +659,13 @@ class Canvas {
 
         if (nodeElement !== null) {
             if (grip !== null && !this.settings.readOnly) {
-                this.drag = this.dragging.beginResize(nodeElement, grip, scene);
-                this.viewport.setPointerCapture(event.pointerId);
+                this.beginDrag(this.dragging.beginResize(nodeElement, grip, scene), event.pointerId);
             }
             else {
-                this.drag = this.dragging.beginNodeDrag(event, nodeElement.getAttribute(NodeAttribute)!, scene);
+                const drag = this.dragging.beginNodeDrag(event, nodeElement.getAttribute(NodeAttribute)!, scene);
 
-                if (this.drag !== null)
-                    this.viewport.setPointerCapture(event.pointerId);
+                if (drag !== null)
+                    this.beginDrag(drag, event.pointerId);
             }
 
             return;
@@ -671,16 +675,15 @@ class Canvas {
 
         // A frame's corner sizes it and its band moves it; the rest of its inside is the sheet, which pans or draws a band.
         if (groupElement !== null && grip !== null && !this.settings.readOnly) {
-            this.drag = this.dragging.beginResize(groupElement, grip, scene);
-            this.viewport.setPointerCapture(event.pointerId);
+            this.beginDrag(this.dragging.beginResize(groupElement, grip, scene), event.pointerId);
             return;
         }
 
         if (groupElement !== null && event.target.closest(".ui-graph__group-band") !== null) {
-            this.drag = this.dragging.beginGroupDrag(event, groupElement.getAttribute(GroupAttribute)!, scene);
+            const drag = this.dragging.beginGroupDrag(event, groupElement.getAttribute(GroupAttribute)!, scene);
 
-            if (this.drag !== null)
-                this.viewport.setPointerCapture(event.pointerId);
+            if (drag !== null)
+                this.beginDrag(drag, event.pointerId);
 
             return;
         }
@@ -690,16 +693,20 @@ class Canvas {
 
         // The background: a held Ctrl (Cmd) draws a band, everything else pans.
         if (adds(event)) {
-            this.drag = { kind: "marquee", startX: scene.x, startY: scene.y };
             this.selection.beginMarquee();
+            this.beginDrag({ kind: "marquee", startX: scene.x, startY: scene.y }, event.pointerId);
         }
         else {
             this.selection.clearSelection();
-            this.drag = { kind: "pan", startX: at.x, startY: at.y, panX: this.view.panX, panY: this.view.panY };
             this.root.classList.add(PanningClass);
+            this.beginDrag({ kind: "pan", startX: at.x, startY: at.y, panX: this.view.panX, panY: this.view.panY }, event.pointerId);
         }
+    }
 
-        this.viewport.setPointerCapture(event.pointerId);
+    private beginDrag(drag: Drag, pointerId: number): void {
+        this.drag = drag;
+        this.view.beginGesture();
+        this.viewport.setPointerCapture(pointerId);
     }
 
     /** A node's pin or fold mark pressed — by the pointer, or by the keyboard, whose focus goes on to the mark the node is drawn anew with. */
@@ -742,8 +749,16 @@ class Canvas {
         if (event.pointerType === "touch") {
             const pinched = this.pinch.move(event.pointerId, this.view.toViewport(event), this.settings.minZoom, this.settings.maxZoom);
 
-            if (pinched !== null)
-                this.view.pinchTo(pinched);
+            if (pinched !== null) {
+                if (typeof requestAnimationFrame !== "function") {
+                    this.view.pinchTo(pinched);
+                    return;
+                }
+
+                this.pendingPinch = pinched;
+                this.scheduleMoveFrame();
+                return;
+            }
 
             if (this.pinch.pinching)
                 return;
@@ -762,14 +777,23 @@ class Canvas {
         }
 
         this.pendingMove = event;
+        this.scheduleMoveFrame();
+    }
 
+    private scheduleMoveFrame(): void {
         if (this.moveFrame !== null)
             return;
 
         this.moveFrame = requestAnimationFrame(() => {
             this.moveFrame = null;
+            const pinch = this.pendingPinch;
             const pending = this.pendingMove;
+
+            this.pendingPinch = null;
             this.pendingMove = null;
+
+            if (pinch !== null)
+                this.view.pinchTo(pinch);
 
             if (pending !== null)
                 this.applyDragMove(pending);
@@ -829,15 +853,20 @@ class Canvas {
     }
 
     private flushPendingMove(): void {
+        const pinch = this.pendingPinch;
         const pending = this.pendingMove;
 
         this.cancelPendingMove();
+
+        if (pinch !== null)
+            this.view.pinchTo(pinch);
 
         if (pending !== null)
             this.applyDragMove(pending);
     }
 
     private cancelPendingMove(): void {
+        this.pendingPinch = null;
         this.pendingMove = null;
 
         if (this.moveFrame !== null) {
@@ -898,8 +927,15 @@ class Canvas {
         if (!ended)
             return false;
 
-        if (left !== null)
+        this.flushPendingMove();
+
+        if (left !== null) {
             this.drag = { kind: "pan", startX: left.x, startY: left.y, panX: this.view.panX, panY: this.view.panY };
+            this.root.classList.add(PanningClass);
+        }
+        else {
+            this.view.endGesture();
+        }
 
         return true;
     }
@@ -977,6 +1013,9 @@ class Canvas {
         this.root.classList.remove(PanningClass);
         this.selection.hideMarquee();
         this.render.clearPending();
+
+        if (!this.pinch.pinching)
+            this.view.endGesture();
     }
 
     // --- reroute points --------------------------------------------------------------------------------------------------------

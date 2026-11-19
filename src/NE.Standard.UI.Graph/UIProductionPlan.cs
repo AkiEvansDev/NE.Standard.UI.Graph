@@ -45,7 +45,7 @@ public sealed record UIProductionTarget(string Resource, double Amount);
 /// </summary>
 /// <remarks>Part of the graph's document, saved like the layout.</remarks>
 [method: JsonConstructor]
-public sealed class UIProductionPlanRequest(UIProductionTarget[]? targets = null, UIProductionPeriod period = UIProductionPeriod.Once, UIProductionObjective objective = UIProductionObjective.LeastRaw, string[]? bought = null)
+public sealed class UIProductionPlanRequest(UIProductionTarget[]? targets = null, UIProductionPeriod period = UIProductionPeriod.Once, UIProductionObjective objective = UIProductionObjective.LeastRaw, string[]? bought = null) : IEquatable<UIProductionPlanRequest>
 {
     /// <summary>
     /// Gets the request that asks for nothing.
@@ -83,6 +83,23 @@ public sealed class UIProductionPlanRequest(UIProductionTarget[]? targets = null
         UIProductionPeriod.Hour => TimeSpan.FromHours(1),
         _ => null
     };
+
+    /// <inheritdoc />
+    public bool Equals(UIProductionPlanRequest? other)
+        => ReferenceEquals(this, other)
+            || (other is not null
+                && Period == other.Period
+                && Objective == other.Objective
+                && UIGraphDraftSupport.Same(Targets, other.Targets)
+                && Bought.AsSpan().SequenceEqual(other.Bought));
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+        => obj is UIProductionPlanRequest other && Equals(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+        => HashCode.Combine(Targets.Length, Period, Objective, Bought.Length);
 }
 
 /// <summary>

@@ -27,6 +27,7 @@ const MaxZoomAttribute = "data-ui-graph-max-zoom";
 export class CanvasSettings {
     private readonly root: HTMLElement;
     private readonly readOnlyClass: string;
+    private defaultGridSize: number | null = null;
 
     /** `readOnlyClass` is the family's read-only mark on the root (`RenderIsReadOnlyMark`), the plugin surface's name for it. */
     public constructor(root: HTMLElement, readOnlyClass: string) {
@@ -57,7 +58,14 @@ export class CanvasSettings {
     }
 
     public get gridSize(): number {
-        return Number(getComputedStyle(this.root).getPropertyValue("--ui-graph-grid-size")) || 32;
+        const inline = this.root.style?.getPropertyValue("--ui-graph-grid-size") ?? "";
+
+        if (inline.length > 0)
+            return Number(inline) || 32;
+
+        this.defaultGridSize ??= Number(getComputedStyle(this.root).getPropertyValue("--ui-graph-grid-size")) || 32;
+
+        return this.defaultGridSize;
     }
 
     /** Whether every node drawn carries an action bar. */
