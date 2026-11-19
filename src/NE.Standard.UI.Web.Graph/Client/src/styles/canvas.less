@@ -616,6 +616,7 @@
     border: var(--ui-border-width) solid var(--ui-color-border);
     border-radius: var(--ui-radius-card);
     corner-shape: @ui-corner-shape;
+    overflow: clip;
     .ui-graph-surface-ground();
     color: var(--ui-color-on-surface);
     font-size: var(--ui-text-caption-font-size);
@@ -645,10 +646,16 @@
     border-radius: 0;
     font-weight: var(--ui-text-title-font-weight);
     white-space: nowrap;
+    outline-offset: calc(-1 * var(--ui-focus-ring-width, 0px));
+    .ui-reveal-hover();
+
+    &@{ui-keyboard-focus} {
+        background-color: var(--ui-wash-hover);
+    }
 }
 
-// The switch's chevron points down while the panel is open, and along the switch once folded. The switch answers the pointer as an
-// expander's header does: the chevron's ink comes up, as a wash would fill the band the panel already frames.
+// The switch's chevron points down while the panel is open, and along the switch once folded; hover and keyboard focus wash the switch
+// band (above, clipped to the panel's rounded edge) and step the chevron's ink up, as an expander's header does.
 .ui-graph-side-chevron(@panel) {
     .ui-glyph-host();
     font-size: @ui-glyph-sm;

@@ -52,9 +52,14 @@
         outline-offset: -2px;
     }
 
-    // A plan table's cell clips an outer ring on its name button: frame the whole keyboard-focused row inside its edges instead.
+    // A plan table's cell and a clipped side panel clip an outer ring on their buttons: frame inside their edges instead.
     .ui-graph__plan-table tbody tr@{ui-keyboard-within} {
         outline: 2px dashed CanvasText;
+        outline-offset: -2px;
+    }
+
+    :is(.ui-graph__menu-panel-toggle, .ui-graph__plan-toggle)@{ui-keyboard-focus} {
+        outline: 2px dashed Highlight;
         outline-offset: -2px;
     }
 

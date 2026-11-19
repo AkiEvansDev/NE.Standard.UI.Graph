@@ -883,7 +883,7 @@ declare module "ne-standard-ui" {
         readonly itemsQuery: "data-ui-items-query";
         readonly valueKind: "data-ui-value-kind";
         readonly itemsQueryKind: "items-query";
-        /** A menu's entry, what kind it is (`check`, `header`, …), and a check entry turned on. */
+        /** A menu's interactive entry, what kind a row is (`check`, `header`, `separator`, …), and a check entry turned on. */
         readonly menuItemClass: "ui-menu-item";
         readonly menuItemKind: "data-ui-menu-item-kind";
         readonly menuItemCheckedClass: "ui-menu-item--checked";

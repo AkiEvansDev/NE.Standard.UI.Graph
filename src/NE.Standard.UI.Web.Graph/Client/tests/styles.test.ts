@@ -75,10 +75,16 @@ test("the corner menu is a folding panel over the leading corner, as the plan is
     assert.match(panel, /position: absolute;\s*left: 0\.5rem;\s*z-index: 3;\s*flex-direction: column;\s*width: var\(--ui-graph-menu-width\);/);
     assert.match(plan, /position: absolute;\s*right: 0\.5rem;\s*z-index: 3;\s*flex-direction: column;\s*width: var\(--ui-graph-plan-width\);/);
 
-    for (const shared of [/border: var\(--ui-border-width\) solid var\(--ui-color-border\);/, /border-radius: var\(--ui-radius-card\);/, /background: var\(--ui-color-surface\);/]) {
+    for (const shared of [/border: var\(--ui-border-width\) solid var\(--ui-color-border\);/, /border-radius: var\(--ui-radius-card\);/, /overflow: clip;/, /background: var\(--ui-color-surface\);/]) {
         assert.match(panel, shared);
         assert.match(plan, shared);
     }
+
+    // Both side switches wash on hover, active press and keyboard focus, as an expander's header does.
+    assert.match(css, /\.ui-graph__menu-panel-toggle:hover \{\s*background-color: var\(--ui-wash-hover\);/);
+    assert.match(css, /\.ui-graph__menu-panel-toggle:active \{\s*background-color: var\(--ui-wash-active\);/);
+    assert.match(css, /\.ui-graph__plan-toggle:hover \{\s*background-color: var\(--ui-wash-hover\);/);
+    assert.match(css, /\.ui-graph__plan-toggle:active \{\s*background-color: var\(--ui-wash-active\);/);
 
     // Open it ends above the canvas's foot; folded a long name stops at the open panel's width.
     assert.match(panel, /top: 0\.5rem;/);
