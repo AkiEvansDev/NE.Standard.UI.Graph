@@ -112,7 +112,7 @@ export class CanvasView {
 
     /** The canvas took another size: a fit the reader left alone is made again for it; a canvas with no size (hidden) waits. */
     private viewportResized(): void {
-        this.endGesture();
+        this.clearGesture();
         this.minimapBox = null;
 
         const width = this.viewport.clientWidth;
@@ -137,6 +137,21 @@ export class CanvasView {
         }
 
         this.fit();
+    }
+
+    private clearGesture(): void {
+        this.gestureViewportRect = null;
+        this.gestureViewportWidth = 0;
+        this.gestureViewportHeight = 0;
+        this.gestureVisibleWidth = 0;
+    }
+
+    private resetGridTransform(): void {
+        this.gridBasePanX = null;
+        this.gridBasePanY = null;
+
+        if (this.gridLines !== null && Boolean(this.gridLines.style.transform))
+            this.gridLines.style.transform = "";
     }
 
     /**
@@ -199,14 +214,6 @@ export class CanvasView {
         this.grid.setAttribute(GridDrawnAttribute, "");
     }
 
-    private resetGridTransform(): void {
-        this.gridBasePanX = null;
-        this.gridBasePanY = null;
-
-        if (this.gridLines !== null && Boolean(this.gridLines.style.transform))
-            this.gridLines.style.transform = "";
-    }
-
     /** Caches the viewport's box at the start of a pointer gesture so move frames read coordinates without forcing layout. */
     public beginGesture(): void {
         const width = this.viewport.clientWidth;
@@ -222,15 +229,18 @@ export class CanvasView {
     }
 
     public endGesture(): void {
-        this.gestureViewportRect = null;
-        this.gestureViewportWidth = 0;
-        this.gestureViewportHeight = 0;
-        this.gestureVisibleWidth = 0;
+        this.clearGesture();
+
+        if (this.gridBasePanX !== null) {
+            this.resetGridTransform();
+            this.drawGrid();
+        }
     }
 
     /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
     public dispose(): void {
-        this.endGesture();
+        this.clearGesture();
+        this.resetGridTransform();
         clearTimeout(this.keepTimer);
         this.keepTimer = undefined;
         this.stopSizeWatch?.();
@@ -497,7 +507,8 @@ export class CanvasView {
             this.drawGrid(GridOverscan, roundedX, roundedY);
         }
 
-        this.gridLines.style.transform = `translate3d(${roundedX - this.gridBasePanX}px, ${roundedY - this.gridBasePanY}px, 0)`;
+        // 2D `translate` rather than `translate3d`: a 3D transform promotes the SVG below `.ui-graph__scene` and forces overlap compositing over node text.
+        this.gridLines.style.transform = `translate(${roundedX - this.gridBasePanX}px, ${roundedY - this.gridBasePanY}px)`;
     }
 
     /**

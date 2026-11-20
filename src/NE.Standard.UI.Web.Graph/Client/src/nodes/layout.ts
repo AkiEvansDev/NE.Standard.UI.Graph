@@ -61,17 +61,18 @@ export function arrange(document: GraphDocument, options: ArrangeOptions): Map<s
         originY = Math.min(originY, node.y);
     }
 
+    const rowGap = options.rowGap ?? 32;
     const positions = layered(nodes, edges, {
         direction: "right",
         layerGap: columnGap,
         layerGaps: layers => gapsAfter(wires, layers, columnGap),
-        nodeGap: options.rowGap ?? 32,
+        nodeGap: rowGap,
         originX: selection ? originX : 0,
         originY: selection ? originY : 0
     }).positions;
 
     if ((options.gridSize ?? 0) > 0)
-        placeOnGrid(positions, nodes, edges, options.gridSize!);
+        placeOnGrid(positions, nodes, edges, options.gridSize!, rowGap);
 
     return positions;
 }
@@ -79,9 +80,19 @@ export function arrange(document: GraphDocument, options: ArrangeOptions): Map<s
 /**
  * Puts the answer on the grid without bending what the layout made straight: every left edge on a line, and each run of nodes joined
  * by level wires moved as one so its first node's top is on a line — every top on a line would step a wire between pins at different
- * depths by a few pixels.
+ * depths by a few pixels. Where two runs in overlapping columns snap toward each other, the lower run steps down by whole grid cells
+ * so their vertical clearance never drops below what the layered layout gave them.
  */
-function placeOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[], edges: readonly LayeredEdge[], gridSize: number): void {
+function placeOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[], edges: readonly LayeredEdge[], gridSize: number, rowGap: number): void {
+    const beforeY = new Map<string, number>();
+
+    for (const node of nodes) {
+        const place = positions.get(node.id);
+
+        if (place !== undefined)
+            beforeY.set(node.id, place.y);
+    }
+
     const heights = new Map(nodes.map(node => [node.id, node.height]));
     const order = new Map(nodes.map((node, index) => [node.id, index]));
     const runs = new Map<string, string>(nodes.map(node => [node.id, node.id]));
@@ -114,6 +125,7 @@ function placeOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[
     }
 
     const shifts = new Map<string, number>();
+    const runMembers = new Map<string, string[]>();
 
     for (const node of nodes) {
         const place = positions.get(node.id);
@@ -127,6 +139,81 @@ function placeOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[
             shifts.set(run, snap(positions.get(run)!.y, gridSize, true) - positions.get(run)!.y);
 
         positions.set(node.id, { x: snap(place.x, gridSize, true), y: place.y + shifts.get(run)! });
+
+        let members = runMembers.get(run);
+
+        if (members === undefined) {
+            members = [];
+            runMembers.set(run, members);
+        }
+
+        members.push(node.id);
+    }
+
+    separateRunsOnGrid(positions, nodes, beforeY, runOf, runMembers, gridSize, rowGap);
+}
+
+function separateRunsOnGrid(positions: Map<string, Point>, nodes: readonly LayeredNode[], beforeY: ReadonlyMap<string, number>, runOf: (id: string) => string, runMembers: ReadonlyMap<string, readonly string[]>, gridSize: number, rowGap: number): void {
+    if (rowGap <= 0)
+        return;
+
+    for (let pass = 0; pass < runMembers.size; pass++) {
+        let moved = false;
+
+        for (let i = 0; i < nodes.length; i++) {
+            const upper = nodes[i];
+            const upperPlace = positions.get(upper.id);
+            const upperBeforeY = beforeY.get(upper.id);
+
+            if (upperPlace === undefined || upperBeforeY === undefined)
+                continue;
+
+            const upperRun = runOf(upper.id);
+
+            for (let j = 0; j < nodes.length; j++) {
+                if (i === j)
+                    continue;
+
+                const lower = nodes[j];
+                const lowerRun = runOf(lower.id);
+
+                if (lowerRun === upperRun)
+                    continue;
+
+                const lowerPlace = positions.get(lower.id);
+                const lowerBeforeY = beforeY.get(lower.id);
+
+                if (lowerPlace === undefined || lowerBeforeY === undefined)
+                    continue;
+
+                if (upperPlace.x >= lowerPlace.x + lower.width || lowerPlace.x >= upperPlace.x + upper.width)
+                    continue;
+
+                const beforeGap = lowerBeforeY - (upperBeforeY + upper.height);
+
+                if (beforeGap < -0.5)
+                    continue;
+
+                const wantedGap = Math.min(rowGap, Math.max(0, beforeGap));
+                const shortfall = upperPlace.y + upper.height + wantedGap - lowerPlace.y;
+
+                if (shortfall <= 0.5)
+                    continue;
+
+                const step = Math.ceil((shortfall - 0.5) / gridSize) * gridSize;
+
+                for (const memberId of runMembers.get(lowerRun)!) {
+                    const memberPlace = positions.get(memberId)!;
+
+                    positions.set(memberId, { x: memberPlace.x, y: memberPlace.y + step });
+                }
+
+                moved = true;
+            }
+        }
+
+        if (!moved)
+            break;
     }
 }
 

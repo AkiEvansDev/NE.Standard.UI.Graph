@@ -119,7 +119,6 @@
         width: 100%;
         height: 100%;
         overflow: visible;
-        will-change: transform;
     }
 
     .ui-graph__grid-minor,
@@ -142,12 +141,12 @@
     }
 
 // The scene is the viewport's own box, transformed: a zero-sized frame would give the edge layer a degenerate SVG viewport,
-// which paints nothing whatever its overflow says.
+// which paints nothing whatever its overflow says. Never `will-change: transform` here or on `.ui-graph__grid-lines` below it:
+// Chromium locks a hinted layer's raster scale and drops subpixel antialiasing, blurring node labels at every zoom.
 .ui-graph__scene {
     position: absolute;
     inset: 0;
     transform-origin: 0 0;
-    will-change: transform;
 }
 
 .ui-graph__edges {

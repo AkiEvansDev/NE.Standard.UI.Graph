@@ -176,3 +176,47 @@ test("wires that fork from one output share its lane, and the gap stays the leas
 
     assert.equal(placed.get("a")!.x, 280);
 });
+
+test("snapping level-wire runs onto the grid never squeezes a lower run closer than rowGap in the same column", () => {
+    const document = sheet(
+        [node("left"), node("right"), node("op"), node("round"), node("answer"), node("offset"), node("offset-answer")],
+        [
+            wire("left", "Result", "op", "Left"),
+            wire("right", "Result", "op", "Right"),
+            wire("op", "Result", "round", "Value"),
+            wire("round", "Result", "answer", "Value"),
+            wire("round", "Result", "offset", "Left"),
+            wire("offset", "Result", "offset-answer", "Value")
+        ]
+    );
+    const nodeSizes = new Map([
+        ["left", { width: 224, height: 128 }],
+        ["right", { width: 224, height: 128 }],
+        ["op", { width: 224, height: 160 }],
+        ["round", { width: 224, height: 128 }],
+        ["answer", { width: 224, height: 128 }],
+        ["offset", { width: 224, height: 160 }],
+        ["offset-answer", { width: 224, height: 128 }]
+    ]);
+    const offsets = pins({
+        "left:out:Result": 51,
+        "right:out:Result": 51,
+        "op:in:Left": 75,
+        "op:in:Right": 99,
+        "op:out:Result": 51,
+        "round:in:Value": 51,
+        "round:out:Result": 51,
+        "answer:in:Value": 51,
+        "offset:in:Left": 75,
+        "offset:out:Result": 51,
+        "offset-answer:in:Value": 51
+    });
+    const placed = arrange(document, { sizes: nodeSizes, pinOffset: offsets, gridSize: 32, rowGap: 32 });
+    const answerBottom = placed.get("answer")!.y + nodeSizes.get("answer")!.height;
+    const offsetTop = placed.get("offset")!.y;
+
+    assert.equal(placed.get("left")!.y % 32, 0);
+    assert.equal(offsetTop % 32, 0);
+    assert.equal(placed.get("offset-answer")!.y, offsetTop);
+    assert.ok(offsetTop - answerBottom >= 32, `expected >= 32px vertical gap in column, got ${offsetTop - answerBottom}`);
+});

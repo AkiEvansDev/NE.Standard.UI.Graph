@@ -284,21 +284,30 @@ test("dragPan translates an overscanned SVG grid layer on whole pixels without r
         baseSetAttribute(name, value);
     };
 
-    // First pan frame anchors the overscanned grid once (`dWrites === 1`), and subsequent moves within 256px only translate `<svg>`.
+    // First pan frame anchors the overscanned grid once (`dWrites === 1`), and subsequent moves within 256px only translate `<svg>` in 2D.
     view.dragPan({ x: 0, y: 0 }, 24, -12);
     assert.equal(dWrites, 1);
-    assert.equal(lines.style.transform, "translate3d(0px, 0px, 0)");
+    assert.equal(lines.style.transform, "translate(0px, 0px)");
 
     view.dragPan({ x: 0, y: 0 }, 64, -40);
     assert.equal(dWrites, 1);
-    assert.equal(lines.style.transform, "translate3d(40px, -28px, 0)");
+    assert.equal(lines.style.transform, "translate(40px, -28px)");
 
     // Crossing the 256px overscan margin re-anchors the SVG paths once and resets the layer translation to 0.
     view.dragPan({ x: 0, y: 0 }, 320, -40);
     assert.equal(dWrites, 2);
-    assert.equal(lines.style.transform, "translate3d(0px, 0px, 0)");
+    assert.equal(lines.style.transform, "translate(0px, 0px)");
 
-    // Zooming resets the overscan translation back to exact viewport bounds.
+    // Ending the gesture settles the SVG grid back to exact viewport bounds with no leftover transform.
+    view.dragPan({ x: 0, y: 0 }, 340, -50);
+    assert.equal(lines.style.transform, "translate(20px, -10px)");
+    view.endGesture();
+    assert.equal(dWrites, 3);
+    assert.equal(lines.style.transform, "");
+
+    // Zooming also resets any active overscan translation back to exact viewport bounds.
+    view.dragPan({ x: 0, y: 0 }, 360, -60);
+    assert.equal(dWrites, 4);
     view.zoomBy(1.2, 80, 48);
     assert.equal(lines.style.transform, "");
 

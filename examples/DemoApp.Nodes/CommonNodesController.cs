@@ -22,10 +22,10 @@ internal sealed partial class CommonNodesController() : NodesSheetController(Can
         UINode join = new("t-join", JoinNode.NodeKey, 352, 0, values: Values(("Template", "{0} = {1}")));
         UINode joined = new("t-joined", DisplayNode.NodeKey, 672, 0);
 
-        UINode counter = new("c-counter", CounterNode.NodeKey, 0, 384, values: Values(("From", 1), ("To", 5)));
-        UINode counted = new("c-counted", DisplayNode.NodeKey, 352, 384);
+        UINode counter = new("c-counter", CounterNode.NodeKey, 0, 416, values: Values(("From", 1), ("To", 5)));
+        UINode counted = new("c-counted", DisplayNode.NodeKey, 352, 416);
 
-        UINode note = new("n-note", NoteNode.NodeKey, 0, 672, values: Values(("Text", "Run works the sheet out once. Run all goes round until the counter runs out: five runs, one number each.")));
+        UINode note = new("n-note", NoteNode.NodeKey, 0, 704, values: Values(("Text", "Run works the sheet out once. Run all goes round until the counter runs out: five runs, one number each.")));
 
         return new UINodeDocument(
             [label, number, join, joined, counter, counted, note],

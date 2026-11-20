@@ -316,13 +316,14 @@ test("a multiline text area in a node editor stretches to fill the growing row w
     assert.match(field, /flex: 1 1 auto;\s*min-height: 1\.5rem;\s*padding: 0\.25rem 0\.375rem;\s*padding-inline-end: max\(0\.375rem, var\(--ui-scroll-room-y\)\);/);
 });
 
-test("scene and grid layers composite on transforms, nodes isolate layout/style without paint clipping, and panning avoids wildcard restyling (#309)", () => {
+test("grid lines overscan without composited scene texture blur, nodes isolate layout/style without paint clipping, and panning avoids wildcard restyling (#309)", () => {
     const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
     const node = rules(".ui-graph__node");
     const group = rules(".ui-graph__group");
 
-    assert.match(rules(".ui-graph__scene"), /will-change: transform;/);
-    assert.match(rules(".ui-graph__grid-lines"), /overflow: visible;\s*will-change: transform;/);
+    assert.doesNotMatch(rules(".ui-graph__scene"), /will-change/);
+    assert.doesNotMatch(rules(".ui-graph__grid-lines"), /will-change/);
+    assert.match(rules(".ui-graph__grid-lines"), /overflow: visible;/);
     assert.match(node, /contain: layout style;/);
     assert.doesNotMatch(node, /contain:[^;]*paint/);
     assert.match(node, /translate: calc\(var\(--ui-graph-node-x\) \* 1px\) calc\(var\(--ui-graph-node-y\) \* 1px\);/);
