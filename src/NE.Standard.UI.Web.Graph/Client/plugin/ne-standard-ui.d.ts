@@ -95,6 +95,10 @@ declare module "ne-standard-ui" {
     export type EffectContext = {
         readonly effect: ClientEffect;
         readonly dom: DomRegistry;
+        /** The row keys an interaction ran for, innermost key last; omitted when a command raised the effect. */
+        readonly row?: readonly unknown[];
+        /** The element or component that raised the interaction; omitted when a command raised the effect. */
+        readonly source?: Element | null;
     };
 
     /** A `ClientEffect` kind — one a command or an interaction may run. */
@@ -158,6 +162,8 @@ declare module "ne-standard-ui" {
         findComponent(componentId: number, dynamicParameters: readonly unknown[]): Element | null;
         findAllComponents(componentId: number, dynamicParameters: readonly unknown[]): Element[];
         findComponentParts(componentId: number, dynamicParameters: readonly unknown[], selector: string): HTMLElement[];
+        /** Drops cached entries when `scope` is re-mounted or replaced, so subsequent lookups walk the live subtree. */
+        invalidate(scope?: Element): void;
         /** The matching descendants that belong to `root` rather than to one of the same kind nested inside it. */
         ownDescendants<TElement extends Element = HTMLElement>(root: Element, selector: string, rootSelector: string): TElement[];
     };
@@ -406,10 +412,25 @@ declare module "ne-standard-ui" {
         readonly plain?: boolean;
     };
 
+    /**
+     * Words a part of the page speaks with where it wrote no tooltip of its own: the element under the pointer or focus that speaks
+     * through the provider, and its words as they stand (null or empty says nothing).
+     */
+    export type TooltipWordsProvider = {
+        anchor(target: Element): Element | null;
+        words(anchor: Element): string | null;
+        /** The side the words take where the anchor names none; unset, the default. */
+        placement?(anchor: Element): PopupPlacement | null;
+        /** Words that follow the anchor's own tooltip where it wrote one (a control's key chord after its label); unset, nothing. */
+        after?(anchor: Element): string | null;
+    };
+
     /** The page's one tooltip, for a picture with no element per thing: words against a target, closed by `hide` or pointing elsewhere. */
     export type Tooltips = {
         show(target: Element, words: string, options?: TooltipShowOptions): void;
         hide(): void;
+        /** Registers words for elements that write no tooltip of their own; answers what unregisters the provider. */
+        register(provider: TooltipWordsProvider): () => void;
         /** A caption or a value made safe to stand among words a tooltip reads as inline markup — a series' name in a point's words, written
          * into `data-ui-tooltip` or shown — so hover and tap read it as written; `UIInlineMarkup.Escape`'s twin. */
         escape(text: string): string;
@@ -898,10 +919,11 @@ declare module "ne-standard-ui" {
         readonly checkboxInputClass: "ui-checkbox__input";
         readonly checkboxBoxClass: "ui-checkbox__box";
         readonly smallInputClass: "ui-input--small";
-        /** An image input's hidden selection input and filename text, and a text input's action group. */
+        /** An image input's hidden selection input and filename text, a text input's action group, and a file or image input's size limit. */
         readonly pictureSelectionClass: "ui-image-input__selection";
         readonly pictureTextClass: "ui-image-input__text";
         readonly textInputActionClass: "ui-text-input__action";
+        readonly fileMaxSize: "data-ui-file-max-size";
         /** A badge's root, title element, title attribute, and semantic variant classes. */
         readonly badgeClass: "ui-badge";
         readonly badgeTitleClass: "ui-badge__title";

@@ -16,7 +16,7 @@ namespace NE.Standard.UI.Graph;
 /// A canvas of typed nodes the viewer wires together; node kinds are the application's own classes. The value is the whole
 /// document, committed by a save.
 /// </summary>
-public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UINodeDocument>
+public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UINodeDocument>, IConfigurationValidatedComponent
     where T : NodesComponent<T>, IUIComponentDefinition
 {
     protected NodesComponent(string? id = null) : base(id)
@@ -126,6 +126,13 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
     [UIComponentProperty(DefaultValue = null)]
     public IReadOnlyDictionary<string, IReadOnlyList<UIChoice>>? PinChoices { get; set; }
 
+    /// <summary>
+    /// Gets or sets the largest picture file taken by an image pin on this canvas, in bytes, unless the pin sets its own
+    /// <see cref="GraphInputAttribute.MaxFileSize"/>; the client refuses a larger file before uploading it.
+    /// </summary>
+    [UIComponentProperty(GenerateSetter = false, DefaultValue = null)]
+    public long? MaxImageSize { get; set; }
+
     /// <inheritdoc cref="SetCatalog(UINodeCatalog)"/>
     public T SetCatalog(params Type[] nodeTypes)
         => SetCatalog(UINodeCatalog.FromTypes(nodeTypes));
@@ -140,6 +147,26 @@ public abstract partial class NodesComponent<T> : GraphCanvasComponentBase<T, UI
         RemoveNonOptionalBinding(CatalogProperty);
         Catalog = catalog;
         return Self;
+    }
+
+    /// <summary>
+    /// Sets the largest picture file taken by an image pin on this canvas, in bytes, when the pin sets no limit of its own.
+    /// </summary>
+    public T SetMaxImageSize(long? maxImageSize)
+    {
+        if (maxImageSize is long size)
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size, nameof(maxImageSize));
+
+        RemoveNonOptionalBinding(MaxImageSizeProperty);
+        MaxImageSize = maxImageSize;
+        return Self;
+    }
+
+    /// <inheritdoc/>
+    public void ValidateConfiguration()
+    {
+        if (MaxImageSize is long size)
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size, nameof(MaxImageSize));
     }
 }
 

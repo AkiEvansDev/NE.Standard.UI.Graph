@@ -47,12 +47,16 @@ api.registerEngine(context => {
 // Ctrl+S, the menu's Save, or a command's save request, raised on the value element after its `change`; the command waits for
 // the document first and, bound `OnSubmit`, submits the canvas's form — the canvas counts itself saved once it answers.
 // Written out, as every registration is, for the server's tests to read: `SaveEventName`, which the document dispatches.
-api.registerEvent<CustomEvent<{ reason: string; id?: number }>>("graph-save", {
+api.registerEvent<CustomEvent<{ reason: string; id?: number; handled?: boolean }>>("graph-save", {
     settlesValue: true,
     ownTarget: true,
     submitsForm: true,
     dynamicParameters: context => [context.domEvent.detail?.reason ?? ""],
-    completed: context => engineFor(context.component)?.saveCompleted(context.component, context.success, context.domEvent.detail?.id, context.domEvent.detail?.reason ?? "")
+    started: context => {
+        if (context.domEvent.detail !== null && typeof context.domEvent.detail === "object")
+            context.domEvent.detail.handled = true;
+    },
+    completed: context => engineFor(context.component)?.saveCompleted(context.component, context.success, context.domEvent.detail?.id, context.domEvent.detail?.reason ?? "", context.dispatched)
 });
 
 // An entry an application put into one of the canvas's menus, raised on the entry as its menu's own event: the entry's keys, which

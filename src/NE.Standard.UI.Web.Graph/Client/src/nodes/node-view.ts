@@ -7,7 +7,7 @@ import { CollapsedAttribute, FoldAttribute, hoverTooltip, nodeRoot, PinToggleAtt
 import { joinList, MoreKey, showDisplayValue } from "./display.ts";
 import type { DisplayOptions } from "./display.ts";
 import type { DocumentNode, NodeType, Pin, PinChoice } from "./model.ts";
-import { asText, isPinVisible, resolvePinOptions, staticPinOptions } from "./model.ts";
+import { asText, effectivePinMaxFileSize, isPinVisible, resolvePinOptions, staticPinOptions } from "./model.ts";
 
 export const PinAttribute = "data-ui-graph-pin";
 export const PinDirectionAttribute = "data-ui-graph-pin-dir";
@@ -87,6 +87,8 @@ export type NodeViewOptions = {
     readonly isRefused: (component: Element) => boolean;
     /** Runtime choice lists for `ChoicesKey` inputs on the canvas, or null when unset. */
     readonly pinChoices?: Readonly<Record<string, readonly PinChoice[]>> | (() => Readonly<Record<string, readonly PinChoice[]>> | null) | null;
+    /** Canvas-wide picture size limit in bytes (`MaxImageSize`), overridden by `pin.maxFileSize` when set. */
+    readonly maxImageSize?: number | (() => number | null) | null;
     /** Synthesized read-only input/output pins from connected edges when a node's kind is missing from the catalogue. */
     readonly missingPins?: (nodeId: string) => { readonly inputs: readonly Pin[]; readonly outputs: readonly Pin[] };
 };
@@ -612,6 +614,9 @@ function renderPin(node: DocumentNode, pin: Pin, type: string, direction: "in" |
     mark.setAttribute(PinTypeAttribute, type);
     mark.style.setProperty("--ui-graph-pin-color", options.pinColor(type));
 
+    if (pin.missing === true)
+        mark.setAttribute(MissingAttribute, "");
+
     // A pin that takes several connections is drawn as a pin that takes several, so nothing has to be tried to find out.
     if (pin.multiple === true)
         mark.setAttribute(MultipleAttribute, "");
@@ -701,6 +706,20 @@ function resolveLivePinChoices(pinChoices: NodeViewOptions["pinChoices"]): Reado
     return typeof pinChoices === "function" ? pinChoices() : (pinChoices ?? null);
 }
 
+function resolveLiveMaxImageSize(maxImageSize: NodeViewOptions["maxImageSize"]): number | null {
+    return typeof maxImageSize === "function" ? maxImageSize() : (maxImageSize ?? null);
+}
+
+/** Stamps the effective picture size limit (`pin.maxFileSize ?? canvasMaxImageSize`) onto a cloned picture editor root. */
+export function applyImageSizeLimit(field: Element, fileMaxSizeAttribute: string, pin: Pin, canvasMaxImageSize: number | null): void {
+    const limit = effectivePinMaxFileSize(pin, canvasMaxImageSize);
+
+    if (limit !== null)
+        field.setAttribute(fileMaxSizeAttribute, String(limit));
+    else
+        field.removeAttribute(fileMaxSizeAttribute);
+}
+
 /** Gives a cloned field its value, and either disables it when wired, seals it on a read-only sheet, or reads it back on every change. */
 function bindField(field: HTMLElement, value: unknown, disabled: boolean, options: NodeViewOptions, onChange: () => void): void {
     options.setProperty(field, "Value", value);
@@ -786,6 +805,7 @@ function imageEditor(node: DocumentNode, pin: Pin, value: unknown, disabled: boo
     if (field === null)
         return box;
 
+    applyImageSizeLimit(field, options.names.fileMaxSize, pin, resolveLiveMaxImageSize(options.maxImageSize));
     box.append(field);
 
     if (large) {

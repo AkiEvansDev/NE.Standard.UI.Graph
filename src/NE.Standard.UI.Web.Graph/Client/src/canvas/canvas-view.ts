@@ -23,10 +23,25 @@ const GridDrawnAttribute = "data-ui-graph-grid-drawn";
 /** Every fourth grid line is a major line; minor lines fade out down to `MinorFadeFloor` as the sheet is zoomed out. */
 const MajorCells = 4;
 const MinorFadeFloor = 0.16;
+/** Duration of the ease-out camera transition for toolbar zoom buttons, Fit, and go-to-node jumps, in milliseconds. */
+export const CameraTransitionMs = 160;
+
 /** Extra pixels drawn around the viewport while panning so the SVG grid layer translates on the compositor between redraws. */
 const GridOverscan = 256;
 /** How long the view rests before it is kept: a pan or a zoom writes it once it stops, not on every frame of it. */
 const KeepDelay = 250;
+
+/** Active ease-out camera transition interpolated via `requestAnimationFrame`. */
+type CameraTransition = {
+    readonly from: View;
+    readonly to: View;
+    startAt: number | null;
+    frame: number;
+};
+
+function prefersReducedMotion(): boolean {
+    return typeof globalThis.matchMedia === "function" && globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches === true;
+}
 
 /** How the sheet's own coordinates land in the map's box: one scale, and the drawing centred in what is left over. */
 type MinimapPlacement = { readonly scale: number; readonly offsetX: number; readonly offsetY: number };
@@ -81,6 +96,7 @@ export class CanvasView {
     private fitPending = false;
     // Watches a canvas asked to fit while it has no size yet, to fit it once it has one.
     private stopOpenWatch: (() => void) | null = null;
+    private transition: CameraTransition | null = null;
 
     public constructor(root: HTMLElement, settings: CanvasSettings, context: PluginEngineContext, host: CanvasViewHost) {
         this.root = root;
@@ -112,6 +128,7 @@ export class CanvasView {
 
     /** The canvas took another size: a fit the reader left alone is made again for it; a canvas with no size (hidden) waits. */
     private viewportResized(): void {
+        this.cancelTransition();
         this.clearGesture();
         this.minimapBox = null;
 
@@ -136,7 +153,7 @@ export class CanvasView {
             return;
         }
 
-        this.fit();
+        this.fit(false);
     }
 
     private clearGesture(): void {
@@ -216,6 +233,8 @@ export class CanvasView {
 
     /** Caches the viewport's box at the start of a pointer gesture so move frames read coordinates without forcing layout. */
     public beginGesture(): void {
+        this.cancelTransition();
+
         const width = this.viewport.clientWidth;
         const height = this.viewport.clientHeight;
 
@@ -237,8 +256,22 @@ export class CanvasView {
         }
     }
 
+    /** Cancels any in-flight camera transition immediately, leaving the camera at its current interpolated position. */
+    public cancelTransition(): void {
+        if (this.transition === null)
+            return;
+
+        const frame = this.transition.frame;
+
+        this.transition = null;
+
+        if (typeof globalThis.cancelAnimationFrame === "function")
+            globalThis.cancelAnimationFrame(frame);
+    }
+
     /** Lets go of the watches on the canvas's size; the canvas is leaving the page. */
     public dispose(): void {
+        this.cancelTransition();
         this.clearGesture();
         this.resetGridTransform();
         clearTimeout(this.keepTimer);
@@ -266,6 +299,8 @@ export class CanvasView {
     }
 
     public restoreView(): void {
+        this.cancelTransition();
+
         const stored = this.store.readJson<{ zoom: number; panX: number; panY: number; fitted?: boolean; width?: number; height?: number }>(this.root, "view");
 
         if (stored === null)
@@ -377,12 +412,12 @@ export class CanvasView {
 
     private fitUnlessKept(): void {
         if (this.opened || !this.viewKept || !this.showsAnyItem())
-            this.fit();
+            this.fit(false);
 
         this.opened = true;
     }
 
-    public fit(): void {
+    public fit(animate = true): void {
         const content = this.contentBounds(true);
 
         if (content === null)
@@ -392,13 +427,7 @@ export class CanvasView {
         // Never past its own size: a sheet of three nodes blown up to fill the view reads as a mistake, not as the whole of it.
         const view = fitClearOf(content, visible.width, visible.height, this.settings.minZoom, Math.min(1, this.settings.maxZoom), this.topChrome());
 
-        this.zoomValue = view.zoom;
-        this.panXValue = view.panX;
-        this.panYValue = view.panY;
-        this.fitted = true;
-        this.fittedWidth = this.viewport.clientWidth;
-        this.fittedHeight = this.viewport.clientHeight;
-        this.applyView();
+        this.moveTo(view, true, this.viewport.clientWidth, this.viewport.clientHeight, animate);
     }
 
     /** The boxes of the chrome over the sheet's top edge, in the viewport's own pixels; a hidden part measures as nothing and is passed over. */
@@ -425,20 +454,81 @@ export class CanvasView {
         return { x: 0, y: 0, width: this.viewport.clientWidth - covered, height: this.viewport.clientHeight };
     }
 
-    public zoomBy(factor: number, atX: number, atY: number): void {
-        const next = Math.min(this.settings.maxZoom, Math.max(this.settings.minZoom, this.zoomValue * factor));
+    public zoomBy(factor: number, atX: number, atY: number, animate = false): void {
+        const base = animate && this.transition !== null ? this.transition.to : { zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue };
+        const next = Math.min(this.settings.maxZoom, Math.max(this.settings.minZoom, base.zoom * factor));
 
-        if (next === this.zoomValue)
+        if (next === base.zoom)
             return;
 
         // The point under the pointer stays under it: the pan takes up what the scale moved.
-        const scene = this.toScene(atX, atY);
+        const sceneX = (atX - base.panX) / base.zoom;
+        const sceneY = (atY - base.panY) / base.zoom;
 
-        this.zoomValue = next;
-        this.panXValue = atX - scene.x * next;
-        this.panYValue = atY - scene.y * next;
-        this.fitted = false;
-        this.applyView();
+        this.moveTo({ zoom: next, panX: atX - sceneX * next, panY: atY - sceneY * next }, false, 0, 0, animate);
+    }
+
+    /** Moves the camera to `target`, interpolating over `CameraTransitionMs` unless synchronous snapping is requested or required. */
+    private moveTo(target: View, fitted: boolean, fittedWidth: number, fittedHeight: number, animate: boolean): void {
+        this.fitted = fitted;
+        this.fittedWidth = fittedWidth;
+        this.fittedHeight = fittedHeight;
+
+        if (!animate || typeof globalThis.requestAnimationFrame !== "function" || prefersReducedMotion()) {
+            this.cancelTransition();
+            this.zoomValue = target.zoom;
+            this.panXValue = target.panX;
+            this.panYValue = target.panY;
+            this.applyView();
+            return;
+        }
+
+        this.cancelTransition();
+
+        if (target.zoom === this.zoomValue && target.panX === this.panXValue && target.panY === this.panYValue) {
+            this.scheduleKeepView();
+            return;
+        }
+
+        const scheduledAt = typeof performance === "object" && typeof performance.now === "function" ? performance.now() : 0;
+        const state: CameraTransition = {
+            from: { zoom: this.zoomValue, panX: this.panXValue, panY: this.panYValue },
+            to: target,
+            startAt: null,
+            frame: 0
+        };
+
+        const step = (timestamp: number): void => {
+            if (this.transition !== state)
+                return;
+
+            if (state.startAt === null)
+                state.startAt = timestamp >= scheduledAt && timestamp - scheduledAt <= CameraTransitionMs ? scheduledAt : timestamp;
+
+            const progress = Math.min(1, Math.max(0, (timestamp - state.startAt) / CameraTransitionMs));
+
+            if (progress >= 1) {
+                this.transition = null;
+                this.zoomValue = state.to.zoom;
+                this.panXValue = state.to.panX;
+                this.panYValue = state.to.panY;
+                this.applyView();
+                return;
+            }
+
+            const eased = 1 - (1 - progress) ** 3;
+
+            this.zoomValue = state.from.zoom + (state.to.zoom - state.from.zoom) * eased;
+            this.panXValue = state.from.panX + (state.to.panX - state.from.panX) * eased;
+            this.panYValue = state.from.panY + (state.to.panY - state.from.panY) * eased;
+            this.applyView();
+
+            if (this.transition === state)
+                state.frame = globalThis.requestAnimationFrame(step);
+        };
+
+        this.transition = state;
+        state.frame = globalThis.requestAnimationFrame(step);
     }
 
     /** A point in the viewport's own pixels as a point on the canvas. */
@@ -454,6 +544,8 @@ export class CanvasView {
 
     /** A view a pinch made, its zoom already held to the limits. */
     public pinchTo(view: View): void {
+        this.cancelTransition();
+
         if (view.zoom === this.zoomValue && view.panX === this.panXValue && view.panY === this.panYValue)
             return;
 
@@ -466,6 +558,8 @@ export class CanvasView {
 
     /** A pan drag: the base pan it started from, plus how far the viewport point has moved since. */
     public dragPan(base: Point, dx: number, dy: number): void {
+        this.cancelTransition();
+
         // A press that has not moved yet leaves a fit fitted.
         if (base.x + dx === this.panXValue && base.y + dy === this.panYValue)
             return;
@@ -515,11 +609,12 @@ export class CanvasView {
      * A line's node, or a menu's, brought to the middle of what the run line and the log leave of the view; the focus stays where
      * the press left it — a panel's name keeps its keys off the sheet.
      */
-    public centerOnRect(rect: Rect, topOffset: number, bottomOffset: number): void {
-        this.panXValue = this.visibleRect().width / 2 - (rect.x + rect.width / 2) * this.zoomValue;
-        this.panYValue = topOffset + (this.viewport.clientHeight - topOffset - bottomOffset) / 2 - (rect.y + rect.height / 2) * this.zoomValue;
-        this.fitted = false;
-        this.applyView();
+    public centerOnRect(rect: Rect, topOffset: number, bottomOffset: number, animate = true): void {
+        const zoom = animate && this.transition !== null ? this.transition.to.zoom : this.zoomValue;
+        const panX = this.visibleRect().width / 2 - (rect.x + rect.width / 2) * zoom;
+        const panY = topOffset + (this.viewport.clientHeight - topOffset - bottomOffset) / 2 - (rect.y + rect.height / 2) * zoom;
+
+        this.moveTo({ zoom, panX, panY }, false, 0, 0, animate);
     }
 
     /** Everything the sheet holds, as one rectangle: what Fit fits — with what the nodes wear outside their boxes — and what the map is drawn against. */
@@ -674,6 +769,8 @@ export class CanvasView {
 
     /** The canvas point under a press on the map, which the view is then centred on. */
     public minimapPan(event: PointerEvent): void {
+        this.cancelTransition();
+
         const map = this.minimapPlace;
 
         if (this.minimap === null || this.minimapContent === null || map === null)

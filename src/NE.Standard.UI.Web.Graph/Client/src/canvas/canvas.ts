@@ -10,7 +10,7 @@ import { CanvasDrag } from "./canvas-drag.ts";
 import { CanvasMenus, CommandPrefix } from "./canvas-menus.ts";
 import { CanvasRender } from "./canvas-render.ts";
 import { CanvasSelection, adds } from "./canvas-selection.ts";
-import { CatalogAttribute, PinChoicesAttribute } from "../nodes/nodes-kind.ts";
+import { CatalogAttribute, MaxImageSizeAttribute, PinChoicesAttribute } from "../nodes/nodes-kind.ts";
 import { CanvasSettings, DirectionAttribute, EdgeShapeAttribute, EditStructureAttribute, ModeAttribute, NodeShapeAttribute, SnapAttribute } from "./canvas-settings.ts";
 import { CanvasView } from "./canvas-view.ts";
 import { CanvasPinch } from "./pinch.ts";
@@ -60,9 +60,9 @@ export class GraphEngine {
                 this.canvases.get(root)?.catalogChanged();
         });
 
-        const pinChoicesObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: [PinChoicesAttribute] }, roots => {
+        const pinChoicesObserver = context.observeComponents(context.root, RootSelector, { attributeFilter: [PinChoicesAttribute, MaxImageSizeAttribute] }, roots => {
             for (const root of roots)
-                this.canvases.get(root)?.pinChoicesChanged();
+                this.canvases.get(root)?.nodeAttributesChanged();
         });
 
         // The read-only mark is the family's class on the root, which the engine toggles classes beside: only a change of it redraws.
@@ -164,11 +164,19 @@ export class GraphEngine {
     }
 
     /** What became of the command a save raised: it is clean only once the server has taken it. */
-    public saveCompleted(component: Element, success: boolean, id: number | undefined, reason: string): void {
+    public saveCompleted(component: Element, success: boolean, id: number | undefined, reason: string, dispatched = true): void {
         const canvas = this.canvases.get(component as HTMLElement);
 
-        canvas?.documentState.saveCompleted(success, id);
-        canvas?.kind.saveCompleted?.(success, reason);
+        if (canvas === undefined)
+            return;
+
+        if (!dispatched && success) {
+            canvas.documentState.settleFromValue(id, reason);
+            return;
+        }
+
+        canvas.documentState.saveCompleted(success, id);
+        canvas.kind.saveCompleted?.(success, reason);
     }
 
     /** The save effect: a command asking the canvas to commit what the viewer is looking at, under a reason it names. */
@@ -228,6 +236,8 @@ class Canvas {
     private pointerY = 0;
     // Whether the sheet was last drawn read-only, so a class the engine toggles on the root beside the mark redraws nothing.
     private drawnReadOnly: boolean;
+    private lastPinChoices: string | null;
+    private lastMaxImageSize: string | null;
     // The field a switch of the words waits on to be let go: the element, since one a redraw replaced never says it lost the focus.
     private wordsWaitingOn: Element | null = null;
     private readonly cleanups: (() => void)[] = [];
@@ -270,10 +280,13 @@ class Canvas {
 
         this.settings = new CanvasSettings(root, context.names.readOnlyClass);
         this.drawnReadOnly = this.settings.readOnly;
+        this.lastPinChoices = root.getAttribute(PinChoicesAttribute);
+        this.lastMaxImageSize = root.getAttribute(MaxImageSizeAttribute);
         this.documentState = new CanvasDocumentState(root, valueElement, this.settings, value => definition.readDocument(value), {
             clearSelectionSets: () => this.selection.clearSets(),
             redraw: () => this.render.draw(),
-            redrawEdges: () => this.render.drawEdges()
+            redrawEdges: () => this.render.drawEdges(),
+            saveSettled: (success, reason) => this.kind?.saveCompleted?.(success, reason)
         }, context.values);
         this.selection = new CanvasSelection(root, this.nodeElements, this.groupLayer, host);
         this.view = new CanvasView(root, this.settings, context, host);
@@ -329,7 +342,21 @@ class Canvas {
     }
 
     public pinChoicesChanged(): void {
+        this.lastPinChoices = this.root.getAttribute(PinChoicesAttribute);
         this.kind.pinChoicesChanged?.();
+    }
+
+    public maxImageSizeChanged(): void {
+        this.lastMaxImageSize = this.root.getAttribute(MaxImageSizeAttribute);
+        this.kind.maxImageSizeChanged?.();
+    }
+
+    public nodeAttributesChanged(): void {
+        if (this.root.getAttribute(PinChoicesAttribute) !== this.lastPinChoices)
+            this.pinChoicesChanged();
+
+        if (this.root.getAttribute(MaxImageSizeAttribute) !== this.lastMaxImageSize)
+            this.maxImageSizeChanged();
     }
 
     public wordsChanged(): void {
@@ -573,19 +600,6 @@ class Canvas {
         if (this.states.isInert(this.root))
             return;
 
-        // A second finger: what the first began is let go as the browser taking the pointer lets it go, and the two pinch the sheet.
-        if (event.pointerType === "touch") {
-            this.flushPendingMove();
-
-            if (this.pinch.down(event.pointerId, this.view.toViewport(event), { zoom: this.view.zoom, panX: this.view.panX, panY: this.view.panY })) {
-                event.preventDefault();
-                this.pointerCancel();
-                this.view.beginGesture();
-                this.viewport.setPointerCapture(event.pointerId);
-                return;
-            }
-        }
-
         if (event.button === 2) {
             // Where the menu opens is where what it adds goes — a reroute on a wire.
             const at = this.view.toViewport(event);
@@ -616,6 +630,24 @@ class Canvas {
             this.view.minimapPan(event);
 
             return;
+        }
+
+        // A second finger on the sheet: what the first began is let go, and the two pinch; a third while pinching starts no single-pointer drag.
+        if (event.pointerType === "touch") {
+            this.flushPendingMove();
+
+            if (this.pinch.down(event.pointerId, this.view.toViewport(event), { zoom: this.view.zoom, panX: this.view.panX, panY: this.view.panY })) {
+                event.preventDefault();
+                this.pointerCancel();
+                this.view.beginGesture();
+                this.viewport.setPointerCapture(event.pointerId);
+                return;
+            }
+
+            if (this.pinch.pinching) {
+                event.preventDefault();
+                return;
+            }
         }
 
         const at = this.view.toViewport(event);
@@ -1242,12 +1274,12 @@ class Canvas {
         const visible = this.view.visibleRect();
 
         if (event.target.closest("[data-ui-graph-zoom-in]") !== null) {
-            this.view.zoomBy(1.2, visible.width / 2, visible.height / 2);
+            this.view.zoomBy(1.2, visible.width / 2, visible.height / 2, true);
             return;
         }
 
         if (event.target.closest("[data-ui-graph-zoom-out]") !== null) {
-            this.view.zoomBy(1 / 1.2, visible.width / 2, visible.height / 2);
+            this.view.zoomBy(1 / 1.2, visible.width / 2, visible.height / 2, true);
             return;
         }
 

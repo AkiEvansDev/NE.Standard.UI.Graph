@@ -7,7 +7,7 @@ import test from "node:test";
 import type { ClientStore, PluginEngineContext } from "ne-standard-ui";
 import { FakeElement, real } from "./fake-dom.ts";
 import type { CanvasViewHost } from "../src/canvas/canvas-view.ts";
-import { CanvasView } from "../src/canvas/canvas-view.ts";
+import { CameraTransitionMs, CanvasView } from "../src/canvas/canvas-view.ts";
 import type { CanvasSettings } from "../src/canvas/canvas-settings.ts";
 
 const Sheet = { x: 0, y: 0, width: 1200, height: 300 };
@@ -312,4 +312,110 @@ test("dragPan translates an overscanned SVG grid layer on whole pixels without r
     assert.equal(lines.style.transform, "");
 
     view.dispose();
+});
+
+test("camera transitions interpolate over 160 ms on Fit, zoom buttons and go-to-node, compose consecutive zooms, honour reduced motion, and cancel on gestures", () => {
+    const globals = globalThis as {
+        requestAnimationFrame?: (callback: FrameRequestCallback) => number;
+        cancelAnimationFrame?: (handle: number) => void;
+        matchMedia?: (query: string) => { matches: boolean };
+    };
+    const previousRaf = globals.requestAnimationFrame;
+    const previousCancel = globals.cancelAnimationFrame;
+    const previousMatchMedia = globals.matchMedia;
+
+    let nextHandle = 0;
+    let reducedMotion = false;
+    const frames = new Map<number, FrameRequestCallback>();
+
+    const stepFrame = (timestamp: number): void => {
+        const pending = [...frames.entries()];
+        frames.clear();
+
+        for (const [, callback] of pending)
+            callback(timestamp);
+    };
+
+    const expectedFit = fittedAt(1366, 600);
+
+    globals.requestAnimationFrame = callback => {
+        const handle = ++nextHandle;
+        frames.set(handle, callback);
+        return handle;
+    };
+    globals.cancelAnimationFrame = handle => {
+        frames.delete(handle);
+    };
+    globals.matchMedia = query => ({ matches: reducedMotion && query === "(prefers-reduced-motion: reduce)" });
+
+    try {
+        assert.equal(CameraTransitionMs, 160);
+
+        const canvas = stage(1366, 600);
+
+        // Initial `fitSheet()` snaps synchronously with no queued rAF transition.
+        canvas.view.fitSheet();
+        assert.equal(frames.size, 0);
+        assert.deepEqual(place(canvas.view), expectedFit);
+
+        // Animated zoom `+` (`zoomBy(..., true)`) interpolates across frames and composes rapid `+` clicks against the in-flight target.
+        const startZoom = canvas.view.zoom;
+        canvas.view.zoomBy(1.2, 683, 300, true);
+        assert.equal(frames.size, 1);
+        assert.equal(canvas.view.zoom, startZoom);
+
+        stepFrame(1000);
+        stepFrame(1040);
+        assert.ok(canvas.view.zoom > startZoom && canvas.view.zoom < startZoom * 1.2);
+
+        // Second `+` mid-flight composes onto `startZoom * 1.2` -> `startZoom * 1.44`.
+        canvas.view.zoomBy(1.2, 683, 300, true);
+        stepFrame(2000);
+        stepFrame(2000 + CameraTransitionMs);
+        assert.ok(Math.abs(canvas.view.zoom - startZoom * 1.44) < 1e-9);
+        assert.equal(frames.size, 0);
+
+        // `centerOnRect` (go-to-node) eases out over 160 ms.
+        const beforePanX = canvas.view.panX;
+        canvas.view.centerOnRect({ x: 800, y: 100, width: 100, height: 80 }, 0, 0);
+        assert.equal(frames.size, 1);
+        stepFrame(3000);
+        stepFrame(3080);
+        assert.notEqual(canvas.view.panX, beforePanX);
+        stepFrame(3000 + CameraTransitionMs);
+        assert.equal(frames.size, 0);
+
+        // Pointer gesture, pan, wheel zoom, pinch, and dispose each cancel an active transition immediately.
+        canvas.view.fit();
+        stepFrame(4000);
+        stepFrame(4040);
+        const midZoom = canvas.view.zoom;
+        canvas.view.beginGesture();
+        assert.equal(frames.size, 0);
+        assert.equal(canvas.view.zoom, midZoom);
+
+        canvas.view.fit();
+        assert.equal(frames.size, 1);
+        canvas.view.zoomBy(0.9, 200, 200, false);
+        assert.equal(frames.size, 0);
+
+        canvas.view.fit();
+        assert.equal(frames.size, 1);
+        canvas.view.pinchTo({ zoom: 0.8, panX: 12, panY: 16 });
+        assert.equal(frames.size, 0);
+        assert.deepEqual(place(canvas.view), { zoom: 0.8, panX: 12, panY: 16 });
+
+        // `prefers-reduced-motion: reduce` snaps `fit()`, `zoomBy(..., true)` and `centerOnRect()` synchronously.
+        reducedMotion = true;
+        canvas.view.fit();
+        assert.equal(frames.size, 0);
+        assert.deepEqual(place(canvas.view), expectedFit);
+
+        canvas.view.dispose();
+    }
+    finally {
+        globals.requestAnimationFrame = previousRaf;
+        globals.cancelAnimationFrame = previousCancel;
+        globals.matchMedia = previousMatchMedia;
+    }
 });

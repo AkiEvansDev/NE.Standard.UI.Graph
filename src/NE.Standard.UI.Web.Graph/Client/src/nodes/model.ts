@@ -63,6 +63,10 @@ export type Pin = {
     readonly wholeNumber?: boolean;
     /** Whether the value, or a list's element, holds nothing below zero. */
     readonly unsigned?: boolean;
+    /** Largest picture file this pin's editor takes, in bytes; unset, the canvas's `MaxImageSize` applies. */
+    readonly maxFileSize?: number | null;
+    /** Synthesized placeholder pin for an unresolved node kind (`data-ui-graph-missing`). */
+    readonly missing?: boolean;
 };
 
 export type NodeType = {
@@ -121,6 +125,23 @@ const ArrayType = "array";
 const ArrayPrefix = "array:";
 const TextType = "text";
 const ImageType = "image";
+
+/** Parses `data-ui-graph-max-image-size` into a positive byte count, or null when unset or invalid. */
+export function readMaxImageSize(raw: string | null): number | null {
+    if (raw === null || raw.trim().length === 0)
+        return null;
+
+    const parsed = Number(raw);
+
+    return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : null;
+}
+
+/** Effective picture file size limit in bytes: the pin's own positive `maxFileSize`, else the canvas's `maxImageSize`. */
+export function effectivePinMaxFileSize(pin: Pin, canvasMaxImageSize: number | null): number | null {
+    return typeof pin.maxFileSize === "number" && Number.isFinite(pin.maxFileSize) && pin.maxFileSize > 0
+        ? Math.trunc(pin.maxFileSize)
+        : canvasMaxImageSize;
+}
 
 /** Parses `data-ui-graph-pin-choices` JSON into choice arrays by key, or null when unset or invalid. */
 export function readPinChoices(raw: string | null): Readonly<Record<string, readonly PinChoice[]>> | null {
@@ -200,10 +221,10 @@ export function synthesizeMissingPins(document: GraphDocument, nodeId: string): 
     const outputs: Pin[] = [];
 
     for (const [name, count] of inputCounts)
-        inputs.push({ name, title: name, type: AnyType, editor: "None", multiple: count > 1 });
+        inputs.push({ name, title: name, type: AnyType, editor: "None", multiple: count > 1, missing: true });
 
     for (const name of outputNames)
-        outputs.push({ name, title: name, type: AnyType, editor: "None" });
+        outputs.push({ name, title: name, type: AnyType, editor: "None", missing: true });
 
     return { inputs, outputs };
 }

@@ -93,6 +93,8 @@ export type CanvasKind = {
     catalogChanged?(): void;
     /** The root's runtime pin choices changed: the kind updates its templates and drawn fields in place without redrawing the sheet. */
     pinChoicesChanged?(): void;
+    /** The root's picture size limit changed: the kind updates mounted picture editors in place without redrawing the sheet. */
+    maxImageSizeChanged?(): void;
     /** The canvas's root left the page: a watch the kind holds lets go, or it keeps the whole canvas alive. */
     dispose?(): void;
     /** The canvas's root returned to the page after being detached: listeners and watches let go on dispose are restored. */

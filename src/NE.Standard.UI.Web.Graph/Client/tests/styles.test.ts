@@ -332,3 +332,10 @@ test("grid lines overscan without composited scene texture blur, nodes isolate l
     assert.match(rules(".ui-graph--panning .ui-graph__scene"), /pointer-events: none;/);
     assert.doesNotMatch(css, /\.ui-graph--panning\s+\.ui-graph__viewport\s+\*/);
 });
+
+test("synthesized pins on missing-kind nodes are excluded from live pin hover affordances (#307)", () => {
+    assert.match(
+        css,
+        /\.ui-graph:not\(\.ui-readonly\):not\(\.ui-graph--connecting\) \.ui-graph__node:not\(\[data-ui-graph-missing\]\) \.ui-graph__pin:not\(\[data-ui-graph-missing\]\):is\(\[data-ui-graph-pin-dir=['"]out['"]\], \.ui-graph__pin--filled\)/
+    );
+});

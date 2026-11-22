@@ -18,6 +18,7 @@ export type DocumentStateCallbacks = {
     readonly clearSelectionSets: () => void;
     readonly redraw: () => void;
     readonly redrawEdges: () => void;
+    readonly saveSettled?: (success: boolean, reason: string) => void;
 };
 
 /** The document, its history, and the save that carries it to the server; every other concern edits through this one. */
@@ -155,16 +156,49 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.valueElement.setAttribute(DocumentAttribute, sent);
         this.valueElement.dispatchEvent(new Event("change", { bubbles: true }));
 
+        const id = ++this.saves;
+
         // Still dirty, and marked as being sent: what was saved is what the server took, which it has not said yet.
         this.sent = sent;
-        this.sentId = ++this.saves;
+        this.sentId = id;
         this.root.classList.add("ui-graph--saving");
-        this.raiseSave(reason, this.sentId);
+        this.showDirty();
+
+        if (!this.raiseSave(reason, id))
+            this.settleFromValue(id, reason);
     }
 
     /** The event a command waits on; its one key says what the save was for, so a handler can tell Ctrl+S from a run. */
-    private raiseSave(reason: string, id: number): void {
-        this.valueElement.dispatchEvent(new CustomEvent(SaveEventName, { bubbles: true, detail: { reason, id } }));
+    private raiseSave(reason: string, id: number): boolean {
+        const detail = { reason, id, handled: false };
+
+        this.valueElement.dispatchEvent(new CustomEvent(SaveEventName, { bubbles: true, detail }));
+
+        return detail.handled;
+    }
+
+    /** Settles an in-flight save from the bound value's own round trip when no `graph-save` server command was dispatched. */
+    public settleFromValue(id: number | undefined, reason = ""): void {
+        const settled = this.values.whenSettled?.(this.valueElement);
+
+        void Promise.resolve(settled).then(
+            () => {
+                if (id !== undefined && id !== this.sentId)
+                    return;
+
+                const ok = this.values.isRefused?.(this.valueElement) !== true;
+
+                this.saveCompleted(ok, id);
+                this.callbacks.saveSettled?.(ok, reason);
+            },
+            () => {
+                if (id !== undefined && id !== this.sentId)
+                    return;
+
+                this.saveCompleted(false, id);
+                this.callbacks.saveSettled?.(false, reason);
+            }
+        );
     }
 
     /** Saves at the server's request, for a command that needs the sheet as shown rather than the last committed one (`SaveDocumentEffect`). */
@@ -221,10 +255,8 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.root.classList.toggle("ui-graph--dirty", dirty);
 
         if (dirty || this.sent !== null) {
-            if (!this.holdingValue) {
-                this.holdingValue = true;
-                this.values.hold(this.valueElement);
-            }
+            this.holdingValue = true;
+            this.values.hold(this.valueElement);
         }
         else if (this.holdingValue) {
             this.holdingValue = false;

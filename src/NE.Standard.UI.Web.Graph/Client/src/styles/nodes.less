@@ -380,8 +380,8 @@
 }
 
 // A pin a press pulls a wire out of — an output, or an input a wire feeds — on a sheet that may be edited: only such a pin
-// promises a wire under the pointer. An input nothing feeds, or any pin of a read-only sheet, reads as a mark.
-@ui-graph-pin-live: ~".ui-graph:not(.ui-readonly):not(.ui-graph--connecting) .ui-graph__pin:is([data-ui-graph-pin-dir='out'], .ui-graph__pin--filled)";
+// promises a wire under the pointer. An input nothing feeds, a synthesized pin of a missing kind, or any pin of a read-only sheet reads as a mark.
+@ui-graph-pin-live: ~".ui-graph:not(.ui-readonly):not(.ui-graph--connecting) .ui-graph__node:not([data-ui-graph-missing]) .ui-graph__pin:not([data-ui-graph-missing]):is([data-ui-graph-pin-dir='out'], .ui-graph__pin--filled)";
 
     .ui-graph__pin[data-ui-graph-pin-dir="in"] {
         left: -0.375rem;

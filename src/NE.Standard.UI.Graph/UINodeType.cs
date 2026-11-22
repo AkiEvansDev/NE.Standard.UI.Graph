@@ -135,7 +135,7 @@ public sealed class UINodePin
     /// Creates a pin.
     /// </summary>
     [JsonConstructor]
-    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false, string? typeTitle = null, string? placeholder = null, string? choicesKey = null)
+    public UINodePin(string name, string title, string type, UINodeEditor editor = UINodeEditor.None, object? defaultValue = null, UIChoice[]? choices = null, double? min = null, double? max = null, double? step = null, int? maxLines = null, int? maxLength = null, string? typeOf = null, bool hasPin = true, double? height = null, bool large = false, bool required = false, bool multiple = false, string? description = null, string? visibleWhen = null, string[]? visibleValues = null, string? unit = null, string? format = null, bool state = false, bool hidden = false, string? typeTitle = null, string? placeholder = null, string? choicesKey = null, long? maxFileSize = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(type);
@@ -151,6 +151,9 @@ public sealed class UINodePin
 
         if (height is double tall && !double.IsFinite(tall))
             throw new ArgumentOutOfRangeException(nameof(height), tall, "Height must be finite.");
+
+        if (maxFileSize is long fileSize)
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fileSize, nameof(maxFileSize));
 
         Name = name;
         Title = title;
@@ -179,6 +182,7 @@ public sealed class UINodePin
         TypeTitle = typeTitle;
         Placeholder = placeholder;
         ChoicesKey = string.IsNullOrWhiteSpace(choicesKey) ? null : choicesKey;
+        MaxFileSize = maxFileSize;
     }
 
     /// <summary>
@@ -316,6 +320,21 @@ public sealed class UINodePin
     /// Gets the key into <c>NodesComponent.PinChoices</c> that supplies this input's choices at runtime.
     /// </summary>
     public string? ChoicesKey { get; }
+
+    /// <summary>
+    /// Gets the largest picture file this pin's editor takes, in bytes; unset, the canvas's own <c>MaxImageSize</c> applies.
+    /// </summary>
+    public long? MaxFileSize
+    {
+        get;
+        init
+        {
+            if (value is long size)
+                ArgumentOutOfRangeException.ThrowIfNegativeOrZero(size, nameof(MaxFileSize));
+
+            field = value;
+        }
+    }
 
     /// <summary>Gets whether the value, or a list's element, is a whole number: its editor takes no fraction.</summary>
     public bool WholeNumber { get; init; }

@@ -7,7 +7,7 @@ in its assembly — and two of ready-made node kinds, a calculator's and picture
 
 | Component | The viewer... | Its items come from |
 |---|---|---|
-| `NodesComponent` | **builds** a network of typed nodes — values, pins, connections — which the package then runs | your own C# classes, read by their attributes |
+| `NodesComponent` | **builds** a network of typed nodes — values, pins, connections, picture uploads (`SetMaxImageSize` / `GraphInputAttribute.MaxFileSize`) — which the package then runs | your own C# classes, read by their attributes |
 | `LayeredGraphComponent` | **reads or edits** a graph of nodes and links laid out in layers, its cycles drawn as backward edges | a bound live collection of `UIGraphNode`, each carrying its links |
 | `ProductionGraphComponent` | **reads, edits or plans** resources and the recipes between them: how many runs of what reach the amounts asked for | a bound live collection of `UIResource` and `UICraft` |
 

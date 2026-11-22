@@ -534,3 +534,128 @@ test("two-finger touch pinch coalesces pointermove bursts onto requestAnimationF
         globalWithRaf.cancelAnimationFrame = previousCancel;
     }
 });
+
+test("touching controls, editors, panels or the minimap leaves no ghost pointer in pinch, and a third finger during pinch never gets panning stuck", () => {
+    const toolbarButton = FakeElement.of("ui-graph__bar-button", { "data-ui-graph-fit": "" }, "button");
+    const editorField = FakeElement.of("ui-graph__editor", { "data-test-editor": "" });
+    const panel = FakeElement.of("ui-graph__log", { "data-test-panel": "" });
+    const minimap = FakeElement.of("ui-graph__minimap", { "data-ui-graph-map": "" });
+    const viewport = FakeElement.of("ui-graph__viewport");
+    const groups = FakeElement.of("ui-graph__groups");
+    const edges = FakeElement.of("ui-graph__edges", {}, "svg");
+    const nodes = FakeElement.of("ui-graph__nodes").append(editorField);
+    const labels = FakeElement.of("ui-graph__labels");
+    const scene = FakeElement.of("ui-graph__scene").append(groups, edges, nodes, labels);
+    const marquee = FakeElement.of("ui-graph__marquee");
+    const value = FakeElement.of("ui-graph__value", {
+        "data-ui-graph-document": JSON.stringify({ groups: [], key: null })
+    });
+    const root = FakeElement.of("ui-graph", {
+        "data-ui-id": "4",
+        "data-ui-graph-kind": "stub"
+    }).append(viewport.append(scene, marquee, toolbarButton, panel, minimap), value);
+
+    viewport.rect = { left: 0, top: 0, width: 800, height: 600 };
+    (viewport as unknown as { setPointerCapture: () => void }).setPointerCapture = () => undefined;
+    fakeDocument.body.children.length = 0;
+    fakeDocument.body.append(root);
+
+    const stubKind: CanvasKindDefinition<CanvasDocument> = {
+        name: "stub",
+        readDocument: () => ({ groups: [], key: null }),
+        create: (): CanvasKind => ({
+            items: () => [],
+            edges: () => [],
+            renderItem: () => real(FakeElement.of("ui-graph__node")),
+            itemsDrawn: () => undefined,
+            itemColor: () => "#006E64",
+            edgeEnds: () => null,
+            related: () => ({ edges: [], items: [] }),
+            edgeColor: () => "#006E64",
+            isEditor: target => target.closest("[data-test-editor]") !== null,
+            isPanel: target => target.closest("[data-test-panel]") !== null,
+            pointerDown: () => false,
+            chrome: () => false,
+            backgroundDoubleClick: () => undefined,
+            escape: () => undefined,
+            copy: () => undefined,
+            paste: () => null,
+            duplicate: () => null,
+            canDuplicate: () => false,
+            disconnect: () => false,
+            canDisconnect: () => false,
+            remove: () => false,
+            arrange: () => new Map(),
+            runCommand: () => false,
+            canEditItems: () => true,
+            renameItem: () => false,
+            paintItem: () => false,
+            hasEdgeMenu: () => false,
+            syncMenus: () => undefined
+        })
+    };
+
+    const context = {
+        root: fakeDocument.body,
+        names: {
+            componentId: "data-ui-id",
+            readOnlyClass: "ui-input--readonly",
+            ownsKeys: "data-ui-owns-keys",
+            tooltip: "data-ui-tooltip"
+        },
+        states: { isInert: () => false, setDisabled: () => undefined },
+        values: { read: () => null, write: () => undefined, isRefused: () => false, hold: () => undefined, release: () => undefined },
+        store: { read: () => null, write: () => undefined, readJson: () => null, writeJson: () => undefined, remove: () => undefined },
+        wheel: { pixels: () => ({ x: 0, y: 0 }) },
+        strings: { get: (key: string) => key, format: (key: string) => key, write: () => undefined, onChange: () => () => undefined },
+        propertyPatchEngine: { addValueChangeHandler: () => () => undefined },
+        properties: { set: () => undefined },
+        popups: { open: () => () => undefined },
+        focus: { first: () => null },
+        colors: { count: () => 8, at: () => "#006E64" },
+        tooltips: { escape: (text: string) => text, hide: () => undefined },
+        observeSize: () => () => undefined,
+        observeComponents: () => ({ disconnect: () => undefined })
+    };
+
+    const engine = new GraphEngine(real<PluginEngineContext>(context), [stubKind]);
+
+    try {
+        const touch = (type: string, pointerId: number, x: number, y: number): FakeEvent => Object.assign(new FakeEvent(type), {
+            button: 0,
+            pointerId,
+            pointerType: "touch",
+            clientX: x,
+            clientY: y
+        });
+
+        // Touching button, editor, panel, and minimap (without matching pointerup on viewport) must leave zero ghost pointers in pinch.
+        toolbarButton.dispatchEvent(touch("pointerdown", 10, 20, 20));
+        editorField.dispatchEvent(touch("pointerdown", 11, 40, 40));
+        panel.dispatchEvent(touch("pointerdown", 12, 60, 60));
+        minimap.dispatchEvent(touch("pointerdown", 13, 80, 80));
+        viewport.dispatchEvent(touch("pointerup", 13, 80, 80));
+
+        // A single finger now touching the sheet pans normally (scale stays 1, not a phantom pinch!).
+        viewport.dispatchEvent(touch("pointerdown", 1, 100, 100));
+        viewport.dispatchEvent(touch("pointermove", 1, 140, 130));
+        assert.equal(scene.style.transform, "translate(40px, 30px) scale(1)");
+        assert.equal(root.classList.contains("ui-graph--panning"), true);
+
+        // Second finger starts a two-finger pinch and clears `.ui-graph--panning`.
+        viewport.dispatchEvent(touch("pointerdown", 2, 240, 130));
+        assert.equal(root.classList.contains("ui-graph--panning"), false);
+
+        // Third finger touching down while pinching does NOT start a single-pointer pan or re-apply `.ui-graph--panning`.
+        viewport.dispatchEvent(touch("pointerdown", 3, 180, 200));
+        assert.equal(root.classList.contains("ui-graph--panning"), false);
+
+        viewport.dispatchEvent(touch("pointerup", 3, 180, 200));
+        viewport.dispatchEvent(touch("pointerup", 2, 240, 130));
+        viewport.dispatchEvent(touch("pointerup", 1, 140, 130));
+        assert.equal(root.classList.contains("ui-graph--panning"), false);
+    }
+    finally {
+        engine.dispose();
+    }
+});

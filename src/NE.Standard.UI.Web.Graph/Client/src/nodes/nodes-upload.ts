@@ -50,6 +50,12 @@ export class NodesImageUpload {
 
     private async uploadImage(nodeId: string, pinName: string, file: File): Promise<void> {
         // Looked up at every mark, since a redraw while the file is uploading replaces the node's elements; a mark on the old one would go unseen.
+        const box = this.editorOf(nodeId, pinName);
+        const field = (box?.firstElementChild as HTMLElement | null | undefined) ?? box;
+
+        if (field !== null && this.context.uploads.takeWithinSizeLimit(field, [file], false).length === 0)
+            return;
+
         this.markUpload(nodeId, pinName, 0);
 
         try {

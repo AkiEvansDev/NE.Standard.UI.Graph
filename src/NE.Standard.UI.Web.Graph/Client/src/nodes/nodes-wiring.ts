@@ -68,21 +68,25 @@ export class NodesWiring {
         if (nodeId === null || nodeId === undefined)
             return null;
 
+        if (pin.hasAttribute(MissingAttribute) || nodeElement?.hasAttribute(MissingAttribute))
+            return null;
+
         const name = pin.getAttribute(PinAttribute)!;
         const direction = pin.getAttribute(PinDirectionAttribute);
 
-        if (direction === "out") {
-            if (nodeElement?.hasAttribute(MissingAttribute))
-                return null;
-
+        if (direction === "out")
             return { fromNode: nodeId, fromPin: name, fromType: pin.getAttribute(PinTypeAttribute) ?? "any", detached: null };
-        }
 
         // Pulling a connected input detaches its edge and carries the far end, like a patch cable; a multi-input pin gives up the
-        // last edge that reached it (the one drawn on top).
+        // last edge that reached it (the one drawn on top). Synthesized outputs of an unresolved node stay read-only until its kind returns.
         const existing = edgesInto(this.document, nodeId, name).at(-1);
 
         if (existing === undefined)
+            return null;
+
+        const sourceNode = this.document.nodes.find(candidate => candidate.id === existing.fromNode);
+
+        if (sourceNode === undefined || !this.types.has(sourceNode.type))
             return null;
 
         this.document.edges = this.document.edges.filter(edge => edge.id !== existing.id);
@@ -106,6 +110,7 @@ export class NodesWiring {
         for (const pin of this.services.nodeLayer.querySelectorAll<HTMLElement>(`[${PinAttribute}]`)) {
             const nodeElement = pin.closest<HTMLElement>(`[${NodeAttribute}]`);
             const takes = pin.getAttribute(PinDirectionAttribute) === "in"
+                && !pin.hasAttribute(MissingAttribute)
                 && !nodeElement?.hasAttribute(MissingAttribute)
                 && nodeElement?.getAttribute(NodeAttribute) !== fromNode
                 && canConnect(fromType, pin.getAttribute(PinTypeAttribute) ?? AnyType);

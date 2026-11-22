@@ -176,6 +176,20 @@ public sealed class GraphInputAttribute : Attribute
     public bool Large { get; set; }
 
     /// <summary>
+    /// Gets or sets the largest picture file taken on an <see cref="Image"/> input, in bytes; zero leaves the canvas's own
+    /// <c>MaxImageSize</c> in force.
+    /// </summary>
+    public long MaxFileSize
+    {
+        get;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            field = value;
+        }
+    }
+
+    /// <summary>
     /// Gets or sets whether the node cannot run without this value; a run stops here with an error, skipping everything below.
     /// </summary>
     public bool Required { get; set; }

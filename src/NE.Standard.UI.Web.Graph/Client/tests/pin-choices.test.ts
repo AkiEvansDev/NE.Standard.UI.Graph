@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FakeElement, fakeDocument, installFakeDom, real } from "./fake-dom.ts";
+import { FakeElement, FakeEvent, fakeDocument, installFakeDom, real } from "./fake-dom.ts";
 import { NodesKind } from "../src/nodes/nodes-kind.ts";
 import { cloneConfiguredEditor, readPinValue } from "../src/nodes/node-view.ts";
 import { canResetPin, duplicate, readPinChoices, resetPin, resolvePinOptions, slice } from "../src/nodes/model.ts";
@@ -610,10 +610,22 @@ test("NodesKind preserves unresolved plugin nodes, synthesizes wire pins, and up
     const missingNode = nodeElements.get("n2") as unknown as FakeElement;
     assert.equal(missingNode.getAttribute("data-ui-graph-missing"), "");
     assert.equal(missingNode.querySelector(".ui-graph__node-unknown")!.textContent, 'ui.graph.missing-kind|{"type":"plugin.echo"}');
+    const missingPins = missingNode.querySelectorAll("[data-ui-graph-pin]");
     assert.deepEqual(
-        missingNode.querySelectorAll("[data-ui-graph-pin]").map(pin => `${pin.getAttribute("data-ui-graph-pin-dir")}:${pin.getAttribute("data-ui-graph-pin")}:${pin.getAttribute("data-ui-graph-pin-type")}`),
+        missingPins.map(pin => `${pin.getAttribute("data-ui-graph-pin-dir")}:${pin.getAttribute("data-ui-graph-pin")}:${pin.getAttribute("data-ui-graph-pin-type")}`),
         ["in:Feed:any", "out:Reply:any"]
     );
+    for (const pin of missingPins)
+        assert.equal(pin.getAttribute("data-ui-graph-missing"), "");
+
+    // Pointer wiring refuses both synthesized `in` and `out` pins on n2 AND refuses detaching n3's `in` pin while its source n2 is missing (`pointerDown` returns `true` with no `KindDrag`, #307).
+    const downEvent = { button: 0, pointerId: 1, clientX: 0, clientY: 0 } as unknown as PointerEvent;
+    assert.equal(kind.pointerDown(downEvent, real(missingPins[0])), true);
+    assert.equal(kind.pointerDown(downEvent, real(missingPins[1])), true);
+    const sinkInputPin = (nodeElements.get("n3") as unknown as FakeElement).querySelector('[data-ui-graph-pin="In"]')!;
+    assert.equal(kind.pointerDown(downEvent, real(sinkInputPin)), true);
+    assert.equal(canvas.classList.contains("ui-graph--connecting"), false);
+    assert.equal(document.edges.length, 2);
     assert.equal(parametersColumn.querySelectorAll(".ui-graph__parameter-field").length, 0);
 
     // Folded unresolved nodes also synthesize connected input/output ports on the head.
@@ -770,4 +782,167 @@ test("NodesKind.catalogChanged syncs menus immediately and defers redrawing whil
     assert.equal(syncMenuCalls, 2);
 
     kind.dispose();
+});
+
+test("picture pins stamp effective data-ui-file-max-size on compact and large editors, update on maxImageSizeChanged, and filter uploads via takeWithinSizeLimit (#154)", async () => {
+    const pictureType: NodeType = {
+        key: "pictures",
+        title: "Pictures",
+        inputs: [
+            { name: "Compact", title: "Compact", type: "image", editor: "Image", maxFileSize: 2048 },
+            { name: "Large", title: "Large", type: "image", editor: "Image", large: true }
+        ],
+        outputs: []
+    };
+
+    const makeTemplate = (region: string, child: FakeElement): FakeElement =>
+        Object.assign(FakeElement.of("", { "data-ui-graph-editor": region }, "template"), { content: FakeElement.of("").append(child) });
+
+    const pickButton = FakeElement.of("ui-button", {}, "button");
+    const compactTemplate = FakeElement.of("ui-text-input").append(FakeElement.of("ui-text-input__action").append(pickButton));
+    const largeTemplate = FakeElement.of("ui-image-input").append(FakeElement.of("ui-image-input__selection", {}, "input"));
+
+    const scene = FakeElement.of("ui-graph__scene");
+    const canvas = FakeElement.of("ui-graph", {
+        "data-ui-id": "70",
+        "data-ui-graph-catalog": JSON.stringify([pictureType]),
+        "data-ui-graph-max-image-size": "8192"
+    }).append(
+        scene,
+        makeTemplate("graph-editor:image", compactTemplate),
+        makeTemplate("graph-editor:image-large", largeTemplate),
+        FakeElement.of("ui-graph__picker", { "data-ui-graph-picker": "" }).append(
+            FakeElement.of("ui-graph__picker-list", { "data-ui-graph-picker-list": "" }),
+            FakeElement.of("ui-graph__picker-empty", { "data-ui-graph-picker-empty": "" })
+        ),
+        FakeElement.of("ui-graph__run", { "data-ui-graph-run": "" }),
+        FakeElement.of("ui-graph__log", { "data-ui-graph-log": "" }).append(
+            FakeElement.of("ui-graph__log-entries", { "data-ui-graph-log-entries": "" }),
+            FakeElement.of("ui-graph__log-count", { "data-ui-graph-log-count": "" }),
+            FakeElement.of("ui-graph__log-toggle", { "data-ui-graph-log-toggle": "" }, "button")
+        )
+    );
+    fakeDocument.body.replaceChildren(canvas);
+
+    const document: GraphDocument = {
+        nodes: [{ id: "n1", type: "pictures", x: 0, y: 0, values: {} }],
+        edges: [],
+        groups: [],
+        key: null,
+        parameters: []
+    };
+    const nodeElements = new Map<string, HTMLElement>();
+    const checkedLimits: (string | null)[] = [];
+    let uploadCalls = 0;
+    const uploadedEvents: string[][] = [];
+
+    canvas.addEventListener("graph-image-upload", event => {
+        uploadedEvents.push((event as unknown as CustomEvent<{ keys: string[] }>).detail.keys);
+    });
+
+    let pendingFiles: File[] = [];
+    const baseCreateElement = fakeDocument.createElement.bind(fakeDocument);
+    fakeDocument.createElement = (tagName: string): FakeElement => {
+        const created = baseCreateElement(tagName);
+        if (tagName === "input") {
+            created.click = () => {
+                (created as unknown as { files: File[] }).files = pendingFiles;
+                created.dispatchEvent(new FakeEvent("change"));
+            };
+        }
+        return created;
+    };
+
+    try {
+        const kind = new NodesKind(real<CanvasServices<GraphDocument>>({
+            root: canvas,
+            scene: real<HTMLElement>(scene),
+            settings: { readOnly: false, snapping: false, gridSize: 20, edgeShape: "orthogonal" },
+            documentState: { document, edited: () => undefined, committed: () => undefined, settle: () => undefined, requestSave: () => undefined },
+            nodeElements,
+            view: { fitSheet: () => undefined },
+            draw: () => undefined,
+            context: {
+                root: fakeDocument.body,
+                names: {
+                    componentId: "data-ui-id",
+                    tooltip: "data-ui-tooltip",
+                    contextMenuUse: "data-ui-context-menu",
+                    menuOpeningEvent: "ui:menu-opening",
+                    pictureSelectionClass: "ui-image-input__selection",
+                    pictureTextClass: "ui-image-input__text",
+                    textInputActionClass: "ui-text-input__action",
+                    fileMaxSize: "data-ui-file-max-size"
+                },
+                strings: { text: (key: string) => key, format: (key: string) => key, write: () => undefined },
+                numbers: { readCulture: () => ({}), format: (value: number) => String(value) },
+                states: { isInert: () => false, setDisabled: () => undefined },
+                icons: { apply: () => undefined },
+                tooltips: { escape: (text: string) => text, show: () => undefined, hide: () => undefined },
+                temporal: { parse: () => null, toDate: () => new Date(0) },
+                urls: { isImageSource: () => false },
+                colors: { count: () => 8, color: () => "#006E64" },
+                focus: { first: () => null },
+                store: { read: () => null, write: () => undefined },
+                values: { read: () => null, isRefused: () => false },
+                properties: { set: () => true },
+                uploads: {
+                    accepts: () => true,
+                    takeWithinSizeLimit: (field: HTMLElement, files: readonly File[]) => {
+                        const limitAttr = field.getAttribute("data-ui-file-max-size");
+                        checkedLimits.push(limitAttr);
+                        const limit = Number(limitAttr);
+                        return Number.isFinite(limit) && limit > 0 ? files.filter(file => file.size <= limit) : [...files];
+                    },
+                    uploadAsync: async () => {
+                        uploadCalls++;
+                        return { selectionId: "sel-1" };
+                    }
+                }
+            }
+        }));
+
+        const rendered = kind.renderItem(document.nodes[0]);
+        nodeElements.set("n1", rendered);
+        scene.replaceChildren(rendered as unknown as FakeElement);
+
+        const compactField = (rendered as unknown as FakeElement).querySelector('[data-ui-graph-value="Compact"]')!.firstElementChild!;
+        const largeField = (rendered as unknown as FakeElement).querySelector('[data-ui-graph-value="Large"]')!.firstElementChild!;
+
+        // Pin `maxFileSize` (2048) overrides canvas `MaxImageSize` (8192); pin without `maxFileSize` inherits canvas `MaxImageSize` (8192).
+        assert.equal(compactField.getAttribute("data-ui-file-max-size"), "2048");
+        assert.equal(largeField.getAttribute("data-ui-file-max-size"), "8192");
+
+        // Dynamic `BindMaxImageSize` update mutates mounted picture pins without touching pin-specific overrides.
+        canvas.setAttribute("data-ui-graph-max-image-size", "16384");
+        kind.maxImageSizeChanged();
+        assert.equal(compactField.getAttribute("data-ui-file-max-size"), "2048");
+        assert.equal(largeField.getAttribute("data-ui-file-max-size"), "16384");
+
+        canvas.removeAttribute("data-ui-graph-max-image-size");
+        kind.maxImageSizeChanged();
+        assert.equal(compactField.getAttribute("data-ui-file-max-size"), "2048");
+        assert.equal(largeField.getAttribute("data-ui-file-max-size"), null);
+
+        // Oversized file (4096 > 2048) is rejected by `takeWithinSizeLimit` before uploadAsync or announce runs.
+        const actionButton = compactField.querySelector(".ui-text-input__action")!.firstElementChild!;
+        pendingFiles = [{ name: "too-big.png", size: 4096, type: "image/png" } as File];
+        actionButton.click();
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        assert.equal(uploadCalls, 0);
+        assert.equal(uploadedEvents.length, 0);
+        assert.deepEqual(checkedLimits, ["2048"]);
+
+        // File within limit (1024 <= 2048) uploads and raises `graph-image-upload`.
+        pendingFiles = [{ name: "ok.png", size: 1024, type: "image/png" } as File];
+        actionButton.click();
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+        assert.equal(uploadCalls, 1);
+        assert.deepEqual(uploadedEvents, [["n1", "Compact", "sel-1", "ok.png"]]);
+
+        kind.dispose();
+    }
+    finally {
+        fakeDocument.createElement = baseCreateElement;
+    }
 });

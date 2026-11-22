@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text.Json;
 using NE.Standard.UI.Abstractions.Items;
 using NE.Standard.UI.Abstractions.Styling;
@@ -26,6 +27,9 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
 
     /// <summary>The runtime choice lists for <c>ChoicesKey</c> pins, as JSON, on the root.</summary>
     public const string PinChoicesAttribute = "data-ui-graph-pin-choices";
+
+    /// <summary>On the root: the largest picture file taken by an image pin on this canvas when the pin sets no limit of its own, in bytes.</summary>
+    public const string MaxImageSizeAttribute = "data-ui-graph-max-image-size";
 
     /// <summary>On the root of a canvas that draws the run's progress line.</summary>
     public const string RunProgressAttribute = "data-ui-graph-run-progress";
@@ -63,6 +67,11 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         WebDomOperation.Attribute(PinChoicesAttribute, target: "root", converter: GraphConverters.PinChoicesJson)
     ];
 
+    private static readonly WebDomOperation[] MaxImageSizeOperations =
+    [
+        WebDomOperation.Attribute(MaxImageSizeAttribute, target: "root", converter: WebDomConverters.PositiveCount)
+    ];
+
     public override string ComponentTypeKey => NodesComponent.ComponentTypeKey;
 
     protected override string KindName => "nodes";
@@ -79,6 +88,7 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
         RenderNodeCorners(context, root);
         RenderCatalog(context, root);
         RenderPinChoices(context, root);
+        RenderMaxImageSize(context, root);
 
         // Beside the node, group and edge menus the canvas renders for every kind: a node canvas's pins have one of their own.
         RenderContextMenuRegion(context, root, UIGraphMenus.Pin, UIGraphMenus.Pin);
@@ -115,6 +125,14 @@ public sealed class NodesComponentRenderer : GraphCanvasRendererBase<UINodeDocum
             if (value is { Count: > 0 })
                 _ = target.Attribute(PinChoicesAttribute, JsonSerializer.Serialize(value, WireJson));
         }, PinChoicesOperations);
+
+    /// <summary>The canvas-wide picture size limit in bytes on the root; unset, omitted.</summary>
+    private static void RenderMaxImageSize(WebRenderContext context, IHtmlElementBuilder root)
+        => _ = RenderProperty<long?>(context, root, NodesComponent.MaxImageSizeProperty, static (target, value) =>
+        {
+            if (value > 0)
+                _ = target.Attribute(MaxImageSizeAttribute, value.Value.ToString(CultureInfo.InvariantCulture));
+        }, MaxImageSizeOperations);
 
     /// <summary>Framework components as canonical templates the engine clones and parameterizes from each pin's metadata.</summary>
     /// <remarks>Value, read-only, enabled state (a trailing button's too) and per-pin metadata are the engine's to set on each clone.</remarks>

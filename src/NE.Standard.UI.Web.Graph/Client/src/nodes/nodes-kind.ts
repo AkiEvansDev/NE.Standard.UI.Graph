@@ -10,14 +10,14 @@ import { newId, readJson } from "../canvas/canvas-model.ts";
 import { assignLanes } from "../canvas/lanes.ts";
 import { arrange } from "./layout.ts";
 import type { DocumentEdge, DocumentNode, GraphDocument, NodeType, Pin } from "./model.ts";
-import { AnyType, canResetPin, canResetValues, cloneDefault, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice, synthesizeMissingPins } from "./model.ts";
+import { AnyType, canResetPin, canResetValues, cloneDefault, createNode, disconnect, duplicate, edgeInto, findPin, hasEdges, readDocument, readMaxImageSize, readPinChoices, resetPin, resetValues, resolveOutputType, resolvePinOptions, slice, synthesizeMissingPins } from "./model.ts";
 import { LogNodeAttribute, NodesLog } from "./nodes-log.ts";
 import { NodesParameters } from "./nodes-parameters.ts";
 import { NodesPickerBinding } from "./nodes-picker-binding.ts";
 import { NodesRunPanel } from "./nodes-run-panel.ts";
 import { NodesImageUpload } from "./nodes-upload.ts";
 import { NodesWiring } from "./nodes-wiring.ts";
-import { HeadAttribute, PinAttribute, PinDirectionAttribute, PinMenuAttribute, PinMenuDirectionAttribute, PinMenuName, readPinValue, renderNode, ValueAttribute } from "./node-view.ts";
+import { applyImageSizeLimit, HeadAttribute, PinAttribute, PinDirectionAttribute, PinMenuAttribute, PinMenuDirectionAttribute, PinMenuName, readPinValue, renderNode, ValueAttribute } from "./node-view.ts";
 
 // A node's editor — the framework's own component, its open list among it — whose pointer, wheel and keys are its own.
 const EditorSelector = ".ui-graph__editor";
@@ -25,6 +25,7 @@ const EditorSelector = ".ui-graph__editor";
 const PanelSelector = "[data-ui-graph-log], [data-ui-graph-run], .ui-graph__run-panel";
 export const CatalogAttribute = "data-ui-graph-catalog";
 export const PinChoicesAttribute = "data-ui-graph-pin-choices";
+export const MaxImageSizeAttribute = "data-ui-graph-max-image-size";
 // The kind every catalogue carries (`RerouteNode` on the server), which a wire's menu puts on the wire.
 const RerouteKey = "graph.reroute";
 // Half a reroute's box at its least, so the one a menu puts down is centred on where the menu was opened.
@@ -190,6 +191,7 @@ export class NodesKind implements CanvasKind {
             readValue: component => context.values.read(component),
             isRefused: component => context.values.isRefused(component),
             pinChoices: () => readPinChoices(this.services.root.getAttribute(PinChoicesAttribute)),
+            maxImageSize: () => readMaxImageSize(this.services.root.getAttribute(MaxImageSizeAttribute)),
             missingPins: nodeId => synthesizeMissingPins(this.document, nodeId)
         });
     }
@@ -269,6 +271,28 @@ export class NodesKind implements CanvasKind {
                 }
 
                 this.parameters.syncFieldOptions(type.key, pin.name, options);
+            }
+        }
+    }
+
+    public maxImageSizeChanged(): void {
+        const canvasMaxImageSize = readMaxImageSize(this.services.root.getAttribute(MaxImageSizeAttribute));
+        const fileMaxSizeAttribute = this.services.context.names.fileMaxSize;
+
+        for (const type of this.types.values()) {
+            for (const pin of type.inputs) {
+                if (pin.editor !== "Image")
+                    continue;
+
+                for (const node of this.document.nodes) {
+                    if (node.type !== type.key || node.collapsed === true)
+                        continue;
+
+                    const field = this.services.nodeElements.get(node.id)?.querySelector<HTMLElement>(`[${ValueAttribute}="${CSS.escape(pin.name)}"]`)?.firstElementChild ?? null;
+
+                    if (field !== null)
+                        applyImageSizeLimit(field, fileMaxSizeAttribute, pin, canvasMaxImageSize);
+                }
             }
         }
     }
