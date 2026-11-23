@@ -17,9 +17,6 @@ type LinkPuller = {
 };
 
 export abstract class DraftedLayeredKind<TDocument extends DraftedDocument, TItem extends { readonly id: string; readonly color: string | null }, TEntry extends NamedEntry, TLink extends LayeredEdge> {
-    /** Items of different heights on one line — a circle and a card, a resource and a craft's pill: the grid takes their middles. */
-    public readonly snapsByCenter = true;
-
     protected readonly services: CanvasServices<TDocument>;
     protected links: TLink[] = [];
     protected linkById = new Map<string, TLink>();
@@ -80,6 +77,10 @@ export abstract class DraftedLayeredKind<TDocument extends DraftedDocument, TIte
 
     public arrange(sizes: ReadonlyMap<string, { width: number; height: number }>, only: ReadonlySet<string> | undefined): Map<string, Point> {
         return this.sheet.arrange(sizes, only);
+    }
+
+    public snapOffset(id: string, width: number, height: number): Point {
+        return this.sheet.snapOffset(id, width, height);
     }
 
     // --- presses ---------------------------------------------------------------------------------------------------------------

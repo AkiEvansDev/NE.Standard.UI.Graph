@@ -146,8 +146,8 @@ export type CanvasKind = {
     renameItem(id: string, title: string | null): boolean;
     /** An item given a colour from its menu: `true` when the kind keeps it itself, `false` for the core to write it on the item. */
     paintItem(id: string, color: string | null): boolean;
-    /** Whether the grid snaps an item by its middle rather than its corner; a line of differently-sized nodes needs middles snapped to keep the line. */
-    readonly snapsByCenter?: boolean;
+    /** Which offset inside an item's box lands on the grid (a circle's middle, a card's leading edge and middle); unset, its top-left corner. */
+    snapOffset?(id: string, width: number, height: number): Point;
     /**
      * The tops at which one of an item's wires to an item not `moving` with it runs level: a drop near one settles there rather than on
      * the grid's line, so a place set level by hand or by Arrange can be reached again. Unset, the grid alone.

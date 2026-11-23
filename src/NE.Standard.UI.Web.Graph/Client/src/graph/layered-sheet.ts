@@ -335,8 +335,9 @@ export class LayeredSheet {
 
         const down = this.direction === "down" || this.direction === "up";
         const turned = this.direction === "left" || this.direction === "up";
+        const lineStep = this.services.settings?.snapping === true ? this.services.settings.gridSize : 0;
         const boxes = sizes.map(size => ({ id: size.id, ...this.box(size.id, size.width, size.height, widest) }));
-        const result = layered(boxes, this.host.links(), { direction: this.direction, nodeGap: this.options.nodeGap, layerGap: this.options.layerGap });
+        const result = layered(boxes, this.host.links(), { direction: this.direction, nodeGap: this.options.nodeGap, layerGap: this.options.layerGap, lineStep });
         const unsnappedLine = new Map<string, number>();
         const moved = new Map<string, Point>();
         const layerLead = new Map<number, number>();
@@ -351,10 +352,7 @@ export class LayeredSheet {
             const box = boxes[index];
             // A node stands in the middle of the room it was given, as what it wears hangs either side of it.
             const centered = { x: place.x + (box.width - size.width) / 2, y: place.y };
-            const byCenter = this.services.snapPlace(size.id, centered);
-            // A card (no anchor) stands against its layer's leading edge, so that edge snaps to the grid and every card of the column
-            // shares one line; across the layers its middle still snaps, level with circles beside it.
-            const snapped = box.anchor !== undefined ? byCenter : this.snapCard(centered, size, byCenter, down, turned);
+            const snapped = this.snapAt(centered, this.snapOffset(size.id, size.width, size.height));
 
             unsnappedLine.set(size.id, down ? centered.x + size.width / 2 : centered.y + size.height / 2);
             moved.set(size.id, { x: snapped.x - centered.x, y: snapped.y - centered.y });
@@ -416,19 +414,24 @@ export class LayeredSheet {
         return this.host.nodeBox === undefined ? { width, height } : this.host.nodeBox(id, width, height, widest);
     }
 
-    /** Snaps a card's leading edge along the layers (so cards of different widths share their column's line) and its middle across them. */
-    private snapCard(centered: Point, size: { width: number; height: number }, byCenter: Point, down: boolean, turned: boolean): Point {
-        if (down) {
-            const edge = turned ? centered.y + size.height : centered.y;
-            const snappedEdge = this.services.snapPlace("", { x: 0, y: edge }).y;
+    private snapAt(point: Point, offset: Point): Point {
+        const snapped = this.services.snapPlace("", { x: point.x + offset.x, y: point.y + offset.y });
 
-            return { x: byCenter.x, y: turned ? snappedEdge - size.height : snappedEdge };
-        }
+        return { x: snapped.x - offset.x, y: snapped.y - offset.y };
+    }
 
-        const edge = turned ? centered.x + size.width : centered.x;
-        const snappedEdge = this.services.snapPlace("", { x: edge, y: 0 }).x;
+    /** Which part of an item's box lands on the grid: a circle's or pill's middle, or a card's leading edge along the layers and middle across them. */
+    public snapOffset(id: string, width: number, height: number): Point {
+        if (this.box(id, width, height, 0).anchor !== undefined)
+            return { x: width / 2, y: height / 2 };
 
-        return { x: turned ? snappedEdge - size.width : snappedEdge, y: byCenter.y };
+        const down = this.direction === "down" || this.direction === "up";
+        const turned = this.direction === "left" || this.direction === "up";
+
+        if (down)
+            return { x: width / 2, y: turned ? height : 0 };
+
+        return { x: turned ? width : 0, y: height / 2 };
     }
 
     /** Where Arrange puts each moving node: the whole layout, remembered as the one edges keep their routes by. */

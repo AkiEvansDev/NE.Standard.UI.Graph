@@ -77,3 +77,17 @@ test("a dropped node settles on a level wire's top within half a step of the dro
     assert.equal(drop(188, []).y, 180);
     assert.deepEqual([...drop(190, []).asked[0]], ["n"]);
 });
+
+test("a card whose kind snaps leading edge on x and middle on y lands flush on the column's grid line regardless of width", () => {
+    const card = { id: "rin", x: 226, y: 641 };
+    const host = {
+        nodeElements: new Map([["rin", box(202, 48).element]]),
+        items: () => [card],
+        kind: () => ({ snapOffset: (_id: string, _width: number, height: number) => ({ x: 0, y: height / 2 }) })
+    };
+
+    new CanvasDrag({} as CanvasSelection, host as unknown as DragHost, { gridSize: 32 } as CanvasSettings).snapNodes(["rin"]);
+
+    assert.equal(card.x, 224);
+    assert.equal((card.y + 24) % 32, 0);
+});

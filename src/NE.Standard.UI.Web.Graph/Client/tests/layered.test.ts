@@ -480,3 +480,20 @@ test("a layer the caller names a gap for takes that room after it; the rest take
     assert.equal(left.positions.get("a")!.x, 370);
     assert.equal(left.positions.get("c")!.x, 0);
 });
+
+test("with lineStep set, a fan-out column keeps uniform grid-aligned spacing without periodic gap collapses", () => {
+    for (const height of [48, 58]) {
+        const targets = Array.from({ length: 10 }, (_, index) => `c${index}`);
+        const all: LayeredNode[] = [{ id: "root", width: 160, height }, ...targets.map((id, index) => ({ id, width: 164 + (index % 4) * 12, height }))];
+        const result = layered(all, targets.map(id => ({ id: `root>${id}`, from: "root", to: id })), { direction: "right", nodeGap: 32, lineStep: 32 });
+        const ys = targets.map(id => result.positions.get(id)!.y);
+        const gaps = ys.slice(1).map((y, index) => y - (ys[index] + height));
+
+        for (const id of ["root", ...targets])
+            assert.equal((result.positions.get(id)!.y + height / 2) % 32, 0, `${id} middle is off the 32px grid at height ${height}`);
+
+        assert.equal(new Set(gaps).size, 1, `expected uniform vertical gaps at height ${height}, got ${gaps.join(", ")}`);
+        assert.ok(gaps[0] >= 32, `expected gap >= 32 at height ${height}, got ${gaps[0]}`);
+        assert.ok(ys.includes(result.positions.get("root")!.y), "root stays level with one of its targets");
+    }
+});

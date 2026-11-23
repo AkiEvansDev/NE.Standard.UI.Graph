@@ -339,3 +339,15 @@ test("synthesized pins on missing-kind nodes are excluded from live pin hover af
         /\.ui-graph:not\(\.ui-readonly\):not\(\.ui-graph--connecting\) \.ui-graph__node:not\(\[data-ui-graph-missing\]\) \.ui-graph__pin:not\(\[data-ui-graph-missing\]\):is\(\[data-ui-graph-pin-dir=['"]out['"]\], \.ui-graph__pin--filled\)/
     );
 });
+
+test("a graph card uses the caption line height and tight description spacing matching TextComponent", () => {
+    const rules = (selector: string): string => [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(match => match[1].trim() === selector).map(match => match[2]).join("");
+    const card = rules(".ui-graph__card");
+    const description = rules(".ui-graph__card-description");
+
+    assert.match(card, /line-height: var\(--ui-text-caption-line-height\);/);
+    assert.match(description, /line-height: 1;/);
+    assert.match(description, /padding-bottom: 0\.2em;/);
+    assert.match(description, /overflow: clip;/);
+    assert.match(description, /overflow-clip-margin: 0\.25em;/);
+});

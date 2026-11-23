@@ -10,6 +10,7 @@
     min-width: 9rem;
     max-width: 18rem;
     padding: @ui-space-2 @ui-space-3 @ui-space-2 calc(@ui-space-3 + 3px);
+    line-height: var(--ui-text-caption-line-height);
     cursor: move;
     .ui-user-select(none);
 }
@@ -126,6 +127,8 @@
 .ui-graph__card-description {
     color: var(--ui-text-muted);
     .ui-text-nowrap();
+    // Tight under the title, as TextComponent and the picker's entries draw a single-line description.
+    .ui-text-description-line();
 }
 
 .ui-graph__card-badge {

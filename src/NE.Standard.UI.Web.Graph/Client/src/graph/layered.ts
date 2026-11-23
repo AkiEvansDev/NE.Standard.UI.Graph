@@ -33,6 +33,8 @@ export type LayeredOptions = {
     readonly layerGaps?: (layers: ReadonlyMap<string, number>) => ReadonlyMap<number, number>;
     /** The room between two nodes of one layer, along the order axis. */
     readonly nodeGap?: number;
+    /** The grid step each block's alignment line stands on along the order axis; unset or zero, lines stay continuous. */
+    readonly lineStep?: number;
     readonly originX?: number;
     readonly originY?: number;
 };
@@ -87,6 +89,7 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
     const mirrored = options.direction === "left" || options.direction === "up";
     const layerGap = options.layerGap ?? autoLayerGap(nodes, down);
     const nodeGap = options.nodeGap ?? 32;
+    const lineStep = (options.lineStep ?? 0) > 0 ? options.lineStep! : 0;
     const slots = new Map<string, Slot>();
 
     nodes.forEach((node, input) => {
@@ -107,7 +110,7 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
     const chains = addVirtualNodes(forward, slots, through);
     const layers = orderLayers(slots, chains);
 
-    placeAcross(layers, chains, nodeGap);
+    placeAcross(layers, chains, nodeGap, lineStep);
 
     const positions = new Map<string, Point>();
     const centers = new Map<string, Point>();
@@ -124,6 +127,8 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
             least = Math.min(least, slot.line - slot.lead);
     }
 
+    const shift = !Number.isFinite(least) ? 0 : lineStep > 0 ? stepDown(least, lineStep) : least;
+
     for (const [index, layer] of layers.entries()) {
         let band = 0;
 
@@ -133,8 +138,6 @@ export function layered(nodes: readonly LayeredNode[], edges: readonly LayeredEd
             band = Math.max(band, slot.depth);
 
         for (const slot of layer) {
-            const shift = Number.isFinite(least) ? least : 0;
-
             // A real node stands against the layer's leading edge so the layer reads as a column; a virtual node stays mid-band where its edge passes.
             placed.push({
                 id: slot.id,
@@ -793,7 +796,7 @@ function autoLayerGap(nodes: readonly LayeredNode[], down: boolean): number {
  * where the edge meets each node, so an edge leaving off a node's middle still runs straight. Four alignments (to the layer before
  * or after, from either end) are packed tight, and the narrowest is kept.
  */
-function placeAcross(layers: readonly Slot[][], links: readonly Chain[], nodeGap: number): void {
+function placeAcross(layers: readonly Slot[][], links: readonly Chain[], nodeGap: number, lineStep: number): void {
     const slots = new Map(layers.flat().map(slot => [slot.id, slot]));
     const above = neighbours(links, true);
     const below = neighbours(links, false);
@@ -805,7 +808,7 @@ function placeAcross(layers: readonly Slot[][], links: readonly Chain[], nodeGap
         for (const reversed of [false, true]) {
             const rows = (downward ? [...layers].reverse() : [...layers]).map(layer => (reversed ? [...layer].reverse() : [...layer]));
 
-            variants.push(compact(rows, align(rows, downward ? below : above, conflicts, drift, slots), nodeGap, reversed));
+            variants.push(compact(rows, align(rows, downward ? below : above, conflicts, drift, slots), nodeGap, lineStep, reversed));
         }
     }
 
@@ -940,7 +943,7 @@ function align(rows: readonly Slot[][], adjacent: Map<string, string[]>, conflic
  * coordinate plus its own shift, apart from the node before by what of each stands between them plus the gap. Reversed counts from
  * the far end.
  */
-function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, reversed: boolean): Map<string, number> {
+function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, lineStep: number, reversed: boolean): Map<string, number> {
     const { root } = blocks;
     // A node's shift counted the way the pass runs: a reversed pass turns every coordinate round at the end.
     const shift = (slot: Slot): number => (reversed ? -blocks.shift.get(slot.id)! : blocks.shift.get(slot.id)!);
@@ -960,7 +963,8 @@ function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, rever
             const next = root.get(row[at].id)!;
             // Measured in the layer's own order whichever end the row is walked from: a node's line need not be its middle.
             const [first, second] = reversed ? [row[at], row[at - 1]] : [row[at - 1], row[at]];
-            const room = first.breadth - first.lead + nodeGap + second.lead + shift(row[at - 1]) - shift(row[at]);
+            const rawRoom = first.breadth - first.lead + nodeGap + second.lead + shift(row[at - 1]) - shift(row[at]);
+            const room = lineStep > 0 ? stepRoom(rawRoom, lineStep) : rawRoom;
             const list = after.get(block);
 
             if (list === undefined)
@@ -977,9 +981,10 @@ function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, rever
 
     for (const block of waiting.keys()) {
         const least = lowest.get(block)!;
+        const start = least < 0 ? -least : 0;
 
         // Plain zero, never minus zero, when nothing stands off the root: a zero's sign reaches the answer through a reversed pass.
-        coordinate.set(block, least < 0 ? -least : 0);
+        coordinate.set(block, lineStep > 0 && start > 0 ? stepRoom(start, lineStep) : start);
     }
 
     // Read by a cursor rather than shifted off the front, which would move every block still waiting.
@@ -998,11 +1003,20 @@ function compact(rows: readonly Slot[][], blocks: Blocks, nodeGap: number, rever
     const centers = new Map<string, number>();
 
     for (const row of rows) {
-        for (const slot of row)
-            centers.set(slot.id, (reversed ? -1 : 1) * (coordinate.get(root.get(slot.id)!)! + shift(slot)));
+        for (const slot of row) {
+            const value = coordinate.get(root.get(slot.id)!)! + shift(slot);
+
+            centers.set(slot.id, value === 0 ? 0 : reversed ? -value : value);
+        }
     }
 
     return centers;
+}
+
+function stepRoom(value: number, step: number): number {
+    const rounded = Math.ceil((value - 1e-6) / step) * step;
+
+    return rounded === 0 ? 0 : rounded;
 }
 
 /**
@@ -1026,4 +1040,10 @@ function narrowest(layers: readonly Slot[][], variants: readonly Map<string, num
     });
 
     return variants[widths.indexOf(Math.min(...widths))];
+}
+
+function stepDown(value: number, step: number): number {
+    const rounded = Math.floor((value + 1e-6) / step) * step;
+
+    return rounded === 0 ? 0 : rounded;
 }

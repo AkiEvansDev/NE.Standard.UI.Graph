@@ -84,8 +84,13 @@ export class ProductionKind extends DraftedLayeredKind<ProductionDocument, Produ
             // A plan is a sheet made for what was asked: another set of nodes is another sheet, laid out whole and shown whole.
             layoutKey: () => (this.reading === null ? this.shape : `${this.shape}|${this.drawn.map(entry => entry.id).join(",")}`),
             // A circle wears its name outside its own box; the layout needs that room, or a layer's names would be written over the
-            // next layer's circles.
-            nodeBox: (id, width, height, widest) => (this.shape === "icon" && this.collection.item(id)?.kind !== "craft" ? circleBox(width, height, widest) : { width, height }),
+            // next layer's circles. A craft pill anchors at its middle on both axes so it snaps there alongside circles.
+            nodeBox: (id, width, height, widest) => {
+                if (this.collection.item(id)?.kind === "craft")
+                    return { width, height, anchor: { x: width / 2, y: height / 2 } };
+
+                return this.shape === "icon" ? circleBox(width, height, widest) : { width, height };
+            },
             footRoom: id => (this.shape === "icon" && this.collection.item(id)?.kind !== "craft" ? CaptionRoom : 0)
         }, { nodeGap: NodeGap, layerGap: LayerGap });
         this.panel = new PlanPanel(services, {

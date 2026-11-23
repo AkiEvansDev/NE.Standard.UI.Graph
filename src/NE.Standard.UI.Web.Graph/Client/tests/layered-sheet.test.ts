@@ -69,15 +69,8 @@ test("cards in one layer share a snapped leading edge, and a long edge's route f
     const services = real<CanvasServices<LayeredDocument>>({
         root: { getAttribute: () => null },
         documentState: { document },
-        settings: { edgeShape: "orthogonal" },
-        snapPlace: (id: string, at: { x: number; y: number }) => {
-            const size = sizes.get(id);
-
-            if (size === undefined)
-                return { x: snap(at.x), y: snap(at.y) };
-
-            return { x: snap(at.x + size.width / 2) - size.width / 2, y: snap(at.y + size.height / 2) - size.height / 2 };
-        },
+        settings: { edgeShape: "orthogonal", snapping: true, gridSize: step },
+        snapPlace: (_id: string, at: { x: number; y: number }) => ({ x: snap(at.x), y: snap(at.y) }),
         nodeRect: (id: string) => {
             const placed = document.nodes.find(node => node.id === id);
             const size = sizes.get(id);
@@ -128,4 +121,31 @@ test("cards in one layer share a snapped leading edge, and a long edge's route f
     // Every route point of Primitives -> Components stands on the exact horizontal line of Components' entry, with no second bend.
     assert.ok(compEnds.via!.every(point => point.y === compEnds.to.y));
     assert.equal(compEnds.via?.[0].x, positions.get("schema")!.x);
+});
+
+test("snapOffset snaps a card's leading edge along the layer axis and middle across it, while circles snap by middle on both axes", () => {
+    let currentDirection: string | null = "right";
+    const document: LayeredDocument = { nodes: [], edges: [], groups: [] };
+    const services = real<CanvasServices<LayeredDocument>>({
+        root: { getAttribute: (name: string) => (name === "data-ui-graph-direction" ? currentDirection : null) },
+        documentState: { document }
+    });
+    const sheet = new LayeredSheet(services, {
+        nodeIds: () => ["card", "circle"],
+        links: () => [],
+        layoutKey: () => "mixed",
+        nodeBox: (id, width, height) => (id === "circle" ? { width: 96, height: 96, anchor: { x: 48, y: 28 } } : { width, height })
+    }, { nodeGap: 32 });
+
+    assert.deepEqual(sheet.snapOffset("card", 202, 48), { x: 0, y: 24 });
+    assert.deepEqual(sheet.snapOffset("circle", 56, 56), { x: 28, y: 28 });
+
+    currentDirection = "left";
+    assert.deepEqual(sheet.snapOffset("card", 202, 48), { x: 202, y: 24 });
+
+    currentDirection = "down";
+    assert.deepEqual(sheet.snapOffset("card", 202, 48), { x: 101, y: 0 });
+
+    currentDirection = "up";
+    assert.deepEqual(sheet.snapOffset("card", 202, 48), { x: 101, y: 48 });
 });

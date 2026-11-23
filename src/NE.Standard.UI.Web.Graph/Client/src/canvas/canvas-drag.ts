@@ -15,6 +15,7 @@ type Size = { readonly width: number; readonly height: number };
 
 /** What a resize may come down to: a node's floors are the stylesheet's (the kind's least width, the contents' height). */
 const NodeLeast: Size = { width: 1, height: 1 };
+const ZeroOffset: Point = { x: 0, y: 0 };
 
 /**
  * A frame's least width in canvas units: a folded node's, the narrowest that still reads as a box with a name, so a frame can at
@@ -249,13 +250,12 @@ export class CanvasDrag {
         return nearest;
     }
 
-    /** Where the grid puts an item standing at a point: by its corner, or — on a kind that says so — by its middle. */
+    /** Where the grid puts an item standing at a point: by its corner, or by the offset inside its box the kind aligns on the grid. */
     public snapPlace(id: string, point: Point, gridSize = this.settings.gridSize): Point {
-        const element = this.host.kind().snapsByCenter === true ? this.host.nodeElements.get(id) : undefined;
-        const halfWidth = (element?.offsetWidth ?? 0) / 2;
-        const halfHeight = (element?.offsetHeight ?? 0) / 2;
+        const element = id.length > 0 ? this.host.nodeElements.get(id) : undefined;
+        const offset = element === undefined ? ZeroOffset : this.host.kind().snapOffset?.(id, element.offsetWidth, element.offsetHeight) ?? ZeroOffset;
 
-        return { x: snap(point.x + halfWidth, gridSize, true) - halfWidth, y: snap(point.y + halfHeight, gridSize, true) - halfHeight };
+        return { x: snap(point.x + offset.x, gridSize, true) - offset.x, y: snap(point.y + offset.y, gridSize, true) - offset.y };
     }
 
     /** Rounds a resized box to the grid step: a node's by `snapNodeSize`, a frame's to the nearest step its least still fits. */
