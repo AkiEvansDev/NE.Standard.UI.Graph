@@ -7,6 +7,7 @@ import { FakeElement, FakeEvent, fakeDocument, installFakeDom, real } from "./fa
 import { GraphEngine } from "../src/canvas/canvas.ts";
 import type { CanvasDocument } from "../src/canvas/canvas-model.ts";
 import type { CanvasKind, CanvasKindDefinition, CanvasServices } from "../src/canvas/canvas-kind.ts";
+import { CatalogAttribute, NodesKindDefinition } from "../src/nodes/nodes-kind.ts";
 import { NodesRunPanel, StopEventName } from "../src/nodes/nodes-run-panel.ts";
 import type { GraphDocument } from "../src/nodes/model.ts";
 
@@ -654,6 +655,121 @@ test("touching controls, editors, panels or the minimap leaves no ghost pointer 
         viewport.dispatchEvent(touch("pointerup", 2, 240, 130));
         viewport.dispatchEvent(touch("pointerup", 1, 140, 130));
         assert.equal(root.classList.contains("ui-graph--panning"), false);
+    }
+    finally {
+        engine.dispose();
+    }
+});
+
+test("NodesKind incrementally reconciles only changed nodes and preserves sibling node DOM elements across edits", () => {
+    const viewport = FakeElement.of("ui-graph__viewport");
+    const groups = FakeElement.of("ui-graph__groups");
+    const edges = FakeElement.of("ui-graph__edges", {}, "svg");
+    const nodes = FakeElement.of("ui-graph__nodes");
+    const labels = FakeElement.of("ui-graph__labels");
+    const scene = FakeElement.of("ui-graph__scene").append(groups, edges, nodes, labels);
+    const marquee = FakeElement.of("ui-graph__marquee");
+    const catalog = [
+        { key: "calc.in", title: "Source", inputs: [], outputs: [{ name: "Out", title: "Out", type: "number", editor: "None" }] },
+        { key: "calc.out", title: "Sink", inputs: [{ name: "In", title: "In", type: "number", editor: "None" }], outputs: [] }
+    ];
+    const initialDoc = {
+        nodes: [
+            { id: "n1", type: "calc.in", x: 32, y: 32, values: {} },
+            { id: "n2", type: "calc.out", x: 256, y: 32, values: {} },
+            { id: "n3", type: "calc.in", x: 32, y: 192, values: {} }
+        ],
+        edges: [],
+        groups: [],
+        key: null
+    };
+    const value = FakeElement.of("ui-graph__value", { "data-ui-graph-document": JSON.stringify(initialDoc) });
+    const root = FakeElement.of("ui-graph", {
+        "data-ui-id": "5",
+        "data-ui-graph-kind": "nodes",
+        [CatalogAttribute]: JSON.stringify(catalog)
+    }).append(viewport.append(scene, marquee), value);
+
+    viewport.rect = { left: 0, top: 0, width: 800, height: 600 };
+    (viewport as unknown as { setPointerCapture: () => void }).setPointerCapture = () => undefined;
+    fakeDocument.body.children.length = 0;
+    fakeDocument.body.append(root);
+
+    const context = {
+        root: fakeDocument.body,
+        names: {
+            componentId: "data-ui-id",
+            readOnlyClass: "ui-input--readonly",
+            ownsKeys: "data-ui-owns-keys",
+            tooltip: "data-ui-tooltip",
+            menuOpeningEvent: "ui-context-menu-opening",
+            contextMenu: "data-ui-context-menu",
+            contextMenuUse: "data-ui-context-menu-use",
+            actionBar: "data-ui-action-bar",
+            actionBarKey: "data-ui-action-bar-key",
+            actionBarRest: "data-ui-action-bar-rest",
+            collapsed: "data-ui-collapsed",
+            collapseToggle: "data-ui-collapse-toggle",
+            key: "data-ui-key",
+            menuItemClass: "ui-menu-item",
+            menuItemCheckedClass: "ui-menu-item--checked",
+            menuItemValueClass: "ui-menu-item__value",
+            fileMaxSize: "data-ui-file-max-size",
+            badgeDangerClass: "ui-badge--danger",
+            badgeWarningClass: "ui-badge--warning",
+            badgeSurfaceClass: "ui-badge--surface"
+        },
+        states: { isInert: () => false, setDisabled: () => undefined },
+        values: { read: () => null, write: () => undefined, isRefused: () => false, hold: () => undefined, release: () => undefined },
+        store: { read: () => null, write: () => undefined, readJson: () => null, writeJson: () => undefined, remove: () => undefined },
+        wheel: { pixels: () => ({ x: 0, y: 0 }) },
+        strings: { text: (k: string) => k, get: (k: string) => k, format: (k: string) => k, write: () => undefined, onChange: () => () => undefined },
+        propertyPatchEngine: { addValueChangeHandler: () => () => undefined },
+        properties: { set: () => undefined },
+        popups: { open: () => () => undefined },
+        focus: { first: () => null },
+        icons: { apply: () => undefined },
+        colors: { count: () => 8, color: () => "#006E64", at: () => "#006E64" },
+        numbers: { format: (v: number) => String(v), readCulture: () => ({}) },
+        temporal: { format: () => "", parse: () => null, toDate: () => new Date(0), readCulture: () => ({}) },
+        urls: { isImageSource: () => false },
+        dom: { ensureId: (el: Element, prefix: string) => (el.id ||= prefix) },
+        roving: { target: () => null, applyTabIndex: () => undefined },
+        shortcuts: { words: () => null, aria: () => null, matches: () => false, isComposing: () => false, isFieldKey: () => false, isPlainKey: () => true, isEscapeClaimed: () => false },
+        badges: { writeCount: () => undefined },
+        renames: { open: () => undefined },
+        tooltips: { escape: (text: string) => text, show: () => undefined, hide: () => undefined },
+        observeSize: () => () => undefined,
+        observeComponents: () => ({ disconnect: () => undefined })
+    };
+
+    const kinds = [NodesKindDefinition] as readonly CanvasKindDefinition<CanvasDocument>[];
+    const engine = new GraphEngine(real<PluginEngineContext>(context), kinds);
+
+    try {
+        const el1Before = nodes.querySelector("[data-ui-graph-node='n1']")!;
+        const el2Before = nodes.querySelector("[data-ui-graph-node='n2']")!;
+        const el3Before = nodes.querySelector("[data-ui-graph-node='n3']")!;
+
+        // Folding `n1` replaces `n1` alone while `n2` and `n3` stay the exact same DOM elements.
+        const fold1 = el1Before.querySelector("[data-ui-graph-fold]")!;
+        fold1.dispatchEvent(Object.assign(new FakeEvent("pointerdown"), { button: 0, pointerId: 1, pointerType: "mouse", clientX: 40, clientY: 40 }));
+
+        const el1AfterFold = nodes.querySelector("[data-ui-graph-node='n1']")!;
+        assert.notEqual(el1AfterFold, el1Before);
+        assert.equal(el1AfterFold.hasAttribute("data-ui-graph-collapsed"), true);
+        assert.equal(nodes.querySelector("[data-ui-graph-node='n2']"), el2Before);
+        assert.equal(nodes.querySelector("[data-ui-graph-node='n3']"), el3Before);
+
+        // Pinning `n2` replaces `n2` alone while `n1AfterFold` and `n3Before` stay untouched.
+        const pin2 = el2Before.querySelector("[data-ui-graph-pin-toggle]")!;
+        pin2.dispatchEvent(Object.assign(new FakeEvent("pointerdown"), { button: 0, pointerId: 2, pointerType: "mouse", clientX: 264, clientY: 40 }));
+
+        const el2AfterPin = nodes.querySelector("[data-ui-graph-node='n2']")!;
+        assert.notEqual(el2AfterPin, el2Before);
+        assert.equal(el2AfterPin.hasAttribute("data-ui-graph-pinned"), true);
+        assert.equal(nodes.querySelector("[data-ui-graph-node='n1']"), el1AfterFold);
+        assert.equal(nodes.querySelector("[data-ui-graph-node='n3']"), el3Before);
     }
     finally {
         engine.dispose();

@@ -50,6 +50,7 @@ export type PickerIds = {
 };
 
 export class Picker<TEntry extends PickerEntry> {
+    private readonly root: HTMLElement;
     private readonly panel: HTMLDialogElement;
     private readonly search: HTMLInputElement;
     private readonly rail: HTMLElement;
@@ -74,14 +75,20 @@ export class Picker<TEntry extends PickerEntry> {
     private drawnTerms = "";
     // The categories unfolded, by path; every other one with categories under it is folded.
     private readonly unfolded = new Set<string>();
+    private readonly entryCache = new Map<string, CachedEntry>();
+    private currentEntry: HTMLElement | null = null;
     // Where the pointer last moved over the list: a list scrolled under a resting pointer moves the current entry no more than the
     // pointer did.
     private pointerX = Number.NaN;
     private pointerY = Number.NaN;
     // Whether the last press began on the backdrop, which alone lets its click close the picker.
     private pressedBackdrop = false;
+    // Whether the most recent input before opening or tapping inside the picker was touch, keeping the virtual keyboard shut until the search field itself is tapped.
+    private lastTouch = false;
+    private stopInputWatch: (() => void) | null = null;
 
-    private constructor(panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, home: HTMLElement | null, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, focus: Focus, shortcuts: ShortcutWords, choose: (entry: TEntry) => void) {
+    private constructor(root: HTMLElement, panel: HTMLDialogElement, search: HTMLInputElement, rail: HTMLElement, list: HTMLElement, empty: HTMLElement, home: HTMLElement | null, entries: () => readonly TEntry[], words: PickerWords, icons: Icons, ids: PickerIds, roving: RovingFocus, focus: Focus, shortcuts: ShortcutWords, choose: (entry: TEntry) => void) {
+        this.root = root;
         this.panel = panel;
         this.search = search;
         this.rail = rail;
@@ -98,6 +105,7 @@ export class Picker<TEntry extends PickerEntry> {
         this.shortcuts = shortcuts;
         this.choose = choose;
 
+        this.listen();
         this.search.addEventListener("input", () => this.draw(true));
         // The field's clear button is the core's, and it says so with a change rather than an input. A change also comes as the field
         // loses the focus (a Tab, a category's press), which is no new search: the list drawn for it stands.
@@ -151,7 +159,38 @@ export class Picker<TEntry extends PickerEntry> {
         list.tabIndex = -1;
         panel.querySelector(RailToggleSelector)?.setAttribute("aria-controls", ids.ensureId(rail, "ui-graph-picker-rail"));
 
-        return new Picker(panel, search, rail, list, empty, root.querySelector<HTMLElement>(HomeSelector), entries, words, icons, ids, roving, focus, shortcuts, choose);
+        return new Picker(root, panel, search, rail, list, empty, root.querySelector<HTMLElement>(HomeSelector), entries, words, icons, ids, roving, focus, shortcuts, choose);
+    }
+
+    /** Tracks whether the last pointer/keyboard interaction was touch so opening on a tablet leaves the virtual keyboard closed. */
+    public listen(): void {
+        if (this.stopInputWatch !== null)
+            return;
+
+        const onPointerDown = (event: Event): void => {
+            this.lastTouch = (event as PointerEvent).pointerType === "touch";
+        };
+        const onKeyDown = (): void => {
+            this.lastTouch = false;
+        };
+        const doc = typeof document === "object" && typeof document.addEventListener === "function" ? document : null;
+
+        this.root.addEventListener("pointerdown", onPointerDown, true);
+        this.root.addEventListener("keydown", onKeyDown, true);
+        doc?.addEventListener("pointerdown", onPointerDown, true);
+        doc?.addEventListener("keydown", onKeyDown, true);
+
+        this.stopInputWatch = () => {
+            this.root.removeEventListener("pointerdown", onPointerDown, true);
+            this.root.removeEventListener("keydown", onKeyDown, true);
+            doc?.removeEventListener("pointerdown", onPointerDown, true);
+            doc?.removeEventListener("keydown", onKeyDown, true);
+        };
+    }
+
+    public dispose(): void {
+        this.stopInputWatch?.();
+        this.stopInputWatch = null;
     }
 
     public get isOpen(): boolean {
@@ -166,11 +205,28 @@ export class Picker<TEntry extends PickerEntry> {
         this.drawRail();
         this.draw(false);
 
-        if (!this.panel.open)
-            this.panel.showModal();
+        if (!this.panel.open) {
+            if (this.lastTouch) {
+                // Prevent native `<dialog>.showModal()` from auto-focusing the search `<input>`, which raises the tablet virtual keyboard mid-transition.
+                this.panel.tabIndex = -1;
+                this.panel.setAttribute("autofocus", "");
+                this.panel.showModal();
+                this.panel.removeAttribute("autofocus");
+            }
+            else {
+                this.panel.showModal();
+            }
+        }
 
         this.search.setAttribute("aria-expanded", "true");
-        this.search.focus({ preventScroll: true });
+
+        if (this.lastTouch) {
+            this.panel.tabIndex = -1;
+            this.panel.focus({ preventScroll: true });
+        }
+        else {
+            this.search.focus({ preventScroll: true });
+        }
     }
 
     public close(): void {
@@ -244,7 +300,7 @@ export class Picker<TEntry extends PickerEntry> {
 
         event.preventDefault();
 
-        if (document.activeElement !== this.search)
+        if (!this.lastTouch && document.activeElement !== this.search)
             this.search.focus({ preventScroll: true });
     }
 
@@ -416,7 +472,7 @@ export class Picker<TEntry extends PickerEntry> {
             this.draw(event.detail === 0);
         }
 
-        if (event.detail > 0)
+        if (event.detail > 0 && !this.lastTouch)
             this.search.focus({ preventScroll: true });
     }
 
@@ -477,75 +533,112 @@ export class Picker<TEntry extends PickerEntry> {
     private draw(byKeyboard: boolean): void {
         this.drawnTerms = this.search.value;
 
+        const offered = this.entries();
         const terms = this.search.value.trim().toLowerCase();
-        const matching = this.entries().filter(type => this.chosen(type) && (terms.length === 0 || matches(type, terms)));
+        const matchingElements: HTMLElement[] = [];
 
-        this.list.replaceChildren();
-        this.empty.hidden = matching.length > 0;
+        if (this.entryCache.size > offered.length) {
+            const liveKeys = new Set(offered.map(type => type.key));
 
-        for (const type of matching) {
-            const entry = document.createElement("button");
-
-            entry.type = "button";
-            entry.className = EntryClass;
-            // No Tab stop: the focus stays in the search, and the arrows name the entry through aria-activedescendant.
-            entry.tabIndex = -1;
-            // One id out of the page's own run: an entry's key is the application's text, and not every text is an id.
-            entry.id = this.ids.ensureId(entry, `${this.list.id}-entry`);
-            entry.setAttribute("role", "option");
-            entry.setAttribute(KindAttribute, type.key);
-
-            // The entry's own icon, as a renderer would write one — a pack's glyph, one of the framework's marks, or a picture.
-            const icon = type.icon ?? "";
-
-            if (icon.length > 0) {
-                const box = document.createElement("span");
-
-                box.className = "ui-graph__picker-entry-icon";
-                box.setAttribute("aria-hidden", "true");
-                this.icons.apply(box, icon);
-                entry.append(box);
+            for (const key of this.entryCache.keys()) {
+                if (!liveKeys.has(key))
+                    this.entryCache.delete(key);
             }
-
-            const text = document.createElement("span");
-            const title = document.createElement("span");
-
-            text.className = "ui-graph__picker-entry-text";
-            title.className = "ui-graph__picker-entry-title";
-            title.textContent = type.title;
-            text.append(title);
-
-            const description = type.description ?? "";
-
-            if (description.length > 0) {
-                const line = document.createElement("span");
-
-                line.className = "ui-graph__picker-entry-line";
-                line.textContent = description;
-                text.append(line);
-            }
-
-            entry.append(text);
-            this.list.append(entry);
         }
 
-        this.setCurrent(this.list.querySelector<HTMLElement>(`.${EntryClass}`), !byKeyboard);
+        for (const type of offered) {
+            const cached = this.ensureCachedEntry(type);
+
+            if (this.chosen(type) && (terms.length === 0 || cached.haystack.includes(terms)))
+                matchingElements.push(cached.element);
+        }
+
+        this.list.replaceChildren(...matchingElements);
+        this.empty.hidden = matchingElements.length > 0;
+        this.setCurrent(matchingElements[0] ?? null, !byKeyboard);
+    }
+
+    private ensureCachedEntry(type: TEntry): CachedEntry {
+        const icon = type.icon ?? "";
+        const description = type.description ?? "";
+        const category = type.category ?? "";
+        const signature = `${type.title}\0${description}\0${category}\0${icon}`;
+        const existing = this.entryCache.get(type.key);
+
+        if (existing !== undefined && existing.signature === signature)
+            return existing;
+
+        const entry = document.createElement("button");
+
+        entry.type = "button";
+        entry.className = EntryClass;
+        // No Tab stop: the focus stays in the search, and the arrows name the entry through aria-activedescendant.
+        entry.tabIndex = -1;
+        // One id out of the page's own run: an entry's key is the application's text, and not every text is an id.
+        entry.id = this.ids.ensureId(entry, `${this.list.id}-entry`);
+        entry.setAttribute("role", "option");
+        entry.setAttribute("aria-selected", "false");
+        entry.setAttribute(KindAttribute, type.key);
+
+        // The entry's own icon, as a renderer would write one — a pack's glyph, one of the framework's marks, or a picture.
+        if (icon.length > 0) {
+            const box = document.createElement("span");
+
+            box.className = "ui-graph__picker-entry-icon";
+            box.setAttribute("aria-hidden", "true");
+            this.icons.apply(box, icon);
+            entry.append(box);
+        }
+
+        const text = document.createElement("span");
+        const title = document.createElement("span");
+
+        text.className = "ui-graph__picker-entry-text";
+        title.className = "ui-graph__picker-entry-title";
+        title.textContent = type.title;
+        text.append(title);
+
+        if (description.length > 0) {
+            const line = document.createElement("span");
+
+            line.className = "ui-graph__picker-entry-line";
+            line.textContent = description;
+            text.append(line);
+        }
+
+        entry.append(text);
+
+        const created: CachedEntry = {
+            element: entry,
+            signature,
+            haystack: `${type.title}\n${description}\n${category}\n${type.key}`.toLowerCase()
+        };
+
+        this.entryCache.set(type.key, created);
+
+        return created;
     }
 
     /** The entry the arrows and Enter stand on: the class draws it, and the search field names it for whoever is listening. */
     private setCurrent(entry: HTMLElement | null, pointed = false): void {
-        for (const candidate of this.list.querySelectorAll<HTMLElement>(`.${EntryClass}`)) {
-            const current = candidate === entry;
+        const previous = this.currentEntry;
 
-            candidate.classList.toggle(CurrentClass, current);
-            candidate.classList.toggle(PointedClass, current && pointed);
-            candidate.setAttribute("aria-selected", String(current));
+        if (previous !== null && previous !== entry) {
+            previous.classList.remove(CurrentClass, PointedClass);
+            previous.setAttribute("aria-selected", "false");
         }
 
-        if (entry === null)
+        this.currentEntry = entry;
+
+        if (entry === null) {
             this.search.removeAttribute("aria-activedescendant");
-        else
-            this.search.setAttribute("aria-activedescendant", entry.id);
+            return;
+        }
+
+        entry.classList.add(CurrentClass);
+        entry.classList.toggle(PointedClass, pointed);
+        entry.setAttribute("aria-selected", "true");
+        this.search.setAttribute("aria-activedescendant", entry.id);
     }
 
     /** In the category chosen or in one under it; an entry of no category is in the uncategorized one alone. */
@@ -619,6 +712,9 @@ export class Picker<TEntry extends PickerEntry> {
     }
 }
 
+/** Cached rendered option button and pre-lowercased search text for one catalogue entry. */
+type CachedEntry = { readonly element: HTMLElement; readonly signature: string; readonly haystack: string };
+
 /** One category of the rail's tree: its whole path, the last step of it that the rail shows, and the categories under it. */
 type RailNode = { readonly path: string; readonly name: string; readonly children: RailNode[] };
 
@@ -628,11 +724,4 @@ type RailLine = { readonly category: string; readonly caption: string; readonly 
 /** An entry's category as a clean path: each step trimmed, empty steps dropped, so `Maths / ` is `Maths`. */
 function categoryOf(type: PickerEntry): string {
     return (type.category ?? "").split(PathSeparator).map(step => step.trim()).filter(step => step.length > 0).join(PathSeparator);
-}
-
-function matches(type: PickerEntry, terms: string): boolean {
-    return type.title.toLowerCase().includes(terms)
-        || (type.description ?? "").toLowerCase().includes(terms)
-        || (type.category ?? "").toLowerCase().includes(terms)
-        || type.key.toLowerCase().includes(terms);
 }

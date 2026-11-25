@@ -235,6 +235,15 @@ export class ProductionKind extends DraftedLayeredKind<ProductionDocument, Produ
         this.picker?.wordsChanged();
     }
 
+    public override dispose(): void {
+        super.dispose();
+        this.picker?.dispose();
+    }
+
+    public revive(): void {
+        this.picker?.listen();
+    }
+
     /** An edge labelled with its amount past where edges leaving one resource have parted (two amounts would overlap beside it); the arrow tells a craft's inputs from its outputs. */
     public edgeEnds(edge: CanvasEdge): EdgeEnds | null {
         const link = this.linkById.get(edge.id);

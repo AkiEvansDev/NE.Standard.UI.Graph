@@ -1,9 +1,8 @@
 import "./styles/ui-graph.less";
 import type { CanvasDocument } from "./canvas/canvas-model.ts";
 import type { CanvasKindDefinition } from "./canvas/canvas-kind.ts";
-import { DocumentAttribute } from "./canvas/canvas-dom.ts";
+import { readLiveDocumentValue, setLiveDocumentValue } from "./canvas/canvas-document.ts";
 import { DocumentValueKind, GraphEngine, SaveEffectKind, findCanvas } from "./canvas/canvas.ts";
-import { readJson } from "./canvas/canvas-model.ts";
 import { frameworkApi } from "./framework-api.ts";
 import { LayeredKind, LayeredKindDefinition } from "./graph/layered-kind.ts";
 import { NodesKindDefinition } from "./nodes/nodes-kind.ts";
@@ -66,16 +65,16 @@ api.registerEvent<CustomEvent<{ target?: string }>>("menu-entry", {
     dynamicParameters: context => [...context.dynamicParameters, context.domEvent.detail?.target ?? ""]
 });
 
-// A canvas's one writable value: the document, as JSON on the hidden element the renderer wrote.
+// A canvas's one writable value: the document, kept in memory so saves do not mutate a multi-kilobyte DOM attribute.
 api.registerValueReader({
     kind: DocumentValueKind,
-    read: element => readJson(element.getAttribute(DocumentAttribute))
+    read: element => readLiveDocumentValue(element)
 });
 
-// A document the server pushed: the attribute is written so a reload's reader agrees with what's drawn; the engine's value-change handler redraws it.
+// A document the server pushed: stored in memory for the value reader; the engine's value-change handler redraws it.
 api.registerDomOperation({
     kind: DocumentValueKind,
-    handler: context => context.target.setAttribute(DocumentAttribute, JSON.stringify(context.value ?? null))
+    handler: context => setLiveDocumentValue(context.target, context.value ?? null)
 });
 
 api.registerConverter("graph-edge-shape", value => String(value ?? "Orthogonal").toLowerCase());

@@ -304,6 +304,7 @@ class Canvas {
             view: this.view,
             nodeElements: this.nodeElements,
             draw: () => this.render.draw(),
+            refreshItemSignature: item => this.render.refreshItemSignature(item),
             syncMenus: () => this.menus.syncMenus(),
             drawEdges: () => this.render.drawEdges(),
             drawPending: (from, to, color) => this.render.drawPending(from, to, color),
@@ -326,6 +327,7 @@ class Canvas {
     /** A setting the server moved: the sheet drawn again, and the menus' entries brought to it even while one stands open. */
     public draw(): void {
         this.drawnReadOnly = this.settings.readOnly;
+        this.render.invalidateItems();
         this.render.draw();
         this.menus.syncMenus();
         this.refuseEdits();
@@ -374,6 +376,7 @@ class Canvas {
 
         if (active === null || !this.scene.contains(active) || !this.kind.isEditor(active)) {
             this.wordsWaitingOn = null;
+            this.render.invalidateItems();
             this.render.draw();
             return;
         }
@@ -412,6 +415,11 @@ class Canvas {
     /** Lets go of what would outlive the root: its listeners, the watch on every node's size and on the canvas's own. */
     public dispose(): void {
         this.cancelPendingMove();
+
+        if (this.root.isConnected)
+            this.documentState.flushAutoSave();
+        else
+            this.documentState.cancelAutoSave();
 
         for (const cleanup of this.cleanups)
             cleanup();
@@ -532,6 +540,16 @@ class Canvas {
         this.root.addEventListener(menuOpeningEvent, onMenuOpening);
 
         const stopRootFocus = passRootFocusToSheet(this.root, this.viewport);
+        const onOutsidePointerDown = (event: Event): void => {
+            if (event.target instanceof Node && !this.root.contains(event.target))
+                this.documentState.flushAutoSave();
+        };
+        const onPageHide = (): void => this.documentState.flushAutoSave();
+        const doc = typeof document === "object" && typeof document.addEventListener === "function" ? document : null;
+        const win = typeof window === "object" && typeof window.addEventListener === "function" ? window : null;
+
+        doc?.addEventListener("pointerdown", onOutsidePointerDown, true);
+        win?.addEventListener("pagehide", onPageHide);
 
         this.cleanups.push(
             () => this.viewport.removeEventListener("wheel", onWheel),
@@ -545,6 +563,8 @@ class Canvas {
             () => this.viewport.removeEventListener("click", onClick),
             () => this.root.removeEventListener("click", onChromeClick),
             () => this.root.removeEventListener(menuOpeningEvent, onMenuOpening),
+            () => doc?.removeEventListener("pointerdown", onOutsidePointerDown, true),
+            () => win?.removeEventListener("pagehide", onPageHide),
             stopRootFocus
         );
     }

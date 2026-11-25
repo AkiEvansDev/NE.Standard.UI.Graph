@@ -53,6 +53,14 @@ export class NodesPickerBinding {
         this.picker?.wordsChanged();
     }
 
+    public dispose(): void {
+        this.picker?.dispose();
+    }
+
+    public revive(): void {
+        this.picker?.listen();
+    }
+
     private addNode(type: NodeType): void {
         const settings = this.services.settings;
         const wire = this.loose;

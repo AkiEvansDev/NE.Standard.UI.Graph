@@ -42,8 +42,9 @@ export class CanvasRender {
 
     // An item's box can change on its own (an image arrives, text wraps); each drawn item is watched, and its last box kept, to
     // tell a real change from the watcher's first report and to answer `nodeRect` during drags without forcing a layout per node.
-    private readonly nodeWatchers: (() => void)[] = [];
+    private readonly nodeWatchers = new Map<string, () => void>();
     private readonly nodeBoxes = new Map<string, { readonly width: number; readonly height: number }>();
+    private readonly nodeSignatures = new Map<string, string>();
     private readonly drawnItems = new Map<string, CanvasItem>();
     // The nodes' boxes as one draw of the edges found them, for its labels to keep off.
     private labelObstacles: Rect[] | null = null;
@@ -81,60 +82,175 @@ export class CanvasRender {
         this.drawEdges();
     }
 
+    /** Forces the next `draw` to re-render every item element (for sheet-wide setting or language switches). */
+    public invalidateItems(): void {
+        this.nodeSignatures.clear();
+    }
+
+    /** Updates the cached signature of an item whose field value was updated in place without re-rendering its node. */
+    public refreshItemSignature(item: CanvasItem): void {
+        const signature = this.kind().itemSignature?.(item);
+
+        if (signature !== undefined)
+            this.nodeSignatures.set(item.id, signature);
+    }
+
     /** Stops every node's size watch; the canvas is leaving the page. */
     public dispose(): void {
         this.disposed = true;
 
-        for (const stop of this.nodeWatchers)
+        for (const stop of this.nodeWatchers.values())
             stop();
 
-        this.nodeWatchers.length = 0;
+        this.nodeWatchers.clear();
+        this.nodeSignatures.clear();
     }
 
     private drawNodes(): void {
+        const kind = this.kind();
+
+        if (kind.itemSignature !== undefined) {
+            this.reconcileNodes(kind);
+            return;
+        }
+
         // A redrawn node is a new element; without hiding it first, a lingering tooltip would hang over where the old node no longer stands.
         this.context.tooltips.hide();
 
-        // The marks go on again at the end: the elements they were on are about to be thrown away.
-        const kind = this.kind();
         const drawn = new Set<string>();
+        const fresh: [string, HTMLElement][] = [];
 
-        for (const stop of this.nodeWatchers)
+        for (const stop of this.nodeWatchers.values())
             stop();
 
-        this.nodeWatchers.length = 0;
+        this.nodeWatchers.clear();
         this.nodeBoxes.clear();
+        this.nodeSignatures.clear();
         this.nodeLayer.replaceChildren();
         this.nodeElements.clear();
-
         this.drawnItems.clear();
 
         for (const node of kind.items()) {
             const element = kind.renderItem(node);
 
             this.drawnItems.set(node.id, node);
-
-            if (this.selection.has(node.id))
-                element.setAttribute(SelectedAttribute, "");
-
-            element.setAttribute(this.context.names.contextMenuUse, NodeMenuName);
-
-            // The framework draws the bar from the node menu over the node the reader chose, above it; keyed by the node, the bar
-            // stands over the node drawn in its place as the document changes.
-            if (this.settings.nodeActionBar) {
-                element.setAttribute(this.context.names.actionBar, NodeBarAlignment);
-                element.setAttribute(this.context.names.actionBarKey, node.id);
-
-                // The bar's "…" opens what the bar does not show, unless the canvas asked for the whole menu there.
-                if (!this.settings.nodeActionBarRepeats)
-                    element.setAttribute(this.context.names.actionBarRest, "");
-            }
-
+            this.applyNodeChrome(element, node.id);
             this.nodeLayer.append(element);
             this.nodeElements.set(node.id, element);
             drawn.add(node.id);
+            fresh.push([node.id, element]);
         }
 
+        this.finishNodesDraw(kind, drawn, drawn, fresh);
+    }
+
+    private reconcileNodes(kind: CanvasKind): void {
+        const items = kind.items();
+        const nextIds = new Set(items.map(item => item.id));
+        const drawn = new Set<string>();
+        const redrawn = new Set<string>();
+        const fresh: [string, HTMLElement][] = [];
+        let changedDom = false;
+
+        for (const [id, oldElement] of [...this.nodeElements]) {
+            if (nextIds.has(id))
+                continue;
+
+            changedDom = true;
+            this.stopWatchingNode(id);
+            this.nodeBoxes.delete(id);
+            this.nodeSignatures.delete(id);
+            this.nodeElements.delete(id);
+            this.drawnItems.delete(id);
+            oldElement.remove();
+        }
+
+        let cursor: Element | null = this.nodeLayer.firstElementChild;
+
+        for (const node of items) {
+            const signature = kind.itemSignature!(node);
+            const existing = this.nodeElements.get(node.id);
+
+            if (existing !== undefined && existing.parentElement === this.nodeLayer && this.nodeSignatures.get(node.id) === signature) {
+                kind.updateItemInPlace?.(node, existing);
+                this.applyNodeChrome(existing, node.id);
+                this.drawnItems.set(node.id, node);
+
+                if (existing === cursor)
+                    cursor = cursor.nextElementSibling;
+                else
+                    this.nodeLayer.insertBefore(existing, cursor);
+
+                drawn.add(node.id);
+                continue;
+            }
+
+            changedDom = true;
+            this.stopWatchingNode(node.id);
+            this.nodeBoxes.delete(node.id);
+
+            const element = kind.renderItem(node);
+
+            this.applyNodeChrome(element, node.id);
+            this.drawnItems.set(node.id, node);
+
+            if (existing !== undefined && existing.parentElement === this.nodeLayer) {
+                if (existing === cursor)
+                    cursor = existing.nextElementSibling;
+
+                existing.remove();
+            }
+
+            this.nodeLayer.insertBefore(element, cursor);
+
+            this.nodeElements.set(node.id, element);
+            this.nodeSignatures.set(node.id, signature);
+            drawn.add(node.id);
+            redrawn.add(node.id);
+            fresh.push([node.id, element]);
+        }
+
+        if (changedDom)
+            this.context.tooltips.hide();
+
+        this.finishNodesDraw(kind, redrawn, drawn, fresh);
+    }
+
+    private stopWatchingNode(id: string): void {
+        const stop = this.nodeWatchers.get(id);
+
+        if (stop !== undefined) {
+            stop();
+            this.nodeWatchers.delete(id);
+        }
+    }
+
+    private applyNodeChrome(element: HTMLElement, nodeId: string): void {
+        element.toggleAttribute(SelectedAttribute, this.selection.has(nodeId));
+
+        if (element.getAttribute(this.context.names.contextMenuUse) !== NodeMenuName)
+            element.setAttribute(this.context.names.contextMenuUse, NodeMenuName);
+
+        // The framework draws the bar from the node menu over the node the reader chose, above it; keyed by the node, the bar
+        // stands over the node drawn in its place as the document changes.
+        if (this.settings.nodeActionBar) {
+            if (element.getAttribute(this.context.names.actionBar) !== NodeBarAlignment)
+                element.setAttribute(this.context.names.actionBar, NodeBarAlignment);
+
+            if (element.getAttribute(this.context.names.actionBarKey) !== nodeId)
+                element.setAttribute(this.context.names.actionBarKey, nodeId);
+
+            // The bar's "…" opens what the bar does not show, unless the canvas asked for the whole menu there.
+            element.toggleAttribute(this.context.names.actionBarRest, !this.settings.nodeActionBarRepeats);
+        }
+        else {
+            element.removeAttribute(this.context.names.actionBar);
+            element.removeAttribute(this.context.names.actionBarKey);
+            element.removeAttribute(this.context.names.actionBarRest);
+        }
+    }
+
+    private finishNodesDraw(kind: CanvasKind, redrawn: ReadonlySet<string>, drawn: ReadonlySet<string>, fresh: readonly [string, HTMLElement][]): void {
         // Groups are chosen by the same ids and drawn apart from the items; one still in the document stays chosen.
         const kept = new Set(drawn);
 
@@ -142,19 +258,24 @@ export class CanvasRender {
             kept.add(group.id);
 
         this.selection.pruneNodes(kept);
-        kind.itemsDrawn(drawn);
-        this.watchSizes();
+
+        if (kind.itemsRedrawn !== undefined)
+            kind.itemsRedrawn(redrawn, drawn);
+        else
+            kind.itemsDrawn(drawn);
+
+        this.watchSizes(fresh);
         this.markFocus();
     }
 
-    /** The items as they now stand, and a watch on each: an edge ends at a part of one, and the part moves with the item's own box. */
-    private watchSizes(): void {
+    /** The newly rendered items as they now stand, and a watch on each: an edge ends at a part of one, and the part moves with the item's own box. */
+    private watchSizes(fresh: readonly [string, HTMLElement][]): void {
         // Every box first, then every watch: the first report a watch makes is of the box it was given, and that is not a change.
-        for (const [id, element] of this.nodeElements)
+        for (const [id, element] of fresh)
             this.nodeBoxes.set(id, sizeOf(element));
 
-        for (const [id, element] of this.nodeElements)
-            this.nodeWatchers.push(this.context.observeSize(element, () => this.nodeResized(id, element)));
+        for (const [id, element] of fresh)
+            this.nodeWatchers.set(id, this.context.observeSize(element, () => this.nodeResized(id, element)));
     }
 
     private nodeResized(id: string, element: HTMLElement): void {

@@ -82,11 +82,16 @@ export class NodesLog {
 
     /** Every status and display the nodes on the sheet still carry, applied once they are redrawn afresh; a gone node loses its. */
     public reapplyToRedrawnNodes(drawn: ReadonlySet<string>): void {
+        this.reapplyToNodes(drawn, drawn);
+    }
+
+    /** Reapplies run statuses and display values onto newly redrawn nodes while pruning entries for nodes no longer on drawn. */
+    public reapplyToNodes(redrawn: ReadonlySet<string>, drawn: ReadonlySet<string>): void {
         for (const [id, status] of this.statuses) {
-            if (drawn.has(id))
-                this.applyStatus(id, status);
-            else
+            if (!drawn.has(id))
                 this.statuses.delete(id);
+            else if (redrawn.has(id))
+                this.applyStatus(id, status);
         }
 
         for (const [id, pins] of this.displays) {
@@ -94,6 +99,9 @@ export class NodesLog {
                 this.displays.delete(id);
                 continue;
             }
+
+            if (!redrawn.has(id))
+                continue;
 
             for (const [pinName, value] of pins)
                 this.applyDisplay(id, pinName, value);

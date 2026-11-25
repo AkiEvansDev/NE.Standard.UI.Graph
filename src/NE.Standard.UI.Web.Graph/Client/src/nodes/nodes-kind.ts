@@ -64,6 +64,7 @@ export class NodesKind implements CanvasKind {
     private readonly parameters: NodesParameters;
     // Whether the sheet was opened whole yet: once, by the first draw with a node on it.
     private fittedOnce = false;
+    private signatureEpoch = 0;
 
     private clipboard: { nodes: DocumentNode[]; edges: DocumentEdge[] } | null = null;
     // What the pin menu was last opened on; its entries act on it.
@@ -102,6 +103,7 @@ export class NodesKind implements CanvasKind {
     }
 
     private applyCatalog(catalog: readonly NodeType[]): void {
+        this.signatureEpoch++;
         this.types.clear();
         this.typeTitles.clear();
 
@@ -130,12 +132,14 @@ export class NodesKind implements CanvasKind {
         this.stopMenuListener?.();
         this.stopMenuListener = null;
         this.catalogWaitingOn = null;
+        this.pickerBinding.dispose();
         this.runPanel.dispose();
         this.parameters.dispose();
     }
 
     public revive(): void {
         this.listen();
+        this.pickerBinding.revive();
         this.runPanel.listen();
         this.parameters.draw();
     }
@@ -196,7 +200,68 @@ export class NodesKind implements CanvasKind {
         });
     }
 
+    public itemSignature(item: CanvasItem): string {
+        const node = item as DocumentNode;
+        const type = this.types.get(node.type);
+        const collapsed = node.collapsed === true;
+        const size = collapsed ? "" : `${node.width ?? ""},${node.height ?? ""}`;
+        let connectivity = "";
+
+        if (type === undefined) {
+            connectivity = this.document.edges
+                .filter(edge => edge.fromNode === node.id || edge.toNode === node.id)
+                .map(edge => (edge.fromNode === node.id ? `out:${edge.fromPin}` : `in:${edge.toPin}`))
+                .join("|");
+        }
+        else if (type.compact === true) {
+            const input = type.inputs[0];
+            const output = type.outputs[0];
+            const inConnected = input !== undefined && edgeInto(this.document, node.id, input.name) !== undefined ? "1" : "0";
+            const outConnected = output !== undefined && this.document.edges.some(edge => edge.fromNode === node.id && edge.fromPin === output.name) ? "1" : "0";
+            const feed = input === undefined ? "" : (this.feedTitle(node.id, input.name, new Set()) ?? "");
+            const outType = output === undefined ? "" : resolveOutputType(this.document, this.types, node.id, output.name);
+
+            connectivity = `${inConnected}:${outConnected}:${feed}:${outType}`;
+        }
+        else {
+            const inputs = type.inputs
+                .map(pin => (pin.hasPin !== false && edgeInto(this.document, node.id, pin.name) !== undefined ? "1" : "0"))
+                .join("");
+            const outputs = type.outputs
+                .map(pin => `${this.document.edges.some(edge => edge.fromNode === node.id && edge.fromPin === pin.name) ? "1" : "0"}:${resolveOutputType(this.document, this.types, node.id, pin.name)}`)
+                .join("|");
+
+            connectivity = `${inputs};${outputs}`;
+        }
+
+        return [
+            this.signatureEpoch,
+            this.services.settings.readOnly ? 1 : 0,
+            node.type,
+            node.title ?? "",
+            node.color ?? "",
+            collapsed ? 1 : 0,
+            node.pinned === true ? 1 : 0,
+            node.enabled === false ? 0 : 1,
+            size,
+            connectivity,
+            JSON.stringify(node.values)
+        ].join("\u001f");
+    }
+
+    public updateItemInPlace(item: CanvasItem, element: HTMLElement): void {
+        const nextX = String(item.x);
+        const nextY = String(item.y);
+
+        if (element.style.getPropertyValue("--ui-graph-node-x") !== nextX)
+            element.style.setProperty("--ui-graph-node-x", nextX);
+
+        if (element.style.getPropertyValue("--ui-graph-node-y") !== nextY)
+            element.style.setProperty("--ui-graph-node-y", nextY);
+    }
+
     public wordsChanged(): void {
+        this.signatureEpoch++;
         this.log.wordsChanged();
         this.pickerBinding.wordsChanged();
     }
@@ -298,14 +363,32 @@ export class NodesKind implements CanvasKind {
     }
 
     public itemsDrawn(drawn: ReadonlySet<string>): void {
-        this.log.reapplyToRedrawnNodes(drawn);
+        this.itemsRedrawn(drawn, drawn);
+    }
+
+    public itemsRedrawn(redrawn: ReadonlySet<string>, drawn: ReadonlySet<string>): void {
+        this.log.reapplyToNodes(redrawn, drawn);
 
         // A node's far corner lands on the grid as its near one does, whatever gave it its size — its contents, the kind's least
         // width, a folded head.
-        if (this.services.settings.snapping)
-            snapBoxes(this.services.nodeElements.values(), this.services.settings.gridSize);
+        if (this.services.settings.snapping && redrawn.size > 0) {
+            const elements: HTMLElement[] = [];
 
-        this.pinOffsets.clear();
+            for (const id of redrawn) {
+                const element = this.services.nodeElements.get(id);
+
+                if (element !== undefined)
+                    elements.push(element);
+            }
+
+            snapBoxes(elements, this.services.settings.gridSize);
+        }
+
+        for (const id of [...this.pinOffsets.keys()]) {
+            if (!drawn.has(id) || redrawn.has(id))
+                this.pinOffsets.delete(id);
+        }
+
         this.nodesById = null;
         this.parameters.draw();
         this.fitFirstDraw();
@@ -482,11 +565,20 @@ export class NodesKind implements CanvasKind {
         const affectsVisibility = this.types.get(node.type)?.inputs.some(pin => pin.visibleWhen === pinName) === true;
 
         if (fromPanel) {
-            this.services.documentState.edited(affectsVisibility || (!node.collapsed && !this.showCommitted(nodeId, pinName, value)));
+            const redraw = affectsVisibility || (!node.collapsed && !this.showCommitted(nodeId, pinName, value));
+
+            if (!redraw)
+                this.services.refreshItemSignature?.(node);
+
+            this.services.documentState.edited(redraw);
             return;
         }
 
         this.parameters.showValue(nodeId, pinName, value);
+
+        if (!affectsVisibility)
+            this.services.refreshItemSignature?.(node);
+
         // The nodes redraw only when a pin shown beside this one depends on it.
         this.services.documentState.edited(affectsVisibility);
     }
@@ -512,6 +604,14 @@ export class NodesKind implements CanvasKind {
 
             this.parameters.showValue(nodeId, pinName, value);
             this.services.documentState.committed(document => write(document), !inPlace);
+
+            if (inPlace) {
+                const updated = this.document.nodes.find(candidate => candidate.id === nodeId);
+
+                if (updated !== undefined)
+                    this.services.refreshItemSignature?.(updated);
+            }
+
             return;
         }
 

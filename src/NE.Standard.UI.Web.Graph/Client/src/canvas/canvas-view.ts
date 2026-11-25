@@ -74,13 +74,16 @@ export class CanvasView {
     private zoomShare = Number.NaN;
     private panXValue = 0;
     private panYValue = 0;
+    private gridBaseZoom: number | null = null;
     private gridBasePanX: number | null = null;
     private gridBasePanY: number | null = null;
     private gridStyleZoom = Number.NaN;
+    private inGesture = false;
     private gestureViewportRect: DOMRect | null = null;
     private gestureViewportWidth = 0;
     private gestureViewportHeight = 0;
     private gestureVisibleWidth = 0;
+    private keepPending = false;
     private keepTimer: ReturnType<typeof setTimeout> | undefined;
     // A fit the reader has not panned, zoomed or centred since: fitted again for every new size of the canvas, where a view they
     // moved stays as they left it. The size is the one it was fitted for; a fitted view kept from a visit before stands where it
@@ -157,6 +160,7 @@ export class CanvasView {
     }
 
     private clearGesture(): void {
+        this.inGesture = false;
         this.gestureViewportRect = null;
         this.gestureViewportWidth = 0;
         this.gestureViewportHeight = 0;
@@ -164,11 +168,15 @@ export class CanvasView {
     }
 
     private resetGridTransform(): void {
+        this.gridBaseZoom = null;
         this.gridBasePanX = null;
         this.gridBasePanY = null;
 
         if (this.gridLines !== null && Boolean(this.gridLines.style.transform))
             this.gridLines.style.transform = "";
+
+        if (this.gridLines !== null && Boolean(this.gridLines.style.transformOrigin))
+            this.gridLines.style.transformOrigin = "";
     }
 
     /**
@@ -234,6 +242,7 @@ export class CanvasView {
     /** Caches the viewport's box at the start of a pointer gesture so move frames read coordinates without forcing layout. */
     public beginGesture(): void {
         this.cancelTransition();
+        this.inGesture = true;
 
         const width = this.viewport.clientWidth;
         const height = this.viewport.clientHeight;
@@ -253,6 +262,11 @@ export class CanvasView {
         if (this.gridBasePanX !== null) {
             this.resetGridTransform();
             this.drawGrid();
+        }
+
+        if (this.keepPending) {
+            this.keepPending = false;
+            this.scheduleKeepView();
         }
     }
 
@@ -274,6 +288,7 @@ export class CanvasView {
         this.cancelTransition();
         this.clearGesture();
         this.resetGridTransform();
+        this.keepPending = false;
         clearTimeout(this.keepTimer);
         this.keepTimer = undefined;
         this.stopSizeWatch?.();
@@ -341,6 +356,11 @@ export class CanvasView {
     }
 
     private scheduleKeepView(): void {
+        if (this.inGesture) {
+            this.keepPending = true;
+            return;
+        }
+
         clearTimeout(this.keepTimer);
         this.keepTimer = setTimeout(() => this.keepView(), KeepDelay);
     }
@@ -553,7 +573,58 @@ export class CanvasView {
         this.panXValue = view.panX;
         this.panYValue = view.panY;
         this.fitted = false;
-        this.applyView();
+        this.applyPinch();
+    }
+
+    private applyPinch(): void {
+        this.scene.style.transform = `translate(${this.panXValue}px, ${this.panYValue}px) scale(${this.zoomValue})`;
+        this.pinchGrid();
+        this.drawZoom();
+        this.placeMinimapView();
+        this.viewport.dispatchEvent(new Event("scroll"));
+        this.scheduleKeepView();
+    }
+
+    private pinchGrid(): void {
+        if (this.grid === null || this.gridMinor === null || this.gridMajor === null)
+            return;
+
+        if (this.gridStyleZoom !== this.zoomValue) {
+            this.gridStyleZoom = this.zoomValue;
+            this.grid.style.setProperty("--ui-graph-zoom", String(this.zoomValue));
+        }
+
+        if (this.gridLines === null) {
+            this.drawGrid();
+            return;
+        }
+
+        const width = this.gestureViewportWidth > 0 ? this.gestureViewportWidth : this.viewport.clientWidth;
+        const height = this.gestureViewportHeight > 0 ? this.gestureViewportHeight : this.viewport.clientHeight;
+        let scale = this.gridBaseZoom !== null && this.gridBaseZoom > 0 ? this.zoomValue / this.gridBaseZoom : 0;
+        let tx = this.gridBasePanX === null ? 0 : this.panXValue - this.gridBasePanX * scale;
+        let ty = this.gridBasePanY === null ? 0 : this.panYValue - this.gridBasePanY * scale;
+        const crossedMinorFloor = this.gridBaseZoom !== null && (this.zoomValue > MinorFadeFloor) !== (this.gridBaseZoom > MinorFadeFloor);
+        const outOfBounds = tx > GridOverscan * scale
+            || tx + (width + GridOverscan) * scale < width
+            || ty > GridOverscan * scale
+            || ty + (height + GridOverscan) * scale < height;
+
+        if (this.gridBaseZoom === null || this.gridBasePanX === null || this.gridBasePanY === null || scale < 0.55 || scale > 1.8 || crossedMinorFloor || outOfBounds) {
+            const roundedX = Math.round(this.panXValue);
+            const roundedY = Math.round(this.panYValue);
+
+            this.gridBaseZoom = this.zoomValue;
+            this.gridBasePanX = roundedX;
+            this.gridBasePanY = roundedY;
+            this.drawGrid(GridOverscan, roundedX, roundedY);
+            scale = 1;
+            tx = this.panXValue - roundedX;
+            ty = this.panYValue - roundedY;
+        }
+
+        this.gridLines.style.transformOrigin = "0 0";
+        this.gridLines.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     }
 
     /** A pan drag: the base pan it started from, plus how far the viewport point has moved since. */
@@ -595,11 +666,17 @@ export class CanvasView {
         const roundedX = Math.round(this.panXValue);
         const roundedY = Math.round(this.panYValue);
 
-        if (this.gridBasePanX === null || this.gridBasePanY === null || Math.abs(roundedX - this.gridBasePanX) > GridOverscan || Math.abs(roundedY - this.gridBasePanY) > GridOverscan) {
+        if (this.gridBaseZoom !== this.zoomValue || this.gridBasePanX === null || this.gridBasePanY === null || Math.abs(roundedX - this.gridBasePanX) > GridOverscan || Math.abs(roundedY - this.gridBasePanY) > GridOverscan) {
+            this.gridBaseZoom = this.zoomValue;
             this.gridBasePanX = roundedX;
             this.gridBasePanY = roundedY;
             this.drawGrid(GridOverscan, roundedX, roundedY);
         }
+
+        const hasOrigin = Boolean(this.gridLines.style.transformOrigin);
+
+        if (hasOrigin)
+            this.gridLines.style.transformOrigin = "";
 
         // 2D `translate` rather than `translate3d`: a 3D transform promotes the SVG below `.ui-graph__scene` and forces overlap compositing over node text.
         this.gridLines.style.transform = `translate(${roundedX - this.gridBasePanX}px, ${roundedY - this.gridBasePanY}px)`;

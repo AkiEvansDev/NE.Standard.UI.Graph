@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ValueReading } from "ne-standard-ui";
-import { CanvasDocumentState } from "../src/canvas/canvas-document.ts";
+import { AutoSaveDelayMs, CanvasDocumentState, readLiveDocumentValue } from "../src/canvas/canvas-document.ts";
 import { CanvasSettings } from "../src/canvas/canvas-settings.ts";
 import { emptyDocument, readDocument } from "../src/nodes/model.ts";
 import type { GraphDocument } from "../src/nodes/model.ts";
@@ -10,7 +10,7 @@ import type { GraphDocument } from "../src/nodes/model.ts";
 const ReadOnlyClass = "ui-readonly";
 
 /** A canvas's root as the document state reads it: its attributes and its classes, nothing drawn. */
-function canvasRoot(): { root: HTMLElement; classes: Set<string> } {
+function canvasRoot(): { root: HTMLElement; attributes: Set<string>; classes: Set<string> } {
     const attributes = new Set<string>();
     const classes = new Set<string>();
     const root = {
@@ -24,7 +24,7 @@ function canvasRoot(): { root: HTMLElement; classes: Set<string> } {
         }
     };
 
-    return { root: root as unknown as HTMLElement, classes };
+    return { root: root as unknown as HTMLElement, attributes, classes };
 }
 
 function documentState(root: HTMLElement): CanvasDocumentState<GraphDocument> {
@@ -177,4 +177,92 @@ test("saving without a wired graph-save handler settles via whenSettled and re-h
     state.saveCompleted(true, undefined);
     assert.equal(classes.has("ui-graph--saving"), false);
     assert.equal(classes.has("ui-graph--dirty"), false);
+});
+
+test("auto-save debounces rapid edits, flushes immediately on flushAutoSave, and keeps the live value in memory without rewriting data-ui-graph-document", async () => {
+    const { root, attributes } = canvasRoot();
+    attributes.add("data-ui-graph-auto-save");
+
+    const initialJson = JSON.stringify(emptyDocument());
+    let attrWrites = 0;
+    let changeEvents = 0;
+    const saveReasons: string[] = [];
+    const listeners = new Map<string, ((event: Event) => void)[]>();
+
+    const valueElement = {
+        getAttribute: () => initialJson,
+        setAttribute: () => {
+            attrWrites++;
+        },
+        addEventListener: (type: string, handler: (event: Event) => void) => {
+            const list = listeners.get(type) ?? [];
+            list.push(handler);
+            listeners.set(type, list);
+        },
+        dispatchEvent: (event: Event) => {
+            if (event.type === "change")
+                changeEvents++;
+
+            for (const handler of listeners.get(event.type) ?? [])
+                handler(event);
+
+            return true;
+        }
+    } as unknown as HTMLElement;
+
+    valueElement.addEventListener("graph-save", event => {
+        const detail = (event as CustomEvent<{ reason: string; handled: boolean }>).detail;
+        detail.handled = true;
+        saveReasons.push(detail.reason);
+    });
+
+    const values = {
+        read: () => null,
+        hold: () => undefined,
+        release: () => undefined
+    } as unknown as ValueReading;
+
+    const state = new CanvasDocumentState(
+        root,
+        valueElement,
+        new CanvasSettings(root, ReadOnlyClass),
+        readDocument,
+        { clearSelectionSets: () => undefined, redraw: () => undefined, redrawEdges: () => undefined },
+        values
+    );
+
+    assert.equal(AutoSaveDelayMs, 400);
+
+    // Three rapid edits within the debounce window schedule a single auto-save rather than three immediate saves.
+    state.document.nodes.push({ id: "n0", type: "Number", x: 0, y: 0, values: {} });
+    state.edited();
+    state.document.nodes.push({ id: "n1", type: "Number", x: 32, y: 0, values: {} });
+    state.edited();
+    state.document.nodes.push({ id: "n2", type: "Number", x: 64, y: 0, values: {} });
+    state.edited();
+
+    assert.equal(changeEvents, 0);
+    assert.deepEqual(saveReasons, []);
+
+    await new Promise(resolve => setTimeout(resolve, AutoSaveDelayMs + 50));
+
+    assert.equal(changeEvents, 1);
+    assert.deepEqual(saveReasons, ["auto"]);
+    assert.equal(attrWrites, 0);
+    assert.equal((readLiveDocumentValue(valueElement) as GraphDocument).nodes.length, 3);
+
+    state.saveCompleted(true, undefined);
+
+    // `flushAutoSave` commits a pending debounced edit immediately without waiting for the timer.
+    state.document.nodes.push({ id: "n3", type: "Number", x: 96, y: 0, values: {} });
+    state.edited();
+    assert.equal(changeEvents, 1);
+
+    state.flushAutoSave();
+    assert.equal(changeEvents, 2);
+    assert.deepEqual(saveReasons, ["auto", "auto"]);
+    assert.equal(attrWrites, 0);
+    assert.equal((readLiveDocumentValue(valueElement) as GraphDocument).nodes.length, 4);
+
+    state.saveCompleted(true, undefined);
 });

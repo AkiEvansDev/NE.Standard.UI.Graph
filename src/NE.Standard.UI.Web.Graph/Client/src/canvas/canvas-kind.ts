@@ -60,6 +60,7 @@ export type CanvasServices<TDocument extends CanvasDocument> = {
     readonly view: CanvasView;
     readonly nodeElements: ReadonlyMap<string, HTMLElement>;
     draw(): void;
+    refreshItemSignature?(item: CanvasItem): void;
     syncMenus?(): void;
     drawEdges(): void;
     drawPending(from: Point, to: Point, color: string): void;
@@ -83,8 +84,14 @@ export type CanvasKind = {
     items(): readonly CanvasItem[];
     edges(): readonly CanvasEdge[];
     renderItem(item: CanvasItem): HTMLElement;
+    /** Deterministic structural key for incremental reconciliation; unchanged items keep their existing DOM element and editors. */
+    itemSignature?(item: CanvasItem): string;
+    /** Syncs inline coordinates on a kept item element whose signature did not change. */
+    updateItemInPlace?(item: CanvasItem, element: HTMLElement): void;
     /** Every item has just been drawn afresh: what the kind paints over a drawn item — a state, a display — goes on again. */
     itemsDrawn(drawn: ReadonlySet<string>): void;
+    /** Incremental counterpart to `itemsDrawn` receiving both newly rendered ids and all drawn ids. */
+    itemsRedrawn?(redrawn: ReadonlySet<string>, drawn: ReadonlySet<string>): void;
     /** One item's box changed size in place; what the kind caches off its geometry is invalidated for it. */
     nodeResized?(id: string): void;
     /** The page's words changed, just before the sheet is drawn again: a panel the kind draws itself forgets what it last drew. */

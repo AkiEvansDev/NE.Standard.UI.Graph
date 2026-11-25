@@ -373,4 +373,54 @@ test("wordsChanged redraws the rail's translated category captions while the pic
     picker.wordsChanged();
     assert.equal(railToggle.children[0].textContent, "ru:ui.graph.all-kinds");
     assert.equal(rail.children[0].children[1].textContent, "ru:ui.graph.all-kinds");
+    picker.dispose();
+});
+
+test("opening after a touch press keeps focus off the search input until tapped, while mouse opening focuses search", () => {
+    const page = scene();
+
+    page.viewport.dispatchEvent(Object.assign(new FakeEvent("pointerdown"), { pointerType: "touch" }));
+    page.picker.open();
+
+    assert.equal(fakeDocument.activeElement, page.dialog);
+    assert.equal(page.dialog.hasAttribute("autofocus"), false);
+
+    click(category(page, "Maths")!, 1);
+    assert.equal(fakeDocument.activeElement, page.dialog);
+
+    press(page.list);
+    assert.equal(fakeDocument.activeElement, page.dialog);
+
+    page.picker.close();
+
+    page.viewport.dispatchEvent(Object.assign(new FakeEvent("pointerdown"), { pointerType: "mouse" }));
+    page.picker.open();
+    assert.equal(fakeDocument.activeElement, page.search);
+
+    page.picker.dispose();
+});
+
+test("cached entry elements are reused across filtering and keep aria-selected clean", () => {
+    const page = opened();
+    const sumBefore = page.list.children[0];
+    const joinBefore = page.list.children[2];
+
+    page.search.value = "join";
+    page.search.dispatchEvent(new FakeEvent("input"));
+
+    assert.equal(page.list.children.length, 1);
+    assert.equal(page.list.children[0], joinBefore);
+    assert.equal(sumBefore.classList.contains("ui-graph__picker-entry--current"), false);
+    assert.equal(sumBefore.getAttribute("aria-selected"), "false");
+    assert.equal(joinBefore.getAttribute("aria-selected"), "true");
+
+    page.search.value = "";
+    page.search.dispatchEvent(new FakeEvent("input"));
+
+    assert.equal(page.list.children[0], sumBefore);
+    assert.equal(sumBefore.getAttribute("aria-selected"), "true");
+    assert.equal(joinBefore.classList.contains("ui-graph__picker-entry--current"), false);
+    assert.equal(joinBefore.getAttribute("aria-selected"), "false");
+
+    page.picker.dispose();
 });

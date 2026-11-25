@@ -10,8 +10,22 @@ import type { CanvasSettings } from "./canvas-settings.ts";
 
 /** What a save the canvas sends by itself after an edit says it is for (`UIGraphArguments.AutoSaveReason`). */
 const AutoSaveReason = "auto";
+/** Idle delay before an automatic save sends its snapshot, coalescing rapid edits and drags without blocking explicit saves. */
+export const AutoSaveDelayMs = 400;
 // `GraphEvents.Save` on the server: the package's own name, since another package's plain `save` would take its registration.
 const SaveEventName = "graph-save";
+
+const liveDocumentValues = new WeakMap<Element, unknown>();
+
+/** Reads the latest committed or server-pushed document for a value element without re-parsing a multi-kilobyte DOM attribute on every save. */
+export function readLiveDocumentValue(element: Element): unknown {
+    return liveDocumentValues.has(element) ? liveDocumentValues.get(element) : readJson(element.getAttribute(DocumentAttribute));
+}
+
+/** Stores the latest committed or server-pushed document value in memory for `ValueReaderRegistration`. */
+export function setLiveDocumentValue(element: Element, value: unknown): void {
+    liveDocumentValues.set(element, value);
+}
 
 /** What the document state calls back into the coordinator for: a redraw, and clearing the viewer's current choice. */
 export type DocumentStateCallbacks = {
@@ -41,6 +55,7 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
     private saves = 0;
     private sentId = 0;
     private holdingValue = false;
+    private autoSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
     public constructor(root: HTMLElement, valueElement: HTMLElement, settings: CanvasSettings, read: (value: unknown) => TDocument, callbacks: DocumentStateCallbacks, values: ValueReading) {
         this.root = root;
@@ -48,7 +63,7 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         this.settings = settings;
         this.callbacks = callbacks;
         this.values = values;
-        this.documentValue = read(readJson(this.valueElement.getAttribute(DocumentAttribute)));
+        this.documentValue = read(readLiveDocumentValue(this.valueElement));
         this.history = new DocumentHistory(this.documentValue, read);
     }
 
@@ -58,8 +73,10 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
 
     /** Replaces the document with one from the server and restarts undo history; the framework never delivers one while dirty. */
     public load(document: TDocument): void {
+        this.cancelAutoSave();
+
         // The server echoes the saved document straight back; resetting history for it would end the history at every save.
-        if (JSON.stringify(document) === JSON.stringify(this.documentValue)) {
+        if (JSON.stringify(document) === this.history.snapshot) {
             this.history.markSaved();
             this.markClean();
 
@@ -94,13 +111,39 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         else
             this.callbacks.redrawEdges();
 
-        // Once the draw has settled — a layered kind places a new item in a task the draw queued — so what is sent is what is shown;
-        // a save still in flight queues this one behind it. A press that moved nothing — a click on a node — sends nothing.
+        // Coalesced across rapid edits and drags so full JSON serialization and server disk writes do not run on every pointer release.
         if (this.settings.autoSave && changed)
-            queueMicrotask(() => this.save(AutoSaveReason));
+            this.scheduleAutoSave();
+    }
+
+    private scheduleAutoSave(): void {
+        this.cancelAutoSave();
+        this.autoSaveTimer = setTimeout(() => {
+            this.autoSaveTimer = undefined;
+            this.save(AutoSaveReason);
+        }, AutoSaveDelayMs);
+    }
+
+    /** Cancels any pending debounced automatic save without sending it. */
+    public cancelAutoSave(): void {
+        if (this.autoSaveTimer !== undefined) {
+            clearTimeout(this.autoSaveTimer);
+            this.autoSaveTimer = undefined;
+        }
+    }
+
+    /** Sends any pending automatic save immediately so leaving the canvas or hiding the page never drops a recent edit. */
+    public flushAutoSave(): void {
+        if (this.autoSaveTimer === undefined)
+            return;
+
+        this.cancelAutoSave();
+        this.save(AutoSaveReason);
     }
 
     private refuseEdit(): void {
+        this.cancelAutoSave();
+
         const present = this.history.revert(this.documentValue);
 
         if (present === null)
@@ -141,6 +184,8 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         if (this.settings.readOnly)
             return;
 
+        this.cancelAutoSave();
+
         // One save in flight at a time: a second is queued, so its answer can't clear the first's bookkeeping early. A save with a
         // reason of its own (a run) is not replaced by a plain or automatic one, which it saves as well.
         if (this.sent !== null) {
@@ -153,7 +198,7 @@ export class CanvasDocumentState<TDocument extends CanvasDocument> {
         const sent = JSON.stringify(this.documentValue);
 
         this.history.absorb(sent);
-        this.valueElement.setAttribute(DocumentAttribute, sent);
+        setLiveDocumentValue(this.valueElement, JSON.parse(sent));
         this.valueElement.dispatchEvent(new Event("change", { bubbles: true }));
 
         const id = ++this.saves;

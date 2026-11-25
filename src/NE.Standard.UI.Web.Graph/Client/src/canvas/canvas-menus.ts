@@ -219,8 +219,14 @@ export class CanvasMenus {
             if (button === null)
                 continue;
 
-            button.setAttribute(SwatchAttribute, "");
-            button.style.setProperty("--ui-graph-swatch", paint ?? "transparent");
+            const swatch = paint ?? "transparent";
+
+            if (!button.hasAttribute(SwatchAttribute))
+                button.setAttribute(SwatchAttribute, "");
+
+            if (button.style.getPropertyValue("--ui-graph-swatch") !== swatch)
+                button.style.setProperty("--ui-graph-swatch", swatch);
+
             setChecked(button, checked, this.context.names);
 
             if (checked)
@@ -232,7 +238,7 @@ export class CanvasMenus {
 
             const value = entry.querySelector<HTMLElement>(`.${this.context.names.menuItemValueClass}`);
 
-            if (value !== null)
+            if (value !== null && value.textContent !== chosen)
                 value.textContent = chosen;
         }
     }
@@ -528,10 +534,13 @@ export function checkMenuEntries(scope: MenuScope, key: string, checked: boolean
 
 /** Every entry of one command in a canvas's menus, shown or taken out of them: an entry that belongs to a state the item is rarely in. */
 export function showMenuEntries(scope: MenuScope, key: string, shown: boolean): void {
+    const display = shown ? "" : "none";
+
     for (const entry of menuEntries(scope, key)) {
         const wrapper = entry.closest<HTMLElement>(`[${scope.context.names.key}]`) ?? entry;
 
-        wrapper.style.display = shown ? "" : "none";
+        if (wrapper.style.display !== display)
+            wrapper.style.display = display;
     }
 }
 
@@ -540,15 +549,35 @@ function anyMenuSelector(scope: MenuScope): string {
     return `[${scope.context.names.contextMenu}], [${MenuPanelAttribute}]`;
 }
 
+const cachedMenuEntries = new WeakMap<ParentNode, Map<string, HTMLElement[]>>();
+
 /** The entries of one command under a root: a menu writes the key on the entry's wrapper, and on a group's block of choices too. */
 function menuEntries(scope: MenuScope, key: string): HTMLElement[] {
+    let byKey = cachedMenuEntries.get(scope.root);
+    const cached = byKey?.get(key);
+
+    if (cached !== undefined && cached.length > 0 && cached.every(entry => entry.isConnected))
+        return cached;
+
+    const selector = scope.root instanceof HTMLElement && scope.root.hasAttribute(scope.context.names.contextMenu)
+        ? `[${scope.context.names.key}="${CSS.escape(key)}"]`
+        : `:is(${anyMenuSelector(scope)}) [${scope.context.names.key}="${CSS.escape(key)}"]`;
     const entries: HTMLElement[] = [];
 
-    for (const keyed of scope.root.querySelectorAll<HTMLElement>(`:is(${anyMenuSelector(scope)}) [${scope.context.names.key}="${CSS.escape(key)}"]`)) {
+    for (const keyed of scope.root.querySelectorAll<HTMLElement>(selector)) {
         const entry = ownEntry(keyed, scope.context.names);
 
         if (entry !== null)
             entries.push(entry);
+    }
+
+    if (entries.length > 0) {
+        if (byKey === undefined) {
+            byKey = new Map<string, HTMLElement[]>();
+            cachedMenuEntries.set(scope.root, byKey);
+        }
+
+        byKey.set(key, entries);
     }
 
     return entries;
@@ -561,8 +590,13 @@ function ownEntry(keyed: HTMLElement, names: DomNames): HTMLElement | null {
 
 /** A check entry's state as the framework's own patch writes it: the class paints the mark, aria-checked says it. */
 function setChecked(entry: HTMLElement, checked: boolean, names: DomNames): void {
-    entry.classList.toggle(names.menuItemCheckedClass, checked);
-    entry.setAttribute("aria-checked", String(checked));
+    if (entry.classList.contains(names.menuItemCheckedClass) !== checked)
+        entry.classList.toggle(names.menuItemCheckedClass, checked);
+
+    const nextAria = String(checked);
+
+    if (entry.getAttribute("aria-checked") !== nextAria)
+        entry.setAttribute("aria-checked", nextAria);
 }
 
 export { CommandPrefix };

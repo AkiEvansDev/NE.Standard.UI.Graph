@@ -228,7 +228,7 @@ test("the grid draws its minor and major lines on whole pixels and drops the min
     viewport.rect = { left: 0, top: 0, width: 160, height: 96 };
 
     const store = real<ClientStore>({ readJson: () => null, write: () => {} });
-    const context = real<PluginEngineContext>({ store, observeSize: () => () => {} });
+    const context = real<PluginEngineContext>({ store, names: { collapsed: "data-ui-collapsed" }, observeSize: () => () => {} });
     const host: CanvasViewHost = { items: () => [], groups: () => [], itemColor: () => "", nodeRect: () => null, nodeExtent: () => null };
     const view = new CanvasView(real(root), real<CanvasSettings>({ gridSize: 32, minZoom: 0.1, maxZoom: 2.5 }), context, host);
 
@@ -269,7 +269,7 @@ test("dragPan translates an overscanned SVG grid layer on whole pixels without r
     viewport.rect = { left: 0, top: 0, width: 160, height: 96 };
 
     const store = real<ClientStore>({ readJson: () => null, write: () => {} });
-    const context = real<PluginEngineContext>({ store, observeSize: () => () => {} });
+    const context = real<PluginEngineContext>({ store, names: { collapsed: "data-ui-collapsed" }, observeSize: () => () => {} });
     const host: CanvasViewHost = { items: () => [], groups: () => [], itemColor: () => "", nodeRect: () => null, nodeExtent: () => null };
     const view = new CanvasView(real(root), real<CanvasSettings>({ gridSize: 32, minZoom: 0.1, maxZoom: 2.5 }), context, host);
 
@@ -418,4 +418,57 @@ test("camera transitions interpolate over 160 ms on Fit, zoom buttons and go-to-
         globals.cancelAnimationFrame = previousCancel;
         globals.matchMedia = previousMatchMedia;
     }
+});
+
+test("pinchTo transforms an overscanned SVG grid in 2D without rebuilding paths per frame and defers keepView timer churn until endGesture", async () => {
+    const minor = FakeElement.of("ui-graph__grid-minor", {}, "path");
+    const major = FakeElement.of("ui-graph__grid-major", {}, "path");
+    const lines = FakeElement.of("ui-graph__grid-lines", {}, "svg").append(minor, major);
+    const grid = FakeElement.of("ui-graph__grid").append(lines);
+    const viewport = FakeElement.of("ui-graph__viewport").append(grid, FakeElement.of("ui-graph__scene"));
+    const root = FakeElement.of("ui-graph").append(viewport);
+
+    viewport.rect = { left: 0, top: 0, width: 320, height: 240 };
+
+    let writes = 0;
+    const store = real<ClientStore>({
+        readJson: () => null,
+        write: () => {
+            writes++;
+        }
+    });
+    const context = real<PluginEngineContext>({ store, names: { collapsed: "data-ui-collapsed" }, observeSize: () => () => {} });
+    const host: CanvasViewHost = { items: () => [], groups: () => [], itemColor: () => "", nodeRect: () => null, nodeExtent: () => null };
+    const view = new CanvasView(real(root), real<CanvasSettings>({ gridSize: 32, minZoom: 0.1, maxZoom: 2.5 }), context, host);
+
+    view.applyView();
+
+    let dWrites = 0;
+    const baseSetAttribute = major.setAttribute.bind(major);
+    major.setAttribute = (name: string, value: string): void => {
+        if (name === "d")
+            dWrites++;
+
+        baseSetAttribute(name, value);
+    };
+
+    view.beginGesture();
+    view.pinchTo({ zoom: 1.2, panX: -16, panY: -10 });
+    assert.equal(dWrites, 1);
+    assert.equal(lines.style.transformOrigin, "0 0");
+    assert.match(String(lines.style.transform), /^translate\(.+\) scale\(1\)$/);
+
+    view.pinchTo({ zoom: 1.5, panX: -28, panY: -18 });
+    assert.equal(dWrites, 1);
+    assert.match(String(lines.style.transform), /^translate\(.+\) scale\(1\.25\)$/);
+
+    view.endGesture();
+    assert.equal(dWrites, 2);
+    assert.equal(lines.style.transform, "");
+    assert.equal(lines.style.transformOrigin, "");
+
+    await new Promise(resolve => setTimeout(resolve, 300));
+    assert.equal(writes, 1);
+
+    view.dispose();
 });

@@ -32,6 +32,11 @@ export class DocumentHistory<TDocument> {
         return this.present !== this.saved;
     }
 
+    /** Serialized snapshot of the present step, so callers can compare without re-stringifying the present document. */
+    public get snapshot(): string {
+        return this.present;
+    }
+
     /** Records a document as the present one and answers whether it was a step; an edit that changed nothing is not one. */
     public record(document: TDocument): boolean {
         const next = JSON.stringify(document);
