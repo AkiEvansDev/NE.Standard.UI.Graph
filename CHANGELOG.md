@@ -2,6 +2,6 @@
 
 Each section below becomes the GitHub release body for that tag (`v<version>` in `NE.Standard.UI.Graph`) and is removed from this file after the release is cut.
 
-## 2.15.0
+## 2.15.1
 
-- Built on the framework's 2.15.0 release.
+- Built on the framework's 2.15.1 release.
