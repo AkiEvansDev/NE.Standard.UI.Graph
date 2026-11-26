@@ -586,8 +586,8 @@
 @ui-split-parts: ~'.ui-split-button:not([data-ui-split-mode="menu"])';
 @ui-not-split-parts: ~":not(@{ui-split-parts})";
 
-// A field root that answers the pointer: not disabled or read-only (a read-only one keeps its focus edge, but lifts nothing).
-@ui-field-live: ~":not(.ui-disabled):not(.ui-readonly)";
+// A field root that answers the pointer: not disabled, read-only or locked (a read-only or locked one keeps its focus edge, but lifts nothing).
+@ui-field-live: ~":not(.ui-disabled):not(.ui-readonly):not([data-ui-select-locked])";
 
 // A filled ground (a primary, accent or danger button's) answers the pointer darkened by a black tint, 16% under a press, in either
 // palette: the washes are the text's colour, light on a dark palette, and would lighten it.
@@ -699,7 +699,7 @@
     .ui-responsive-property(border-width, --ui-border-thickness, @width);
     border-color: @color;
     .ui-responsive-property(border-radius, --ui-border-radius, @radius);
-    corner-shape: @ui-corner-shape;
+    corner-shape: var(--ui-corner-shape, @ui-corner-shape);
 }
 
 // Resets a property's five tiers on a component root that re-declares them, and fences each into its band there.
