@@ -34,13 +34,17 @@ internal abstract class NodesSheetView : NodesDemoView
             .AddRow(UIGridUnit.Auto())
             .AddRow(UIGridUnit.Auto())
             // Every control in the row is one line tall and centred on the same line: a caption above a field would raise that
-            // field's middle above its neighbours', so the select wears its caption inside it, as one line. The set wraps in even
-            // columns, so a narrow page takes the switches and the button under it. Filled, as a toolbar's fields are.
+            // field's middle above its neighbours', so the select wears its caption inside it, as one line. Each select fills a
+            // phone's line and takes a fixed width above it, so all five controls share one row on desktop and wrap cleanly below.
             .AddChild(new WrapPanelComponent()
                 .SetSpacing(16)
                 .SetLineSpacing(8)
-                .SetItemMinWidth(240)
-                .SetDefaults<SelectComponent>(static c => c.SetTitlePlacement(UIInputTitlePlacement.Inside).SetAppearance(UIInputAppearance.Filled).SetVerticalAlignment(UIAlignment.Center))
+                .SetDefaults<SelectComponent>(static c => c
+                    .SetTitlePlacement(UIInputTitlePlacement.Inside)
+                    .SetAppearance(UIInputAppearance.Filled)
+                    .SetWidth(UIResponsive<UILayoutLength>.Create(UILayoutLength.Fill(), sm: UILayoutLength.Absolute(220)))
+                    .SetVerticalAlignment(UIAlignment.Center)
+                )
                 .SetDefaults<SwitchComponent>(static c => c.SetVerticalAlignment(UIAlignment.Center))
                 .AddChildren(
                     new SelectComponent()

@@ -7,6 +7,7 @@ const Folded = "folded";
 const Open = "open";
 // Set by the stylesheet where the window is too narrow for the panel to start open beside the sheet.
 const StartsFoldedProperty = "--ui-graph-side-folded";
+const foldsByRoot = new WeakMap<HTMLElement, Set<SidePanelFold>>();
 
 /**
  * Where the keyboard goes when the row it stood on leaves a panel: onto `next`, the same part of the row now in its place, else the
@@ -39,15 +40,24 @@ export class SidePanelFold {
         this.root = root;
         this.panel = panel;
         this.slot = slot;
-        this.foldedByDefault = panel !== null && (panel.hasAttribute(this.names.collapsed) || startsFolded(panel));
+        const narrow = panel !== null && startsFolded(panel);
+        this.foldedByDefault = panel !== null && (panel.hasAttribute(this.names.collapsed) || narrow);
 
-        const stored = store.read(root, slot);
-        const folded = stored === Folded || (stored !== Open && this.foldedByDefault);
+        let folds = foldsByRoot.get(root);
 
-        if (panel !== null && folded !== panel.hasAttribute(this.names.collapsed)) {
-            panel.toggleAttribute(this.names.collapsed, folded);
-            panel.querySelector(`[${this.names.collapseToggle}]`)?.setAttribute("aria-expanded", folded ? "false" : "true");
+        if (folds === undefined) {
+            folds = new Set();
+            foldsByRoot.set(root, folds);
         }
+
+        const siblingOpen = narrow && [...folds].some(sibling => sibling.isOpen);
+        const stored = store.read(root, slot);
+        const folded = siblingOpen || stored === Folded || (stored !== Open && this.foldedByDefault);
+
+        if (panel !== null && folded !== panel.hasAttribute(this.names.collapsed))
+            this.setFolded(folded);
+
+        folds.add(this);
     }
 
     /** A click on the panel's switch is remembered; false for any other. The framework's engine folded it already, on the way down. */
@@ -57,8 +67,38 @@ export class SidePanelFold {
 
         const folded = this.panel.hasAttribute(this.names.collapsed);
 
-        this.store.write(this.root, this.slot, folded === this.foldedByDefault ? null : folded ? Folded : Open);
+        this.remember(folded);
+
+        // On a narrow window where side panels cannot stand open together, unfolding one folds the other corner's panel.
+        if (!folded && startsFolded(this.panel)) {
+            for (const sibling of foldsByRoot.get(this.root) ?? []) {
+                if (sibling !== this)
+                    sibling.foldSibling();
+            }
+        }
+
         return true;
+    }
+
+    private foldSibling(): void {
+        if (!this.isOpen)
+            return;
+
+        this.setFolded(true);
+        this.remember(true);
+    }
+
+    private get isOpen(): boolean {
+        return this.panel !== null && !this.panel.hasAttribute(this.names.collapsed);
+    }
+
+    private setFolded(folded: boolean): void {
+        this.panel?.toggleAttribute(this.names.collapsed, folded);
+        this.panel?.querySelector(`[${this.names.collapseToggle}]`)?.setAttribute("aria-expanded", folded ? "false" : "true");
+    }
+
+    private remember(folded: boolean): void {
+        this.store.write(this.root, this.slot, folded === this.foldedByDefault ? null : folded ? Folded : Open);
     }
 }
 

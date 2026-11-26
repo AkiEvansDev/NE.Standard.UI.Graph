@@ -101,6 +101,29 @@ test("on a narrow window the plan starts folded, and opened by the viewer it is 
 
         new SidePanelFold(memoryStore("open").store, Names, real(FakeElement.of("ui-graph")), real(again.panel), "plan");
         assert.equal(again.panel.hasAttribute(Collapsed), false);
+
+        // Unfolding one corner panel on a narrow viewport folds a sibling panel on the same graph root so they never overlap.
+        const sharedRoot = real(FakeElement.of("ui-graph"));
+        const menuStore = memoryStore();
+        const planStore = memoryStore();
+        const menu = panel(true);
+        const plan = panel(false);
+        const menuFold = new SidePanelFold(menuStore.store, Names, sharedRoot, real(menu.panel), "menu");
+        const planFold = new SidePanelFold(planStore.store, Names, sharedRoot, real(plan.panel), "plan");
+
+        menu.panel.removeAttribute(Collapsed);
+        menu.toggle.setAttribute("aria-expanded", "true");
+        menuFold.press(real(menu.toggle));
+        assert.equal(menuStore.stored(), "open");
+        assert.equal(plan.panel.hasAttribute(Collapsed), true);
+
+        plan.panel.removeAttribute(Collapsed);
+        plan.toggle.setAttribute("aria-expanded", "true");
+        planFold.press(real(plan.toggle));
+        assert.equal(planStore.stored(), "open");
+        assert.equal(menu.panel.hasAttribute(Collapsed), true);
+        assert.equal(menu.toggle.getAttribute("aria-expanded"), "false");
+        assert.equal(menuStore.stored(), null);
     }
     finally {
         narrow = false;
