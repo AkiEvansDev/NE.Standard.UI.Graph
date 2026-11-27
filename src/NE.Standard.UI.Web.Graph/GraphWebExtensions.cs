@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using NE.Standard.UI.Graph;
 using NE.Standard.UI.Shell.Localization;
 using NE.Standard.UI.Web.Abstractions.Rendering;
 using NE.Standard.UI.Web.Renderers.Foundation;
@@ -25,6 +26,6 @@ public static class GraphWebExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWebComponentRenderer, ProductionGraphComponentRenderer>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IUIStringsSource, GraphStrings>());
 
-        return services.AddPackageClient(AssemblyName, "ui-graph");
+        return services.AddPackageClient(AssemblyName, "ui-graph", NodesComponent.ComponentTypeKey, NodesParametersComponent.ComponentTypeKey, LayeredGraphComponent.ComponentTypeKey, ProductionGraphComponent.ComponentTypeKey);
     }
 }

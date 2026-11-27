@@ -702,13 +702,18 @@
     corner-shape: var(--ui-corner-shape, @ui-corner-shape);
 }
 
-// Resets a property's five tiers on a component root that re-declares them, and fences each into its band there.
+// Resets an inherited responsive property on a root so descendants never see a parent's tiers, and fences each tier into its band.
 .ui-responsive-reset(@variable) {
     @{variable}: initial;
     @{variable}-sm: initial;
     @{variable}-md: initial;
     @{variable}-xl: initial;
     @{variable}-xxl: initial;
+    .ui-responsive-fence(@variable);
+}
+
+// Fences an element-local responsive property (registered `inherits: false` in core/properties.less) into its width bands.
+.ui-responsive-local-reset(@variable) {
     .ui-responsive-fence(@variable);
 }
 
@@ -732,17 +737,105 @@
     }
 }
 
-// A component's own size and margin tiers, reset on whatever wears a component's layout: a component's root, a dialog's panel.
+.ui-responsive-layout-initial(@suffix: ~"") {
+    --ui-width@{suffix}: initial;
+    --ui-min-width@{suffix}: initial;
+    --ui-max-width@{suffix}: initial;
+    --ui-height@{suffix}: initial;
+    --ui-min-height@{suffix}: initial;
+    --ui-max-height@{suffix}: initial;
+    --ui-margin@{suffix}: initial;
+    --ui-margin-x@{suffix}: initial;
+    --ui-margin-y@{suffix}: initial;
+}
+
+.ui-responsive-layout-tier(@tier) {
+    --ui-width-@{tier}: initial !important;
+    --ui-min-width-@{tier}: initial !important;
+    --ui-max-width-@{tier}: initial !important;
+    --ui-height-@{tier}: initial !important;
+    --ui-min-height-@{tier}: initial !important;
+    --ui-max-height-@{tier}: initial !important;
+    --ui-margin-@{tier}: initial !important;
+    --ui-margin-x-@{tier}: initial !important;
+    --ui-margin-y-@{tier}: initial !important;
+}
+
+// A component's own size and margin tiers, reset cleanly and fenced in four consolidated `@media` blocks rather than 36 separate ones.
 .ui-responsive-layout-reset() {
-    .ui-responsive-reset(--ui-width);
-    .ui-responsive-reset(--ui-min-width);
-    .ui-responsive-reset(--ui-max-width);
-    .ui-responsive-reset(--ui-height);
-    .ui-responsive-reset(--ui-min-height);
-    .ui-responsive-reset(--ui-max-height);
-    .ui-responsive-reset(--ui-margin);
-    .ui-responsive-reset(--ui-margin-x);
-    .ui-responsive-reset(--ui-margin-y);
+    .ui-responsive-layout-initial();
+    .ui-responsive-layout-initial(~"-sm");
+    .ui-responsive-layout-initial(~"-md");
+    .ui-responsive-layout-initial(~"-xl");
+    .ui-responsive-layout-initial(~"-xxl");
+
+    @media (max-width: (@ui-breakpoint-sm - 0.02px)) {
+        .ui-responsive-layout-tier(sm);
+    }
+
+    @media (max-width: (@ui-breakpoint-md - 0.02px)) {
+        .ui-responsive-layout-tier(md);
+    }
+
+    @media (max-width: (@ui-breakpoint-xl - 0.02px)) {
+        .ui-responsive-layout-tier(xl);
+    }
+
+    @media (max-width: (@ui-breakpoint-xxl - 0.02px)) {
+        .ui-responsive-layout-tier(xxl);
+    }
+}
+
+// Layout, padding and border tiers reset and fenced on `[data-ui-id]` in four consolidated `@media` blocks instead of 52 separate ones.
+.ui-responsive-root-reset() {
+    .ui-responsive-layout-initial();
+    .ui-responsive-layout-initial(~"-sm");
+    .ui-responsive-layout-initial(~"-md");
+    .ui-responsive-layout-initial(~"-xl");
+    .ui-responsive-layout-initial(~"-xxl");
+    --ui-padding: initial;
+    --ui-padding-sm: initial;
+    --ui-padding-md: initial;
+    --ui-padding-xl: initial;
+    --ui-padding-xxl: initial;
+    --ui-border-thickness: initial;
+    --ui-border-thickness-sm: initial;
+    --ui-border-thickness-md: initial;
+    --ui-border-thickness-xl: initial;
+    --ui-border-thickness-xxl: initial;
+    --ui-border-radius: initial;
+    --ui-border-radius-sm: initial;
+    --ui-border-radius-md: initial;
+    --ui-border-radius-xl: initial;
+    --ui-border-radius-xxl: initial;
+
+    @media (max-width: (@ui-breakpoint-sm - 0.02px)) {
+        .ui-responsive-layout-tier(sm);
+        --ui-padding-sm: initial !important;
+        --ui-border-thickness-sm: initial !important;
+        --ui-border-radius-sm: initial !important;
+    }
+
+    @media (max-width: (@ui-breakpoint-md - 0.02px)) {
+        .ui-responsive-layout-tier(md);
+        --ui-padding-md: initial !important;
+        --ui-border-thickness-md: initial !important;
+        --ui-border-radius-md: initial !important;
+    }
+
+    @media (max-width: (@ui-breakpoint-xl - 0.02px)) {
+        .ui-responsive-layout-tier(xl);
+        --ui-padding-xl: initial !important;
+        --ui-border-thickness-xl: initial !important;
+        --ui-border-radius-xl: initial !important;
+    }
+
+    @media (max-width: (@ui-breakpoint-xxl - 0.02px)) {
+        .ui-responsive-layout-tier(xxl);
+        --ui-padding-xxl: initial !important;
+        --ui-border-thickness-xxl: initial !important;
+        --ui-border-radius-xxl: initial !important;
+    }
 }
 
 // @rules once per tier inside that tier's own width band and no other, for a rule CSS cannot undo (`display: none`): with @tier naming
@@ -1304,7 +1397,7 @@
 // A child's column span at the viewport's tier, into @into, for a host that lines its children up rather than placing them; its tiers
 // reset and fenced on the child, as a placed child's are. With no span set the value is invalid, and the basis falls back to auto.
 .ui-placement-span(@into) {
-    .ui-responsive-reset(--ui-placement-column-span);
+    .ui-responsive-local-reset(--ui-placement-column-span);
     @{into}: .ui-responsive-chain(--ui-placement-column-span)[@value];
 }
 
@@ -1787,12 +1880,20 @@
 @ui-row-floating: ~".ui-action-bar, .ui-context-menu, .ui-split-button__menu, .ui-menu__submenu, .ui-flyout__content, .ui-select__popup, .ui-temporal-input__popup, .ui-color-input__popup";
 @ui-row-own: ~":not(:is(@{ui-row-floating}) *)";
 
-// A row under the pointer: a wash, since the host may have no surface of its own. A quiet button in it brightens instead of a second
-// wash (a filter: its ink is already the row's); its press, stronger than any hover, takes the pressed wash.
-.ui-row-hover() {
+// A row under the pointer: a wash, since the host may have no surface of its own. `@buttons` defaults to true for external/add-on
+// callers; core list hosts pass `false` and share one `.ui-row-hover-buttons()` emission in `core/row-hover.less`.
+.ui-row-hover(@buttons: true) {
     background-color: var(--ui-wash-hover);
     --ui-row-wash: var(--ui-wash-hover);
+}
 
+.ui-row-hover(@buttons: true) when (@buttons = true) {
+    .ui-row-hover-buttons();
+}
+
+// Quiet buttons inside a washed row brighten instead of stacking a second wash (a filter: their ink is already the row's);
+// their press, stronger than any hover, takes the pressed wash.
+.ui-row-hover-buttons() {
     .ui-button--ghost@{ui-row-own} {
         .ui-reveal-hover-off({ color: var(--ui-color-on-surface); });
     }
@@ -1875,9 +1976,9 @@
 
 // The keyboard's row washes like the pointer's; on a chosen row, as a layer, so it still reads as chosen.
 // `@via` the path from host to items host when not direct (a table's scroll box), ending in " > ".
-.ui-row-cursor(@host; @row; @via: ~"") {
+.ui-row-cursor(@host; @row; @via: ~""; @buttons: true) {
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]:not([data-ui-selected]) {
-        .ui-row-hover();
+        .ui-row-hover(@buttons);
     }
 
     @{host}@{ui-row-cursor-focus} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus][data-ui-selected] {
@@ -1892,9 +1993,9 @@
 // The same where the row holds the focus itself — a list's, a table's and a key-value list's, whose roles take no active descendant, so
 // the cursor's row is the host's one Tab stop (row-cursor.ts): the wash on the focused row, and no ring of its own.
 // `:focus-within` moves every row at once while the focus is among them, as the host's own focus did.
-.ui-row-cursor-on-row(@host; @row; @via: ~"") {
+.ui-row-cursor-on-row(@host; @row; @via: ~""; @buttons: true) {
     @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]@{ui-row-cursor-focus}:not([data-ui-selected]) {
-        .ui-row-hover();
+        .ui-row-hover(@buttons);
     }
 
     @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-focus]@{ui-row-cursor-focus}[data-ui-selected] {
@@ -1951,9 +2052,9 @@
 // The row an action bar stands over (`data-ui-row-bar`, which action-bar-engine.ts writes as it shows the bar) washes as the keyboard's
 // row does, so the bar says whose it is when no pointer is on the row — a finger lifted, the keyboard; on a chosen row, as the cursor's
 // layer. `SelectionStyle.ActionBarBackground` (`--ui-selected-bar-ground`) gives it another ground, or none for a row its own card covers.
-.ui-row-bar(@host; @row; @via: ~"") {
+.ui-row-bar(@host; @row; @via: ~""; @buttons: true) {
     @{host} > @{via}[data-ui-items-host] > @{row}[data-ui-row-bar]:not([data-ui-selected]) {
-        .ui-row-hover();
+        .ui-row-hover(@buttons);
         background-color: var(--ui-selected-bar-ground, var(--ui-wash-hover));
         --ui-row-wash: var(--ui-selected-bar-ground, var(--ui-wash-hover));
     }
